@@ -67,23 +67,23 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
     { value: 'MELHOR_EQUILIBRIO', label: '5. Melhor Equilíbrio (Rendimento x Demanda)' },
   ]
 
-  // Padrões ativos elegíveis para o centro / corte
+  // Padrões ativos elegíveis
   const activeStandards = standards.filter((s) => s.status === 'ATIVO')
 
   // Ao selecionar um padrão, preencher automaticamente seus parâmetros
   const handleSelectStandard = (standardCode: string) => {
-    const isAlreadySelected = filters.selected_standard_codes.includes(standardCode)
+    const isAlreadySelected = (filters.selected_standard_codes || []).includes(standardCode)
     let newSelected: string[] = []
 
     if (isAlreadySelected) {
-      newSelected = filters.selected_standard_codes.filter((c) => c !== standardCode)
+      newSelected = (filters.selected_standard_codes || []).filter((c) => c !== standardCode)
     } else {
-      newSelected = [...filters.selected_standard_codes, standardCode]
+      newSelected = [...(filters.selected_standard_codes || []), standardCode]
     }
 
     const selectedStd = standards.find((s) => s.code === standardCode)
     if (selectedStd && !isAlreadySelected) {
-      // Preencher automaticamente parâmetros do padrão
+      // Preencher automaticamente parâmetros do padrão selecionado
       onFiltersChange({
         ...filters,
         selected_standard_codes: newSelected,

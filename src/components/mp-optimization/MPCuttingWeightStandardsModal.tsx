@@ -39,6 +39,9 @@ import type {
   MPStandardPriority,
 } from '@/types/mp-cutting-weight-standards'
 import { mpCuttingWeightStandardsService } from '@/services/mp-cutting-weight-standards-service'
+import { parsePtBrNumber, formatNumberPtBr } from '@/lib/number-format'
+import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface MPCuttingWeightStandardsModalProps {
   isOpen: boolean
@@ -51,6 +54,9 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
   onClose,
   onStandardsChanged,
 }) => {
+  const { user } = useAuth()
+  const { toast } = useToast()
+
   const [standards, setStandards] = useState<MPCuttingWeightStandard[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -61,22 +67,31 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
   const [formData, setFormData] = useState<Partial<MPCuttingWeightStandard>>({
     cutting_type: 'BLOCOS',
     company_code: 'CIAFAL',
-    center_codes: ['SEML1'],
-    material_codes: ['TARUGO-130-1020'],
-    steel_family: 'SAE 1020',
-    target_weight_kg: 1250,
-    min_weight_kg: 1200,
-    max_weight_kg: 1300,
-    tolerance_lower_val: 50,
+    center_codes: [],
+    material_codes: [],
+    steel_family: '',
+    target_weight_kg: undefined,
+    min_weight_kg: undefined,
+    max_weight_kg: undefined,
+    tolerance_lower_val: 0,
     tolerance_lower_type: 'KG',
-    tolerance_upper_val: 50,
+    tolerance_upper_val: 0,
     tolerance_upper_type: 'KG',
-    priority: 'ALTA',
+    priority: 'MEDIA',
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
     status: 'ATIVO',
     technical_notes: '',
   })
+
+  // Estados textuais em pt-BR para evitar parsing incorreto de milhar/decimal
+  const [targetWeightInput, setTargetWeightInput] = useState('')
+  const [minWeightInput, setMinWeightInput] = useState('')
+  const [maxWeightInput, setMaxWeightInput] = useState('')
+  const [tolLowerInput, setTolLowerInput] = useState('')
+  const [tolUpperInput, setTolUpperInput] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
   const [formError, setFormError] = useState<string | null>(null)
   const [formSuccess, setFormSuccess] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -119,25 +134,34 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
   }, [isOpen])
 
   const handleOpenCreate = () => {
+    // LIMPEZA COMPLETA: nunca reaproveita valores de cadastros anteriores
     setFormData({
+      code: '',
+      description: '',
       cutting_type: 'BLOCOS',
       company_code: 'CIAFAL',
       center_codes: ['SEML1'],
       material_codes: ['TARUGO-130-1020'],
-      steel_family: 'SAE 1020',
-      target_weight_kg: 1250,
-      min_weight_kg: 1200,
-      max_weight_kg: 1300,
-      tolerance_lower_val: 50,
+      steel_family: '',
+      target_weight_kg: undefined,
+      min_weight_kg: undefined,
+      max_weight_kg: undefined,
+      tolerance_lower_val: 0,
       tolerance_lower_type: 'KG',
-      tolerance_upper_val: 50,
+      tolerance_upper_val: 0,
       tolerance_upper_type: 'KG',
-      priority: 'ALTA',
+      priority: 'MEDIA',
       start_date: new Date().toISOString().split('T')[0],
       end_date: '',
       status: 'ATIVO',
       technical_notes: '',
     })
+    setTargetWeightInput('')
+    setMinWeightInput('')
+    setMaxWeightInput('')
+    setTolLowerInput('0')
+    setTolUpperInput('0')
+    setFieldErrors({})
     setFormError(null)
     setFormSuccess(null)
     setIsEditing(true)
@@ -145,6 +169,48 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
 
   const handleOpenEdit = (item: MPCuttingWeightStandard) => {
     setFormData({ ...item })
+    // Formata os números no padrão visual pt-BR
+    setTargetWeightInput(
+      item.target_weight_kg != null
+        ? formatNumberPtBr(item.target_weight_kg, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        : '',
+    )
+    setMinWeightInput(
+      item.min_weight_kg != null
+        ? formatNumberPtBr(item.min_weight_kg, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        : '',
+    )
+    setMaxWeightInput(
+      item.max_weight_kg != null
+        ? formatNumberPtBr(item.max_weight_kg, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        : '',
+    )
+    setTolLowerInput(
+      item.tolerance_lower_val != null
+        ? formatNumberPtBr(item.tolerance_lower_val, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        : '0',
+    )
+    setTolUpperInput(
+      item.tolerance_upper_val != null
+        ? formatNumberPtBr(item.tolerance_upper_val, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        : '0',
+    )
+    setFieldErrors({})
     setFormError(null)
     setFormSuccess(null)
     setIsEditing(true)
@@ -180,44 +246,35 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
     }
   }
 
-  // Sincronização automática entre limites e tolerâncias quando usuário altera
-  const handleTargetChange = (val: number) => {
-    const tolLow = formData.tolerance_lower_val || 0
-    const tolUp = formData.tolerance_upper_val || 0
-    const lowType = formData.tolerance_lower_type || 'KG'
-    const upType = formData.tolerance_upper_type || 'KG'
-
-    const lowKg = lowType === 'KG' ? tolLow : (val * tolLow) / 100
-    const upKg = upType === 'KG' ? tolUp : (val * tolUp) / 100
-
-    setFormData({
-      ...formData,
-      target_weight_kg: val,
-      min_weight_kg: Number((val - lowKg).toFixed(2)),
-      max_weight_kg: Number((val + upKg).toFixed(2)),
-    })
-  }
-
-  const handleToleranceLowerChange = (val: number, type: MPToleranceType) => {
-    const target = formData.target_weight_kg || 0
-    const lowKg = type === 'KG' ? val : (target * val) / 100
-    setFormData({
-      ...formData,
-      tolerance_lower_val: val,
-      tolerance_lower_type: type,
-      min_weight_kg: Number((target - lowKg).toFixed(2)),
-    })
-  }
-
-  const handleToleranceUpperChange = (val: number, type: MPToleranceType) => {
-    const target = formData.target_weight_kg || 0
-    const upKg = type === 'KG' ? val : (target * val) / 100
-    setFormData({
-      ...formData,
-      tolerance_upper_val: val,
-      tolerance_upper_type: type,
-      max_weight_kg: Number((target + upKg).toFixed(2)),
-    })
+  // Atualiza inputs textuais pt-BR e sincroniza tolerâncias e limites
+  const handleTargetInputChange = (raw: string) => {
+    setTargetWeightInput(raw)
+    setFieldErrors((prev) => ({ ...prev, target_weight_kg: '' }))
+    const parsed = parsePtBrNumber(raw)
+    if (!isNaN(parsed) && parsed > 0) {
+      setFormData((prev) => ({ ...prev, target_weight_kg: parsed }))
+      // Se mínimo ou máximo ainda não foram digitados ou se tolerâncias estão preenchidas, calcula sugestão
+      const parsedTolLow = parsePtBrNumber(tolLowerInput)
+      const parsedTolUp = parsePtBrNumber(tolUpperInput)
+      if (!minWeightInput && !isNaN(parsedTolLow) && parsedTolLow > 0) {
+        const lowKg =
+          formData.tolerance_lower_type === 'PERCENT' ? (parsed * parsedTolLow) / 100 : parsedTolLow
+        const minVal = Number((parsed - lowKg).toFixed(2))
+        setMinWeightInput(
+          formatNumberPtBr(minVal, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        )
+        setFormData((prev) => ({ ...prev, min_weight_kg: minVal }))
+      }
+      if (!maxWeightInput && !isNaN(parsedTolUp) && parsedTolUp > 0) {
+        const upKg =
+          formData.tolerance_upper_type === 'PERCENT' ? (parsed * parsedTolUp) / 100 : parsedTolUp
+        const maxVal = Number((parsed + upKg).toFixed(2))
+        setMaxWeightInput(
+          formatNumberPtBr(maxVal, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        )
+        setFormData((prev) => ({ ...prev, max_weight_kg: maxVal }))
+      }
+    }
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -225,22 +282,86 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
     setSaving(true)
     setFormError(null)
     setFormSuccess(null)
+    setFieldErrors({})
+
+    const parsedTarget = parsePtBrNumber(targetWeightInput)
+    const parsedMin = parsePtBrNumber(minWeightInput)
+    const parsedMax = parsePtBrNumber(maxWeightInput)
+    const parsedTolLow = tolLowerInput ? parsePtBrNumber(tolLowerInput) : 0
+    const parsedTolUp = tolUpperInput ? parsePtBrNumber(tolUpperInput) : 0
+
+    const payloadToValidate: Partial<MPCuttingWeightStandard> = {
+      ...formData,
+      target_weight_kg: isNaN(parsedTarget) ? 0 : parsedTarget,
+      min_weight_kg: isNaN(parsedMin) ? 0 : parsedMin,
+      max_weight_kg: isNaN(parsedMax) ? 0 : parsedMax,
+      tolerance_lower_val: isNaN(parsedTolLow) ? 0 : parsedTolLow,
+      tolerance_upper_val: isNaN(parsedTolUp) ? 0 : parsedTolUp,
+    }
+
+    // Validação de engenharia com destaque dos campos
+    const validation = mpCuttingWeightStandardsService.validateStandard(
+      payloadToValidate,
+      standards,
+    )
+    if (!validation.isValid) {
+      setFieldErrors(validation.errors)
+      const firstErrKey = Object.keys(validation.errors)[0]
+      const firstErrMsg = validation.errors[firstErrKey]
+      const formattedReason = `Não foi possível salvar o padrão de peso: ${firstErrMsg}`
+      setFormError(formattedReason)
+      toast({
+        variant: 'destructive',
+        title: 'Validação de Engenharia',
+        description: formattedReason,
+      })
+      setSaving(false)
+      return
+    }
 
     try {
-      const res = await mpCuttingWeightStandardsService.saveStandard(formData)
-      if (!res.success) {
-        setFormError(res.error || 'Erro ao salvar padrão de peso.')
+      const res = await mpCuttingWeightStandardsService.saveStandard(
+        payloadToValidate,
+        user?.name || user?.email || 'Engenheiro PCP',
+      )
+
+      if (!res.success || !res.standard) {
+        const errorReason = res.error || 'Erro interno ao processar gravação'
+        const fullMsg = `Não foi possível salvar o padrão de peso: ${errorReason}.`
+        setFormError(fullMsg)
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao Salvar',
+          description: fullMsg,
+        })
         return
       }
 
-      setFormSuccess('Padrão de peso salvo com sucesso e registrado na auditoria!')
+      const successMsg = `Padrão de Peso nº [${res.standard.code}] cadastrado com sucesso.`
+      setFormSuccess(successMsg)
+      toast({
+        title: 'Sucesso',
+        description: successMsg,
+      })
+
+      // Atualização imediata da tabela e callback
       await fetchStandards()
       onStandardsChanged?.()
+
       setTimeout(() => {
         setIsEditing(false)
         setFormSuccess(null)
-      }, 900)
+      }, 700)
+    } catch (e: any) {
+      const msg = `Não foi possível salvar o padrão de peso: ${e?.message || 'Falha de rede'}.`
+      setFormError(msg)
+      toast({
+        variant: 'destructive',
+        title: 'Falha no Sistema',
+        description: msg,
+      })
     } finally {
+      // GARANTIA: botão de salvar nunca fica travado
       setSaving(false)
     }
   }
@@ -350,11 +471,19 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     </Label>
                     <Input
                       value={formData.description || ''}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, description: e.target.value })
+                        setFieldErrors((prev) => ({ ...prev, description: '' }))
+                      }}
                       placeholder="Ex: Tarugo L1 130x130 Padrão Bloco 1.250 kg"
-                      className="mt-1"
+                      className={`mt-1 ${fieldErrors.description ? 'border-red-500 ring-1 ring-red-400' : ''}`}
                       required
                     />
+                    {fieldErrors.description && (
+                      <p className="text-[11px] text-red-600 font-medium mt-1">
+                        {fieldErrors.description}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs font-semibold text-slate-700">Tipo de Corte *</Label>
@@ -396,6 +525,11 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                   <Label className="text-xs font-semibold text-slate-700 block mb-1">
                     Centros de Aplicação (PCP) * — Permite múltiplos centros
                   </Label>
+                  {fieldErrors.center_codes && (
+                    <p className="text-[11px] text-red-600 font-medium mb-1.5">
+                      {fieldErrors.center_codes}
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-2 pt-1">
                     {availableCenters.map((c) => {
                       const selected = (formData.center_codes || []).includes(c.code)
@@ -423,6 +557,11 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     <Label className="text-xs font-semibold text-slate-700 block mb-1">
                       Material / Matéria-Prima * — Seleção múltipla
                     </Label>
+                    {fieldErrors.material_codes && (
+                      <p className="text-[11px] text-red-600 font-medium mb-1.5">
+                        {fieldErrors.material_codes}
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-2 pt-1">
                       {availableMaterials.map((m) => {
                         const selected = (formData.material_codes || []).includes(m.code)
@@ -472,49 +611,75 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                         Peso Ideal (kg) *
                       </Label>
                       <Input
-                        type="number"
-                        step="0.01"
-                        value={formData.target_weight_kg ?? ''}
-                        onChange={(e) => handleTargetChange(parseFloat(e.target.value) || 0)}
-                        className="mt-1 font-bold text-blue-950 bg-white"
+                        type="text"
+                        inputMode="decimal"
+                        value={targetWeightInput}
+                        onChange={(e) => handleTargetInputChange(e.target.value)}
+                        placeholder="Ex: 1.250"
+                        className={`mt-1 font-bold text-blue-950 bg-white ${
+                          fieldErrors.target_weight_kg
+                            ? 'border-red-500 ring-1 ring-red-400 bg-red-50/20'
+                            : ''
+                        }`}
                         required
                       />
+                      {fieldErrors.target_weight_kg && (
+                        <p className="text-[11px] text-red-600 font-medium mt-1">
+                          {fieldErrors.target_weight_kg}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-xs font-semibold text-slate-700">
                         Peso Mínimo Permitido (kg) *
                       </Label>
                       <Input
-                        type="number"
-                        step="0.01"
-                        value={formData.min_weight_kg ?? ''}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            min_weight_kg: parseFloat(e.target.value) || 0,
-                          })
-                        }
-                        className="mt-1 font-semibold text-slate-900 bg-white"
+                        type="text"
+                        inputMode="decimal"
+                        value={minWeightInput}
+                        onChange={(e) => {
+                          setMinWeightInput(e.target.value)
+                          setFieldErrors((prev) => ({ ...prev, min_weight_kg: '' }))
+                        }}
+                        placeholder="Ex: 1.200"
+                        className={`mt-1 font-semibold text-slate-900 bg-white ${
+                          fieldErrors.min_weight_kg
+                            ? 'border-red-500 ring-1 ring-red-400 bg-red-50/20'
+                            : ''
+                        }`}
                         required
                       />
+                      {fieldErrors.min_weight_kg && (
+                        <p className="text-[11px] text-red-600 font-medium mt-1">
+                          {fieldErrors.min_weight_kg}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-xs font-semibold text-slate-700">
                         Peso Máximo Permitido (kg) *
                       </Label>
                       <Input
-                        type="number"
-                        step="0.01"
-                        value={formData.max_weight_kg ?? ''}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            max_weight_kg: parseFloat(e.target.value) || 0,
-                          })
-                        }
-                        className="mt-1 font-semibold text-slate-900 bg-white"
+                        type="text"
+                        inputMode="decimal"
+                        value={maxWeightInput}
+                        onChange={(e) => {
+                          setMaxWeightInput(e.target.value)
+                          setFieldErrors((prev) => ({ ...prev, max_weight_kg: '' }))
+                        }}
+                        placeholder="Ex: 1.300"
+                        className={`mt-1 font-semibold text-slate-900 bg-white ${
+                          fieldErrors.max_weight_kg
+                            ? 'border-red-500 ring-1 ring-red-400 bg-red-50/20'
+                            : ''
+                        }`}
                         required
                       />
+                      {fieldErrors.max_weight_kg && (
+                        <p className="text-[11px] text-red-600 font-medium mt-1">
+                          {fieldErrors.max_weight_kg}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -526,26 +691,29 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                           Tolerância Inferior *
                         </Label>
                         <Input
-                          type="number"
-                          step="0.01"
-                          value={formData.tolerance_lower_val ?? ''}
-                          onChange={(e) =>
-                            handleToleranceLowerChange(
-                              parseFloat(e.target.value) || 0,
-                              formData.tolerance_lower_type || 'KG',
-                            )
-                          }
-                          className="mt-1 bg-white"
+                          type="text"
+                          inputMode="decimal"
+                          value={tolLowerInput}
+                          onChange={(e) => {
+                            setTolLowerInput(e.target.value)
+                            setFieldErrors((prev) => ({ ...prev, tolerance_lower_val: '' }))
+                          }}
+                          placeholder="Ex: 50"
+                          className={`mt-1 bg-white ${
+                            fieldErrors.tolerance_lower_val
+                              ? 'border-red-500 ring-1 ring-red-400'
+                              : ''
+                          }`}
                           required
                         />
                       </div>
                       <select
                         value={formData.tolerance_lower_type || 'KG'}
                         onChange={(e) =>
-                          handleToleranceLowerChange(
-                            formData.tolerance_lower_val || 0,
-                            e.target.value as MPToleranceType,
-                          )
+                          setFormData({
+                            ...formData,
+                            tolerance_lower_type: e.target.value as MPToleranceType,
+                          })
                         }
                         className="h-9 w-20 rounded-md border border-input bg-white px-2 py-1 text-xs shadow-sm font-semibold"
                       >
@@ -560,26 +728,29 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                           Tolerância Superior *
                         </Label>
                         <Input
-                          type="number"
-                          step="0.01"
-                          value={formData.tolerance_upper_val ?? ''}
-                          onChange={(e) =>
-                            handleToleranceUpperChange(
-                              parseFloat(e.target.value) || 0,
-                              formData.tolerance_upper_type || 'KG',
-                            )
-                          }
-                          className="mt-1 bg-white"
+                          type="text"
+                          inputMode="decimal"
+                          value={tolUpperInput}
+                          onChange={(e) => {
+                            setTolUpperInput(e.target.value)
+                            setFieldErrors((prev) => ({ ...prev, tolerance_upper_val: '' }))
+                          }}
+                          placeholder="Ex: 50"
+                          className={`mt-1 bg-white ${
+                            fieldErrors.tolerance_upper_val
+                              ? 'border-red-500 ring-1 ring-red-400'
+                              : ''
+                          }`}
                           required
                         />
                       </div>
                       <select
                         value={formData.tolerance_upper_type || 'KG'}
                         onChange={(e) =>
-                          handleToleranceUpperChange(
-                            formData.tolerance_upper_val || 0,
-                            e.target.value as MPToleranceType,
-                          )
+                          setFormData({
+                            ...formData,
+                            tolerance_upper_type: e.target.value as MPToleranceType,
+                          })
                         }
                         className="h-9 w-20 rounded-md border border-input bg-white px-2 py-1 text-xs shadow-sm font-semibold"
                       >
@@ -655,7 +826,8 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                   disabled={saving}
                   className="bg-blue-900 hover:bg-blue-950 text-white gap-2 shadow-sm font-semibold"
                 >
-                  <Save className="w-4 h-4" /> {saving ? 'Salvando...' : 'Salvar Padrão de Peso'}
+                  <Save className="w-4 h-4" />{' '}
+                  {saving ? 'Gravando Padrão...' : 'Salvar Padrão de Peso'}
                 </Button>
               </div>
             </form>

@@ -1,5 +1,6 @@
 import { pb } from '@/lib/pocketbase/client'
 import { pcpAuditService } from '@/services/pcp-audit-service'
+import { parsePtBrNumber } from '@/lib/number-format'
 import type {
   MPCuttingWeightStandard,
   MPCuttingSimulationResult,
@@ -54,29 +55,44 @@ class MPCuttingWeightStandardsService {
       errors.material_codes = 'Selecione ao menos um material/MP.'
     }
 
-    const target = Number(standard.target_weight_kg)
-    const min = Number(standard.min_weight_kg)
-    const max = Number(standard.max_weight_kg)
+    const target =
+      typeof standard.target_weight_kg === 'string'
+        ? parsePtBrNumber(standard.target_weight_kg)
+        : Number(standard.target_weight_kg)
+    const min =
+      typeof standard.min_weight_kg === 'string'
+        ? parsePtBrNumber(standard.min_weight_kg)
+        : Number(standard.min_weight_kg)
+    const max =
+      typeof standard.max_weight_kg === 'string'
+        ? parsePtBrNumber(standard.max_weight_kg)
+        : Number(standard.max_weight_kg)
 
     if (isNaN(target) || target <= 0) {
-      errors.target_weight_kg = 'O peso ideal deve ser maior que zero.'
+      errors.target_weight_kg = 'O peso ideal deve ser informado e maior que zero.'
     }
     if (isNaN(min) || min <= 0) {
-      errors.min_weight_kg = 'O peso mínimo deve ser maior que zero.'
+      errors.min_weight_kg = 'O peso mínimo deve ser informado e maior que zero.'
     }
     if (isNaN(max) || max <= 0) {
-      errors.max_weight_kg = 'O peso máximo deve ser maior que zero.'
+      errors.max_weight_kg = 'O peso máximo deve ser informado e maior que zero.'
     }
 
-    if (min > target) {
-      errors.min_weight_kg = 'O peso mínimo não pode ser maior que o peso ideal.'
+    if (!isNaN(min) && !isNaN(target) && min > target) {
+      errors.min_weight_kg = `O peso mínimo (${min} kg) não pode ser maior que o peso ideal (${target} kg).`
     }
-    if (target > max) {
-      errors.max_weight_kg = 'O peso máximo não pode ser menor que o peso ideal.'
+    if (!isNaN(max) && !isNaN(target) && target > max) {
+      errors.max_weight_kg = `O peso máximo (${max} kg) não pode ser menor que o peso ideal (${target} kg).`
     }
 
-    const tolLowVal = Number(standard.tolerance_lower_val ?? 0)
-    const tolUpVal = Number(standard.tolerance_upper_val ?? 0)
+    const tolLowVal =
+      typeof standard.tolerance_lower_val === 'string'
+        ? parsePtBrNumber(standard.tolerance_lower_val)
+        : Number(standard.tolerance_lower_val ?? 0)
+    const tolUpVal =
+      typeof standard.tolerance_upper_val === 'string'
+        ? parsePtBrNumber(standard.tolerance_upper_val)
+        : Number(standard.tolerance_upper_val ?? 0)
 
     if (isNaN(tolLowVal) || tolLowVal < 0) {
       errors.tolerance_lower_val = 'A tolerância inferior não pode ser negativa.'
@@ -125,12 +141,13 @@ class MPCuttingWeightStandardsService {
       }
     }
 
-    // Impedir duplicidade de mesmo escopo / vigência / parâmetros conflitantes
+    // Impedir duplicações exatas indesejadas, permitindo múltiplos padrões com descrições, tolerâncias ou vigências distintas
     const currentId = standard.id
     const startDate = standard.start_date || ''
     const endDate = standard.end_date || '9999-12-31'
     const cuttingType = standard.cutting_type || 'BLOCOS'
     const compCode = standard.company_code || ''
+    const currentDesc = standard.description?.trim().toLowerCase() || ''
 
     for (const existing of allExisting) {
       if (existing.id && existing.id === currentId) continue
@@ -138,27 +155,27 @@ class MPCuttingWeightStandardsService {
       if (existing.company_code !== compCode) continue
       if (existing.cutting_type !== cuttingType) continue
 
-      // Interseção de centros
+      // Se a descrição for idêntica e houver sobreposição total, alertar duplicata
+      const existDesc = (existing.description || '').trim().toLowerCase()
+      const isSameDesc = existDesc === currentDesc && currentDesc.length > 0
+
+      // Interseção exata de centros e materiais
       const sharedCenters = (existing.center_codes || []).filter((c) =>
         (standard.center_codes || []).includes(c),
       )
-      // Interseção de materiais
       const sharedMaterials = (existing.material_codes || []).filter((m) =>
         (standard.material_codes || []).includes(m),
       )
 
       if (sharedCenters.length > 0 && sharedMaterials.length > 0) {
-        // Checar sobreposição de vigência
         const exStart = existing.start_date || ''
         const exEnd = existing.end_date || '9999-12-31'
-
         const hasOverlap = startDate <= exEnd && endDate >= exStart
-        if (hasOverlap) {
-          // Checar se o peso ideal é o mesmo ou conflitante
-          if (Math.abs(existing.target_weight_kg - target) < 0.001) {
-            errors.description = `Conflito de escopo/vigência com o padrão existente ${existing.code} (${existing.description}) para o mesmo centro e material.`
-            break
-          }
+
+        // Apenas conflita se for o mesmo peso ideal E mesma descrição (duplicação pura)
+        if (hasOverlap && isSameDesc && Math.abs(existing.target_weight_kg - target) < 0.001) {
+          errors.description = `Já existe o padrão ativo ${existing.code} com a mesma descrição e faixa nominal (${existing.description}). Ajuste a descrição ou vigência.`
+          break
         }
       }
     }
@@ -240,109 +257,152 @@ class MPCuttingWeightStandardsService {
     data: Partial<MPCuttingWeightStandard>,
     currentUser = 'PCP Engenharia',
   ): Promise<{ success: boolean; standard?: MPCuttingWeightStandard; error?: string }> {
+    // Normalizar números via parsePtBrNumber antes da validação e envio
+    const normalizedData: Partial<MPCuttingWeightStandard> = {
+      ...data,
+      target_weight_kg:
+        typeof data.target_weight_kg === 'string'
+          ? parsePtBrNumber(data.target_weight_kg)
+          : data.target_weight_kg,
+      min_weight_kg:
+        typeof data.min_weight_kg === 'string'
+          ? parsePtBrNumber(data.min_weight_kg)
+          : data.min_weight_kg,
+      max_weight_kg:
+        typeof data.max_weight_kg === 'string'
+          ? parsePtBrNumber(data.max_weight_kg)
+          : data.max_weight_kg,
+      tolerance_lower_val:
+        typeof data.tolerance_lower_val === 'string'
+          ? parsePtBrNumber(data.tolerance_lower_val)
+          : data.tolerance_lower_val,
+      tolerance_upper_val:
+        typeof data.tolerance_upper_val === 'string'
+          ? parsePtBrNumber(data.tolerance_upper_val)
+          : data.tolerance_upper_val,
+    }
+
     try {
       const all = await this.listStandards(true)
-      const validation = this.validateStandard(data, all)
+      const validation = this.validateStandard(normalizedData, all)
       if (!validation.isValid) {
         const firstErr = Object.values(validation.errors)[0]
         return { success: false, error: firstErr }
       }
 
-      const isEdit = Boolean(data.id)
+      const isEdit = Boolean(normalizedData.id)
       let savedRecord: any
       let previousRecord: MPCuttingWeightStandard | null = null
 
-      if (isEdit && data.id) {
-        const existing = all.find((s) => s.id === data.id)
+      if (isEdit && normalizedData.id) {
+        const existing = all.find((s) => s.id === normalizedData.id)
         if (existing) previousRecord = existing
 
         const payload: any = {
-          description: data.description?.trim(),
-          cutting_type: data.cutting_type,
-          company_code: data.company_code,
-          center_codes: data.center_codes,
-          material_codes: data.material_codes,
-          steel_family: data.steel_family || '',
-          target_weight_kg: data.target_weight_kg,
-          min_weight_kg: data.min_weight_kg,
-          max_weight_kg: data.max_weight_kg,
-          tolerance_lower_val: data.tolerance_lower_val,
-          tolerance_lower_type: data.tolerance_lower_type,
-          tolerance_upper_val: data.tolerance_upper_val,
-          tolerance_upper_type: data.tolerance_upper_type,
-          priority: data.priority,
-          start_date: data.start_date,
-          end_date: data.end_date || null,
-          status: data.status,
-          technical_notes: data.technical_notes || '',
+          description: normalizedData.description?.trim(),
+          cutting_type: normalizedData.cutting_type,
+          company_code: normalizedData.company_code,
+          center_codes: normalizedData.center_codes,
+          material_codes: normalizedData.material_codes,
+          steel_family: normalizedData.steel_family || '',
+          target_weight_kg: Number(normalizedData.target_weight_kg),
+          min_weight_kg: Number(normalizedData.min_weight_kg),
+          max_weight_kg: Number(normalizedData.max_weight_kg),
+          tolerance_lower_val: Number(normalizedData.tolerance_lower_val ?? 0),
+          tolerance_lower_type: normalizedData.tolerance_lower_type,
+          tolerance_upper_val: Number(normalizedData.tolerance_upper_val ?? 0),
+          tolerance_upper_type: normalizedData.tolerance_upper_type,
+          priority: normalizedData.priority,
+          start_date: normalizedData.start_date,
+          end_date: normalizedData.end_date || null,
+          status: normalizedData.status,
+          technical_notes: normalizedData.technical_notes || '',
           updated_by_user_name: currentUser,
         }
 
-        savedRecord = await pb.collection(this.COLLECTION_STANDARDS).update(data.id, payload)
+        savedRecord = await pb
+          .collection(this.COLLECTION_STANDARDS)
+          .update(normalizedData.id, payload)
 
-        // Registrar auditoria de alteração
-        await pcpAuditService.recordLog({
-          user_name: currentUser,
-          action: 'PADRAO_PESO_EDICAO',
-          event_type: 'Alteração',
-          resource: 'MP_CUTTING_WEIGHT_STANDARD',
-          resource_id: savedRecord.id,
-          record_id: savedRecord.code,
-          company: savedRecord.company_code,
-          module: 'Gestão de MP',
-          screen: 'Padrões de Peso para Corte',
-          justification: `Edição do padrão ${savedRecord.code}: ${savedRecord.description}`,
-          details: {
-            code: savedRecord.code,
-            previous: previousRecord,
-            new: payload,
-          },
-        })
+        // Auditoria NÃO-BLOQUEANTE com SCHEDULE_ACTION
+        try {
+          await pcpAuditService.recordLog({
+            user_name: currentUser,
+            action: 'PADRAO_PESO_EDICAO',
+            event_type: 'SCHEDULE_ACTION',
+            outcome: 'SUCCESS',
+            resource: 'MP_CUTTING_WEIGHT_STANDARD',
+            resource_id: savedRecord.id,
+            record_id: savedRecord.code,
+            company: savedRecord.company_code,
+            module: 'Gestão de MP',
+            screen: 'Padrões de Peso para Corte',
+            justification: `Edição do padrão ${savedRecord.code}: ${savedRecord.description}`,
+            details: {
+              code: savedRecord.code,
+              previous: previousRecord,
+              new: payload,
+            },
+          })
+        } catch (auditErr: any) {
+          console.warn(
+            '[pcpAuditService] Aviso: auditoria não-bloqueante falhou na edição do padrão:',
+            auditErr,
+          )
+        }
       } else {
         const nextCode = await this.generateNextCode()
         const payload: any = {
           code: nextCode,
-          description: data.description?.trim(),
-          cutting_type: data.cutting_type || 'BLOCOS',
-          company_code: data.company_code || 'CIAFAL',
-          center_codes: data.center_codes || [],
-          material_codes: data.material_codes || [],
-          steel_family: data.steel_family || '',
-          target_weight_kg: data.target_weight_kg,
-          min_weight_kg: data.min_weight_kg,
-          max_weight_kg: data.max_weight_kg,
-          tolerance_lower_val: data.tolerance_lower_val ?? 0,
-          tolerance_lower_type: data.tolerance_lower_type || 'KG',
-          tolerance_upper_val: data.tolerance_upper_val ?? 0,
-          tolerance_upper_type: data.tolerance_upper_type || 'KG',
-          priority: data.priority || 'MEDIA',
-          start_date: data.start_date,
-          end_date: data.end_date || null,
-          status: data.status || 'ATIVO',
-          technical_notes: data.technical_notes || '',
+          description: normalizedData.description?.trim(),
+          cutting_type: normalizedData.cutting_type || 'BLOCOS',
+          company_code: normalizedData.company_code || 'CIAFAL',
+          center_codes: normalizedData.center_codes || [],
+          material_codes: normalizedData.material_codes || [],
+          steel_family: normalizedData.steel_family || '',
+          target_weight_kg: Number(normalizedData.target_weight_kg),
+          min_weight_kg: Number(normalizedData.min_weight_kg),
+          max_weight_kg: Number(normalizedData.max_weight_kg),
+          tolerance_lower_val: Number(normalizedData.tolerance_lower_val ?? 0),
+          tolerance_lower_type: normalizedData.tolerance_lower_type || 'KG',
+          tolerance_upper_val: Number(normalizedData.tolerance_upper_val ?? 0),
+          tolerance_upper_type: normalizedData.tolerance_upper_type || 'KG',
+          priority: normalizedData.priority || 'MEDIA',
+          start_date: normalizedData.start_date,
+          end_date: normalizedData.end_date || null,
+          status: normalizedData.status || 'ATIVO',
+          technical_notes: normalizedData.technical_notes || '',
           created_by_user_name: currentUser,
           updated_by_user_name: currentUser,
         }
 
         savedRecord = await pb.collection(this.COLLECTION_STANDARDS).create(payload)
 
-        // Registrar auditoria de criação
-        await pcpAuditService.recordLog({
-          user_name: currentUser,
-          action: 'PADRAO_PESO_CRIACAO',
-          event_type: 'Criação',
-          resource: 'MP_CUTTING_WEIGHT_STANDARD',
-          resource_id: savedRecord.id,
-          record_id: savedRecord.code,
-          company: savedRecord.company_code,
-          module: 'Gestão de MP',
-          screen: 'Padrões de Peso para Corte',
-          justification: `Criação do padrão ${savedRecord.code}: ${savedRecord.description}`,
-          details: {
-            code: savedRecord.code,
-            payload,
-          },
-        })
+        // Auditoria NÃO-BLOQUEANTE com SCHEDULE_ACTION
+        try {
+          await pcpAuditService.recordLog({
+            user_name: currentUser,
+            action: 'PADRAO_PESO_CRIACAO',
+            event_type: 'SCHEDULE_ACTION',
+            outcome: 'SUCCESS',
+            resource: 'MP_CUTTING_WEIGHT_STANDARD',
+            resource_id: savedRecord.id,
+            record_id: savedRecord.code,
+            company: savedRecord.company_code,
+            module: 'Gestão de MP',
+            screen: 'Padrões de Peso para Corte',
+            justification: `Criação do padrão ${savedRecord.code}: ${savedRecord.description}`,
+            details: {
+              code: savedRecord.code,
+              payload,
+            },
+          })
+        } catch (auditErr: any) {
+          console.warn(
+            '[pcpAuditService] Aviso: auditoria não-bloqueante falhou na criação do padrão:',
+            auditErr,
+          )
+        }
       }
 
       return {
@@ -375,6 +435,21 @@ class MPCuttingWeightStandardsService {
       }
     } catch (e: any) {
       console.error('Erro ao salvar padrão de peso:', e)
+      // Tentar registrar falha de forma não-bloqueante
+      try {
+        await pcpAuditService.recordFailureAttempt({
+          operation: 'SALVAR_PADRAO_PESO',
+          module: 'Gestão de MP',
+          screen: 'Padrões de Peso para Corte',
+          company: data.company_code || 'CIAFAL',
+          recordId: data.code || data.id,
+          errorMessage: e?.message || 'Falha ao gravar no PocketBase',
+          justification: `Falha ao persistir padrão: ${e?.message || 'Erro interno'}`,
+        })
+      } catch {
+        /* intentionally ignored */
+      }
+
       return { success: false, error: e?.message || 'Erro ao persistir no PocketBase' }
     }
   }
@@ -394,23 +469,31 @@ class MPCuttingWeightStandardsService {
         updated_by_user_name: currentUser,
       })
 
-      await pcpAuditService.recordLog({
-        user_name: currentUser,
-        action: newStatus === 'ATIVO' ? 'PADRAO_PESO_ATIVACAO' : 'PADRAO_PESO_INATIVACAO',
-        event_type: newStatus === 'ATIVO' ? 'Ativação' : 'Inativação',
-        resource: 'MP_CUTTING_WEIGHT_STANDARD',
-        resource_id: standard.id,
-        record_id: standard.code,
-        company: standard.company_code,
-        module: 'Gestão de MP',
-        screen: 'Padrões de Peso para Corte',
-        justification: `Alteração de status do padrão ${standard.code} de ${standard.status} para ${newStatus}`,
-        details: {
-          code: standard.code,
-          previous_status: standard.status,
-          new_status: newStatus,
-        },
-      })
+      try {
+        await pcpAuditService.recordLog({
+          user_name: currentUser,
+          action: newStatus === 'ATIVO' ? 'PADRAO_PESO_ATIVACAO' : 'PADRAO_PESO_INATIVACAO',
+          event_type: 'SCHEDULE_ACTION',
+          outcome: 'SUCCESS',
+          resource: 'MP_CUTTING_WEIGHT_STANDARD',
+          resource_id: standard.id,
+          record_id: standard.code,
+          company: standard.company_code,
+          module: 'Gestão de MP',
+          screen: 'Padrões de Peso para Corte',
+          justification: `Alteração de status do padrão ${standard.code} de ${standard.status} para ${newStatus}`,
+          details: {
+            code: standard.code,
+            previous_status: standard.status,
+            new_status: newStatus,
+          },
+        })
+      } catch (auditErr: any) {
+        console.warn(
+          '[pcpAuditService] Aviso: auditoria não-bloqueante falhou na alteração de status:',
+          auditErr,
+        )
+      }
 
       return {
         success: true,
@@ -451,26 +534,34 @@ class MPCuttingWeightStandardsService {
 
       const created = await pb.collection(this.COLLECTION_SIMULATIONS).create(payload)
 
-      // Registrar auditoria
-      await pcpAuditService.recordLog({
-        user_name: currentUser,
-        action: 'SIMULACAO_CENARIOS_CORTE_GERADA',
-        event_type: 'Criação',
-        resource: 'MP_CUTTING_SIMULATION',
-        resource_id: created.id,
-        record_id: created.simulation_code,
-        company: simulation.company_code,
-        center: simulation.center_code,
-        module: 'Gestão de MP',
-        screen: 'Cenários Comparativos',
-        justification: `Geração de 6 cenários comparativos para material ${simulation.material_code} no centro ${simulation.center_code}`,
-        details: {
-          simulation_code: created.simulation_code,
-          best_scenario_id: created.best_scenario_id,
-          selected_standard_codes: created.selected_standard_codes,
-          criterion: created.optimization_criterion,
-        },
-      })
+      // Registrar auditoria não-bloqueante
+      try {
+        await pcpAuditService.recordLog({
+          user_name: currentUser,
+          action: 'SIMULACAO_CENARIOS_CORTE_GERADA',
+          event_type: 'SCHEDULE_ACTION',
+          outcome: 'SUCCESS',
+          resource: 'MP_CUTTING_SIMULATION',
+          resource_id: created.id,
+          record_id: created.simulation_code,
+          company: simulation.company_code,
+          center: simulation.center_code,
+          module: 'Gestão de MP',
+          screen: 'Cenários Comparativos',
+          justification: `Geração de 6 cenários comparativos para material ${simulation.material_code} no centro ${simulation.center_code}`,
+          details: {
+            simulation_code: created.simulation_code,
+            best_scenario_id: created.best_scenario_id,
+            selected_standard_codes: created.selected_standard_codes,
+            criterion: created.optimization_criterion,
+          },
+        })
+      } catch (auditErr: any) {
+        console.warn(
+          '[pcpAuditService] Aviso: auditoria não-bloqueante falhou na gravação de simulação:',
+          auditErr,
+        )
+      }
 
       return {
         success: true,
