@@ -29,27 +29,25 @@ describe('Testes Obrigatórios T1 a T7 — Ciclo de Padrões de Peso para Corte'
     status: 'ATIVO',
   }
 
-  it('T1: "+ Novo Padrão de Peso" validação matemática com formato pt-BR e parsing consistente', () => {
-    // Usuário digitou "1.250", "1.200", "1.300", "50"
-    const parsedTarget = parsePtBrNumber('1.250')
-    const parsedMin = parsePtBrNumber('1.200')
-    const parsedMax = parsePtBrNumber('1.300')
-    const parsedTol = parsePtBrNumber('50')
+  it('T1: "+ Novo Padrão de Peso" validação matemática com formato pt-BR e parsing consistente (2,000 / 2,100 / 2,300 t)', () => {
+    // Usuário digitou "2,100" (ideal), "2,000" (mín), "2,300" (máx)
+    const parsedTarget = parsePtBrNumber('2,100')
+    const parsedMin = parsePtBrNumber('2,000')
+    const parsedMax = parsePtBrNumber('2,300')
 
-    expect(parsedTarget).toBe(1250)
-    expect(parsedMin).toBe(1200)
-    expect(parsedMax).toBe(1300)
-    expect(parsedTol).toBe(50)
+    expect(parsedTarget).toBe(2.1)
+    expect(parsedMin).toBe(2.0)
+    expect(parsedMax).toBe(2.3)
 
-    // Também aceita "1250,00"
-    expect(parsePtBrNumber('1250,00')).toBe(1250)
-    expect(parsePtBrNumber('1.250,00')).toBe(1250)
+    // Também aceita formato com vírgula ou ponto de milhar
+    expect(parsePtBrNumber('2100,00')).toBe(2100)
+    expect(parsePtBrNumber('2.100,00')).toBe(2100)
 
     const val = mpCuttingWeightStandardsService.validateStandard({
       ...baseStandard,
-      target_weight_kg: parsedTarget,
-      min_weight_kg: parsedMin,
-      max_weight_kg: parsedMax,
+      target_weight_kg: parsedTarget * 1000,
+      min_weight_kg: parsedMin * 1000,
+      max_weight_kg: parsedMax * 1000,
     })
     expect(val.isValid).toBe(true)
   })

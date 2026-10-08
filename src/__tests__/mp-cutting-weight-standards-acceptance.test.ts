@@ -66,8 +66,8 @@ describe('Suíte de Testes de Aceite — Padrões de Peso para Corte & Motor de 
     expect(sampleStandardMultiplos.cutting_type).toBe('MULTIPLOS')
   })
 
-  // CRITÉRIO 3: Validações mín <= ideal <= máx, todos > 0, tolerâncias não negativas e conversão % para kg
-  it('Critério 3: Validações matemáticas: mín <= ideal <= máx, todos > 0, tolerâncias não negativas e conversão % para kg', () => {
+  // CRITÉRIO 3: Validações mín <= ideal <= máx, todos > 0, sem exigência de tolerâncias adicionais
+  it('Critério 3: Validações matemáticas: mín <= ideal <= máx, todos > 0 e tolerâncias opcionais não negativas', () => {
     // 3.1: Mínimo maior que ideal -> Inválido
     const invalidMin = mpCuttingWeightStandardsService.validateStandard({
       ...sampleStandardBlocos,
@@ -94,7 +94,20 @@ describe('Suíte de Testes de Aceite — Padrões de Peso para Corte & Motor de 
     expect(invalidZero.isValid).toBe(false)
     expect(invalidZero.errors.target_weight_kg).toBeDefined()
 
-    // 3.4: Conversão de tolerância em % para kg
+    // 3.4: Cadastro com exclusivamente os 3 parâmetros é válido sem tolerâncias adicionais
+    const valid3Fields = mpCuttingWeightStandardsService.validateStandard({
+      description: 'Padrão 3 Parâmetros',
+      company_code: 'CIAFAL',
+      center_codes: ['SEML1'],
+      material_codes: ['TARUGO-130-1020'],
+      target_weight_kg: 2100,
+      min_weight_kg: 2000,
+      max_weight_kg: 2300,
+      start_date: '2026-01-01',
+    })
+    expect(valid3Fields.isValid).toBe(true)
+
+    // 3.5: Conversão utilitária de tolerância em % para kg
     const tolInKg = mpCuttingWeightStandardsService.calculateToleranceInKg(1000, 5, 'PERCENT')
     expect(tolInKg).toBe(50) // 5% de 1000kg = 50kg
   })

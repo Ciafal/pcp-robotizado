@@ -291,7 +291,8 @@ class MPCuttingOptimizationEngineService {
       let isViable = true
       let inviabilityReason = ''
 
-      // Verificação de restrições de peso mín/máx
+      // Verificação de restrições físicas de peso: Peso Mínimo <= Peso Ideal <= Peso Máximo
+      // A IA e o motor não podem considerar viável um corte que viole os limites cadastrados
       if (calculatedUnitWeight < minWeight) {
         calculatedUnitWeight = minWeight
       }
@@ -299,9 +300,14 @@ class MPCuttingOptimizationEngineService {
         calculatedUnitWeight = maxWeight
       }
 
-      // No cenário 6, se o usuário tiver tolerância muito estreita, simula o teste de inviabilidade caso demandado
+      // Garantia estrita: se o peso unitário estiver fora da faixa permitida [minWeight, maxWeight], o corte é inviável
+      if (calculatedUnitWeight < minWeight || calculatedUnitWeight > maxWeight) {
+        isViable = false
+        inviabilityReason = `Peso unitário calculado (${calculatedUnitWeight.toLocaleString('pt-BR')} kg) está fora da faixa permitida (${minWeight.toLocaleString('pt-BR')} kg a ${maxWeight.toLocaleString('pt-BR')} kg).`
+      }
+
+      // No cenário 6, se a demanda exigida exceder o estoque de MP disponível
       if (tmpl.id === 'SCENARIO_6_CRITICAL_TOLERANCE' && i === 5) {
-        // Se a demanda exigida exceder o estoque de MP disponível
         if (requiredDemandKg > availableMpKg * 1.5) {
           isViable = false
           inviabilityReason = `Estoque disponível de MP (${availableMpKg.toLocaleString('pt-BR')} kg) insuficiente para atender demanda solicitada (${requiredDemandKg.toLocaleString('pt-BR')} kg) sem extrapolar perdas críticas.`

@@ -15,10 +15,11 @@ export interface MPCuttingWeightStandard {
   target_weight_kg: number
   min_weight_kg: number
   max_weight_kg: number
-  tolerance_lower_val: number
-  tolerance_lower_type: MPToleranceType
-  tolerance_upper_val: number
-  tolerance_upper_type: MPToleranceType
+  // Campos legados de tolerância (mantidos opcionais para compatibilidade com registros existentes no banco)
+  tolerance_lower_val?: number
+  tolerance_lower_type?: MPToleranceType
+  tolerance_upper_val?: number
+  tolerance_upper_type?: MPToleranceType
   priority: MPStandardPriority
   start_date: string // ISO YYYY-MM-DD
   end_date?: string | null // ISO YYYY-MM-DD

@@ -58,17 +58,14 @@ describe('Testes Específicos do Usuário: Ciclo de Vida do Modal e UX (T1 a T8)
     const descInput = screen.getByPlaceholderText(/Ex: Tarugo L1 130x130 Padrão Bloco 1,250 t/i)
     fireEvent.change(descInput, { target: { value: 'Tarugo 130x130 Bloco 1,250 t' } })
 
-    const targetInput = screen.getByPlaceholderText(/Ex: 1,250/i)
-    fireEvent.change(targetInput, { target: { value: '1,250' } })
+    const targetInput = screen.getByPlaceholderText(/Ex: 2,100/i)
+    fireEvent.change(targetInput, { target: { value: '2,100' } })
 
-    const minInput = screen.getByPlaceholderText(/Ex: 1,200/i)
-    fireEvent.change(minInput, { target: { value: '1,200' } })
+    const minInput = screen.getByPlaceholderText(/Ex: 2,000/i)
+    fireEvent.change(minInput, { target: { value: '2,000' } })
 
-    const maxInput = screen.getByPlaceholderText(/Ex: 1,300/i)
-    fireEvent.change(maxInput, { target: { value: '1,300' } })
-
-    const tolLow = screen.getByPlaceholderText(/Ex: 0,050/i)
-    fireEvent.change(tolLow, { target: { value: '0,050' } })
+    const maxInput = screen.getByPlaceholderText(/Ex: 2,300/i)
+    fireEvent.change(maxInput, { target: { value: '2,300' } })
 
     // Salvar
     const saveBtn = screen.getByRole('button', { name: /Salvar Padrão de Peso/i })
@@ -100,10 +97,9 @@ describe('Testes Específicos do Usuário: Ciclo de Vida do Modal e UX (T1 a T8)
     fireEvent.change(screen.getByPlaceholderText(/Ex: Tarugo L1 130x130 Padrão Bloco 1,250 t/i), {
       target: { value: 'Padrão Permanente' },
     })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 1,250/i), { target: { value: '1,250' } })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 1,200/i), { target: { value: '1,200' } })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 1,300/i), { target: { value: '1,300' } })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 0,050/i), { target: { value: '0,050' } })
+    fireEvent.change(screen.getByPlaceholderText(/Ex: 2,100/i), { target: { value: '2,100' } })
+    fireEvent.change(screen.getByPlaceholderText(/Ex: 2,000/i), { target: { value: '2,000' } })
+    fireEvent.change(screen.getByPlaceholderText(/Ex: 2,300/i), { target: { value: '2,300' } })
 
     fireEvent.click(screen.getByRole('button', { name: /Salvar Padrão de Peso/i }))
 
@@ -132,10 +128,9 @@ describe('Testes Específicos do Usuário: Ciclo de Vida do Modal e UX (T1 a T8)
     fireEvent.change(screen.getByPlaceholderText(/Ex: Tarugo L1 130x130 Padrão Bloco 1,250 t/i), {
       target: { value: 'Tarugo 130x130 Bloco 1,250 t' },
     })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 1,250/i), { target: { value: '1,250' } })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 1,200/i), { target: { value: '1,200' } })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 1,300/i), { target: { value: '1,300' } })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 0,050/i), { target: { value: '0,050' } })
+    fireEvent.change(screen.getByPlaceholderText(/Ex: 2,100/i), { target: { value: '2,100' } })
+    fireEvent.change(screen.getByPlaceholderText(/Ex: 2,000/i), { target: { value: '2,000' } })
+    fireEvent.change(screen.getByPlaceholderText(/Ex: 2,300/i), { target: { value: '2,300' } })
 
     fireEvent.click(screen.getByRole('button', { name: /Salvar Padrão de Peso/i }))
 
@@ -182,14 +177,14 @@ describe('Testes Específicos do Usuário: Ciclo de Vida do Modal e UX (T1 a T8)
     const descInput = screen.getByPlaceholderText(/Ex: Tarugo L1 130x130 Padrão Bloco 1,250 t/i)
     fireEvent.change(descInput, { target: { value: 'Teste Min > Ideal' } })
 
-    const targetInput = screen.getByPlaceholderText(/Ex: 1,250/i)
-    fireEvent.change(targetInput, { target: { value: '1,200' } })
+    const targetInput = screen.getByPlaceholderText(/Ex: 2,100/i)
+    fireEvent.change(targetInput, { target: { value: '2,100' } })
 
-    const minInput = screen.getByPlaceholderText(/Ex: 1,200/i)
-    fireEvent.change(minInput, { target: { value: '1,300' } }) // Mínimo maior que ideal!
+    const minInput = screen.getByPlaceholderText(/Ex: 2,000/i)
+    fireEvent.change(minInput, { target: { value: '2,200' } }) // Mínimo (2,200) maior que ideal (2,100)!
 
-    const maxInput = screen.getByPlaceholderText(/Ex: 1,300/i)
-    fireEvent.change(maxInput, { target: { value: '1,400' } })
+    const maxInput = screen.getByPlaceholderText(/Ex: 2,300/i)
+    fireEvent.change(maxInput, { target: { value: '2,400' } })
 
     const saveBtn = screen.getByRole('button', { name: /Salvar Padrão de Peso/i })
     fireEvent.click(saveBtn)
@@ -200,8 +195,8 @@ describe('Testes Específicos do Usuário: Ciclo de Vida do Modal e UX (T1 a T8)
 
     // Formulário continua aberto e com os valores digitados intactos
     expect(descInput).toHaveValue('Teste Min > Ideal')
-    expect(minInput).toHaveValue('1,300')
-    expect(targetInput).toHaveValue('1,200')
+    expect(minInput).toHaveValue('2,200')
+    expect(targetInput).toHaveValue('2,100')
   })
 
   // T7: Bloqueio de fechamento durante salvamento
@@ -220,10 +215,9 @@ describe('Testes Específicos do Usuário: Ciclo de Vida do Modal e UX (T1 a T8)
     fireEvent.change(screen.getByPlaceholderText(/Ex: Tarugo L1 130x130 Padrão Bloco 1,250 t/i), {
       target: { value: 'Teste Saving State' },
     })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 1,250/i), { target: { value: '1,250' } })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 1,200/i), { target: { value: '1,200' } })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 1,300/i), { target: { value: '1,300' } })
-    fireEvent.change(screen.getByPlaceholderText(/Ex: 0,050/i), { target: { value: '0,050' } })
+    fireEvent.change(screen.getByPlaceholderText(/Ex: 2,100/i), { target: { value: '2,100' } })
+    fireEvent.change(screen.getByPlaceholderText(/Ex: 2,000/i), { target: { value: '2,000' } })
+    fireEvent.change(screen.getByPlaceholderText(/Ex: 2,300/i), { target: { value: '2,300' } })
 
     const saveBtn = screen.getByRole('button', { name: /Salvar Padrão de Peso/i })
     fireEvent.click(saveBtn)
