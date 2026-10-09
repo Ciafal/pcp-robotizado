@@ -51,6 +51,15 @@ export function getIsoWeekAndYear(date: Date): { year: number; week: number } {
 }
 
 /**
+ * Retorna o número de semanas ISO em determinado ano (52 ou 53)
+ */
+export function getIsoWeeksInYear(year: number): number {
+  // O ano tem 53 semanas se 1 de janeiro ou 31 de dezembro for uma quinta-feira
+  const dec28 = new Date(Date.UTC(year, 11, 28))
+  return getIsoWeekAndYear(dec28).week
+}
+
+/**
  * Retorna a semana e ano ISO atuais no fuso da planta
  */
 export function getCurrentPlantIsoWeek(): { year: number; week: number } {
@@ -64,27 +73,46 @@ export function getWeekDateRange(
   year: number,
   weekNumber: number,
 ): { startDate: Date; endDate: Date; display: string } {
-  const simple = new Date(year, 0, 1 + (weekNumber - 1) * 7)
-  const dayOfWeek = simple.getDay()
-  const ISOweekStart = new Date(simple)
-  if (dayOfWeek <= 4) {
-    ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1)
-  } else {
-    ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay())
-  }
-  ISOweekStart.setHours(0, 0, 0, 0)
+  // ISO 8601 week 1 is the week with the first Thursday of the year (or Jan 4th)
+  // Find Thursday of week weekNumber: Jan 4 + (weekNumber - 1) * 7
+  // Then Monday is Thursday - 3 days
+  const jan4 = new Date(Date.UTC(year, 0, 4))
+  const dayOfWeekJan4 = jan4.getUTCDay() || 7 // 1 = Monday, 7 = Sunday
+  const monWeek1 = new Date(Date.UTC(year, 0, 4 - (dayOfWeekJan4 - 1)))
 
-  const ISOweekEnd = new Date(ISOweekStart)
-  ISOweekEnd.setDate(ISOweekStart.getDate() + 6)
-  ISOweekEnd.setHours(23, 59, 59, 999)
+  const monday = new Date(monWeek1.getTime() + (weekNumber - 1) * 7 * 86400000)
+  monday.setUTCHours(0, 0, 0, 0)
+
+  const sunday = new Date(monday.getTime() + 6 * 86400000)
+  sunday.setUTCHours(23, 59, 59, 999)
+
+  // Local dates matching UTC day for UI representation
+  const startDate = new Date(
+    monday.getUTCFullYear(),
+    monday.getUTCMonth(),
+    monday.getUTCDate(),
+    0,
+    0,
+    0,
+    0,
+  )
+  const endDate = new Date(
+    sunday.getUTCFullYear(),
+    sunday.getUTCMonth(),
+    sunday.getUTCDate(),
+    23,
+    59,
+    59,
+    999,
+  )
 
   const pad = (n: number) => String(n).padStart(2, '0')
-  const d1 = `${pad(ISOweekStart.getDate())}/${pad(ISOweekStart.getMonth() + 1)}`
-  const d2 = `${pad(ISOweekEnd.getDate())}/${pad(ISOweekEnd.getMonth() + 1)}`
+  const d1 = `${pad(startDate.getDate())}/${pad(startDate.getMonth() + 1)}/${startDate.getFullYear()}`
+  const d2 = `${pad(endDate.getDate())}/${pad(endDate.getMonth() + 1)}/${endDate.getFullYear()}`
 
   return {
-    startDate: ISOweekStart,
-    endDate: ISOweekEnd,
+    startDate,
+    endDate,
     display: `${d1} a ${d2}`,
   }
 }
