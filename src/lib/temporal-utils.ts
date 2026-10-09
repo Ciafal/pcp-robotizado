@@ -236,6 +236,146 @@ export function isScheduleItemInPast(
 /**
  * Mensagens padrão do sistema (Requisito 10)
  */
+export type PeriodAnalysisType = 'ONTEM' | 'HOJE' | 'SEMANA' | 'MES' | 'ANO' | 'PERSONALIZADO'
+
+/**
+ * Retorna as datas de início e fim (00:00:00.000 a 23:59:59.999 no fuso da planta)
+ * para os tipos de períodos suportados pela Análise de Eficiência.
+ */
+export function getPeriodDateRange(
+  periodType: PeriodAnalysisType,
+  options?: {
+    year?: number
+    week?: number
+    month?: number // 1-12
+    customStartDate?: Date | string
+    customEndDate?: Date | string
+  },
+): { startDate: Date; endDate: Date; label: string } {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const plantNow = getPlantNow()
+
+  let startDate: Date
+  let endDate: Date
+
+  switch (periodType) {
+    case 'ONTEM': {
+      const d = new Date(plantNow)
+      d.setDate(d.getDate() - 1)
+      startDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
+      endDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+      break
+    }
+    case 'HOJE': {
+      startDate = new Date(
+        plantNow.getFullYear(),
+        plantNow.getMonth(),
+        plantNow.getDate(),
+        0,
+        0,
+        0,
+        0,
+      )
+      endDate = new Date(
+        plantNow.getFullYear(),
+        plantNow.getMonth(),
+        plantNow.getDate(),
+        23,
+        59,
+        59,
+        999,
+      )
+      break
+    }
+    case 'SEMANA': {
+      const activeYear = options?.year ?? getCurrentPlantIsoWeek().year
+      const activeWeek = options?.week ?? getCurrentPlantIsoWeek().week
+      const weekRange = getWeekDateRange(activeYear, activeWeek)
+      startDate = weekRange.startDate
+      endDate = weekRange.endDate
+      break
+    }
+    case 'MES': {
+      const targetYear = options?.year ?? plantNow.getFullYear()
+      const targetMonth = options?.month !== undefined ? options.month - 1 : plantNow.getMonth()
+      startDate = new Date(targetYear, targetMonth, 1, 0, 0, 0, 0)
+      const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate()
+      endDate = new Date(targetYear, targetMonth, lastDay, 23, 59, 59, 999)
+      break
+    }
+    case 'ANO': {
+      const targetYear = options?.year ?? plantNow.getFullYear()
+      startDate = new Date(targetYear, 0, 1, 0, 0, 0, 0)
+      endDate = new Date(targetYear, 11, 31, 23, 59, 59, 999)
+      break
+    }
+    case 'PERSONALIZADO': {
+      const parseCustom = (v?: Date | string) => {
+        if (!v) return null
+        if (v instanceof Date) return v
+        // se dd/mm/aaaa
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) {
+          const [d, m, y] = v.split('/').map(Number)
+          return new Date(y, m - 1, d)
+        }
+        const parsed = new Date(v)
+        return isNaN(parsed.getTime()) ? null : parsed
+      }
+
+      const s = parseCustom(options?.customStartDate) || plantNow
+      const e = parseCustom(options?.customEndDate) || s
+
+      startDate = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0, 0)
+      endDate = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59, 999)
+      // Garantir fim >= início
+      if (endDate.getTime() < startDate.getTime()) {
+        endDate = new Date(
+          startDate.getFullYear(),
+          startDate.getMonth(),
+          startDate.getDate(),
+          23,
+          59,
+          59,
+          999,
+        )
+      }
+      break
+    }
+  }
+
+  const d1 = `${pad(startDate.getDate())}/${pad(startDate.getMonth() + 1)}/${startDate.getFullYear()}`
+  const d2 = `${pad(endDate.getDate())}/${pad(endDate.getMonth() + 1)}/${endDate.getFullYear()}`
+  const label = formatIsoPeriodLabel(startDate, endDate)
+
+  return { startDate, endDate, label: label || `${d1} a ${d2}` }
+}
+
+/**
+ * Formata o banner explicativo do período:
+ * "Período analisado: dd/mm/aaaa a dd/mm/aaaa — Semana 41/2026"
+ */
+export function formatIsoPeriodLabel(startDate: Date, endDate: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const d1 = `${pad(startDate.getDate())}/${pad(startDate.getMonth() + 1)}/${startDate.getFullYear()}`
+  const d2 = `${pad(endDate.getDate())}/${pad(endDate.getMonth() + 1)}/${endDate.getFullYear()}`
+
+  // ISO week do meio ou do início do período
+  const iso = getIsoWeekAndYear(startDate)
+  const isoEnd = getIsoWeekAndYear(endDate)
+
+  let weekSegment = `Semana ${pad(iso.week)}/${iso.year}`
+  if (iso.week !== isoEnd.week || iso.year !== isoEnd.year) {
+    weekSegment = `Semanas ${pad(iso.week)}/${iso.year} a ${pad(isoEnd.week)}/${isoEnd.year}`
+  }
+
+  return `Período analisado: ${d1} a ${d2} — ${weekSegment}`
+}
+
+export const formatIsoPeriodRange = formatIsoPeriodLabel
+
+/**
+ * Mensagens padrão do sistema (Requisito 10)
+ */
 export const TEMPORAL_MESSAGES = {
   ITEM_PAST_BLOCKED: 'Não é permitido alterar programação com data/hora do passado.',
   ADD_PAST_BLOCKED: 'Não é permitido adicionar programação em data passada.',

@@ -28,17 +28,20 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
   onFilterChange,
   hideInternalFiltersBar = false,
 }) => {
-  const [internalFilters, setInternalFilters] = useState<CenterEfficiencyFilters>({
-    companyCode: 'ALL',
-    plantCode: initialPlantCode,
-    lineCode: initialLineCode,
-    centerCode: 'ALL',
-    status: 'ALL',
-    startDate: '',
-    endDate: '',
-    product: '',
-    order: '',
-    allowDraftSchedule: false,
+  const [internalFilters, setInternalFilters] = useState<CenterEfficiencyFilters>(() => {
+    return {
+      companyCode: 'ALL',
+      plantCode: initialPlantCode,
+      lineCode: initialLineCode,
+      centerCode: 'ALL',
+      status: 'ALL',
+      startDate: '',
+      endDate: '',
+      product: '',
+      order: '',
+      allowDraftSchedule: false,
+      periodType: 'HOJE',
+    }
   })
 
   const filters = externalFilters || internalFilters
@@ -108,6 +111,8 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
       endDate: '',
       product: '',
       order: '',
+      periodType: 'HOJE',
+      periodLabel: '',
       allowDraftSchedule: false,
     }
     if (onFilterChange) {

@@ -32,6 +32,8 @@ export const EfficiencyCenterFiltersBar: React.FC<EfficiencyCenterFiltersBarProp
     product: initialFilters.product || '',
     search: initialFilters.order || '',
     status: initialFilters.status || 'ALL',
+    periodType: initialFilters.periodType || 'HOJE',
+    periodLabel: initialFilters.periodLabel || '',
   }
 
   const handleChange = (next: UnifiedEfficiencyFilters) => {
@@ -45,6 +47,8 @@ export const EfficiencyCenterFiltersBar: React.FC<EfficiencyCenterFiltersBarProp
       product: next.product,
       order: next.search,
       status: next.status as any,
+      periodType: next.periodType,
+      periodLabel: next.periodLabel,
     })
   }
 

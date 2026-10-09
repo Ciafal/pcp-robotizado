@@ -29,6 +29,13 @@ export interface CenterEfficiencyFilters {
   product?: string
   order?: string
   allowDraftSchedule?: boolean
+  periodType?: string
+  periodLabel?: string
+  userAudit?: {
+    userId?: string
+    userName?: string
+    userEmail?: string
+  }
 }
 
 export interface CenterOrderDetail {
@@ -323,8 +330,12 @@ export class EfficiencyCenterService {
       bucket.realizedOrders.push(ord)
     }
 
-    // Distribui apontamentos de produção nos buckets
+    // Distribui apontamentos de produção nos buckets (filtrando por período se informado)
     for (const post of postingsList) {
+      const postDate = post.posting_date || (post.created ? post.created.slice(0, 10) : '')
+      if (filters.startDate && postDate && postDate < filters.startDate) continue
+      if (filters.endDate && postDate && postDate > filters.endDate) continue
+
       const lineCode = post.linha_code || 'L1'
       const centerCode = post.centro_code || post.work_center || lineCode
       const key = `${lineCode}__${centerCode}`
@@ -334,8 +345,16 @@ export class EfficiencyCenterService {
       }
     }
 
-    // Distribui paradas nos buckets
+    // Distribui paradas nos buckets (filtrando por período se informado)
     for (const stop of stopsList) {
+      const stopDate = stop.start_datetime
+        ? stop.start_datetime.slice(0, 10)
+        : stop.created
+          ? stop.created.slice(0, 10)
+          : ''
+      if (filters.startDate && stopDate && stopDate < filters.startDate) continue
+      if (filters.endDate && stopDate && stopDate > filters.endDate) continue
+
       const lineCode = stop.linha_code || 'L1'
       const centerCode = stop.centro_code || lineCode
       const key = `${lineCode}__${centerCode}`
@@ -598,6 +617,19 @@ export class EfficiencyCenterService {
         const matchOrder = row.details.some((d) => d.orderNumber.toLowerCase().includes(oTerm))
         if (!matchOrder) return false
       }
+      // Filtro de data sobre as linhas/detalhes
+      if (filters.startDate || filters.endDate) {
+        // Se a linha tiver plannedStart ou realStart ou se os apontamentos foram recortados
+        // Se tiver datas explicitas de start, checa bounds
+        const startDay = row.plannedStart ? row.plannedStart.slice(0, 10) : ''
+        const realDay = row.realStart ? row.realStart.slice(0, 10) : ''
+        const checkDay = realDay || startDay
+
+        if (checkDay) {
+          if (filters.startDate && checkDay < filters.startDate) return false
+          if (filters.endDate && checkDay > filters.endDate) return false
+        }
+      }
       return true
     })
 
@@ -671,6 +703,24 @@ export class EfficiencyCenterService {
       })),
     }
 
+    // 9. Auditoria append-only em pcp_audit_logs ao aplicar filtros
+    if (
+      filters.startDate ||
+      filters.endDate ||
+      filters.periodType ||
+      filters.companyCode ||
+      filters.lineCode
+    ) {
+      this.logFilterAudit(filters, {
+        totalCenters: summary.totalCenters,
+        totalPlannedTons: summary.totalPlannedTons,
+        totalRealizedTons: summary.totalRealizedTons,
+        overallAdherencePct: summary.overallAdherencePct,
+      }).catch((err) => {
+        console.warn('Falha silenciosa ao registrar auditoria de filtros em pcp_audit_logs:', err)
+      })
+    }
+
     return {
       summary,
       rows: filteredRows,
@@ -681,6 +731,58 @@ export class EfficiencyCenterService {
         activeProgramacaoVersion,
         mesEndpointStatus: mesEndpointConnected ? 'CONECTADO' : 'SEM_TELEMETRIA',
       },
+    }
+  }
+
+  /**
+   * Log de auditoria em pcp_audit_logs ao consultar/aplicar filtros de eficiência
+   */
+  public async logFilterAudit(
+    filters: CenterEfficiencyFilters,
+    resultSummary: {
+      totalCenters: number
+      totalPlannedTons: number
+      totalRealizedTons: number | null
+      overallAdherencePct: number | null
+    },
+  ): Promise<void> {
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        action: 'FILTRAR_EFICIENCIA_PERIODO',
+        company:
+          filters.companyCode && filters.companyCode !== 'ALL' ? filters.companyCode : 'CIAFAL',
+        module: 'CONTROLE_DE_PRODUCAO',
+        screen: 'Previsto x Realizado',
+        resource: 'EFICIENCIA_CENTRO',
+        resource_id: filters.centerCode || filters.lineCode || 'ALL',
+        line: filters.lineCode || 'ALL',
+        center: filters.centerCode || 'ALL',
+        status: 'Concluído',
+        outcome: 'SUCCESS',
+        event_type: 'SCHEDULE_ACTION',
+        user_id: filters.userAudit?.userId || (pb.authStore.model as any)?.id || '',
+        user_name:
+          filters.userAudit?.userName ||
+          (pb.authStore.model as any)?.name ||
+          'Usuário PCP Robotizado',
+        user_email: filters.userAudit?.userEmail || (pb.authStore.model as any)?.email || '',
+        reason: `Consulta Previsto x Realizado [${filters.periodType || 'PERIODO'}]: ${filters.startDate || ''} a ${filters.endDate || ''}`,
+        details: {
+          periodType: filters.periodType,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          periodLabel: filters.periodLabel,
+          lineCode: filters.lineCode,
+          plantCode: filters.plantCode,
+          centerCode: filters.centerCode,
+          status: filters.status,
+          product: filters.product,
+          result: resultSummary,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch {
+      // Ignora falha silenciosa para não quebrar a consulta em tela
     }
   }
 
