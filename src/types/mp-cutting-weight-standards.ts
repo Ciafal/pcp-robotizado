@@ -1,7 +1,7 @@
 export type MPCuttingType = 'BLOCOS' | 'MULTIPLOS'
 export type MPToleranceType = 'TON' | 'PERCENT' | 'KG'
 export type MPStandardPriority = 'ALTA' | 'MEDIA' | 'BAIXA'
-export type MPStandardStatus = 'ATIVO' | 'INATIVO'
+export type MPStandardStatus = 'ATIVO' | 'INATIVO' | 'PENDENTE_CORRECAO'
 
 export interface MPCuttingWeightStandard {
   id?: string

@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
+import { parsePtBrNumber } from '@/lib/number-format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -67,8 +68,61 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
     { value: 'MELHOR_EQUILIBRIO', label: '5. Melhor Equilíbrio (Rendimento x Demanda)' },
   ]
 
-  // Padrões ativos elegíveis
+  // Padrões ativos elegíveis (apenas ATIVO e com dados válidos, nunca PENDENTE_CORRECAO ou INATIVO)
   const activeStandards = standards.filter((s) => s.status === 'ATIVO')
+
+  // Estados locais para digitação em pt-BR (evitando formatação forçada que bloqueia a vírgula)
+  const [targetInput, setTargetInput] = useState<string>('')
+  const [minInput, setMinInput] = useState<string>('')
+  const [maxInput, setMaxInput] = useState<string>('')
+
+  // Sincronizar inputs locais quando os filtros externos mudarem (ex: ao selecionar outro padrão)
+  useEffect(() => {
+    if (
+      filters.target_weight_kg != null &&
+      !isNaN(filters.target_weight_kg) &&
+      filters.target_weight_kg > 0
+    ) {
+      setTargetInput(
+        (filters.target_weight_kg / 1000).toLocaleString('pt-BR', {
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
+        }),
+      )
+    } else {
+      setTargetInput('')
+    }
+
+    if (
+      filters.min_weight_kg != null &&
+      !isNaN(filters.min_weight_kg) &&
+      filters.min_weight_kg > 0
+    ) {
+      setMinInput(
+        (filters.min_weight_kg / 1000).toLocaleString('pt-BR', {
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
+        }),
+      )
+    } else {
+      setMinInput('')
+    }
+
+    if (
+      filters.max_weight_kg != null &&
+      !isNaN(filters.max_weight_kg) &&
+      filters.max_weight_kg > 0
+    ) {
+      setMaxInput(
+        (filters.max_weight_kg / 1000).toLocaleString('pt-BR', {
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
+        }),
+      )
+    } else {
+      setMaxInput('')
+    }
+  }, [filters.target_weight_kg, filters.min_weight_kg, filters.max_weight_kg])
 
   // Ao selecionar um padrão, preencher automaticamente seus parâmetros
   const handleSelectStandard = (standardCode: string) => {
@@ -313,20 +367,16 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
                 type="text"
                 inputMode="decimal"
                 disabled={!allowManualAdjust}
-                value={
-                  filters.target_weight_kg != null
-                    ? (filters.target_weight_kg / 1000).toLocaleString('pt-BR', {
-                        minimumFractionDigits: 3,
-                        maximumFractionDigits: 3,
-                      })
-                    : ''
-                }
+                value={targetInput}
                 onChange={(e) => {
-                  const cleaned = e.target.value.replace(',', '.')
-                  const valTon = parseFloat(cleaned) || 0
-                  handleManualTargetChange(valTon * 1000)
+                  const raw = e.target.value
+                  setTargetInput(raw)
+                  const valTon = parsePtBrNumber(raw)
+                  if (!isNaN(valTon) && valTon > 0) {
+                    handleManualTargetChange(valTon * 1000)
+                  }
                 }}
-                placeholder="Ex: 1,250 t"
+                placeholder="Ex: 1,250"
                 className={`h-8 text-xs font-bold ${
                   allowManualAdjust
                     ? 'bg-amber-50/60 border-amber-300 text-amber-950'
@@ -348,24 +398,20 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
                 type="text"
                 inputMode="decimal"
                 disabled={!allowManualAdjust}
-                value={
-                  filters.min_weight_kg != null
-                    ? (filters.min_weight_kg / 1000).toLocaleString('pt-BR', {
-                        minimumFractionDigits: 3,
-                        maximumFractionDigits: 3,
-                      })
-                    : ''
-                }
+                value={minInput}
                 onChange={(e) => {
-                  const cleaned = e.target.value.replace(',', '.')
-                  const valTon = parseFloat(cleaned) || 0
-                  onFiltersChange({
-                    ...filters,
-                    min_weight_kg: valTon * 1000,
-                    manual_adjustment_active: true,
-                  })
+                  const raw = e.target.value
+                  setMinInput(raw)
+                  const valTon = parsePtBrNumber(raw)
+                  if (!isNaN(valTon) && valTon > 0) {
+                    onFiltersChange({
+                      ...filters,
+                      min_weight_kg: valTon * 1000,
+                      manual_adjustment_active: true,
+                    })
+                  }
                 }}
-                placeholder="Ex: 1,200 t"
+                placeholder="Ex: 1,200"
                 className={`h-8 text-xs ${
                   allowManualAdjust ? 'bg-amber-50/60 border-amber-300' : 'bg-slate-100'
                 }`}
@@ -385,24 +431,20 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
                 type="text"
                 inputMode="decimal"
                 disabled={!allowManualAdjust}
-                value={
-                  filters.max_weight_kg != null
-                    ? (filters.max_weight_kg / 1000).toLocaleString('pt-BR', {
-                        minimumFractionDigits: 3,
-                        maximumFractionDigits: 3,
-                      })
-                    : ''
-                }
+                value={maxInput}
                 onChange={(e) => {
-                  const cleaned = e.target.value.replace(',', '.')
-                  const valTon = parseFloat(cleaned) || 0
-                  onFiltersChange({
-                    ...filters,
-                    max_weight_kg: valTon * 1000,
-                    manual_adjustment_active: true,
-                  })
+                  const raw = e.target.value
+                  setMaxInput(raw)
+                  const valTon = parsePtBrNumber(raw)
+                  if (!isNaN(valTon) && valTon > 0) {
+                    onFiltersChange({
+                      ...filters,
+                      max_weight_kg: valTon * 1000,
+                      manual_adjustment_active: true,
+                    })
+                  }
                 }}
-                placeholder="Ex: 1,300 t"
+                placeholder="Ex: 1,300"
                 className={`h-8 text-xs ${
                   allowManualAdjust ? 'bg-amber-50/60 border-amber-300' : 'bg-slate-100'
                 }`}

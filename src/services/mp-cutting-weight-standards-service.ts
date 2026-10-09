@@ -112,10 +112,31 @@ class MPCuttingWeightStandardsService {
 
     if (!standard.start_date?.trim()) {
       errors.start_date = 'A data de início de vigência é obrigatória.'
+    } else {
+      const startDay = standard.start_date.split('T')[0].split(' ')[0]
+      // Data atual no fuso America/Sao_Paulo (UTC-3)
+      const now = new Date()
+      const spOffsetMs = -3 * 3600 * 1000
+      const spNow = new Date(now.getTime() + spOffsetMs)
+      const todaySp = spNow.toISOString().split('T')[0]
+
+      // Validação de início não retroativo:
+      // Aplica para novo cadastro (sem id) ou quando o início foi modificado
+      const existing = standard.id ? allExisting.find((s) => s.id === standard.id) : null
+      const origStartDay = existing?.start_date
+        ? existing.start_date.split('T')[0].split(' ')[0]
+        : ''
+      const isDateChanged = !existing || (origStartDay && startDay !== origStartDay)
+
+      if (isDateChanged && startDay < todaySp) {
+        errors.start_date = 'A data de início da vigência não pode ser anterior à data atual.'
+      }
     }
 
     if (standard.start_date && standard.end_date) {
-      if (standard.end_date < standard.start_date) {
+      const startDay = standard.start_date.split('T')[0].split(' ')[0]
+      const endDay = standard.end_date.split('T')[0].split(' ')[0]
+      if (endDay && endDay < startDay) {
         errors.end_date = 'A data de fim não pode ser anterior à data de início.'
       }
     }
@@ -170,22 +191,24 @@ class MPCuttingWeightStandardsService {
    */
   async generateNextCode(): Promise<string> {
     try {
-      const records = await pb
-        .collection(this.COLLECTION_STANDARDS)
-        .getList(1, 1, { sort: '-created' })
-      if (records.items.length > 0) {
-        const lastCode = records.items[0].code || 'PAD-000'
-        const match = lastCode.match(/\d+/)
-        if (match) {
-          const nextNum = parseInt(match[0], 10) + 1
-          return `PAD-${String(nextNum).padStart(3, '0')}`
+      const records = await pb.collection(this.COLLECTION_STANDARDS).getFullList({ sort: '-id' })
+      let maxNum = 0
+      for (const r of records) {
+        const c = (r as any).code || ''
+        const match = c.match(/PAD-(\d+)/)
+        if (match && match[1]) {
+          const num = parseInt(match[1], 10)
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num
+          }
         }
       }
+      const nextNum = maxNum + 1
+      return `PAD-${String(nextNum).padStart(3, '0')}`
     } catch (e) {
       console.warn('Fallback gerador de código padrão:', e)
     }
-    const rand = Math.floor(Math.random() * 900) + 100
-    return `PAD-${rand}`
+    return `PAD-001`
   }
 
   /**
@@ -197,32 +220,78 @@ class MPCuttingWeightStandardsService {
       const records = await pb
         .collection(this.COLLECTION_STANDARDS)
         .getFullList({ filter: filter || undefined, sort: '-id' })
-      return records.map((r: any) => ({
-        id: r.id,
-        code: r.code,
-        description: r.description,
-        cutting_type: r.cutting_type,
-        company_code: r.company_code,
-        center_codes: Array.isArray(r.center_codes) ? r.center_codes : [],
-        material_codes: Array.isArray(r.material_codes) ? r.material_codes : [],
-        steel_family: r.steel_family || '',
-        target_weight_kg: Number(r.target_weight_kg),
-        min_weight_kg: Number(r.min_weight_kg),
-        max_weight_kg: Number(r.max_weight_kg),
-        tolerance_lower_val: Number(r.tolerance_lower_val),
-        tolerance_lower_type: r.tolerance_lower_type,
-        tolerance_upper_val: Number(r.tolerance_upper_val),
-        tolerance_upper_type: r.tolerance_upper_type,
-        priority: r.priority,
-        start_date: (r.start_date || '').split('T')[0],
-        end_date: r.end_date ? r.end_date.split('T')[0] : null,
-        status: r.status,
-        technical_notes: r.technical_notes || '',
-        created: r.created,
-        updated: r.updated,
-        created_by_user_name: r.created_by_user_name,
-        updated_by_user_name: r.updated_by_user_name,
-      }))
+      return records.map((r: any) => {
+        // Conversão com parser pt-BR resiliente — nunca produzir NaN
+        const parseField = (val: any): number => {
+          if (val === null || val === undefined || val === '') return NaN
+          if (typeof val === 'number') return isNaN(val) ? NaN : val
+          return parsePtBrNumber(val)
+        }
+
+        const targetKg = parseField(r.target_weight_kg)
+        const minKg = parseField(r.min_weight_kg)
+        const maxKg = parseField(r.max_weight_kg)
+
+        // Normalização de prioridade
+        let prio = String(r.priority || '')
+          .toUpperCase()
+          .trim()
+        if (prio === 'ALTA' || prio === 'HIGH') prio = 'ALTA'
+        else if (prio === 'BAIXA' || prio === 'LOW') prio = 'BAIXA'
+        else prio = 'MEDIA'
+
+        // Classificação do status: ATIVO, INATIVO ou PENDENTE_CORRECAO (incompleto)
+        let status = String(r.status || '')
+          .toUpperCase()
+          .trim()
+        const isWeightInvalid =
+          isNaN(targetKg) ||
+          targetKg <= 0 ||
+          isNaN(minKg) ||
+          minKg <= 0 ||
+          isNaN(maxKg) ||
+          maxKg <= 0 ||
+          minKg > targetKg ||
+          targetKg > maxKg
+        const isMissingFields =
+          !r.description || !r.cutting_type || !(r.center_codes && r.center_codes.length > 0)
+
+        if (isWeightInvalid || isMissingFields) {
+          status = 'PENDENTE_CORRECAO'
+        } else if (status !== 'ATIVO' && status !== 'INATIVO') {
+          status = 'ATIVO'
+        }
+
+        const tolLow = parseField(r.tolerance_lower_val)
+        const tolUp = parseField(r.tolerance_upper_val)
+
+        return {
+          id: r.id,
+          code: r.code || 'PAD-000',
+          description: r.description || '',
+          cutting_type: r.cutting_type || 'BLOCOS',
+          company_code: r.company_code || 'CIAFAL',
+          center_codes: Array.isArray(r.center_codes) ? r.center_codes : [],
+          material_codes: Array.isArray(r.material_codes) ? r.material_codes : [],
+          steel_family: r.steel_family || '',
+          target_weight_kg: isNaN(targetKg) ? 0 : targetKg,
+          min_weight_kg: isNaN(minKg) ? 0 : minKg,
+          max_weight_kg: isNaN(maxKg) ? 0 : maxKg,
+          tolerance_lower_val: isNaN(tolLow) ? 0 : tolLow,
+          tolerance_lower_type: r.tolerance_lower_type || 'KG',
+          tolerance_upper_val: isNaN(tolUp) ? 0 : tolUp,
+          tolerance_upper_type: r.tolerance_upper_type || 'KG',
+          priority: prio as any,
+          start_date: (r.start_date || '').split('T')[0],
+          end_date: r.end_date ? r.end_date.split('T')[0] : null,
+          status: status as any,
+          technical_notes: r.technical_notes || '',
+          created: r.created,
+          updated: r.updated,
+          created_by_user_name: r.created_by_user_name,
+          updated_by_user_name: r.updated_by_user_name,
+        }
+      })
     } catch (e) {
       console.warn('Erro ao consultar mp_cutting_weight_standards:', e)
       return []
@@ -300,13 +369,22 @@ class MPCuttingWeightStandardsService {
         const existing = all.find((s) => s.id === normalizedData.id)
         if (existing) previousRecord = existing
 
+        // Normalização de prioridade na edição
+        let prio = String(normalizedData.priority || existing?.priority || 'MEDIA')
+          .toUpperCase()
+          .trim()
+        if (prio === 'ALTA' || prio === 'HIGH') prio = 'ALTA'
+        else if (prio === 'BAIXA' || prio === 'LOW') prio = 'BAIXA'
+        else prio = 'MEDIA'
+
         const payload: any = {
+          code: existing?.code || normalizedData.code, // NUNCA anular o código na edição
           description: normalizedData.description?.trim(),
-          cutting_type: normalizedData.cutting_type,
-          company_code: normalizedData.company_code,
-          center_codes: normalizedData.center_codes,
-          material_codes: normalizedData.material_codes,
-          steel_family: normalizedData.steel_family || '',
+          cutting_type: normalizedData.cutting_type || existing?.cutting_type || 'BLOCOS',
+          company_code: normalizedData.company_code || existing?.company_code || 'CIAFAL',
+          center_codes: normalizedData.center_codes || existing?.center_codes || [],
+          material_codes: normalizedData.material_codes || existing?.material_codes || [],
+          steel_family: normalizedData.steel_family || existing?.steel_family || '',
           target_weight_kg: Number(normalizedData.target_weight_kg),
           min_weight_kg: Number(normalizedData.min_weight_kg),
           max_weight_kg: Number(normalizedData.max_weight_kg),
@@ -330,10 +408,13 @@ class MPCuttingWeightStandardsService {
                   )),
           ),
           tolerance_upper_type: 'KG',
-          priority: normalizedData.priority,
-          start_date: normalizedData.start_date,
-          end_date: normalizedData.end_date || null,
-          status: normalizedData.status,
+          priority: prio,
+          start_date: normalizedData.start_date || existing?.start_date,
+          end_date:
+            normalizedData.end_date !== undefined
+              ? normalizedData.end_date || null
+              : existing?.end_date || null,
+          status: normalizedData.status || existing?.status || 'ATIVO',
           technical_notes: normalizedData.technical_notes || '',
           updated_by_user_name: currentUser,
         }
@@ -409,6 +490,15 @@ class MPCuttingWeightStandardsService {
           created_by_user_name: currentUser,
           updated_by_user_name: currentUser,
         }
+
+        // Normalização de prioridade na criação
+        let prioCreate = String(normalizedData.priority || 'MEDIA')
+          .toUpperCase()
+          .trim()
+        if (prioCreate === 'ALTA' || prioCreate === 'HIGH') prioCreate = 'ALTA'
+        else if (prioCreate === 'BAIXA' || prioCreate === 'LOW') prioCreate = 'BAIXA'
+        else prioCreate = 'MEDIA'
+        payload.priority = prioCreate
 
         savedRecord = await pb.collection(this.COLLECTION_STANDARDS).create(payload)
 
@@ -495,10 +585,60 @@ class MPCuttingWeightStandardsService {
   async toggleStatus(
     standard: MPCuttingWeightStandard,
     currentUser = 'PCP Engenharia',
+    reason = '',
   ): Promise<{ success: boolean; standard?: MPCuttingWeightStandard; error?: string }> {
+    if (!standard.id) {
+      return { success: false, error: 'Identificador do registro não encontrado.' }
+    }
+
     const newStatus = standard.status === 'ATIVO' ? 'INATIVO' : 'ATIVO'
+
+    // Pré-validação ao ATIVAR: validar pesos, código, prioridade e vigência
+    if (newStatus === 'ATIVO') {
+      const targetKg = Number(standard.target_weight_kg)
+      const minKg = Number(standard.min_weight_kg)
+      const maxKg = Number(standard.max_weight_kg)
+
+      if (
+        isNaN(targetKg) ||
+        targetKg <= 0 ||
+        isNaN(minKg) ||
+        minKg <= 0 ||
+        isNaN(maxKg) ||
+        maxKg <= 0
+      ) {
+        return {
+          success: false,
+          error: 'Padrão com pesos inválidos ou não informados não pode ser ativado.',
+        }
+      }
+      if (minKg > targetKg || targetKg > maxKg) {
+        return {
+          success: false,
+          error:
+            'Faixa de pesos inconsistente (mínimo <= ideal <= máximo). Corrija o padrão antes de ativar.',
+        }
+      }
+      if (!standard.code || standard.code.includes('undefined')) {
+        return {
+          success: false,
+          error: 'Código sequencial inválido. Corrija o padrão antes de ativar.',
+        }
+      }
+      if (!standard.start_date) {
+        return { success: false, error: 'Data de início da vigência não informada.' }
+      }
+      if (standard.end_date) {
+        const startDay = standard.start_date.split('T')[0]
+        const endDay = standard.end_date.split('T')[0]
+        if (endDay < startDay) {
+          return { success: false, error: 'Data de fim da vigência anterior à data de início.' }
+        }
+      }
+    }
+
     try {
-      const updated = await pb.collection(this.COLLECTION_STANDARDS).update(standard.id!, {
+      const updated = await pb.collection(this.COLLECTION_STANDARDS).update(standard.id, {
         status: newStatus,
         updated_by_user_name: currentUser,
       })
@@ -512,14 +652,19 @@ class MPCuttingWeightStandardsService {
           resource: 'MP_CUTTING_WEIGHT_STANDARD',
           resource_id: standard.id,
           record_id: standard.code,
-          company: standard.company_code,
+          company: standard.company_code || 'CIAFAL',
           module: 'Gestão de MP',
           screen: 'Padrões de Peso para Corte',
-          justification: `Alteração de status do padrão ${standard.code} de ${standard.status} para ${newStatus}`,
+          reason:
+            reason || (newStatus === 'ATIVO' ? 'Reativação operacional' : 'Inativação de padrão'),
+          justification:
+            reason ||
+            `Alteração de status do padrão ${standard.code} de ${standard.status} para ${newStatus}`,
           details: {
             code: standard.code,
             previous_status: standard.status,
             new_status: newStatus,
+            reason,
           },
         })
       } catch (auditErr: any) {

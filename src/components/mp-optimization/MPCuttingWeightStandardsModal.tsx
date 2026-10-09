@@ -96,6 +96,21 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
   const [saving, setSaving] = useState(false)
   const [highlightedCode, setHighlightedCode] = useState<string | null>(null)
 
+  // Diálogo de confirmação de Ativação / Inativação
+  const [statusConfirmItem, setStatusConfirmItem] = useState<MPCuttingWeightStandard | null>(null)
+  const [inactivationReason, setInactivationReason] = useState<string>('')
+  const [statusConfirmError, setStatusConfirmError] = useState<string | null>(null)
+  const [isTogglingStatus, setIsTogglingStatus] = useState<boolean>(false)
+
+  // Data atual no fuso America/Sao_Paulo (UTC-3)
+  const getTodaySp = () => {
+    const now = new Date()
+    const spOffsetMs = -3 * 3600 * 1000
+    const spNow = new Date(now.getTime() + spOffsetMs)
+    return spNow.toISOString().split('T')[0]
+  }
+  const todaySp = getTodaySp()
+
   // Centros e materiais disponíveis no sistema CIAFAL
   const availableCenters = [
     { code: 'SEML1', name: 'SEML1 — Laminação Geral L1' },
@@ -147,7 +162,7 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
       min_weight_kg: undefined,
       max_weight_kg: undefined,
       priority: 'MEDIA',
-      start_date: new Date().toISOString().split('T')[0],
+      start_date: todaySp,
       end_date: '',
       status: 'ATIVO',
       technical_notes: '',
@@ -168,24 +183,24 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
 
     // Formata os pesos de kg -> t no padrão visual pt-BR com 3 casas decimais
     setTargetWeightInput(
-      item.target_weight_kg != null
-        ? formatNumberPtBr(item.target_weight_kg / 1000, {
+      item.target_weight_kg != null && !isNaN(Number(item.target_weight_kg))
+        ? (Number(item.target_weight_kg) / 1000).toLocaleString('pt-BR', {
             minimumFractionDigits: 3,
             maximumFractionDigits: 3,
           })
         : '',
     )
     setMinWeightInput(
-      item.min_weight_kg != null
-        ? formatNumberPtBr(item.min_weight_kg / 1000, {
+      item.min_weight_kg != null && !isNaN(Number(item.min_weight_kg))
+        ? (Number(item.min_weight_kg) / 1000).toLocaleString('pt-BR', {
             minimumFractionDigits: 3,
             maximumFractionDigits: 3,
           })
         : '',
     )
     setMaxWeightInput(
-      item.max_weight_kg != null
-        ? formatNumberPtBr(item.max_weight_kg / 1000, {
+      item.max_weight_kg != null && !isNaN(Number(item.max_weight_kg))
+        ? (Number(item.max_weight_kg) / 1000).toLocaleString('pt-BR', {
             minimumFractionDigits: 3,
             maximumFractionDigits: 3,
           })
@@ -347,13 +362,41 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
     }
   }
 
-  const handleToggleStatus = async (item: MPCuttingWeightStandard) => {
-    const res = await mpCuttingWeightStandardsService.toggleStatus(item)
-    if (res.success) {
-      await fetchStandards()
-      onStandardsChanged?.()
-    } else {
-      alert(`Erro ao alterar status: ${res.error}`)
+  const handleOpenToggleStatusDialog = (item: MPCuttingWeightStandard) => {
+    setStatusConfirmItem(item)
+    setInactivationReason('')
+    setStatusConfirmError(null)
+  }
+
+  const handleConfirmToggleStatus = async () => {
+    if (!statusConfirmItem) return
+    setIsTogglingStatus(true)
+    setStatusConfirmError(null)
+
+    const isActivating = statusConfirmItem.status !== 'ATIVO'
+
+    try {
+      const res = await mpCuttingWeightStandardsService.toggleStatus(
+        statusConfirmItem,
+        user?.name || user?.email || 'Engenheiro PCP',
+        inactivationReason,
+      )
+
+      if (res.success) {
+        toast({
+          title: isActivating ? 'Padrão Ativado' : 'Padrão Inativado',
+          description: `Padrão nº [${statusConfirmItem.code}] teve seu status atualizado para ${isActivating ? 'Ativo' : 'Inativo'}.`,
+        })
+        setStatusConfirmItem(null)
+        await fetchStandards()
+        onStandardsChanged?.()
+      } else {
+        setStatusConfirmError(res.error || 'Erro ao alterar status do padrão.')
+      }
+    } catch (err: any) {
+      setStatusConfirmError(err?.message || 'Falha de comunicação ao atualizar status.')
+    } finally {
+      setIsTogglingStatus(false)
     }
   }
 
@@ -762,10 +805,19 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     <Input
                       type="date"
                       value={formData.start_date || ''}
-                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                      className="mt-1"
+                      min={!formData.id ? todaySp : undefined}
+                      onChange={(e) => {
+                        setFormData({ ...formData, start_date: e.target.value })
+                        setFieldErrors((prev) => ({ ...prev, start_date: '' }))
+                      }}
+                      className={`mt-1 ${fieldErrors.start_date ? 'border-red-500 ring-1 ring-red-400' : ''}`}
                       required
                     />
+                    {fieldErrors.start_date && (
+                      <p className="text-[11px] text-red-600 font-medium mt-1">
+                        {fieldErrors.start_date}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs font-semibold text-slate-700">
@@ -774,9 +826,18 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     <Input
                       type="date"
                       value={formData.end_date || ''}
-                      onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                      className="mt-1"
+                      min={formData.start_date || todaySp}
+                      onChange={(e) => {
+                        setFormData({ ...formData, end_date: e.target.value })
+                        setFieldErrors((prev) => ({ ...prev, end_date: '' }))
+                      }}
+                      className={`mt-1 ${fieldErrors.end_date ? 'border-red-500 ring-1 ring-red-400' : ''}`}
                     />
+                    {fieldErrors.end_date && (
+                      <p className="text-[11px] text-red-600 font-medium mt-1">
+                        {fieldErrors.end_date}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs font-semibold text-slate-700">Status *</Label>
@@ -941,12 +1002,12 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                               : 'hover:bg-slate-50/80'
                           }`}
                         >
-                          <TableCell className="font-mono text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                            {std.code}
+                          <TableCell className="font-mono text-xs font-bold text-blue-900">
+                            <span data-testid={`std-code-${std.code}`}>{std.code}</span>
                             {highlightedCode === std.code && (
-                              <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0 h-4">
+                              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                 Novo
-                              </Badge>
+                              </span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -973,23 +1034,26 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                             {(std.center_codes || []).join(', ') || 'Geral'}
                           </TableCell>
                           <TableCell className="text-xs font-bold text-slate-900">
-                            {(std.target_weight_kg / 1000).toLocaleString('pt-BR', {
-                              minimumFractionDigits: 3,
-                              maximumFractionDigits: 3,
-                            })}{' '}
-                            t
+                            {std.target_weight_kg > 0 && !isNaN(std.target_weight_kg)
+                              ? `${(std.target_weight_kg / 1000).toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 3,
+                                  maximumFractionDigits: 3,
+                                })} t`
+                              : '—'}
                           </TableCell>
                           <TableCell className="text-xs text-slate-600">
-                            {(std.min_weight_kg / 1000).toLocaleString('pt-BR', {
-                              minimumFractionDigits: 3,
-                              maximumFractionDigits: 3,
-                            })}{' '}
-                            a{' '}
-                            {(std.max_weight_kg / 1000).toLocaleString('pt-BR', {
-                              minimumFractionDigits: 3,
-                              maximumFractionDigits: 3,
-                            })}{' '}
-                            t
+                            {std.min_weight_kg > 0 &&
+                            std.max_weight_kg > 0 &&
+                            !isNaN(std.min_weight_kg) &&
+                            !isNaN(std.max_weight_kg)
+                              ? `${(std.min_weight_kg / 1000).toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 3,
+                                  maximumFractionDigits: 3,
+                                })} a ${(std.max_weight_kg / 1000).toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 3,
+                                  maximumFractionDigits: 3,
+                                })} t`
+                              : '—'}
                           </TableCell>
                           <TableCell>
                             <span
@@ -1009,10 +1073,16 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                               className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
                                 std.status === 'ATIVO'
                                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-slate-100 text-slate-500'
+                                  : std.status === 'PENDENTE_CORRECAO'
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                    : 'bg-slate-100 text-slate-500'
                               }`}
                             >
-                              {std.status === 'ATIVO' ? 'Ativo' : 'Inativo'}
+                              {std.status === 'ATIVO'
+                                ? 'Ativo'
+                                : std.status === 'PENDENTE_CORRECAO'
+                                  ? 'Pendente de correção'
+                                  : 'Inativo'}
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
@@ -1029,7 +1099,7 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleToggleStatus(std)}
+                                onClick={() => handleOpenToggleStatusDialog(std)}
                                 className={`h-7 w-7 p-0 ${
                                   std.status === 'ATIVO'
                                     ? 'text-amber-600 hover:text-amber-800'
@@ -1063,6 +1133,103 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
           </DialogFooter>
         </ErrorBoundary>
       </DialogContent>
+
+      {/* DIÁLOGO MODAL DE CONFIRMAÇÃO DE ATIVAÇÃO / INATIVAÇÃO */}
+      {statusConfirmItem && (
+        <Dialog
+          open={Boolean(statusConfirmItem)}
+          onOpenChange={(open) => !open && setStatusConfirmItem(null)}
+        >
+          <DialogContent className="max-w-md bg-white border border-slate-200 p-5">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-slate-900">
+                {statusConfirmItem.status === 'ATIVO'
+                  ? `Deseja inativar o padrão de peso nº [${statusConfirmItem.code}]?`
+                  : `Deseja ativar o padrão de peso nº [${statusConfirmItem.code}]?`}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2 text-xs text-slate-600">
+              <p>
+                <strong>Descrição:</strong> {statusConfirmItem.description}
+              </p>
+              <p>
+                <strong>Faixa:</strong>{' '}
+                {(statusConfirmItem.target_weight_kg / 1000).toLocaleString('pt-BR', {
+                  minimumFractionDigits: 3,
+                })}{' '}
+                t (
+                {(statusConfirmItem.min_weight_kg / 1000).toLocaleString('pt-BR', {
+                  minimumFractionDigits: 3,
+                })}{' '}
+                a{' '}
+                {(statusConfirmItem.max_weight_kg / 1000).toLocaleString('pt-BR', {
+                  minimumFractionDigits: 3,
+                })}{' '}
+                t)
+              </p>
+
+              {statusConfirmItem.status === 'ATIVO' ? (
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Motivo da Inativação (Obrigatório para Auditoria):
+                  </Label>
+                  <Input
+                    value={inactivationReason}
+                    onChange={(e) => setInactivationReason(e.target.value)}
+                    placeholder="Ex: Padrão descontinuado pela Engenharia de Processo"
+                    className="text-xs"
+                  />
+                </div>
+              ) : (
+                <p className="text-slate-500">
+                  O sistema validará automaticamente os pesos, a integridade do código e a vigência
+                  antes de reativar o padrão.
+                </p>
+              )}
+
+              {statusConfirmError && (
+                <Alert
+                  variant="destructive"
+                  className="bg-red-50 border-red-200 text-red-800 text-xs"
+                >
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <AlertDescription>{statusConfirmError}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setStatusConfirmItem(null)}
+                disabled={isTogglingStatus}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleConfirmToggleStatus}
+                disabled={isTogglingStatus}
+                className={
+                  statusConfirmItem.status === 'ATIVO'
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }
+              >
+                {isTogglingStatus
+                  ? 'Processando...'
+                  : statusConfirmItem.status === 'ATIVO'
+                    ? 'Confirmar Inativação'
+                    : 'Confirmar Ativação'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   )
 }
