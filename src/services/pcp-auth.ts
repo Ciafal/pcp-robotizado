@@ -145,6 +145,7 @@ export const authService = {
         'pcp.carteira.import',
         'pcp.carteira.manage_rules',
         'pcp.carteira.reconcile',
+        'pcp.faca.view',
         'pcp.production.view',
         'pcp.production.close',
         'pcp.production.admin',
@@ -163,6 +164,7 @@ export const authService = {
         'pcp.lines.manage',
         'pcp.quality.view',
         'pcp.carteira.view',
+        'pcp.faca.view',
         'pcp.production.view',
       ]
     }
@@ -178,6 +180,7 @@ export const authService = {
         'pcp.inventory.overview',
         'pcp.quality.view',
         'pcp.carteira.view',
+        'pcp.faca.view',
         'pcp.production.view',
       ]
     }
@@ -226,6 +229,7 @@ export const authService = {
         'pcp.carteira.view',
         'pcp.carteira.import',
         'pcp.carteira.reconcile',
+        'pcp.faca.view',
         'pcp.production.view',
         'pcp.production.close',
       ]
@@ -252,6 +256,7 @@ export const authService = {
         'pcp.carteira.view',
         'pcp.carteira.import',
         'pcp.carteira.reconcile',
+        'pcp.faca.view',
         'pcp.production.view',
         'pcp.production.close',
       ]
@@ -273,6 +278,7 @@ export const authService = {
         'pcp.quality.view',
         'pcp.meeting.view',
         'pcp.carteira.view',
+        'pcp.faca.view',
         'pcp.production.view',
         'pcp.production.close',
       ]
@@ -287,6 +293,7 @@ export const authService = {
         'pcp.production.admin',
         'pcp.quality.view',
         'pcp.carteira.view',
+        'pcp.faca.view',
       ]
     }
     if (roleUpper === 'OPERATOR' || roleUpper === 'OPERADOR' || roleUpper === 'PRODUCTION_VIEWER') {
@@ -295,10 +302,17 @@ export const authService = {
         'pcp.schedule.view',
         'pcp.quality.view',
         'pcp.carteira.view',
+        'pcp.faca.view',
         'pcp.production.view',
       ]
     }
-    return ['pcp.cockpit.view', 'pcp.schedule.view', 'pcp.carteira.view', 'pcp.production.view']
+    return [
+      'pcp.cockpit.view',
+      'pcp.schedule.view',
+      'pcp.carteira.view',
+      'pcp.faca.view',
+      'pcp.production.view',
+    ]
   },
 
   /**

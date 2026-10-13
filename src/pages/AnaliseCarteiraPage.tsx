@@ -330,7 +330,6 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           1. Carteira Geral
         </button>
-
         <button
           onClick={() => handleSelectTab('L1')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
@@ -341,7 +340,6 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           2. Carteira L1
         </button>
-
         <button
           onClick={() => handleSelectTab('L2')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
@@ -352,7 +350,6 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           3. Carteira L2
         </button>
-
         <button
           onClick={() => handleSelectTab('MTO')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
@@ -363,7 +360,6 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           4. Carteira MTO
         </button>
-
         <button
           onClick={() => handleSelectTab('REVENDA')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
@@ -374,7 +370,6 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           5. Carteira Revenda
         </button>
-
         <button
           onClick={() => handleSelectTab('IMPORTADO')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
@@ -385,7 +380,6 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           6. Carteira Importado
         </button>
-
         <button
           onClick={() => handleSelectTab('SDC')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
@@ -396,34 +390,33 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           7. Carteira SDC
         </button>
-
         <button
           onClick={() => navigate('/pcp/analise-carteira/kpis')}
           className="px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 border-transparent text-[#004C97] hover:text-[#003870] hover:bg-blue-50/50 font-semibold"
         >
           8. KPI's - Carteira
         </button>
-
         <button
           onClick={() => navigate('/pcp/analise-carteira/cancelados')}
           className="px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 border-transparent text-rose-700 hover:text-rose-900 hover:bg-rose-50/50"
         >
           9. Pedidos Cancelados
         </button>
-
         <button
           onClick={() => navigate('/pcp/analise-carteira/carteira-minima-nao-atingida')}
           className="px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 border-transparent text-amber-700 hover:text-amber-900 hover:bg-amber-50/50"
         >
           10. Carteira Mínima
         </button>
-
         <button
           onClick={() => navigate('/pcp/analise-carteira/faca')}
           className="px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 border-transparent text-[#004C97] hover:text-[#003870] hover:bg-blue-50/50 bg-blue-50/30"
         >
           11. Análise de FACA
-        </button>
+          <span className="text-[10px] bg-[#004C97] text-white px-1.5 py-0.2 rounded font-extrabold ml-1">
+            Novo
+          </span>
+        </button>{' '}
       </div>
 
       <div className="pt-1">

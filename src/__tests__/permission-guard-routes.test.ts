@@ -41,6 +41,20 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     expect(linePerms).toContain('pcp.carteira.view')
   })
 
+  it('should have pcp.faca.view permission registered for pcp and authorized roles', () => {
+    const adminPerms = authService.getPermissionsForRole('PCP_ADMIN')
+    expect(adminPerms).toContain('pcp.faca.view')
+
+    const progPerms = authService.getPermissionsForRole('PCP_PROGRAMMER')
+    expect(progPerms).toContain('pcp.faca.view')
+
+    const planPerms = authService.getPermissionsForRole('PCP_PLANNER')
+    expect(planPerms).toContain('pcp.faca.view')
+
+    const linePerms = authService.getPermissionsForRole('LINE_MANAGER')
+    expect(linePerms).toContain('pcp.faca.view')
+  })
+
   it('should verify roles have masterdata and lines view and manage permissions', () => {
     const roles = [
       'PCP_ADMIN',

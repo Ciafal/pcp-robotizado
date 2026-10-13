@@ -36,25 +36,25 @@ export class FacaAnaliseService {
         sort: 'codigo_material',
         requestKey: null,
       })
-      return records.map((r) => ({
+      return records.map((r: any) => ({
         id: r.id,
-        codigo_material: r.codigo_material,
-        descricao_material: r.descricao_material || '',
+        codigo_material: r.codigo_material || r.codigo_material_sap || '',
+        descricao_material: r.descricao_material || r.descricao || '',
         grupo_faca: r.grupo_faca || 'FACAS DIVERSAS',
         familia: r.familia || 'BARRAS CHATAS',
-        bitola: r.bitola || '',
+        bitola: r.bitola || (r.bitola_mm ? `${r.bitola_mm} mm` : ''),
         tipo_aco: r.tipo_aco || '',
-        dimensoes: r.dimensoes || '',
+        dimensoes: r.dimensoes || r.dimensoes_comprimento || '',
         comprimento_mm: Number(r.comprimento_mm || 0),
         centro: r.centro || '1100',
         empresa: r.empresa || 'CIAFAL',
         linha_preferencial: r.linha_preferencial || 'L1',
-        carteira_minima_lam_t: Number(r.carteira_minima_lam_t || 30.0),
-        is_mto: Boolean(r.is_mto),
-        classificacao_sap_origem: r.classificacao_sap_origem || 'SAP_ECC',
+        carteira_minima_lam_t: Number(r.carteira_minima_lam_t ?? r.carteira_minima_t ?? 30.0),
+        is_mto: Boolean(r.is_mto ?? r.flag_mto),
+        classificacao_sap_origem: r.classificacao_sap_origem || r.origem_classificacao || 'SAP_ECC',
         homologado_por: r.homologado_por || 'PCP',
         ativo: Boolean(r.ativo),
-        observacoes_tecnicas: r.observacoes_tecnicas || '',
+        observacoes_tecnicas: r.observacoes_tecnicas || r.observacoes || '',
       }))
     } catch (err) {
       console.warn('[FacaAnaliseService] Erro ao carregar materiais parametrizados:', err)
@@ -111,21 +111,48 @@ export class FacaAnaliseService {
   static async salvarMaterialParametrizado(
     material: Partial<FacaMaterialParametrizado>,
   ): Promise<void> {
+    const payload: Record<string, any> = {
+      codigo_material: material.codigo_material,
+      codigo_material_sap: material.codigo_material,
+      descricao_material: material.descricao_material,
+      descricao: material.descricao_material,
+      grupo_faca: material.grupo_faca,
+      familia: material.familia,
+      bitola: material.bitola,
+      tipo_aco: material.tipo_aco,
+      dimensoes: material.dimensoes,
+      dimensoes_comprimento: material.dimensoes,
+      comprimento_mm: material.comprimento_mm,
+      centro: material.centro || '1100',
+      empresa: material.empresa || 'CIAFAL',
+      linha_preferencial: material.linha_preferencial || 'L1',
+      carteira_minima_lam_t: material.carteira_minima_lam_t,
+      carteira_minima_t: material.carteira_minima_lam_t,
+      is_mto: material.is_mto,
+      flag_mto: material.is_mto,
+      classificacao_sap_origem: material.classificacao_sap_origem,
+      origem_classificacao: material.classificacao_sap_origem,
+      homologado_por: material.homologado_por || 'PCP',
+      ativo: material.ativo !== undefined ? material.ativo : true,
+      observacoes_tecnicas: material.observacoes_tecnicas,
+      observacoes: material.observacoes_tecnicas,
+    }
+
     if (material.id) {
-      await pb.collection('faca_parametrizacao_materiais').update(material.id, material)
+      await pb.collection('faca_parametrizacao_materiais').update(material.id, payload)
       await this.registrarAuditLog({
         acao: 'EDIÇÃO_PARAMETRIZACAO_MATERIAL',
         recursoId: material.codigo_material,
         motivo: `Atualização de parâmetros técnicos do material FACA ${material.codigo_material}`,
-        detalhes: { material },
+        detalhes: { material: payload },
       })
     } else {
-      await pb.collection('faca_parametrizacao_materiais').create(material)
+      await pb.collection('faca_parametrizacao_materiais').create(payload)
       await this.registrarAuditLog({
         acao: 'CADASTRO_PARAMETRIZACAO_MATERIAL',
         recursoId: material.codigo_material,
         motivo: `Cadastro de novo material homologado FACA ${material.codigo_material}`,
-        detalhes: { material },
+        detalhes: { material: payload },
       })
     }
   }
@@ -140,18 +167,18 @@ export class FacaAnaliseService {
         sort: 'codigo_pa,prioridade_consumo',
         requestKey: null,
       })
-      return records.map((r) => ({
+      return records.map((r: any) => ({
         id: r.id,
-        codigo_pa: r.codigo_pa,
+        codigo_pa: r.codigo_pa || r.codigo_pa_sap || '',
         descricao_pa: r.descricao_pa || '',
-        codigo_mp: r.codigo_mp,
+        codigo_mp: r.codigo_mp || r.codigo_mp_sap || '',
         descricao_mp: r.descricao_mp || '',
         tipo_aco_mp: r.tipo_aco_mp || '',
         bitola_mp: r.bitola_mp || '',
         dimensoes_mp: r.dimensoes_mp || '',
         rendimento_transformacao: Number(r.rendimento_transformacao || 0.92),
         perdas_previstas_pct: Number(r.perdas_previstas_pct || 8.0),
-        origem_cadastro: r.origem_cadastro || 'Ficha Mestra do PCP',
+        origem_cadastro: r.origem_cadastro || r.origem_vinculo || 'Ficha Mestra do PCP',
         prioridade_consumo: Number(r.prioridade_consumo || 1),
         centro: r.centro || '1100',
         ativo: Boolean(r.ativo),
@@ -167,21 +194,41 @@ export class FacaAnaliseService {
    * Salva vínculo PA x MP
    */
   static async salvarVinculoPaMp(vinculo: Partial<FacaVinculoPaMp>): Promise<void> {
+    const payload: Record<string, any> = {
+      codigo_pa: vinculo.codigo_pa,
+      codigo_pa_sap: vinculo.codigo_pa,
+      descricao_pa: vinculo.descricao_pa,
+      codigo_mp: vinculo.codigo_mp,
+      codigo_mp_sap: vinculo.codigo_mp,
+      descricao_mp: vinculo.descricao_mp,
+      tipo_aco_mp: vinculo.tipo_aco_mp,
+      bitola_mp: vinculo.bitola_mp,
+      dimensoes_mp: vinculo.dimensoes_mp,
+      rendimento_transformacao: vinculo.rendimento_transformacao,
+      perdas_previstas_pct: vinculo.perdas_previstas_pct,
+      origem_cadastro: vinculo.origem_cadastro,
+      origem_vinculo: vinculo.origem_cadastro,
+      prioridade_consumo: vinculo.prioridade_consumo,
+      centro: vinculo.centro || '1100',
+      ativo: vinculo.ativo !== undefined ? vinculo.ativo : true,
+      notas_tecnicas: vinculo.notas_tecnicas,
+    }
+
     if (vinculo.id) {
-      await pb.collection('faca_vinculo_pa_mp').update(vinculo.id, vinculo)
+      await pb.collection('faca_vinculo_pa_mp').update(vinculo.id, payload)
       await this.registrarAuditLog({
         acao: 'EDIÇÃO_VINCULO_PA_MP',
         recursoId: `${vinculo.codigo_pa}_${vinculo.codigo_mp}`,
         motivo: `Atualização de vínculo técnico PA ${vinculo.codigo_pa} x MP ${vinculo.codigo_mp}`,
-        detalhes: { vinculo },
+        detalhes: { vinculo: payload },
       })
     } else {
-      await pb.collection('faca_vinculo_pa_mp').create(vinculo)
+      await pb.collection('faca_vinculo_pa_mp').create(payload)
       await this.registrarAuditLog({
         acao: 'CADASTRO_VINCULO_PA_MP',
         recursoId: `${vinculo.codigo_pa}_${vinculo.codigo_mp}`,
         motivo: `Cadastro de vínculo PA ${vinculo.codigo_pa} x MP ${vinculo.codigo_mp} (Rendimento: ${vinculo.rendimento_transformacao})`,
-        detalhes: { vinculo },
+        detalhes: { vinculo: payload },
       })
     }
   }
