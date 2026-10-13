@@ -259,7 +259,16 @@ export const FacaEnvioEmailModal: React.FC<FacaEnvioEmailModalProps> = ({
             <Input
               className="h-8 text-xs font-mono"
               value={destinatariosPara}
-              onChange={(e) => setDestinatariosPara(e.target.value)}
+              onChange={(e) => {
+                const novoPara = e.target.value
+                setDestinatariosPara(novoPara)
+                FacaAnaliseService.registrarAuditLog({
+                  acao: 'ALTERACAO_DESTINATARIOS_FACA',
+                  recursoId: analiseId || 'FACA_DESTINATARIOS',
+                  motivo: 'Alteração do campo Para nos destinatários do comunicado FACA',
+                  detalhes: { novo_para: novoPara },
+                })
+              }}
             />
           </div>
 
@@ -269,7 +278,16 @@ export const FacaEnvioEmailModal: React.FC<FacaEnvioEmailModalProps> = ({
             <Input
               className="h-8 text-xs font-mono"
               value={destinatariosCc}
-              onChange={(e) => setDestinatariosCc(e.target.value)}
+              onChange={(e) => {
+                const novoCc = e.target.value
+                setDestinatariosCc(novoCc)
+                FacaAnaliseService.registrarAuditLog({
+                  acao: 'ALTERACAO_DESTINATARIOS_FACA',
+                  recursoId: analiseId || 'FACA_DESTINATARIOS',
+                  motivo: 'Alteração do campo Cc nos destinatários do comunicado FACA',
+                  detalhes: { novo_cc: novoCc },
+                })
+              }}
             />
           </div>
 

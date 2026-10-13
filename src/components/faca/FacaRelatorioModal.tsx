@@ -98,6 +98,17 @@ export const FacaRelatorioModal: React.FC<FacaRelatorioModalProps> = ({
   }
 
   const handleImprimirPdf = () => {
+    FacaAnaliseService.registrarAuditLog({
+      acao: 'EXPORTACAO_PDF_ANALISE_FACA',
+      recursoId: `FACA-v${relatorio.versao}-${relatorio.data_referencia}`,
+      motivo: `Exportação de relatório PDF / Impressão A4 (versão ${relatorio.versao})`,
+      detalhes: {
+        versao: relatorio.versao,
+        data_referencia: relatorio.data_referencia,
+        empresa: relatorio.empresa,
+        centro: relatorio.centro,
+      },
+    })
     window.print()
   }
 

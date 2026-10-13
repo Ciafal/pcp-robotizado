@@ -42,8 +42,10 @@ import {
 } from '@/types/faca-analise'
 import { FacaAnaliseService } from '@/services/faca-analise-service'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/contexts/AuthContext'
 
 export const AnaliseFacaPage: React.FC = () => {
+  const { can } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -341,33 +343,39 @@ export const AnaliseFacaPage: React.FC = () => {
 
         {/* Barra de Ações Principais (Etapas 4 e 5) */}
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            onClick={handleGerarAnaliseIA}
-            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 shadow-xs"
-          >
-            <Sparkles className="w-3.5 h-3.5" /> Gerar Análise IA
-          </Button>
+          {can('pcp.faca.generate') && (
+            <Button
+              size="sm"
+              onClick={handleGerarAnaliseIA}
+              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 shadow-xs"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Gerar Análise IA
+            </Button>
+          )}
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsRelatorioModalOpen(true)}
-            disabled={!relatorioAtual}
-            className="text-xs font-semibold gap-1.5"
-          >
-            <FileText className="w-3.5 h-3.5 text-[#004C97]" /> Editar Relatório
-          </Button>
+          {can('pcp.faca.edit') && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsRelatorioModalOpen(true)}
+              disabled={!relatorioAtual}
+              className="text-xs font-semibold gap-1.5"
+            >
+              <FileText className="w-3.5 h-3.5 text-[#004C97]" /> Editar Relatório
+            </Button>
+          )}
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsEmailModalOpen(true)}
-            disabled={!relatorioAtual}
-            className="text-xs font-semibold gap-1.5"
-          >
-            <Mail className="w-3.5 h-3.5 text-blue-700" /> Visualizar / Enviar E-mail
-          </Button>
+          {can('pcp.faca.send') && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsEmailModalOpen(true)}
+              disabled={!relatorioAtual}
+              className="text-xs font-semibold gap-1.5"
+            >
+              <Mail className="w-3.5 h-3.5 text-blue-700" /> Visualizar / Enviar E-mail
+            </Button>
+          )}
 
           <Button
             size="sm"
