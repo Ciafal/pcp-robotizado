@@ -410,6 +410,20 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           9. Pedidos Cancelados
         </button>
+
+        <button
+          onClick={() => navigate('/pcp/analise-carteira/carteira-minima-nao-atingida')}
+          className="px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 border-transparent text-amber-700 hover:text-amber-900 hover:bg-amber-50/50"
+        >
+          10. Carteira Mínima
+        </button>
+
+        <button
+          onClick={() => navigate('/pcp/analise-carteira/faca')}
+          className="px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 border-transparent text-[#004C97] hover:text-[#003870] hover:bg-blue-50/50 bg-blue-50/30"
+        >
+          11. Análise de FACA
+        </button>
       </div>
 
       <div className="pt-1">

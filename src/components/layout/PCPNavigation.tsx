@@ -534,6 +534,13 @@ const navSections: NavSectionItem[] = [
         badge: 'Novo',
         permission: 'pcp.carteira.view',
       },
+      {
+        title: 'Análise de FACA',
+        href: '/pcp/analise-carteira/faca',
+        icon: Scissors,
+        badge: 'Novo',
+        permission: 'pcp.faca.view',
+      },
     ],
   },
   {
@@ -1082,6 +1089,13 @@ export const officialNavGroups: NavGroup[] = [
         icon: Scale,
         badge: 'Novo',
         permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Análise de FACA',
+        href: '/pcp/analise-carteira/faca',
+        icon: Scissors,
+        badge: 'Novo',
+        permission: 'pcp.faca.view',
       },
     ],
   },
@@ -1684,35 +1698,42 @@ export const PCPSidebar: React.FC = () => {
                                                           location.pathname.startsWith(
                                                             '/pcp/analise-carteira/carteira-minima',
                                                           )
-                                                        : item.href ===
-                                                            '/pcp/analise-carteira/cancelados'
+                                                        : item.href === '/pcp/analise-carteira/faca'
                                                           ? location.pathname ===
-                                                              '/pcp/analise-carteira/cancelados' ||
+                                                              '/pcp/analise-carteira/faca' ||
                                                             location.pathname.startsWith(
-                                                              '/pcp/pedidos-cancelados',
+                                                              '/pcp/analise-carteira/faca',
                                                             )
                                                           : item.href ===
-                                                              '/pcp/motivos-justificativas'
-                                                            ? location.pathname.startsWith(
-                                                                '/pcp/motivos',
-                                                              ) ||
+                                                              '/pcp/analise-carteira/cancelados'
+                                                            ? location.pathname ===
+                                                                '/pcp/analise-carteira/cancelados' ||
                                                               location.pathname.startsWith(
-                                                                '/pcp/justificativas',
+                                                                '/pcp/pedidos-cancelados',
                                                               )
-                                                            : item.href === '/pcp/admin/acessos'
+                                                            : item.href ===
+                                                                '/pcp/motivos-justificativas'
                                                               ? location.pathname.startsWith(
-                                                                  '/pcp/admin',
+                                                                  '/pcp/motivos',
                                                                 ) ||
                                                                 location.pathname.startsWith(
-                                                                  '/pcp/configuracoes',
+                                                                  '/pcp/justificativas',
                                                                 )
-                                                              : group.groupTitle === 'CADASTROS'
-                                                                ? location.pathname === item.href
-                                                                : location.pathname === item.href ||
-                                                                  (item.href.includes('?') &&
-                                                                    location.pathname +
-                                                                      location.search ===
-                                                                      item.href)
+                                                              : item.href === '/pcp/admin/acessos'
+                                                                ? location.pathname.startsWith(
+                                                                    '/pcp/admin',
+                                                                  ) ||
+                                                                  location.pathname.startsWith(
+                                                                    '/pcp/configuracoes',
+                                                                  )
+                                                                : group.groupTitle === 'CADASTROS'
+                                                                  ? location.pathname === item.href
+                                                                  : location.pathname ===
+                                                                      item.href ||
+                                                                    (item.href.includes('?') &&
+                                                                      location.pathname +
+                                                                        location.search ===
+                                                                        item.href)
 
                     const isProducaoChild = group.groupTitle === 'CONTROLE DE PRODUÇÃO'
 

@@ -334,10 +334,13 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const isCarteiraRouteOrPerm =
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
+    permission === 'pcp.faca.view' ||
+    permission.startsWith('pcp.faca.') ||
     currentPathname.includes('analise-carteira') ||
     currentPathname.includes('carteira') ||
     currentPathname.includes('cancelados') ||
     currentPathname.includes('kpis') ||
+    currentPathname.includes('faca') ||
     currentPathname.startsWith('/pcp/analise-carteira') ||
     currentPathname.startsWith('/pcp-robotizado/analise-carteira') ||
     currentPathname.startsWith('/analise-carteira') ||

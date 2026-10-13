@@ -141,6 +141,13 @@ const CarteiraMinimaNaoAtingidaPage = lazyWithRetry(
     })),
   'CarteiraMinimaNaoAtingidaPage',
 )
+const AnaliseFacaPage = lazyWithRetry(
+  () =>
+    import('@/pages/AnaliseFacaPage').then((m) => ({
+      default: m.default ?? m.AnaliseFacaPage,
+    })),
+  'AnaliseFacaPage',
+)
 const KpisCarteiraPage = lazyWithRetry(
   () =>
     import('@/pages/KpisCarteiraPage').then((m) => ({
@@ -1101,6 +1108,24 @@ export const App: React.FC = () => {
                           </RouteErrorBoundary>
                         </PermissionGuard>
                       }
+                    />
+                    <Route
+                      path="/pcp/analise-carteira/faca"
+                      element={
+                        <PermissionGuard permission="pcp.faca.view">
+                          <RouteErrorBoundary moduleName="Análise de FACA">
+                            <AnaliseFacaPage />
+                          </RouteErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/analise-faca"
+                      element={<Navigate to="/pcp/analise-carteira/faca" replace />}
+                    />
+                    <Route
+                      path="/analise-faca"
+                      element={<Navigate to="/pcp/analise-carteira/faca" replace />}
                     />
                     <Route
                       path="/pcp/analise-carteira/carteira-minima"
