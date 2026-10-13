@@ -120,7 +120,7 @@ describe('Análise de FACA — Regras Técnicas, Cálculos e Cenários Mandatór
     spyAudit.mockRestore()
   })
 
-  it('Cenário 7: Auditoria em pcp_audit_logs para operações da Análise de FACA', async () => {
+  it('Cenário 7: Auditoria em pcp_audit_logs para operações da Análise de FACA com rastreabilidade de valores', async () => {
     const spyAudit = vi
       .spyOn(pb.collection('pcp_audit_logs'), 'create')
       .mockResolvedValueOnce({ id: 'log-1' } as any)
@@ -131,6 +131,10 @@ describe('Análise de FACA — Regras Técnicas, Cálculos e Cenários Mandatór
       usuarioNome: 'Gestor PCP',
       usuarioEmail: 'gestor@ciafal.com.br',
       motivo: 'Aprovação executiva de relatório de FACA',
+      detalhes: {
+        valores_anteriores: { status: 'RASCUNHO' },
+        valores_posteriores: { status: 'APROVADO' },
+      },
     })
 
     expect(spyAudit).toHaveBeenCalledWith(
@@ -139,9 +143,40 @@ describe('Análise de FACA — Regras Técnicas, Cálculos e Cenários Mandatór
         module: 'ANALISE_DE_CARTEIRA',
         screen: 'Análise de FACA',
         company: 'CIAFAL',
+        details: expect.objectContaining({
+          valores_anteriores: { status: 'RASCUNHO' },
+          valores_posteriores: { status: 'APROVADO' },
+        }),
       }),
     )
 
+    spyAudit.mockRestore()
+  })
+
+  it('Cenário 10: Parametrização e vínculos persistem auditoria e cálculo de MP com rendimento', async () => {
+    const spyCreateMat = vi
+      .spyOn(pb.collection('faca_parametrizacao_materiais'), 'create')
+      .mockResolvedValueOnce({ id: 'param-1' } as any)
+    const spyAudit = vi
+      .spyOn(pb.collection('pcp_audit_logs'), 'create')
+      .mockResolvedValueOnce({ id: 'log-2' } as any)
+
+    await FacaAnaliseService.salvarMaterialParametrizado({
+      codigo_material: 'FACA-TEST-001',
+      descricao_material: 'TESTE FACA',
+      grupo_faca: 'FACAS AGRÍCOLAS',
+      centro: '1100',
+      carteira_minima_lam_t: 30,
+    })
+
+    expect(spyCreateMat).toHaveBeenCalled()
+    expect(spyAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'CADASTRO_PARAMETRIZACAO_MATERIAL',
+      }),
+    )
+
+    spyCreateMat.mockRestore()
     spyAudit.mockRestore()
   })
 

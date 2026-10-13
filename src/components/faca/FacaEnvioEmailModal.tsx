@@ -108,6 +108,15 @@ export const FacaEnvioEmailModal: React.FC<FacaEnvioEmailModalProps> = ({
 
   const [corpoHtml, setCorpoHtml] = useState<string>(corpoHtmlPadrao)
 
+  React.useEffect(() => {
+    if (relatorio) {
+      setCorpoHtml(corpoHtmlPadrao)
+      setAssunto(
+        `FACA | Análise de Carteira, Matéria-Prima e Previsão de Faturamento | ${relatorio.data_referencia || hoje}`,
+      )
+    }
+  }, [relatorio])
+
   if (!relatorio) return null
 
   const toggleArea = (area: string) => {

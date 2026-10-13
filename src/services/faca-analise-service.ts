@@ -144,7 +144,11 @@ export class FacaAnaliseService {
         acao: 'EDIÇÃO_PARAMETRIZACAO_MATERIAL',
         recursoId: material.codigo_material,
         motivo: `Atualização de parâmetros técnicos do material FACA ${material.codigo_material}`,
-        detalhes: { material: payload },
+        detalhes: {
+          valores_anteriores: { id: material.id },
+          valores_posteriores: payload,
+          material: payload,
+        },
       })
     } else {
       await pb.collection('faca_parametrizacao_materiais').create(payload)
@@ -152,7 +156,11 @@ export class FacaAnaliseService {
         acao: 'CADASTRO_PARAMETRIZACAO_MATERIAL',
         recursoId: material.codigo_material,
         motivo: `Cadastro de novo material homologado FACA ${material.codigo_material}`,
-        detalhes: { material: payload },
+        detalhes: {
+          valores_anteriores: null,
+          valores_posteriores: payload,
+          material: payload,
+        },
       })
     }
   }
@@ -220,7 +228,11 @@ export class FacaAnaliseService {
         acao: 'EDIÇÃO_VINCULO_PA_MP',
         recursoId: `${vinculo.codigo_pa}_${vinculo.codigo_mp}`,
         motivo: `Atualização de vínculo técnico PA ${vinculo.codigo_pa} x MP ${vinculo.codigo_mp}`,
-        detalhes: { vinculo: payload },
+        detalhes: {
+          valores_anteriores: { id: vinculo.id },
+          valores_posteriores: payload,
+          vinculo: payload,
+        },
       })
     } else {
       await pb.collection('faca_vinculo_pa_mp').create(payload)
@@ -228,7 +240,11 @@ export class FacaAnaliseService {
         acao: 'CADASTRO_VINCULO_PA_MP',
         recursoId: `${vinculo.codigo_pa}_${vinculo.codigo_mp}`,
         motivo: `Cadastro de vínculo PA ${vinculo.codigo_pa} x MP ${vinculo.codigo_mp} (Rendimento: ${vinculo.rendimento_transformacao})`,
-        detalhes: { vinculo: payload },
+        detalhes: {
+          valores_anteriores: null,
+          valores_posteriores: payload,
+          vinculo: payload,
+        },
       })
     }
   }
@@ -1023,7 +1039,7 @@ export class FacaAnaliseService {
 
     const created = await pb.collection('faca_analises_historico').create(recordData)
 
-    // Auditoria imutável do evento de análise
+    // Auditoria imutável do evento de análise com valores anteriores/posteriores
     const acaoAudit =
       status === 'APROVADO'
         ? 'APROVACAO_ANALISE_FACA'
@@ -1040,6 +1056,13 @@ export class FacaAnaliseService {
       detalhes: {
         codigo_analise: codigo,
         status,
+        valores_anteriores: status === 'REVISADO' ? { versao: (relatorio.versao || 1) - 1 } : null,
+        valores_posteriores: {
+          versao: relatorio.versao || 1,
+          status,
+          empresa: relatorio.empresa,
+          centro: relatorio.centro,
+        },
         carteira_total_t: relatorio.situacao_carteira_estoque?.length,
       },
     })
@@ -1143,7 +1166,7 @@ export class FacaAnaliseService {
 
     const created = await pb.collection('faca_envios_email').create(recordData)
 
-    // Auditoria de tentativa de envio de e-mail / PDF em pcp_audit_logs
+    // Auditoria de tentativa de envio de e-mail / PDF em pcp_audit_logs com valores anteriores/posteriores
     await this.registrarAuditLog({
       acao: 'TENTATIVA_ENVIO_EMAIL_FACA',
       recursoId: codigoEnvio,
@@ -1159,6 +1182,8 @@ export class FacaAnaliseService {
         areas: dados.areas_envolvidas,
         anexo_pdf: dados.anexo_pdf_gerado,
         status_real: statusEnvio,
+        valores_anteriores: { status_envio: 'NAO_DISPARADO' },
+        valores_posteriores: { status_envio: statusEnvio, sucesso: false },
       },
     })
 

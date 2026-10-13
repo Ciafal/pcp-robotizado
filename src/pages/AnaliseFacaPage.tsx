@@ -377,14 +377,16 @@ export const AnaliseFacaPage: React.FC = () => {
             </Button>
           )}
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsParamModalOpen(true)}
-            className="text-xs font-semibold gap-1.5"
-          >
-            <Sliders className="w-3.5 h-3.5 text-slate-700" /> Parametrização
-          </Button>
+          {can('pcp.faca.manage_params') && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsParamModalOpen(true)}
+              className="text-xs font-semibold gap-1.5"
+            >
+              <Sliders className="w-3.5 h-3.5 text-slate-700" /> Parametrização
+            </Button>
+          )}
 
           <Button
             size="sm"

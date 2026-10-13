@@ -32,6 +32,7 @@ import {
   Download,
 } from 'lucide-react'
 import { FacaRelatorioExecutivo } from '@/types/faca-analise'
+import { FacaAnaliseService } from '@/services/faca-analise-service'
 import { formatNumberPtBr } from '@/lib/number-format'
 import { useToast } from '@/hooks/use-toast'
 
@@ -107,6 +108,12 @@ export const FacaRelatorioModal: React.FC<FacaRelatorioModalProps> = ({
         data_referencia: relatorio.data_referencia,
         empresa: relatorio.empresa,
         centro: relatorio.centro,
+        valores_anteriores: null,
+        valores_posteriores: {
+          versao: relatorio.versao,
+          titulo: relatorio.titulo,
+          itens_count: relatorio.situacao_carteira_estoque?.length,
+        },
       },
     })
     window.print()
