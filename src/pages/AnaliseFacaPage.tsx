@@ -490,3 +490,5 @@ export const AnaliseFacaPage: React.FC = () => {
     </div>
   )
 }
+
+export default AnaliseFacaPage

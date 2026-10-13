@@ -68,14 +68,20 @@ export const parseBrNumber = parsePtBrNumber
  */
 export function formatNumberPtBr(
   val: number | string | null | undefined,
-  options?: { minimumFractionDigits?: number; maximumFractionDigits?: number },
+  optionsOrDecimals?: number | { minimumFractionDigits?: number; maximumFractionDigits?: number },
 ): string {
   if (val == null || val === '') return ''
   const num = typeof val === 'number' ? val : parsePtBrNumber(val)
   if (isNaN(num)) return ''
+  if (typeof optionsOrDecimals === 'number') {
+    return num.toLocaleString('pt-BR', {
+      minimumFractionDigits: optionsOrDecimals,
+      maximumFractionDigits: optionsOrDecimals,
+    })
+  }
   return num.toLocaleString('pt-BR', {
-    minimumFractionDigits: options?.minimumFractionDigits ?? 0,
-    maximumFractionDigits: options?.maximumFractionDigits ?? 3,
+    minimumFractionDigits: optionsOrDecimals?.minimumFractionDigits ?? 0,
+    maximumFractionDigits: optionsOrDecimals?.maximumFractionDigits ?? 3,
   })
 }
 

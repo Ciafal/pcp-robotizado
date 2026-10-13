@@ -151,4 +151,36 @@ describe('Análise de FACA — Regras Técnicas, Cálculos e Cenários Mandatór
     expect(clientModule.default).toBeDefined()
     expect(clientModule.pb).toBe(clientModule.default)
   })
+
+  it('Cenário 8: Diagnóstico IA cobre as 6 situações oficiais A, B, C, D, E, F sem dados fictícios', async () => {
+    const dados = await FacaAnaliseService.getDadosAnaliticosCompletos()
+    const tiposAlertas = dados.alertasIA.map((a) => a.tipo)
+
+    expect(tiposAlertas).toContain('A_ESTOQUE_SEM_FATURAMENTO')
+    expect(tiposAlertas).toContain('B_PEDIDO_SUPERIOR_ESTOQUE')
+    expect(tiposAlertas).toContain('C_CARTEIRA_MINIMA_NAO_ATINGIDA')
+    expect(tiposAlertas).toContain('D_PRODUCAO_POSTERIOR_CAMPANHA')
+    expect(tiposAlertas).toContain('E_PEDIDO_CANCELADO_ESTOQUE_REMANESCENTE')
+    expect(tiposAlertas).toContain('F_MP_INSUFICIENTE')
+
+    // Assegura que todas as recomendações possuem área responsável e ação concreta
+    dados.alertasIA.forEach((alerta) => {
+      expect(alerta.area_responsavel).toBeTruthy()
+      expect(alerta.acao_sugerida).toBeTruthy()
+      expect(alerta.motivo_tecnico).toBeTruthy()
+    })
+  })
+
+  it('Cenário 9: Ausência de dado na integração mostra explicitamente indicação de não disponível', async () => {
+    // Para material sem pedido e sem entrega futura, data prevista é "-" e observação é explícita
+    const dados = await FacaAnaliseService.getDadosAnaliticosCompletos()
+    const itemEstoqueLivre = dados.itens.find(
+      (i) => i.status_atendimento === 'SEM_PEDIDO_ESTOQUE_LIVRE',
+    )
+
+    expect(itemEstoqueLivre).toBeDefined()
+    expect(itemEstoqueLivre?.pedido_sap).toBe('N/A')
+    expect(itemEstoqueLivre?.data_prevista_entrega).toBe('-')
+    expect(itemEstoqueLivre?.previsao_faturamento).toBe('NAO_APLICAVEL')
+  })
 })
