@@ -66,9 +66,8 @@ export const FacaEnvioEmailModal: React.FC<FacaEnvioEmailModalProps> = ({
     `FACA | Análise de Carteira, Matéria-Prima e Previsão de Faturamento | ${hoje}`,
   )
 
-  if (!relatorio) return null
-
-  const corpoHtmlPadrao = `
+  const corpoHtmlPadrao = relatorio
+    ? `
 <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 800px;">
   <div style="border-bottom: 3px solid #004C97; padding-bottom: 12px; margin-bottom: 16px;">
     <h2 style="color: #004C97; margin: 0 0 4px 0;">CIAFAL — ANÁLISE DE FACA (PCP ROBOTIZADO)</h2>
@@ -105,8 +104,11 @@ export const FacaEnvioEmailModal: React.FC<FacaEnvioEmailModalProps> = ({
   </div>
 </div>
 `
+    : ''
 
   const [corpoHtml, setCorpoHtml] = useState<string>(corpoHtmlPadrao)
+
+  if (!relatorio) return null
 
   const toggleArea = (area: string) => {
     if (areasSelecionadas.includes(area)) {

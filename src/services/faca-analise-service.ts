@@ -65,13 +65,68 @@ export class FacaAnaliseService {
   /**
    * Salva ou atualiza um material na parametrização
    */
+  /**
+   * Helper unificado de registro de log de auditoria em pcp_audit_logs
+   */
+  static async registrarAuditLog(params: {
+    acao: string
+    usuarioNome?: string
+    usuarioEmail?: string
+    recursoId?: string
+    motivo?: string
+    resultado?: 'SUCCESS' | 'FAILED'
+    detalhes?: Record<string, any>
+  }): Promise<void> {
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        action: params.acao,
+        company: 'CIAFAL',
+        module: 'ANALISE_DE_CARTEIRA',
+        screen: 'Análise de FACA',
+        resource: 'FACA_ANALISE',
+        resource_id: params.recursoId || '',
+        record_id: params.recursoId || '',
+        user_name: params.usuarioNome || 'Programador PCP',
+        user_email: params.usuarioEmail || 'pcp@ciafal.com.br',
+        line: 'L1',
+        center: '1100',
+        status: params.resultado === 'FAILED' ? 'Falha' : 'Concluído',
+        outcome: params.resultado || 'SUCCESS',
+        event_type: 'SCHEDULE_ACTION',
+        reason: params.motivo || `[FACA] ${params.acao}`,
+        details: {
+          origem: 'FacaAnaliseService',
+          modulo: 'PCP Robotizado > Análise de Carteira > Análise de FACA',
+          ...(params.detalhes || {}),
+        },
+      })
+    } catch {
+      // Falha silenciosa para não quebrar fluxo da aplicação
+    }
+  }
+
+  /**
+   * Salva ou atualiza um material na parametrização
+   */
   static async salvarMaterialParametrizado(
     material: Partial<FacaMaterialParametrizado>,
   ): Promise<void> {
     if (material.id) {
       await pb.collection('faca_parametrizacao_materiais').update(material.id, material)
+      await this.registrarAuditLog({
+        acao: 'EDIÇÃO_PARAMETRIZACAO_MATERIAL',
+        recursoId: material.codigo_material,
+        motivo: `Atualização de parâmetros técnicos do material FACA ${material.codigo_material}`,
+        detalhes: { material },
+      })
     } else {
       await pb.collection('faca_parametrizacao_materiais').create(material)
+      await this.registrarAuditLog({
+        acao: 'CADASTRO_PARAMETRIZACAO_MATERIAL',
+        recursoId: material.codigo_material,
+        motivo: `Cadastro de novo material homologado FACA ${material.codigo_material}`,
+        detalhes: { material },
+      })
     }
   }
 
@@ -114,8 +169,20 @@ export class FacaAnaliseService {
   static async salvarVinculoPaMp(vinculo: Partial<FacaVinculoPaMp>): Promise<void> {
     if (vinculo.id) {
       await pb.collection('faca_vinculo_pa_mp').update(vinculo.id, vinculo)
+      await this.registrarAuditLog({
+        acao: 'EDIÇÃO_VINCULO_PA_MP',
+        recursoId: `${vinculo.codigo_pa}_${vinculo.codigo_mp}`,
+        motivo: `Atualização de vínculo técnico PA ${vinculo.codigo_pa} x MP ${vinculo.codigo_mp}`,
+        detalhes: { vinculo },
+      })
     } else {
       await pb.collection('faca_vinculo_pa_mp').create(vinculo)
+      await this.registrarAuditLog({
+        acao: 'CADASTRO_VINCULO_PA_MP',
+        recursoId: `${vinculo.codigo_pa}_${vinculo.codigo_mp}`,
+        motivo: `Cadastro de vínculo PA ${vinculo.codigo_pa} x MP ${vinculo.codigo_mp} (Rendimento: ${vinculo.rendimento_transformacao})`,
+        detalhes: { vinculo },
+      })
     }
   }
 
@@ -908,6 +975,28 @@ export class FacaAnaliseService {
     }
 
     const created = await pb.collection('faca_analises_historico').create(recordData)
+
+    // Auditoria imutável do evento de análise
+    const acaoAudit =
+      status === 'APROVADO'
+        ? 'APROVACAO_ANALISE_FACA'
+        : status === 'REVISADO'
+          ? 'EDICAO_ANALISE_FACA'
+          : 'GERACAO_ANALISE_FACA'
+
+    await this.registrarAuditLog({
+      acao: acaoAudit,
+      recursoId: codigo,
+      usuarioNome: responsavelNome,
+      usuarioEmail: responsavelEmail,
+      motivo: `Registro de análise ${codigo} com status ${status}`,
+      detalhes: {
+        codigo_analise: codigo,
+        status,
+        carteira_total_t: relatorio.situacao_carteira_estoque?.length,
+      },
+    })
+
     return {
       id: created.id,
       codigo_analise: created.codigo_analise,
@@ -1006,6 +1095,25 @@ export class FacaAnaliseService {
     }
 
     const created = await pb.collection('faca_envios_email').create(recordData)
+
+    // Auditoria de tentativa de envio de e-mail / PDF em pcp_audit_logs
+    await this.registrarAuditLog({
+      acao: 'TENTATIVA_ENVIO_EMAIL_FACA',
+      recursoId: codigoEnvio,
+      usuarioNome: dados.remetente_nome,
+      usuarioEmail: dados.remetente_email,
+      resultado: 'FAILED',
+      motivo: `Tentativa de envio de e-mail da Análise ${dados.codigo_analise} abortada: SMTP não configurado`,
+      detalhes: {
+        codigo_envio: codigoEnvio,
+        codigo_analise: dados.codigo_analise,
+        destinatarios_para: dados.destinatarios_para,
+        destinatarios_cc: dados.destinatarios_cc,
+        areas: dados.areas_envolvidas,
+        anexo_pdf: dados.anexo_pdf_gerado,
+        status_real: statusEnvio,
+      },
+    })
 
     // Se houver análise vinculada, atualiza seu status para FALHA_ENVIO
     if (dados.analise_id) {

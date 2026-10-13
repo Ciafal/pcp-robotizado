@@ -1120,6 +1120,10 @@ export const App: React.FC = () => {
                       }
                     />
                     <Route
+                      path="/pcp/faca"
+                      element={<Navigate to="/pcp/analise-carteira/faca" replace />}
+                    />
+                    <Route
                       path="/pcp/analise-faca"
                       element={<Navigate to="/pcp/analise-carteira/faca" replace />}
                     />

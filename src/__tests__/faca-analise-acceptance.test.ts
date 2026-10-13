@@ -78,7 +78,7 @@ describe('Análise de FACA — Regras Técnicas, Cálculos e Cenários Mandatór
   })
 
   it('Cenário 5: Disparo de e-mail sem SMTP configurado registra falha auditável sem fingir sucesso', async () => {
-    // Mock pb.collection('faca_envios_email').create
+    // Mock pb.collection('faca_envios_email').create and pcp_audit_logs.create
     const spyCreate = vi.spyOn(pb.collection('faca_envios_email'), 'create').mockResolvedValueOnce({
       id: 'env-test-1',
       codigo_envio: 'ENV-2026-999999',
@@ -95,6 +95,10 @@ describe('Análise de FACA — Regras Técnicas, Cálculos e Cenários Mandatór
       status_envio: 'Falha de envio — serviço de e-mail (SMTP) não configurado no backend',
       mensagem_retorno: 'SMTP não configurado',
     } as any)
+
+    const spyAudit = vi
+      .spyOn(pb.collection('pcp_audit_logs'), 'create')
+      .mockResolvedValueOnce({} as any)
 
     const resultado = await FacaAnaliseService.registrarEnvioEmail({
       codigo_analise: 'FACA-TEST',
@@ -113,6 +117,32 @@ describe('Análise de FACA — Regras Técnicas, Cálculos e Cenários Mandatór
     expect(resultado.mensagem).toContain('SMTP')
 
     spyCreate.mockRestore()
+    spyAudit.mockRestore()
+  })
+
+  it('Cenário 7: Auditoria em pcp_audit_logs para operações da Análise de FACA', async () => {
+    const spyAudit = vi
+      .spyOn(pb.collection('pcp_audit_logs'), 'create')
+      .mockResolvedValueOnce({ id: 'log-1' } as any)
+
+    await FacaAnaliseService.registrarAuditLog({
+      acao: 'APROVACAO_ANALISE_FACA',
+      recursoId: 'FACA-2026-000001',
+      usuarioNome: 'Gestor PCP',
+      usuarioEmail: 'gestor@ciafal.com.br',
+      motivo: 'Aprovação executiva de relatório de FACA',
+    })
+
+    expect(spyAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'APROVACAO_ANALISE_FACA',
+        module: 'ANALISE_DE_CARTEIRA',
+        screen: 'Análise de FACA',
+        company: 'CIAFAL',
+      }),
+    )
+
+    spyAudit.mockRestore()
   })
 
   it('Cenário 6: Regra permanente — exportação dupla de pb em client.ts', async () => {
