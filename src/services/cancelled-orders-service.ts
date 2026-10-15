@@ -18,6 +18,7 @@ import { getPopulatedDemoOrders } from '@/data/cancelled-orders-seed'
 import { OFFICIAL_CANCELLATION_CATALOG } from '@/data/cancellation-reasons-catalog'
 import { pcpAuditService } from '@/services/pcp-audit-service'
 import { CancelledOrdersAIEngine } from '@/services/cancelled-orders-ai-engine'
+import { calculateOrderStockTemporalAnalysis } from '@/services/cancelled-orders-stock-temporal'
 import {
   crmRevisionIntegrationService,
   CreateRevisionRequestParams,
@@ -59,60 +60,103 @@ class CancelledOrdersService {
         sort: '-data_ordem',
       })
       if (ordersRecords && ordersRecords.length > 0) {
-        this.memoryOrders = ordersRecords.map((r: any) => ({
-          id: r.id,
-          empresa: r.empresa,
-          centro: r.centro,
-          linha: r.linha,
-          ordem_venda: r.ordem_venda,
-          item_ordem: r.item_ordem,
-          data_ordem: r.data_ordem,
-          cliente_codigo: r.cliente_codigo,
-          cliente_nome: r.cliente_nome,
-          representante_vendedor: r.representante_vendedor,
-          material_codigo: r.material_codigo,
-          material_descricao: r.material_descricao,
-          familia: r.familia,
-          curva_abc: r.curva_abc || 'B',
-          tipo_carteira: r.tipo_carteira,
-          quantidade_original_ov_t: Number(r.quantidade_original_ov_t || 0),
-          quantidade_faturada_t: Number(r.quantidade_faturada_t || 0),
-          saldo_cancelado_t: Number(r.saldo_cancelado_t || 0),
-          unidade_medida: r.unidade_medida || 'TO',
-          estoque_disponivel_data_t:
-            r.estoque_disponivel_data_t !== null ? Number(r.estoque_disponivel_data_t) : null,
-          preco_liquido: Number(r.preco_liquido || 0),
-          valor_cancelado_brl: Number(r.valor_cancelado_brl || 0),
-          condicao_pagamento: r.condicao_pagamento,
-          prazo: r.prazo,
-          status_faturamento: r.status_faturamento,
-          data_desejada_cliente: r.data_desejada_cliente,
-          data_prevista_producao: r.data_prevista_producao,
-          data_efetiva_producao: r.data_efetiva_producao,
-          status_recusa: r.status_recusa,
-          motivo_original_sap: r.motivo_original_sap,
-          categoria_motivo: r.categoria_motivo,
-          observacao: r.observacao,
-          data_hora_cancelamento: r.data_hora_cancelamento,
-          usuario_operacao: r.usuario_operacao,
-          is_demo: Boolean(r.is_demo),
-          has_ai_inconsistency: Boolean(r.has_ai_inconsistency),
-          ai_verification_status: r.ai_verification_status,
-          ai_probable_cause: r.ai_probable_cause,
-          ai_suggested_responsibility: r.ai_suggested_responsibility,
-          ai_confidence_level: r.ai_confidence_level,
-          ai_avoidable_status: r.ai_avoidable_status,
-          ai_priority: r.ai_priority,
-          ai_action_suggested: r.ai_action_suggested,
-          ai_analysis_payload: r.ai_analysis_payload,
-          analysis_status: r.analysis_status || 'Pendente',
-          validated_cause: r.validated_cause,
-          validated_responsibility: r.validated_responsibility,
-          validated_by_user_name: r.validated_by_user_name,
-          validated_at: r.validated_at,
-          human_notes: r.human_notes,
-          action_plan_id: r.action_plan_id,
-        }))
+        this.memoryOrders = ordersRecords
+          .map((r: any) => ({
+            id: r.id,
+            empresa: r.empresa,
+            centro: r.centro,
+            linha: r.linha,
+            ordem_venda: r.ordem_venda,
+            item_ordem: r.item_ordem,
+            data_ordem: r.data_ordem,
+            cliente_codigo: r.cliente_codigo,
+            cliente_nome: r.cliente_nome,
+            representante_vendedor: r.representante_vendedor,
+            material_codigo: r.material_codigo,
+            material_descricao: r.material_descricao,
+            familia: r.familia,
+            curva_abc: r.curva_abc || 'B',
+            tipo_carteira: r.tipo_carteira,
+            quantidade_original_ov_t: Number(r.quantidade_original_ov_t || 0),
+            quantidade_faturada_t: Number(r.quantidade_faturada_t || 0),
+            saldo_cancelado_t: Number(r.saldo_cancelado_t || 0),
+            unidade_medida: r.unidade_medida || 'TO',
+            estoque_disponivel_data_t:
+              r.estoque_disponivel_data_t !== null && r.estoque_disponivel_data_t !== undefined
+                ? Number(r.estoque_disponivel_data_t)
+                : null,
+            saldo_data_desejada_t:
+              r.saldo_data_desejada_t !== null && r.saldo_data_desejada_t !== undefined
+                ? Number(r.saldo_data_desejada_t)
+                : null,
+            saldo_data_cadastro_t:
+              r.saldo_data_cadastro_t !== null && r.saldo_data_cadastro_t !== undefined
+                ? Number(r.saldo_data_cadastro_t)
+                : null,
+            dias_sem_estoque_material:
+              r.dias_sem_estoque_material !== null && r.dias_sem_estoque_material !== undefined
+                ? Number(r.dias_sem_estoque_material)
+                : null,
+            preco_liquido: Number(r.preco_liquido || 0),
+            valor_cancelado_brl: Number(r.valor_cancelado_brl || 0),
+            condicao_pagamento: r.condicao_pagamento,
+            prazo: r.prazo,
+            status_faturamento: r.status_faturamento,
+            data_desejada_cliente: r.data_desejada_cliente,
+            data_prevista_producao: r.data_prevista_producao,
+            data_efetiva_producao: r.data_efetiva_producao,
+            status_recusa: r.status_recusa,
+            motivo_original_sap: r.motivo_original_sap,
+            categoria_motivo: r.categoria_motivo,
+            observacao: r.observacao,
+            data_hora_cancelamento: r.data_hora_cancelamento,
+            usuario_operacao: r.usuario_operacao,
+            is_demo: Boolean(r.is_demo),
+            has_ai_inconsistency: Boolean(r.has_ai_inconsistency),
+            ai_verification_status: r.ai_verification_status,
+            ai_probable_cause: r.ai_probable_cause,
+            ai_suggested_responsibility: r.ai_suggested_responsibility,
+            ai_confidence_level: r.ai_confidence_level,
+            ai_avoidable_status: r.ai_avoidable_status,
+            ai_priority: r.ai_priority,
+            ai_action_suggested: r.ai_action_suggested,
+            ai_analysis_payload: r.ai_analysis_payload,
+            analysis_status: r.analysis_status || 'Pendente',
+            validated_cause: r.validated_cause,
+            validated_responsibility: r.validated_responsibility,
+            validated_by_user_name: r.validated_by_user_name,
+            validated_at: r.validated_at,
+            human_notes: r.human_notes,
+            action_plan_id: r.action_plan_id,
+          }))
+          .map((order) => {
+            const temporal = calculateOrderStockTemporalAnalysis(order, order.context_data)
+            return {
+              ...order,
+              saldo_data_desejada_t:
+                order.saldo_data_desejada_t !== null
+                  ? order.saldo_data_desejada_t
+                  : temporal.saldoDesejadaT,
+              saldo_data_cadastro_t:
+                order.saldo_data_cadastro_t !== null
+                  ? order.saldo_data_cadastro_t
+                  : temporal.saldoCadastroT,
+              dias_sem_estoque_material:
+                order.dias_sem_estoque_material !== null
+                  ? order.dias_sem_estoque_material
+                  : temporal.diasSemEstoque,
+              analise_temporal_estoque: {
+                saldo_cadastro_t: temporal.saldoCadastroT,
+                saldo_desejada_t: temporal.saldoDesejadaT,
+                saldo_atual_t: temporal.saldoAtualT,
+                dias_sem_estoque: temporal.diasSemEstoque,
+                data_cadastro: order.data_ordem || '',
+                data_desejada: order.data_desejada_cliente || '',
+                fonte_historico_disponivel: temporal.fonteHistoricoDisponivel,
+                status_evolucao: temporal.statusEvolucao,
+              },
+            }
+          })
       } else {
         this.memoryOrders = getPopulatedDemoOrders()
       }

@@ -218,6 +218,28 @@ export interface CancelledOrderRecord {
   crm_responsavel_validacao?: string
   crm_pendency_id?: string
 
+  // Novos campos para Análise de Estoque Temporal e Dias Sem Estoque
+  saldo_data_desejada_t?: number | null
+  saldo_data_cadastro_t?: number | null
+  dias_sem_estoque_material?: number | null
+
+  // Análise temporal estruturada (cadastro -> data desejada -> atual) preparada para futura IA
+  analise_temporal_estoque?: {
+    saldo_cadastro_t: number | null
+    saldo_desejada_t: number | null
+    saldo_atual_t: number | null
+    dias_sem_estoque: number | null
+    data_cadastro: string
+    data_desejada: string
+    fonte_historico_disponivel: boolean
+    status_evolucao:
+      | 'DEGRADACAO'
+      | 'RECUPERACAO'
+      | 'ESTAVEL_SEM_ESTOQUE'
+      | 'ESTAVEL_COM_ESTOQUE'
+      | 'DADOS_INSUFICIENTES'
+  }
+
   // Dados de contexto para IA (quando integrados com SAP/PCP)
   context_data?: HistoricalContextData
 }

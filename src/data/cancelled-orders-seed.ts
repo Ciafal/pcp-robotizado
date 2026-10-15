@@ -7,6 +7,7 @@
 
 import { CancelledOrderRecord } from '@/types/cancelled-orders'
 import { CancelledOrdersAIEngine } from '@/services/cancelled-orders-ai-engine'
+import { calculateOrderStockTemporalAnalysis } from '@/services/cancelled-orders-stock-temporal'
 
 const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
   // 1. Cenário B: Motivo "Sem estoque em pronta entrega" + Estoque 1,605 t vs Saldo 1,000 t (Inconsistência)
@@ -31,6 +32,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 1.0,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: 1.605,
+    saldo_data_desejada_t: 1.605,
+    saldo_data_cadastro_t: 1.605,
+    dias_sem_estoque_material: 0,
     preco_liquido: 5800.0,
     valor_cancelado_brl: 5800.0,
     condicao_pagamento: '30 DDL',
@@ -79,6 +83,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 15.0,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: 0.0,
+    saldo_data_desejada_t: -5.4,
+    saldo_data_cadastro_t: 0.0,
+    dias_sem_estoque_material: 4,
     preco_liquido: 5450.0,
     valor_cancelado_brl: 81750.0,
     condicao_pagamento: '45 DDL',
@@ -127,6 +134,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 8.5,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: 0.0,
+    saldo_data_desejada_t: 0.0,
+    saldo_data_cadastro_t: 0.0,
+    dias_sem_estoque_material: 15,
     preco_liquido: 5620.0,
     valor_cancelado_brl: 47770.0,
     condicao_pagamento: '28 DDL',
@@ -176,6 +186,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 12.0,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: 0.0,
+    saldo_data_desejada_t: -12.0,
+    saldo_data_cadastro_t: 0.0,
+    dias_sem_estoque_material: 18,
     preco_liquido: 5900.0,
     valor_cancelado_brl: 70800.0,
     condicao_pagamento: '30 DDL',
@@ -220,6 +233,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 14.0,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: 0.0,
+    saldo_data_desejada_t: -14.0,
+    saldo_data_cadastro_t: 0.0,
+    dias_sem_estoque_material: 22,
     preco_liquido: 5900.0,
     valor_cancelado_brl: 82600.0,
     condicao_pagamento: '30 DDL',
@@ -264,6 +280,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 18.0,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: 0.0,
+    saldo_data_desejada_t: -18.0,
+    saldo_data_cadastro_t: 0.0,
+    dias_sem_estoque_material: 26,
     preco_liquido: 5950.0,
     valor_cancelado_brl: 107100.0,
     condicao_pagamento: '30 DDL',
@@ -308,6 +327,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 6.2,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: null,
+    saldo_data_desejada_t: null,
+    saldo_data_cadastro_t: null,
+    dias_sem_estoque_material: null,
     preco_liquido: 6200.0,
     valor_cancelado_brl: 38440.0,
     condicao_pagamento: '30 DDL',
@@ -354,6 +376,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 22.5,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: 35.0,
+    saldo_data_desejada_t: 25.0,
+    saldo_data_cadastro_t: 35.0,
+    dias_sem_estoque_material: 0,
     preco_liquido: 5300.0,
     valor_cancelado_brl: 119250.0,
     condicao_pagamento: '60 DDL',
@@ -397,6 +422,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 10.0,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: 18.0,
+    saldo_data_desejada_t: 15.0,
+    saldo_data_cadastro_t: 18.0,
+    dias_sem_estoque_material: 0,
     preco_liquido: 6100.0,
     valor_cancelado_brl: 61000.0,
     condicao_pagamento: '30/60 DDL',
@@ -440,6 +468,9 @@ const rawDemoOrders: Partial<CancelledOrderRecord>[] = [
     saldo_cancelado_t: 4.8,
     unidade_medida: 'TO',
     estoque_disponivel_data_t: 12.0,
+    saldo_data_desejada_t: 8.5,
+    saldo_data_cadastro_t: 12.0,
+    dias_sem_estoque_material: 0,
     preco_liquido: 7400.0,
     valor_cancelado_brl: 35520.0,
     condicao_pagamento: '30 DDL',
@@ -472,8 +503,32 @@ export function getPopulatedDemoOrders(): CancelledOrderRecord[] {
       rawDemoOrders as CancelledOrderRecord[],
     )
 
+    const temporalAnalysis = calculateOrderStockTemporalAnalysis(raw, raw.context_data)
+
     const fullRecord: CancelledOrderRecord = {
       ...(raw as CancelledOrderRecord),
+      saldo_data_desejada_t:
+        raw.saldo_data_desejada_t !== undefined
+          ? raw.saldo_data_desejada_t
+          : temporalAnalysis.saldoDesejadaT,
+      saldo_data_cadastro_t:
+        raw.saldo_data_cadastro_t !== undefined
+          ? raw.saldo_data_cadastro_t
+          : temporalAnalysis.saldoCadastroT,
+      dias_sem_estoque_material:
+        raw.dias_sem_estoque_material !== undefined
+          ? raw.dias_sem_estoque_material
+          : temporalAnalysis.diasSemEstoque,
+      analise_temporal_estoque: {
+        saldo_cadastro_t: temporalAnalysis.saldoCadastroT,
+        saldo_desejada_t: temporalAnalysis.saldoDesejadaT,
+        saldo_atual_t: temporalAnalysis.saldoAtualT,
+        dias_sem_estoque: temporalAnalysis.diasSemEstoque,
+        data_cadastro: raw.data_ordem || '',
+        data_desejada: raw.data_desejada_cliente || '',
+        fonte_historico_disponivel: temporalAnalysis.fonteHistoricoDisponivel,
+        status_evolucao: temporalAnalysis.statusEvolucao,
+      },
       has_ai_inconsistency: aiAnalysis.hasInconsistency,
       ai_verification_status: aiAnalysis.verificationStatus,
       ai_probable_cause: aiAnalysis.probableCause,
