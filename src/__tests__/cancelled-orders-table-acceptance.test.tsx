@@ -53,6 +53,13 @@ const baseOrder: CancelledOrderRecord = {
   usuario_operacao: 'USR01',
   is_demo: false,
   has_ai_inconsistency: false,
+  ai_verification_status: 'Coerente com dados disponíveis',
+  ai_probable_cause: 'Sem divergências detectadas',
+  ai_suggested_responsibility: 'PCP',
+  ai_confidence_level: 'Média',
+  ai_avoidable_status: 'Necessita investigação',
+  ai_priority: 'Média',
+  ai_action_suggested: 'Acompanhar próxima programação',
   analysis_status: 'Pendente',
 }
 
