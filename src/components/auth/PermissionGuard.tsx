@@ -176,6 +176,21 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('analise-carteira/carteira-minima-nao-atingida'),
   )
 
+  // Rota canônica de Pedidos Cancelados (/pcp/analise-carteira/cancelados e aliases)
+  const isPedidosCanceladosRoute = Boolean(
+    currentPathname === '/pcp/analise-carteira/cancelados' ||
+    currentPathname.startsWith('/pcp/analise-carteira/cancelados') ||
+    currentPathname === '/pcp/pedidos-cancelados' ||
+    currentPathname.startsWith('/pcp/pedidos-cancelados') ||
+    currentPathname === '/analise-carteira/cancelados' ||
+    currentPathname.startsWith('/analise-carteira/cancelados') ||
+    currentPathname === '/pedidos-cancelados' ||
+    currentPathname.startsWith('/pedidos-cancelados') ||
+    currentPathname.includes('/cancelados') ||
+    currentHash.includes('cancelados') ||
+    windowPath.includes('cancelados'),
+  )
+
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
 
@@ -290,6 +305,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
     isCarteiraMinimaRoute ||
+    isPedidosCanceladosRoute ||
     isCadastrosOrMasterDataEarly
   ) {
     return <>{children}</>
@@ -346,8 +362,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/analise-carteira') ||
     currentPathname.startsWith('/carteira-analise') ||
     currentPathname.startsWith('/pcp/pedidos-cancelados') ||
-    currentPathname.includes('/pedidos-cancelados')
-
+    currentPathname.includes('/pedidos-cancelados') ||
+    currentHash.includes('cancelados') ||
+    windowPath.includes('cancelados')
   if (
     isDadosIbgeRoute ||
     isInventarioMpRoute ||

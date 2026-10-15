@@ -14,7 +14,6 @@ import {
   ProbableResponsibility,
   AnalysisStatus,
 } from '@/types/cancelled-orders'
-import { getPopulatedDemoOrders } from '@/data/cancelled-orders-seed'
 import { OFFICIAL_CANCELLATION_CATALOG } from '@/data/cancellation-reasons-catalog'
 import { pcpAuditService } from '@/services/pcp-audit-service'
 import { CancelledOrdersAIEngine } from '@/services/cancelled-orders-ai-engine'
@@ -128,9 +127,13 @@ class CancelledOrdersService {
             validated_at: r.validated_at,
             human_notes: r.human_notes,
             action_plan_id: r.action_plan_id,
+            temporal_stock_context: r.temporal_stock_context,
           }))
           .map((order) => {
-            const temporal = calculateOrderStockTemporalAnalysis(order, order.context_data)
+            const temporal = calculateOrderStockTemporalAnalysis(
+              order,
+              order.temporal_stock_context,
+            )
             return {
               ...order,
               saldo_data_desejada_t:
@@ -158,12 +161,11 @@ class CancelledOrdersService {
             }
           })
       } else {
-        this.memoryOrders = getPopulatedDemoOrders()
+        this.memoryOrders = []
       }
     } catch {
-      this.memoryOrders = getPopulatedDemoOrders()
+      this.memoryOrders = []
     }
-
     try {
       // Carregar planos 5W2H
       const plans = await pb.collection('pcp_cancelled_action_plans').getFullList({

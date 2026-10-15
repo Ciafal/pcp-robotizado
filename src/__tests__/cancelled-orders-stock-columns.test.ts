@@ -15,14 +15,13 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { cancelledOrdersService } from '@/services/cancelled-orders-service'
+import { getPopulatedDemoOrders } from '@/data/cancelled-orders-seed'
 import { calculateOrderStockTemporalAnalysis } from '@/services/cancelled-orders-stock-temporal'
 import { formatTonsPtBr } from '@/lib/formatters-ptbr'
 
 describe('Análise de Carteira → Pedidos Cancelados - Novas Colunas e Análise Temporal', () => {
-  it('1. Deve carregar pedidos cancelados com a nova estrutura de dados preenchida', async () => {
-    await cancelledOrdersService.init()
-    const orders = await cancelledOrdersService.getOrders()
+  it('1. Deve carregar pedidos de teste com a nova estrutura de dados preenchida a partir do seed de teste', () => {
+    const orders = getPopulatedDemoOrders()
     expect(orders.length).toBeGreaterThan(0)
 
     const order001 = orders.find((o) => o.id === 'DEMO-CANC-001')
@@ -35,8 +34,8 @@ describe('Análise de Carteira → Pedidos Cancelados - Novas Colunas e Análise
     expect(order001?.analise_temporal_estoque?.status_evolucao).toBe('ESTAVEL_COM_ESTOQUE')
   })
 
-  it('2. Cenário com saldo projetado negativo na data desejada destaca valor negativo', async () => {
-    const orders = await cancelledOrdersService.getOrders()
+  it('2. Cenário com saldo projetado negativo na data desejada destaca valor negativo', () => {
+    const orders = getPopulatedDemoOrders()
     const order002 = orders.find((o) => o.id === 'DEMO-CANC-002')
     expect(order002).toBeDefined()
     expect(order002?.saldo_data_desejada_t).toBe(-5.4)
@@ -45,8 +44,8 @@ describe('Análise de Carteira → Pedidos Cancelados - Novas Colunas e Análise
     expect(order002?.analise_temporal_estoque?.status_evolucao).toBe('ESTAVEL_SEM_ESTOQUE')
   })
 
-  it('3. Cenário com dados insuficientes/sem histórico retorna "Não disponível" (null), nunca zero fictício', async () => {
-    const orders = await cancelledOrdersService.getOrders()
+  it('3. Cenário com dados insuficientes/sem histórico retorna "Não disponível" (null), nunca zero fictício', () => {
+    const orders = getPopulatedDemoOrders()
     const order007 = orders.find((o) => o.id === 'DEMO-CANC-007')
     expect(order007).toBeDefined()
     expect(order007?.saldo_data_desejada_t).toBeNull()

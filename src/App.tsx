@@ -1095,7 +1095,9 @@ export const App: React.FC = () => {
                       path="/pcp/analise-carteira/cancelados"
                       element={
                         <PermissionGuard permission="pcp.carteira.view">
-                          <PedidosCanceladosPage />
+                          <RouteErrorBoundary moduleName="Pedidos Cancelados">
+                            <PedidosCanceladosPage />
+                          </RouteErrorBoundary>
                         </PermissionGuard>
                       }
                     />

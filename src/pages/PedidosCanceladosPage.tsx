@@ -343,23 +343,23 @@ export const PedidosCanceladosPage: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6">
-        {/* Banner de Demonstração / Conexão SAP ECC (Requisito 2) */}
-        <div className="mb-5 p-3 rounded-lg border border-amber-300 bg-amber-50/70 text-amber-950 text-xs flex items-center justify-between shadow-2xs">
+        {/* Indicador de Conexão Oficial SAP ECC / Coleções Reais do HUB */}
+        <div className="mb-5 p-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs flex items-center justify-between shadow-2xs">
           <div className="flex items-center space-x-2">
-            <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-[#004C97] flex-shrink-0" />
             <span>
-              <strong className="font-semibold">
-                Ambiente com Dados de Demonstração Devidamente Identificados:
+              <strong className="font-semibold text-slate-900">
+                Fonte Oficial de Pedidos Cancelados:
               </strong>{' '}
-              Estrutura preparada para integração via SAP ECC (RFC/BAPI/tabelas Z) nos centros L1,
-              L2, SDC e demais. Nenhum dado fictício em produção.
+              Leitura direta de coleções de cancelamento do HUB CIAFAL (pcp_cancelled_orders) e
+              integrações SAP ECC. Dados ausentes são expressos estritamente como &quot;Não
+              disponível&quot;.
             </span>
           </div>
-          <span className="text-[10px] px-2 py-0.5 bg-amber-200/80 rounded font-mono text-amber-900 font-semibold border border-amber-300">
-            DEMO SAP-ECC
+          <span className="text-[10px] px-2 py-0.5 bg-slate-100 rounded font-mono text-slate-800 font-semibold border border-slate-300">
+            SISTEMA OFICIAL
           </span>
         </div>
-
         {/* 1. Cards Executivos Clicáveis (Requisito 3) */}
         <CancelledOrdersExecutiveCards
           kpis={kpis}
