@@ -139,11 +139,11 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
     return null
   }, [cardKey])
 
-  // Inicializa filtros internos herdando globais e fixando categoria se aplicável
+  // Inicializa filtros herdando estritamente os da tela principal (globalFilters)
   useEffect(() => {
     if (!isOpen) return
     setActiveTab('lista')
-    setSearchTerm('')
+    setSearchTerm(globalFilters?.buscaGeral || '')
     setFilterPeriodoInicio(globalFilters?.periodoInicio || '')
     setFilterPeriodoFim(globalFilters?.periodoFim || '')
     setFilterEmpresa(globalFilters?.empresa || 'todas')
@@ -151,8 +151,10 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
     setFilterLinha(globalFilters?.linha || 'todas')
     setFilterCliente(globalFilters?.cliente || 'todos')
     setFilterMaterial(globalFilters?.material || 'todos')
-    setFilterResponsavel('todos')
-    setFilterMotivoRecusa('todos')
+    setFilterResponsavel(
+      globalFilters?.responsavel || globalFilters?.responsabilidadeProvavel || 'todos',
+    )
+    setFilterMotivoRecusa(globalFilters?.motivoRecusa || 'todos')
 
     if (fixedCategoryValue) {
       setFilterCategoriaRecusa(fixedCategoryValue)
@@ -160,6 +162,18 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
       setFilterCategoriaRecusa(globalFilters?.categoriaRecusa || 'todas')
     }
   }, [isOpen, cardKey, fixedCategoryValue, globalFilters])
+
+  // Suporte à tecla ESC para fechar o popup sem recarregar a página
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
 
   // 1. Filtragem primária obrigatória por card (Requisito 2)
   const baseCardOrders = useMemo(() => {
@@ -693,31 +707,12 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
           </div>
 
           <div className="flex items-center space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleExportExcel}
-              className="text-xs h-8 text-emerald-700 hover:text-emerald-800 border-emerald-300 hover:bg-emerald-50 bg-white"
-            >
-              <Download className="w-3.5 h-3.5 mr-1" />
-              Exportar Excel
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handlePrintPdf}
-              className="text-xs h-8 text-slate-200 border-slate-700 bg-slate-800 hover:bg-slate-700 hover:text-white"
-            >
-              <Printer className="w-3.5 h-3.5 mr-1" />
-              Imprimir / PDF
-            </Button>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Fechar janela"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Fechar (Esc)"
+              aria-label="Fechar"
             >
               <X className="w-5 h-5" />
             </button>
@@ -817,151 +812,6 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
             </span>
           </div>
         )}
-
-        {/* BARRA DE FILTROS COMBINÁVEIS DO POPUP (Requisito 5) */}
-        <div className="bg-white border-b border-slate-200 px-5 py-2.5 flex-shrink-0 print:hidden space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Pesquisa geral */}
-            <div className="relative min-w-[220px] flex-1 max-w-xs">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="text"
-                placeholder="Pesquisar pedido, item, cliente, material..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8 pl-8 text-xs bg-slate-50 border-slate-300"
-              />
-            </div>
-
-            {/* Período De */}
-            <div className="flex items-center space-x-1">
-              <span className="text-[11px] text-slate-500 font-medium">De:</span>
-              <Input
-                type="date"
-                value={filterPeriodoInicio}
-                onChange={(e) => setFilterPeriodoInicio(e.target.value)}
-                className="h-8 text-xs w-[125px] bg-slate-50 border-slate-300 font-mono"
-              />
-            </div>
-
-            {/* Período Até */}
-            <div className="flex items-center space-x-1">
-              <span className="text-[11px] text-slate-500 font-medium">Até:</span>
-              <Input
-                type="date"
-                value={filterPeriodoFim}
-                onChange={(e) => setFilterPeriodoFim(e.target.value)}
-                className="h-8 text-xs w-[125px] bg-slate-50 border-slate-300 font-mono"
-              />
-            </div>
-
-            {/* Empresa */}
-            <Select value={filterEmpresa} onValueChange={setFilterEmpresa}>
-              <SelectTrigger className="h-8 text-xs w-[120px] bg-slate-50 border-slate-300">
-                <SelectValue placeholder="Empresa" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Empresa: Todas</SelectItem>
-                {optionsEmpresas.map((emp) => (
-                  <SelectItem key={emp} value={emp}>
-                    {emp}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Centro */}
-            <Select value={filterCentro} onValueChange={setFilterCentro}>
-              <SelectTrigger className="h-8 text-xs w-[110px] bg-slate-50 border-slate-300">
-                <SelectValue placeholder="Centro" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Centro: Todos</SelectItem>
-                {optionsCentros.map((ct) => (
-                  <SelectItem key={ct} value={ct}>
-                    {ct}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Linha */}
-            <Select value={filterLinha} onValueChange={setFilterLinha}>
-              <SelectTrigger className="h-8 text-xs w-[140px] bg-slate-50 border-slate-300">
-                <SelectValue placeholder="Linha" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Linha: Todas</SelectItem>
-                {optionsLinhas.map((ln) => (
-                  <SelectItem key={ln} value={ln}>
-                    {ln}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Categoria da recusa (Fixa se o card for de categoria) */}
-            <Select
-              value={filterCategoriaRecusa}
-              onValueChange={setFilterCategoriaRecusa}
-              disabled={isCategoryCard}
-            >
-              <SelectTrigger className="h-8 text-xs w-[150px] bg-slate-50 border-slate-300 disabled:opacity-75">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Categoria: Todas</SelectItem>
-                <SelectItem value="COMERCIAL">COMERCIAL</SelectItem>
-                <SelectItem value="PCP">PCP</SelectItem>
-                <SelectItem value="TRANSPORTE">TRANSPORTE</SelectItem>
-                <SelectItem value="SEM_CATEGORIZACAO">Sem categorização</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Motivo da recusa */}
-            <Select value={filterMotivoRecusa} onValueChange={setFilterMotivoRecusa}>
-              <SelectTrigger className="h-8 text-xs w-[160px] bg-slate-50 border-slate-300">
-                <SelectValue placeholder="Motivo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Motivo: Todos</SelectItem>
-                {optionsMotivos.map((mot) => (
-                  <SelectItem key={mot} value={mot}>
-                    {mot}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Responsável */}
-            <Select value={filterResponsavel} onValueChange={setFilterResponsavel}>
-              <SelectTrigger className="h-8 text-xs w-[140px] bg-slate-50 border-slate-300">
-                <SelectValue placeholder="Responsável" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Responsável: Todos</SelectItem>
-                {optionsResponsaveis.map((resp) => (
-                  <SelectItem key={resp} value={resp}>
-                    {resp}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Botão limpar filtros internos */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleResetInternalFilters}
-              className="h-8 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-              title="Restaurar filtros do popup"
-            >
-              <RotateCcw className="w-3.5 h-3.5 mr-1" />
-              Limpar
-            </Button>
-          </div>
-        </div>
 
         {/* NAVEGAÇÃO ENTRE ABAS DO POPUP */}
         <div className="flex border-b border-slate-200 bg-white px-5 space-x-1 flex-shrink-0 overflow-x-auto text-xs font-semibold print:hidden">
@@ -1771,7 +1621,7 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
           )}
         </div>
 
-        {/* RODAPÉ FIXO COM AÇÕES (Requisito 1) */}
+        {/* RODAPÉ FIXO COM AÇÕES (CORREÇÃO 3 E 4: Apenas Exportar Excel e Exportar PDF, sem botão 'Fechar Janela') */}
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 flex-shrink-0 text-xs print:hidden">
           <div className="text-slate-500 flex items-center space-x-2">
             <Building2 className="w-4 h-4 text-slate-400" />
@@ -1786,7 +1636,7 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
               variant="outline"
               size="sm"
               onClick={handleExportExcel}
-              className="text-xs h-8 text-emerald-700 border-emerald-300 hover:bg-emerald-50 bg-white"
+              className="text-xs h-8 text-emerald-700 border-emerald-300 hover:bg-emerald-50 bg-white shadow-2xs"
             >
               <Download className="w-3.5 h-3.5 mr-1" />
               Exportar Excel
@@ -1796,19 +1646,10 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
               variant="outline"
               size="sm"
               onClick={handlePrintPdf}
-              className="text-xs h-8 text-slate-700 border-slate-300 bg-white hover:bg-slate-50"
+              className="text-xs h-8 text-slate-700 border-slate-300 bg-white hover:bg-slate-50 shadow-2xs"
             >
               <Printer className="w-3.5 h-3.5 mr-1" />
               Exportar PDF
-            </Button>
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={onClose}
-              className="text-xs h-8 bg-slate-900 hover:bg-slate-800 text-white font-semibold"
-            >
-              Fechar Janela
             </Button>
           </div>
         </div>

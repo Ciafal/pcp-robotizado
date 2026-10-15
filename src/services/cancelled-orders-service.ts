@@ -317,6 +317,17 @@ class CancelledOrdersService {
       )
     }
 
+    if (filters.responsavel && filters.responsavel !== 'todos') {
+      list = list.filter((o) => {
+        const resp =
+          o.validated_responsibility ||
+          o.ai_suggested_responsibility ||
+          o.representante_vendedor ||
+          o.usuario_operacao
+        return resp === filters.responsavel
+      })
+    }
+
     if (filters.statusAnalise && filters.statusAnalise !== 'todos') {
       list = list.filter((o) => o.analysis_status === filters.statusAnalise)
     }

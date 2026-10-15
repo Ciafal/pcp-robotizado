@@ -153,6 +153,37 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
     }
   }, [order, isOpen])
 
+  // Suporte a fechamento por Escape com confirmação caso tenha alteração pendente
+  const isDirty =
+    Boolean(order) &&
+    (categoriaRecusa !== (order?.categoria_recusa || '') ||
+      motivoRecusa !== (order?.motivo_recusa || '') ||
+      Boolean(justificativaRecusa))
+
+  const handleSafeClose = () => {
+    if (isDirty) {
+      const confirmDiscard = window.confirm(
+        'Existem alterações de classificação não salvas. Deseja descartar?',
+      )
+      if (confirmDiscard) {
+        onClose()
+      }
+    } else {
+      onClose()
+    }
+  }
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleSafeClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, isDirty])
+
   if (!isOpen || !order) return null
 
   const aiPayload = order.ai_analysis_payload
@@ -352,9 +383,10 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
             </Badge>
             <button
               type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Fechar janela"
+              onClick={handleSafeClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Fechar janela (Esc)"
+              aria-label="Fechar janela"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1298,16 +1330,6 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
                 Solicitar revisão ao CRM 360º
               </Button>
             )}
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="text-xs h-8"
-            >
-              Fechar Janela
-            </Button>
           </div>
         </div>
       </div>

@@ -317,6 +317,7 @@ export interface CancelledOrdersFilterState {
   // Novos filtros estruturados (Requisito 9)
   categoriaRecusa?: 'todos' | 'COMERCIAL' | 'PCP' | 'TRANSPORTE' | 'SEM_CATEGORIZACAO'
   motivoRecusa?: string
+  responsavel?: string
 }
 
 export interface CancellationExecutiveKPIs {

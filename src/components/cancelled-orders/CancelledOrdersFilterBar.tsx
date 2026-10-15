@@ -44,13 +44,19 @@ import {
 interface FilterBarProps {
   filters: CancelledOrdersFilterState
   onFiltersChange: (newFilters: CancelledOrdersFilterState) => void
-  onApply: () => void
+  onApply?: () => void
   onReset: () => void
   onExport: () => void
   onSaveView: () => void
   onTriggerGlobalAI: () => void
   isGeneratingAI: boolean
   totalFilteredCount: number
+  availableOptions?: {
+    empresas?: string[]
+    centros?: string[]
+    linhas?: string[]
+    responsaveis?: string[]
+  }
 }
 
 const CATEGORIAS_LIST: CancellationCategory[] = [
@@ -89,6 +95,7 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
   onTriggerGlobalAI,
   isGeneratingAI,
   totalFilteredCount,
+  availableOptions,
 }) => {
   const update = <K extends keyof CancelledOrdersFilterState>(
     field: K,
@@ -99,6 +106,26 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
       [field]: value,
     })
   }
+
+  // Lista padrão de empresas CIAFAL caso não venha dinâmica
+  const empresasList = availableOptions?.empresas?.length
+    ? availableOptions.empresas
+    : ['CIAFAL', 'CIAFAL DISTRIBUIÇÃO', 'SIDERCENTRO']
+
+  // Lista padrão de centros caso não venha dinâmica
+  const centrosList = availableOptions?.centros?.length
+    ? availableOptions.centros
+    : ['CT01', 'CT02', 'L1', 'L2', 'SDC']
+
+  // Lista padrão de linhas
+  const linhasList = availableOptions?.linhas?.length
+    ? availableOptions.linhas
+    : ['LINHA 1 - PERFIS', 'LINHA 2 - BARRAS', 'LINHA SDC - CORTE E CONFORMAÇÃO', 'L1', 'L2', 'SDC']
+
+  // Lista de responsáveis
+  const responsaveisList = availableOptions?.responsaveis?.length
+    ? availableOptions.responsaveis
+    : RESPONSABILIDADES_LIST
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 mb-6 shadow-xs">
@@ -160,30 +187,29 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
         </div>
       </div>
 
-      {/* Grid Rigoroso de Filtros: 5 Colunas no Desktop */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5 pt-4">
-        {/* LINHA 1 */}
-        {/* 1. Pesquisa */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
-            Pesquisar
+      {/* Grid Rigoroso de Filtros: Campos compactos, alinhados, identidade CIAFAL */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pt-3">
+        {/* 1. Pesquisa por pedido/item/cliente/material */}
+        <div className="col-span-1 sm:col-span-2 xl:col-span-2">
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1 leading-none">
+            Pesquisar pedido / item / cliente / material
           </label>
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
             <Input
               type="text"
-              placeholder="OV, item, cliente, material ou motivo"
+              placeholder="Nº Pedido (OV), Item, Cliente, Código ou Descrição do Material..."
               value={filters.buscaGeral}
               onChange={(e) => update('buscaGeral', e.target.value)}
-              className="pl-8 h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]"
+              className="pl-8 h-8 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97] bg-white rounded-md"
             />
           </div>
         </div>
 
-        {/* 2. Data início */}
+        {/* 2. Data inicial */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
-            Data início
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1 leading-none">
+            Data inicial
           </label>
           <div className="relative">
             <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
@@ -192,15 +218,15 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
               placeholder="dd/mm/aaaa"
               value={filters.periodoInicio}
               onChange={(e) => update('periodoInicio', e.target.value)}
-              className="pl-8 h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]"
+              className="pl-8 h-8 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97] bg-white rounded-md font-mono"
             />
           </div>
         </div>
 
-        {/* 3. Data fim */}
+        {/* 3. Data final */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
-            Data fim
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1 leading-none">
+            Data final
           </label>
           <div className="relative">
             <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
@@ -209,203 +235,89 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
               placeholder="dd/mm/aaaa"
               value={filters.periodoFim}
               onChange={(e) => update('periodoFim', e.target.value)}
-              className="pl-8 h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]"
+              className="pl-8 h-8 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97] bg-white rounded-md font-mono"
             />
           </div>
         </div>
 
-        {/* 4. Centro */}
+        {/* 4. Empresa */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1 leading-none">
+            Empresa
+          </label>
+          <Select
+            value={filters.empresa || 'todas'}
+            onValueChange={(val) => update('empresa', val)}
+          >
+            <SelectTrigger className="h-8 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97] bg-white rounded-md">
+              <SelectValue placeholder="Todas as Empresas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas" className="text-xs">
+                Todas as Empresas
+              </SelectItem>
+              {empresasList.map((emp) => (
+                <SelectItem key={emp} value={emp} className="text-xs">
+                  {emp}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* 5. Centro */}
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1 leading-none">
             Centro
           </label>
-          <Select value={filters.centro} onValueChange={(val) => update('centro', val)}>
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
+          <Select value={filters.centro || 'todos'} onValueChange={(val) => update('centro', val)}>
+            <SelectTrigger className="h-8 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97] bg-white rounded-md">
               <SelectValue placeholder="Todos os Centros" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos" className="text-xs">
                 Todos os Centros
               </SelectItem>
-              <SelectItem value="L1" className="text-xs">
-                L1 - Laminação 1
-              </SelectItem>
-              <SelectItem value="L2" className="text-xs">
-                L2 - Laminação 2
-              </SelectItem>
-              <SelectItem value="SDC" className="text-xs">
-                SDC - Sidercentro
-              </SelectItem>
+              {centrosList.map((ct) => (
+                <SelectItem key={ct} value={ct} className="text-xs">
+                  {ct}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        {/* 5. Linha */}
+        {/* 6. Linha */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1 leading-none">
             Linha
           </label>
-          <Select value={filters.linha} onValueChange={(val) => update('linha', val)}>
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
+          <Select value={filters.linha || 'todas'} onValueChange={(val) => update('linha', val)}>
+            <SelectTrigger className="h-8 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97] bg-white rounded-md">
               <SelectValue placeholder="Todas as Linhas" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todas" className="text-xs">
                 Todas as Linhas
               </SelectItem>
-              <SelectItem value="LINHA 1 - PERFIS" className="text-xs">
-                Linha 1 - Perfis
-              </SelectItem>
-              <SelectItem value="LINHA 2 - BARRAS" className="text-xs">
-                Linha 2 - Barras
-              </SelectItem>
-              <SelectItem value="LINHA SDC - CORTE E CONFORMAÇÃO" className="text-xs">
-                SDC - Corte e Conformação
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* LINHA 2 */}
-        {/* 6. Categoria do motivo */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
-            Categoria do motivo
-          </label>
-          <Select
-            value={filters.categoriaMotivo}
-            onValueChange={(val) => update('categoriaMotivo', val)}
-          >
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
-              <SelectValue placeholder="Todas as Categorias" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas" className="text-xs">
-                Todas as Categorias
-              </SelectItem>
-              {CATEGORIAS_LIST.map((cat) => (
-                <SelectItem key={cat} value={cat} className="text-xs">
-                  {cat}
+              {linhasList.map((ln) => (
+                <SelectItem key={ln} value={ln} className="text-xs">
+                  {ln}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        {/* 7. Responsabilidade provável */}
+        {/* 7. Categoria da recusa */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
-            Responsabilidade provável
-          </label>
-          <Select
-            value={filters.responsabilidadeProvavel}
-            onValueChange={(val) => update('responsabilidadeProvavel', val)}
-          >
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
-              <SelectValue placeholder="Todas as Áreas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas" className="text-xs">
-                Todas as Áreas
-              </SelectItem>
-              {RESPONSABILIDADES_LIST.map((resp) => (
-                <SelectItem key={resp} value={resp} className="text-xs">
-                  {resp}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* 8. Inconsistência IA */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
-            Inconsistência IA
-          </label>
-          <Select
-            value={filters.comInconsistenciaIA}
-            onValueChange={(val) => update('comInconsistenciaIA', val)}
-          >
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos" className="text-xs">
-                Todos os Pedidos
-              </SelectItem>
-              <SelectItem value="sim" className="text-xs">
-                Com Inconsistência Detectada
-              </SelectItem>
-              <SelectItem value="nao" className="text-xs">
-                Sem Inconsistência (Coerente)
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* 9. Recorrência */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
-            Recorrência
-          </label>
-          <Select value={filters.recorrencia} onValueChange={(val) => update('recorrencia', val)}>
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos" className="text-xs">
-                Todos
-              </SelectItem>
-              <SelectItem value="recorrente" className="text-xs">
-                Padrão Recorrente (≥ 2 casos)
-              </SelectItem>
-              <SelectItem value="nao_recorrente" className="text-xs">
-                Não Recorrente (Pontual)
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* 10. Evitabilidade IA */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
-            Evitabilidade IA
-          </label>
-          <Select
-            value={filters.evitabilidade}
-            onValueChange={(val) => update('evitabilidade', val)}
-          >
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos" className="text-xs">
-                Todas
-              </SelectItem>
-              <SelectItem value="evitavel" className="text-xs">
-                Potencialmente Evitável
-              </SelectItem>
-              <SelectItem value="nao_evitavel" className="text-xs">
-                Provavelmente Não Evitável
-              </SelectItem>
-              <SelectItem value="investigacao" className="text-xs">
-                Necessita Investigação
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* LINHA 3 */}
-        {/* 11. Categoria da Recusa Oficial (Requisito 9) */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1 leading-none">
             Categoria da recusa
           </label>
           <Select
             value={filters.categoriaRecusa || 'todos'}
             onValueChange={(val) => {
               update('categoriaRecusa', val as any)
-              // Ao mudar a categoria da recusa, reseta o motivo da recusa se incompatível
               if (val !== 'todos' && val !== 'SEM_CATEGORIZACAO') {
                 const permitidos =
                   STRUCTURED_REASONS_BY_CATEGORY[
@@ -417,12 +329,12 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
               }
             }}
           >
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
+            <SelectTrigger className="h-8 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97] bg-white rounded-md">
               <SelectValue placeholder="Todas as Categorias" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos" className="text-xs">
-                Todas (Padrão)
+                Todas as Categorias
               </SelectItem>
               <SelectItem value="COMERCIAL" className="text-xs font-medium text-emerald-800">
                 Comercial
@@ -440,16 +352,16 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
           </Select>
         </div>
 
-        {/* 12. Motivo da Recusa Filtrado pela Categoria Selecionada (Requisitos 2 e 9) */}
+        {/* 8. Motivo da recusa */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1 leading-none">
             Motivo da recusa
           </label>
           <Select
             value={filters.motivoRecusa || 'todos'}
             onValueChange={(val) => update('motivoRecusa', val)}
           >
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
+            <SelectTrigger className="h-8 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97] bg-white rounded-md">
               <SelectValue placeholder="Todos os Motivos" />
             </SelectTrigger>
             <SelectContent>
@@ -478,37 +390,43 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
           </Select>
         </div>
 
-        {/* 13. Curva ABC */}
+        {/* 9. Responsável */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
-            Curva ABC
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1 leading-none">
+            Responsável
           </label>
-          <Select value={filters.curvaAbc} onValueChange={(val) => update('curvaAbc', val)}>
-            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
-              <SelectValue placeholder="Todas as Curvas" />
+          <Select
+            value={filters.responsavel || filters.responsabilidadeProvavel || 'todos'}
+            onValueChange={(val) => {
+              update('responsavel', val)
+              if (RESPONSABILIDADES_LIST.includes(val as any)) {
+                update('responsabilidadeProvavel', val)
+              } else {
+                update('responsabilidadeProvavel', 'todas')
+              }
+            }}
+          >
+            <SelectTrigger className="h-8 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97] bg-white rounded-md">
+              <SelectValue placeholder="Todos os Responsáveis" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos" className="text-xs">
-                Todas as Curvas
+                Todos os Responsáveis
               </SelectItem>
-              <SelectItem value="A" className="text-xs">
-                Curva A (Alto Impacto)
-              </SelectItem>
-              <SelectItem value="B" className="text-xs">
-                Curva B (Médio Impacto)
-              </SelectItem>
-              <SelectItem value="C" className="text-xs">
-                Curva C (Baixo Impacto)
-              </SelectItem>
+              {responsaveisList.map((resp) => (
+                <SelectItem key={resp} value={resp} className="text-xs">
+                  {resp}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
       {/* Ações inferiores da barra */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3.5 mt-4 border-t border-slate-100 text-xs">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 mt-3 border-t border-slate-100 text-xs">
         <div className="text-slate-500 flex items-center w-full sm:w-auto">
-          <Building2 className="w-3.5 h-3.5 mr-1.5 text-slate-400 flex-shrink-0" />
+          <Building2 className="w-3.5 h-3.5 mr-1.5 text-[#004C97] flex-shrink-0" />
           <span className="text-[11px]">
             CIAFAL Indústria & Distribuição • Padrão ABNT / SAP ECC
           </span>
@@ -520,20 +438,22 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
             variant="ghost"
             size="sm"
             onClick={onReset}
-            className="text-xs h-9 text-slate-600 hover:text-slate-900 border border-transparent hover:border-slate-200"
+            className="text-xs h-8 text-slate-600 hover:text-slate-900 border border-transparent hover:border-slate-200"
           >
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
             Limpar filtros
           </Button>
 
-          <Button
-            type="button"
-            size="sm"
-            onClick={onApply}
-            className="text-xs h-9 bg-[#004C97] hover:bg-[#003d7a] text-white font-semibold shadow-xs px-4"
-          >
-            Aplicar filtros
-          </Button>
+          {onApply && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={onApply}
+              className="text-xs h-8 bg-[#004C97] hover:bg-[#003d7a] text-white font-semibold shadow-xs px-4"
+            >
+              Aplicar filtros
+            </Button>
+          )}
         </div>
       </div>
     </div>

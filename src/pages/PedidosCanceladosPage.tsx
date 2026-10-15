@@ -60,6 +60,7 @@ const DEFAULT_FILTERS: CancelledOrdersFilterState = {
 export const PedidosCanceladosPage: React.FC = () => {
   const { toast } = useToast()
 
+  const [allOrders, setAllOrders] = useState<CancelledOrderRecord[]>([])
   const [orders, setOrders] = useState<CancelledOrderRecord[]>([])
   const [filters, setFilters] = useState<CancelledOrdersFilterState>(DEFAULT_FILTERS)
   const [isLoading, setIsLoading] = useState(true)
@@ -82,11 +83,15 @@ export const PedidosCanceladosPage: React.FC = () => {
   const [isConsultarRevisaoOpen, setIsConsultarRevisaoOpen] = useState(false)
   const [revisaoOrderTarget, setRevisaoOrderTarget] = useState<CancelledOrderRecord | null>(null)
 
-  const loadData = async () => {
+  const loadData = async (activeFilters = filters) => {
     setIsLoading(true)
     try {
-      const data = await cancelledOrdersService.getOrders(filters)
-      setOrders(data)
+      const [allData, filteredData] = await Promise.all([
+        cancelledOrdersService.getOrders(),
+        cancelledOrdersService.getOrders(activeFilters),
+      ])
+      setAllOrders(allData)
+      setOrders(filteredData)
     } catch {
       // Carregamento resiliente
     } finally {
@@ -95,8 +100,8 @@ export const PedidosCanceladosPage: React.FC = () => {
   }
 
   useEffect(() => {
-    loadData()
-  }, [])
+    loadData(filters)
+  }, [filters])
 
   // KPIs
   const kpis: CancellationExecutiveKPIs = useMemo(() => {
@@ -110,8 +115,35 @@ export const PedidosCanceladosPage: React.FC = () => {
 
   const handleResetFilters = () => {
     setFilters(DEFAULT_FILTERS)
-    cancelledOrdersService.getOrders(DEFAULT_FILTERS).then(setOrders)
+    loadData(DEFAULT_FILTERS)
   }
+
+  // Opções dinâmicas calculadas a partir de allOrders para alimentar a barra de filtros
+  const filterOptions = useMemo(() => {
+    const empresasSet = new Set<string>()
+    const centrosSet = new Set<string>()
+    const linhasSet = new Set<string>()
+    const responsaveisSet = new Set<string>()
+
+    allOrders.forEach((o) => {
+      if (o.empresa) empresasSet.add(o.empresa)
+      if (o.centro) centrosSet.add(o.centro)
+      if (o.linha) linhasSet.add(o.linha)
+      const resp =
+        o.validated_responsibility ||
+        o.ai_suggested_responsibility ||
+        o.representante_vendedor ||
+        o.usuario_operacao
+      if (resp) responsaveisSet.add(resp)
+    })
+
+    return {
+      empresas: Array.from(empresasSet).sort(),
+      centros: Array.from(centrosSet).sort(),
+      linhas: Array.from(linhasSet).sort(),
+      responsaveis: Array.from(responsaveisSet).sort(),
+    }
+  }, [allOrders])
 
   const handleSaveView = () => {
     toast({
@@ -213,6 +245,7 @@ export const PedidosCanceladosPage: React.FC = () => {
 
   const handleOrderUpdated = (updated: CancelledOrderRecord) => {
     setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
+    setAllOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
     setSelectedOrder(updated)
   }
 
@@ -275,7 +308,7 @@ export const PedidosCanceladosPage: React.FC = () => {
               type="button"
               variant="outline"
               size="sm"
-              onClick={loadData}
+              onClick={() => loadData(filters)}
               disabled={isLoading}
               className="text-xs h-9 text-slate-700 border-slate-300 hover:bg-slate-50"
             >
@@ -297,7 +330,21 @@ export const PedidosCanceladosPage: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6">
-        {/* Indicador de Conexão Oficial SAP ECC / Coleções Reais do HUB */}
+        {/* 1. Barra de Filtros Gerais (reposicionada diretamente abaixo do cabeçalho) */}
+        <CancelledOrdersFilterBar
+          filters={filters}
+          onFiltersChange={setFilters}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+          onExport={handleExportData}
+          onSaveView={handleSaveView}
+          onTriggerGlobalAI={handleTriggerGlobalAI}
+          isGeneratingAI={isGeneratingAI}
+          totalFilteredCount={orders.length}
+          availableOptions={filterOptions}
+        />
+
+        {/* 2. Indicador de Conexão Oficial SAP ECC / Coleções Reais do HUB (Abaixo dos filtros, acima dos cards) */}
         <div className="mb-5 p-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs flex items-center justify-between shadow-2xs">
           <div className="flex items-center space-x-2">
             <AlertTriangle className="w-4 h-4 text-[#004C97] flex-shrink-0" />
@@ -314,24 +361,12 @@ export const PedidosCanceladosPage: React.FC = () => {
             SISTEMA OFICIAL
           </span>
         </div>
-        {/* 1. Cards Executivos Clicáveis (Requisito 3) */}
+
+        {/* 3. Cards Executivos Clicáveis (Requisito 3) */}
         <CancelledOrdersExecutiveCards
           kpis={kpis}
           onCardClick={handleCardClick}
           activeCardKey={selectedCardKey}
-        />
-
-        {/* 2. Barra de Filtros Combinados (Requisito 4) */}
-        <CancelledOrdersFilterBar
-          filters={filters}
-          onFiltersChange={setFilters}
-          onApply={handleApplyFilters}
-          onReset={handleResetFilters}
-          onExport={handleExportData}
-          onSaveView={handleSaveView}
-          onTriggerGlobalAI={handleTriggerGlobalAI}
-          isGeneratingAI={isGeneratingAI}
-          totalFilteredCount={orders.length}
         />
 
         {/* 3. Visões Analíticas: Pareto, Mensal, Anual e ABC (Requisitos 14, 15, 16, 17, 18) */}
