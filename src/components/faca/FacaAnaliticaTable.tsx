@@ -92,7 +92,7 @@ export const FacaAnaliticaTable: React.FC<FacaAnaliticaTableProps> = ({
         )
       case 'LOTE_MINIMO_PENDENTE':
         return (
-          <Badge className="bg-purple-600 text-white text-[10px] gap-1 font-semibold whitespace-nowrap">
+          <Badge className="bg-amber-700 text-white text-[10px] gap-1 font-semibold whitespace-nowrap">
             <AlertTriangle className="w-3 h-3" /> Lote Mínimo Pendente
           </Badge>
         )
@@ -235,11 +235,11 @@ export const FacaAnaliticaTable: React.FC<FacaAnaliticaTableProps> = ({
               <TableHead className="font-bold text-slate-700 min-w-[180px]">
                 18. MP Vinculada
               </TableHead>
-              <TableHead className="font-bold text-slate-700 text-right whitespace-nowrap text-indigo-800">
+              <TableHead className="font-bold text-slate-700 text-right whitespace-nowrap text-[#004C97]">
                 19. MP Disp (t)
               </TableHead>
               <TableHead
-                className="font-bold text-slate-700 text-right cursor-pointer whitespace-nowrap text-purple-800"
+                className="font-bold text-slate-700 text-right cursor-pointer whitespace-nowrap text-slate-800"
                 onClick={() => handleSort('mp_necessaria_t')}
               >
                 20. MP Nec (t) {sortField === 'mp_necessaria_t' && (sortAsc ? '↑' : '↓')}
@@ -346,10 +346,10 @@ export const FacaAnaliticaTable: React.FC<FacaAnaliticaTableProps> = ({
                 >
                   {item.materia_prima_vinculada}
                 </TableCell>
-                <TableCell className="text-right font-bold text-indigo-700 whitespace-nowrap">
+                <TableCell className="text-right font-bold text-[#004C97] whitespace-nowrap">
                   {formatNumberPtBr(item.mp_disponivel_t, 1)}
                 </TableCell>
-                <TableCell className="text-right font-extrabold text-purple-700 whitespace-nowrap">
+                <TableCell className="text-right font-extrabold text-slate-800 whitespace-nowrap">
                   {formatNumberPtBr(item.mp_necessaria_t, 1)}
                 </TableCell>
                 <TableCell className="text-right text-slate-600 whitespace-nowrap font-medium">

@@ -25,7 +25,7 @@ export const FacaMateriaPrimaSection: React.FC<FacaMateriaPrimaSectionProps> = (
       <CardHeader className="bg-slate-50 border-b border-slate-200 py-3 px-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#004C97]">
               <Layers className="w-4 h-4" />
             </div>
             <div>
@@ -40,7 +40,7 @@ export const FacaMateriaPrimaSection: React.FC<FacaMateriaPrimaSectionProps> = (
           </div>
           <Badge
             variant="outline"
-            className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] font-bold"
+            className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-bold"
           >
             Fórmula: MP Necessária = PA a Produzir / Rendimento
           </Badge>
@@ -65,13 +65,13 @@ export const FacaMateriaPrimaSection: React.FC<FacaMateriaPrimaSectionProps> = (
                 <TableHead className="font-bold text-slate-700 text-right whitespace-nowrap">
                   Estoque Físico (t)
                 </TableHead>
-                <TableHead className="font-bold text-slate-700 text-right whitespace-nowrap text-indigo-800">
+                <TableHead className="font-bold text-slate-700 text-right whitespace-nowrap text-[#004C97]">
                   Disponível Livre (t)
                 </TableHead>
                 <TableHead className="font-bold text-slate-700 text-right whitespace-nowrap">
                   CQ (t)
                 </TableHead>
-                <TableHead className="font-bold text-slate-700 text-right whitespace-nowrap text-purple-800">
+                <TableHead className="font-bold text-slate-700 text-right whitespace-nowrap text-slate-800">
                   MP Necessária (t)
                 </TableHead>
                 <TableHead className="font-bold text-slate-700 text-right whitespace-nowrap">
@@ -99,9 +99,9 @@ export const FacaMateriaPrimaSection: React.FC<FacaMateriaPrimaSectionProps> = (
                 return (
                   <TableRow
                     key={mp.codigo_mp}
-                    className="hover:bg-indigo-50/30 border-b border-slate-100"
+                    className="hover:bg-blue-50/30 border-b border-slate-100"
                   >
-                    <TableCell className="font-mono font-bold text-indigo-900 whitespace-nowrap">
+                    <TableCell className="font-mono font-bold text-[#004C97] whitespace-nowrap">
                       {mp.codigo_mp}
                     </TableCell>
                     <TableCell className="text-slate-800 font-medium">{mp.descricao_mp}</TableCell>
@@ -114,13 +114,13 @@ export const FacaMateriaPrimaSection: React.FC<FacaMateriaPrimaSectionProps> = (
                     <TableCell className="text-right text-slate-700 font-semibold whitespace-nowrap">
                       {formatNumberPtBr(mp.estoque_fisico_t, 1)}
                     </TableCell>
-                    <TableCell className="text-right font-extrabold text-indigo-700 whitespace-nowrap">
+                    <TableCell className="text-right font-extrabold text-[#004C97] whitespace-nowrap">
                       {formatNumberPtBr(mp.estoque_disponivel_t, 1)}
                     </TableCell>
                     <TableCell className="text-right text-slate-500 whitespace-nowrap">
                       {formatNumberPtBr(mp.estoque_qualidade_t, 1)}
                     </TableCell>
-                    <TableCell className="text-right font-extrabold text-purple-700 whitespace-nowrap">
+                    <TableCell className="text-right font-extrabold text-slate-800 whitespace-nowrap">
                       {formatNumberPtBr(mp.mp_necessaria_carteira_t, 1)}
                     </TableCell>
                     <TableCell className="text-right font-bold text-emerald-700 whitespace-nowrap">

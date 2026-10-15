@@ -72,7 +72,7 @@ interface FacaCardDrilldownModalProps {
   onClose: () => void
   kpis: FacaCardKpis
   itens: FacaItemAnalitico[]
-  alertas: FacaAlertaIA[]
+  alertas?: FacaAlertaIA[]
 }
 
 export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
@@ -180,8 +180,7 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
     const COR_L2 = '#4582B4'
     const COR_DEMANDA = '#D97706'
     const STATUS_NAO_DISPONIVEL = mpConsolidado?.status_sincronizacao === 'NAO_DISPONIVEL'
-    const semDadosRfc =
-      STATUS_NAO_DISPONIVEL || !mpConsolidado?.ha_dados_integrados
+    const semDadosRfc = STATUS_NAO_DISPONIVEL || !mpConsolidado?.ha_dados_integrados
     // Formato do valor: dado não disponível nunca vira zero — exibe o status
     const fmtT = (v?: number) =>
       semDadosRfc ? (
@@ -310,7 +309,10 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
             <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
                 <span>1. Tarugos Disponíveis</span>
-                <Badge variant="outline" className="text-[9px] bg-blue-50 text-[#004C97] border-blue-200">
+                <Badge
+                  variant="outline"
+                  className="text-[9px] bg-blue-50 text-[#004C97] border-blue-200"
+                >
                   Imediato
                 </Badge>
               </div>
@@ -328,7 +330,10 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
             <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
                 <span>2. MP Derivada sem Corte</span>
-                <Badge variant="outline" className="text-[9px] bg-blue-50 text-[#004C97] border-blue-200">
+                <Badge
+                  variant="outline"
+                  className="text-[9px] bg-blue-50 text-[#004C97] border-blue-200"
+                >
                   Técnica
                 </Badge>
               </div>
@@ -343,7 +348,10 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
             <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
                 <span>3. KS — Saldo a Cortar</span>
-                <Badge variant="outline" className="text-[9px] bg-sky-50 text-sky-700 border-sky-200">
+                <Badge
+                  variant="outline"
+                  className="text-[9px] bg-sky-50 text-sky-700 border-sky-200"
+                >
                   Dependente de corte
                 </Badge>
               </div>
@@ -358,7 +366,10 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
             <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
                 <span>4. L2 — MP a Produzir</span>
-                <Badge variant="outline" className="text-[9px] bg-sky-50 text-sky-700 border-sky-200">
+                <Badge
+                  variant="outline"
+                  className="text-[9px] bg-sky-50 text-sky-700 border-sky-200"
+                >
                   Dependente de produção
                 </Badge>
               </div>
@@ -392,11 +403,7 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                 {Number(mpConsolidado?.mp_derivada_regra_apenas_potencial_t || 0) > 0 && (
                   <div className="text-slate-500">
                     MP derivada "somente potencial" inclusa: +
-                    {formatNumberPtBr(
-                      mpConsolidado.mp_derivada_regra_apenas_potencial_t,
-                      1,
-                    )}{' '}
-                    t
+                    {formatNumberPtBr(mpConsolidado.mp_derivada_regra_apenas_potencial_t, 1)} t
                   </div>
                 )}
                 {Number(mpConsolidado?.mp_derivada_nao_consolidada_t || 0) > 0 && (
@@ -803,42 +810,43 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                                         Fluxo Produtivo (KS / L2)
                                       </div>
                                       <div className="text-[11px] text-slate-600 space-y-0.5">
-                    <div>
-                      <div>
-                        KS ({item.ks_status}):{' '}
-                        <strong>{item.ks_saldo_a_cortar_t.toFixed(1)} t</strong> (Rend.{' '}
-                        {item.ks_rendimento_corte_pct}%, Perda {item.ks_perdas_pct}%)
-                      </div>
-                      <div>
-                        L2 ({item.l2_status}):{' '}
-                        <strong>{item.l2_saldo_a_produzir_t.toFixed(1)} t</strong> (Rend.{' '}
-                        {item.l2_rendimento_pct}%)
-                      </div>
-                      {item.l2_passa_por_ks && (
-                        <div className="text-amber-800 font-bold">
-                          Fluxo L2 &rarr; KS: sobreposição de {item.sobreposicao_fluxo_t.toFixed(1)}{' '}
-                          t deduzida para evitar dupla contagem.
-                        </div>
-                      )}
-                      {(item as any).sobreposicao_estoque_ks_t > 0 && (
-                        <div className="text-amber-800 font-bold">
-                          Massa já visível como estoque imediato:{' '}
-                          {(item as any).sobreposicao_estoque_ks_t.toFixed(1)} t deduzida do saldo
-                          KS (MP sem corte, sem dupla contagem).
-                        </div>
-                      )}
-                      {item.em_mp_derivada && (
-                        <div className="text-[#004C97] font-bold">
-                          MP derivada — Tipo: {item.tipo_disponibilidade}
-                          {item.tipo_disponibilidade_desc
-                            ? ` (${item.tipo_disponibilidade_desc})`
-                            : ''}{' '}
-                          • Origem: {item.origem_mp_derivada} • Fator: {item.fator_conversao} •
-                          Regra: {item.regra_exibicao}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                                        <div>
+                                          KS ({item.ks_status}):{' '}
+                                          <strong>{item.ks_saldo_a_cortar_t.toFixed(1)} t</strong>{' '}
+                                          (Rend. {item.ks_rendimento_corte_pct}%, Perda{' '}
+                                          {item.ks_perdas_pct}%)
+                                        </div>
+                                        <div>
+                                          L2 ({item.l2_status}):{' '}
+                                          <strong>{item.l2_saldo_a_produzir_t.toFixed(1)} t</strong>{' '}
+                                          (Rend. {item.l2_rendimento_pct}%)
+                                        </div>
+                                        {item.l2_passa_por_ks && (
+                                          <div className="text-amber-800 font-bold">
+                                            Fluxo L2 &rarr; KS: sobreposição de{' '}
+                                            {item.sobreposicao_fluxo_t.toFixed(1)} t deduzida para
+                                            evitar dupla contagem.
+                                          </div>
+                                        )}
+                                        {(item as any).sobreposicao_estoque_ks_t > 0 && (
+                                          <div className="text-amber-800 font-bold">
+                                            Massa já visível como estoque imediato:{' '}
+                                            {(item as any).sobreposicao_estoque_ks_t.toFixed(1)} t
+                                            deduzida do saldo KS (MP sem corte, sem dupla contagem).
+                                          </div>
+                                        )}
+                                        {item.em_mp_derivada && (
+                                          <div className="text-[#004C97] font-bold">
+                                            MP derivada — Tipo: {item.tipo_disponibilidade}
+                                            {item.tipo_disponibilidade_desc
+                                              ? ` (${item.tipo_disponibilidade_desc})`
+                                              : ''}{' '}
+                                            • Origem: {item.origem_mp_derivada} • Fator:{' '}
+                                            {item.fator_conversao} • Regra: {item.regra_exibicao}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
 
                                     {/* 3. Produtos FACA vinculados */}
                                     <div className="space-y-1">
@@ -892,8 +900,9 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white rounded-xl px-3 py-2.5 text-xs text-slate-600 shadow-xs">
             <div>
-              Total do filtro aplicado: <strong className="text-[#004C97]">{totalLiquido.toFixed(1)} t</strong>{' '}
-              (Livre: {totalEstoqueLivre.toFixed(1)} t | KS: {totalKsCortar.toFixed(1)} t | L2:{' '}
+              Total do filtro aplicado:{' '}
+              <strong className="text-[#004C97]">{totalLiquido.toFixed(1)} t</strong> (Livre:{' '}
+              {totalEstoqueLivre.toFixed(1)} t | KS: {totalKsCortar.toFixed(1)} t | L2:{' '}
               {totalL2Produzir.toFixed(1)} t)
             </div>
             {botaoFecharPadrao}
@@ -940,7 +949,7 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
         return {
           titulo: 'Necessidade Líquida de Matéria-Prima (com Rendimento)',
           icone: FileCheck2,
-          corIcone: 'text-purple-700',
+          corIcone: 'text-slate-700',
           kpiValor: `${formatNumberPtBr(kpis.mp_necessaria_t, 1)} t`,
           itensFiltrados: itens.filter((i) => i.mp_necessaria_t > 0),
           diagnosticoIA:
@@ -1100,7 +1109,7 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                       <TableCell className="text-right font-bold text-amber-700">
                         {formatNumberPtBr(it.saldo_a_produzir_t, 1)}
                       </TableCell>
-                      <TableCell className="text-right font-bold text-purple-700">
+                      <TableCell className="text-right font-bold text-slate-800">
                         {formatNumberPtBr(it.mp_necessaria_t, 1)}
                       </TableCell>
                       <TableCell className="text-center">

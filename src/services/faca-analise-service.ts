@@ -572,11 +572,6 @@ export class FacaAnaliseService {
       // que alimentaria a KS para não computar o mesmo volume nas duas origens
       const sobreposicao = raw.l2_passa_por_ks ? Math.min(l2Liquido, ksLiquido) : 0
 
-      // Disponibilidade líquida total potencial deste item
-      const disponibilidadeLiquida = Number(
-        (estoqueLivre + ksLiquido + l2Liquido - sobreposicao).toFixed(2),
-      )
-
       // Produtos FACA compatíveis cadastrados em faca_vinculo_pa_mp
       const vinculosDoItem = vinculos.filter((v) => v.codigo_mp === raw.codigo_mp)
       const compat = vinculosDoItem.map((v) => ({

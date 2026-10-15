@@ -67,9 +67,9 @@ export const FacaMaterialDetailModal: React.FC<FacaMaterialDetailModalProps> = (
                 {item.is_mto && (
                   <Badge
                     variant="outline"
-                    className="bg-purple-50 text-purple-700 border-purple-200 text-xs"
+                    className="bg-slate-100 text-slate-800 border-slate-300 text-xs"
                   >
-                    MTO
+                    Necessidade MP: {formatNumberPtBr(item.mp_necessaria_t, 1)} t
                   </Badge>
                 )}
               </div>
@@ -129,7 +129,7 @@ export const FacaMaterialDetailModal: React.FC<FacaMaterialDetailModalProps> = (
 
           <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
             <div className="text-slate-500 text-[10px] uppercase font-bold">MP Necessária</div>
-            <div className="text-sm font-extrabold text-purple-700">
+            <div className="text-sm font-extrabold text-slate-800">
               {formatNumberPtBr(item.mp_necessaria_t, 1)} t
             </div>
             <div className="text-[10px] text-slate-500">
@@ -278,9 +278,9 @@ export const FacaMaterialDetailModal: React.FC<FacaMaterialDetailModalProps> = (
           </TabsContent>
 
           <TabsContent value="mp" className="space-y-3 pt-2 text-xs">
-            <div className="border border-slate-200 rounded-lg p-3 bg-indigo-50/40 space-y-2">
-              <div className="font-bold text-indigo-950 flex items-center gap-1.5">
-                <Boxes className="w-4 h-4 text-indigo-700" /> Matéria-Prima Técnica Vinculada (Ficha
+            <div className="border border-slate-200 rounded-lg p-3 bg-blue-50/40 space-y-2">
+              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <Boxes className="w-4 h-4 text-[#004C97]" /> Matéria-Prima Técnica Vinculada (Ficha
                 Mestra)
               </div>
               <div className="grid grid-cols-2 gap-2 text-slate-700">
@@ -298,7 +298,7 @@ export const FacaMaterialDetailModal: React.FC<FacaMaterialDetailModalProps> = (
                   <span className="text-[10px] text-slate-500 block">
                     MP Disponível no Depósito:
                   </span>
-                  <span className="font-bold text-indigo-800">
+                  <span className="font-bold text-[#004C97]">
                     {formatNumberPtBr(item.mp_disponivel_t, 1)} t
                   </span>
                 </div>
@@ -306,7 +306,7 @@ export const FacaMaterialDetailModal: React.FC<FacaMaterialDetailModalProps> = (
                   <span className="text-[10px] text-slate-500 block">
                     MP Necessária p/ Saldo a Produzir:
                   </span>
-                  <span className="font-bold text-purple-800">
+                  <span className="font-bold text-slate-800">
                     {formatNumberPtBr(item.mp_necessaria_t, 1)} t
                   </span>
                 </div>

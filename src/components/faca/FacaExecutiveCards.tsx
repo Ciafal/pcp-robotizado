@@ -62,11 +62,11 @@ export const FacaExecutiveCards: React.FC<FacaExecutiveCardsProps> = ({ kpis, on
           ? `Potencial: ${formatNumberPtBr(kpis.mp_potencial_t, 1)} t`
           : undefined,
       icone: Layers,
-      corIcone: 'text-indigo-700 bg-indigo-50 border-indigo-200',
+      corIcone: 'text-[#004C97] bg-blue-50 border-blue-200',
       destaque: kpis.mp_detalhe_consolidado
         ? `DP07+DP04: ${formatNumberPtBr(kpis.mp_especifica_disponivel_t, 1)} t | KS: ${formatNumberPtBr(kpis.mp_detalhe_consolidado.ks_saldo_a_cortar_t, 1)} t`
         : 'Estoque Livre de Tarugos',
-      corBadge: 'bg-indigo-100 text-indigo-800',
+      corBadge: 'bg-blue-100 text-[#004C97]',
     },
     {
       key: 'mp_necessaria',
@@ -74,9 +74,9 @@ export const FacaExecutiveCards: React.FC<FacaExecutiveCardsProps> = ({ kpis, on
       subtitulo: 'Necessidade líquida calculada (t)',
       valor: `${formatNumberPtBr(kpis.mp_necessaria_t, 1)} t`,
       icone: FileCheck2,
-      corIcone: 'text-purple-700 bg-purple-50 border-purple-200',
+      corIcone: 'text-slate-700 bg-slate-100 border-slate-300',
       destaque: 'Demanda / Rendimento',
-      corBadge: 'bg-purple-100 text-purple-800',
+      corBadge: 'bg-slate-100 text-slate-800',
     },
     {
       key: 'faturamento_potencial',
@@ -159,7 +159,7 @@ export const FacaExecutiveCards: React.FC<FacaExecutiveCardsProps> = ({ kpis, on
                   {card.valor}
                 </div>
                 {(card as any).valorSecundario && (
-                  <div className="text-[10px] font-bold text-indigo-700 truncate">
+                  <div className="text-[10px] font-bold text-[#004C97] truncate">
                     {(card as any).valorSecundario}
                   </div>
                 )}

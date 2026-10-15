@@ -45,7 +45,7 @@ export const FacaAlertasIASection: React.FC<FacaAlertasIASectionProps> = ({
       case 'Produção':
         return 'bg-amber-700 text-white'
       case 'Gestão de MP':
-        return 'bg-purple-700 text-white'
+        return 'bg-[#004C97] text-white'
       default:
         return 'bg-slate-700 text-white'
     }

@@ -301,7 +301,7 @@ export const FacaRelatorioModal: React.FC<FacaRelatorioModalProps> = ({
                 <div className="text-[10px] text-slate-500 uppercase font-bold">
                   Disponibilidade Total
                 </div>
-                <div className="text-sm font-extrabold text-indigo-700">
+                <div className="text-sm font-extrabold text-[#004C97]">
                   {formatNumberPtBr(relatorio.analise_materia_prima.disponibilidade_total_t, 1)} t
                 </div>
               </div>
@@ -309,7 +309,7 @@ export const FacaRelatorioModal: React.FC<FacaRelatorioModalProps> = ({
                 <div className="text-[10px] text-slate-500 uppercase font-bold">
                   Consumo Projetado
                 </div>
-                <div className="text-sm font-extrabold text-purple-700">
+                <div className="text-sm font-extrabold text-slate-800">
                   {formatNumberPtBr(relatorio.analise_materia_prima.consumo_projetado_t, 1)} t
                 </div>
               </div>
@@ -469,7 +469,7 @@ export const FacaRelatorioModal: React.FC<FacaRelatorioModalProps> = ({
                 ))}
               </div>
               <div className="bg-slate-50 border border-slate-200 rounded p-3 space-y-1.5">
-                <span className="text-[10px] font-bold uppercase text-purple-700 block">
+                <span className="text-[10px] font-bold uppercase text-[#004C97] block">
                   Gestão de MP
                 </span>
                 {relatorio.recomendacoes_ia.gestao_mp.map((r, idx) => (
