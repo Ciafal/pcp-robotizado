@@ -2,7 +2,7 @@
   "name": "skip-react-template",
   "description": "PCP Robotizado - HUB CIAFAL (Frontend React Vite TypeScript)",
   "private": true,
-  "version": "0.0.498",
+  "version": "0.0.499",
   "type": "module",
   "scripts": {
     "start": "vite dev",
