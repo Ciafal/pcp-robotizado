@@ -136,11 +136,104 @@ export interface FacaMateriaPrimaDetalhe {
   alerta: string
 }
 
+/** Item detalhado do balanço de MP FACA (Tarugos Livres, KS a Cortar, L2 a Produzir) */
+export interface FacaMpItemDisponibilidade {
+  id: string
+  codigo_mp: string
+  descricao_mp: string
+  tipo_aco: string
+  bitola: string
+  dimensoes: string
+  empresa: string
+  centro: string // WERKS (ex: 1100, 1000)
+  deposito: string // LGORT (DP07, DP04, DP18, DP20, DP03, etc.)
+  lote?: string
+  unidade_medida: string // 't'
+  status_qualidade: 'LIVRE' | 'CONTROLE_QUALIDADE' | 'BLOQUEADO'
+  destinacao_produtiva: 'FACA' | 'GERAL' | 'COMPARTILHADA'
+
+  // Quantidades físicas e disponibilidade imediata
+  quantidade_fisica_t: number
+  quantidade_comprometida_t: number // Reservas SAP e alocações ativas
+  estoque_livre_t: number // Disponibilidade imediata apta tecnicamente
+
+  // Saldos futuros de produção/corte
+  ks_saldo_a_cortar_t: number // Saldo a cortar na KS (líquido com rendimento)
+  ks_rendimento_corte_pct: number // Ex: 96%
+  ks_perdas_pct: number // Ex: 4%
+  ks_status: 'CONFIRMADO' | 'PROGRAMADO' | 'ESTIMADO' | 'NAO_APLICAVEL'
+  ks_ordem_corte?: string
+
+  l2_saldo_a_produzir_t: number // Saldo de MP a produzir na L2
+  l2_rendimento_pct: number // Ex: 92%
+  l2_status: 'CONFIRMADO' | 'PROGRAMADO' | 'ESTIMADO' | 'NAO_APLICAVEL'
+  l2_ordem_producao?: string
+  l2_passa_por_ks: boolean // Evita dupla contagem no fluxo L2 -> KS
+
+  // Consolidação por item
+  sobreposicao_fluxo_t: number // Dedução se L2 alimenta KS
+  disponibilidade_liquida_t: number // Total potencial consolidado deste item
+  previsao_disponibilidade: string // Ex: 'Imediata', '22/10/2026', 'Aguardando OP'
+
+  // Rastreabilidade e compatibilidade técnica
+  produtos_faca_compativeis: Array<{
+    codigo_pa: string
+    descricao_pa: string
+    rendimento: number
+    prioridade: number
+  }>
+  origem_saldo: 'ESTOQUE' | 'KS' | 'L2' | 'MISTO'
+  fonte_rfc: string // 'SAP ECC • RFC MB52 / CS03 / MD04'
+  data_hora_sincronizacao: string // dd/mm/aaaa hh:mm
+  status_sincronizacao: 'SINCRONIZADO' | 'PARCIAL' | 'NAO_DISPONIVEL'
+}
+
+/** Agregação por tipo de aço para balanço e gráficos */
+export interface FacaMpConsolidadoPorAco {
+  tipo_aco: string
+  tarugos_disponiveis_t: number
+  ks_a_cortar_t: number
+  l2_a_produzir_t: number
+  sobreposicao_deduzida_t: number
+  potencial_total_t: number
+  mp_necessaria_carteira_t: number
+  saldo_projetado_t: number
+  status_cobertura: 'COBERTO_TOTAL' | 'COBERTO_IMEDIATO' | 'DEPENDENTE_KS_L2' | 'DEFICIT_CRITICO'
+}
+
+/** Estrutura do novo card consolidado de MP Específica Disponível */
+export interface FacaMpCardDisponibilidade {
+  // Informação 1: MP Disponível Agora (t) - estoque livre em depósitos aptos
+  mp_disponivel_agora_t: number
+  tarugos_disponiveis_t: number
+  depositos_considerados: string[] // ['DP07', 'DP04', 'DP18', 'DP20']
+
+  // Componentes futuros
+  ks_saldo_a_cortar_t: number
+  l2_mp_a_produzir_t: number
+  sobreposicoes_deduzidas_t: number
+
+  // Informação 2: MP Potencial (t) - imediata + futura líquida KS + L2 - sobreposição
+  mp_potencial_total_t: number
+
+  // Quebra por tipo de aço e depósitos
+  por_tipo_aco: FacaMpConsolidadoPorAco[]
+  itens_detalhados: FacaMpItemDisponibilidade[]
+
+  // Metadados de integração SAP RFC
+  fonte_identificada: string
+  ultima_atualizacao: string // dd/mm/aaaa hh:mm
+  status_sincronizacao: 'SINCRONIZADO' | 'PARCIAL' | 'NAO_DISPONIVEL'
+  ha_dados_integrados: boolean
+}
+
 export interface FacaCardKpis {
   carteira_total_t: number // pedidos abertos (t)
   estoque_disponivel_pa_t: number // produto acabado para faturamento (t)
   necessidade_producao_t: number // volume líquido a produzir (t)
-  mp_especifica_disponivel_t: number // MP disponível (t)
+  mp_especifica_disponivel_t: number // MP disponível agora (t) - estoque físico livre
+  mp_potencial_t?: number // MP potencial consolidada (t) - agora + KS + L2 sem dupla contagem
+  mp_detalhe_consolidado?: FacaMpCardDisponibilidade // Balanço técnico completo de MP
   mp_necessaria_t: number // MP necessária líquida (t)
   faturamento_potencial_brl: number // R$ pedidos com cobertura
   faturamento_confirmado_brl: number // R$ faturamento confirmado

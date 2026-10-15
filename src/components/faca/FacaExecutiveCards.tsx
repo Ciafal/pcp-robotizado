@@ -55,11 +55,17 @@ export const FacaExecutiveCards: React.FC<FacaExecutiveCardsProps> = ({ kpis, on
     {
       key: 'mp_disponivel',
       titulo: 'MP Específica Disponível',
-      subtitulo: 'Palanquilhas e blocos (t)',
+      subtitulo: 'Disponível Agora vs Potencial (t)',
       valor: `${formatNumberPtBr(kpis.mp_especifica_disponivel_t, 1)} t`,
+      valorSecundario:
+        kpis.mp_potencial_t !== undefined
+          ? `Potencial: ${formatNumberPtBr(kpis.mp_potencial_t, 1)} t`
+          : undefined,
       icone: Layers,
       corIcone: 'text-indigo-700 bg-indigo-50 border-indigo-200',
-      destaque: 'Saldo físico de MP',
+      destaque: kpis.mp_detalhe_consolidado
+        ? `DP07+DP04: ${formatNumberPtBr(kpis.mp_especifica_disponivel_t, 1)} t | KS: ${formatNumberPtBr(kpis.mp_detalhe_consolidado.ks_saldo_a_cortar_t, 1)} t`
+        : 'Estoque Livre de Tarugos',
       corBadge: 'bg-indigo-100 text-indigo-800',
     },
     {
@@ -148,11 +154,19 @@ export const FacaExecutiveCards: React.FC<FacaExecutiveCardsProps> = ({ kpis, on
                 </div>
               </div>
 
-              <div className="pt-0.5">
+              <div className="pt-0.5 space-y-0.5">
                 <div className="text-sm font-extrabold text-slate-900 tracking-tight truncate">
                   {card.valor}
                 </div>
-                <div className="text-[9px] font-semibold text-slate-500 truncate pt-0.5">
+                {(card as any).valorSecundario && (
+                  <div className="text-[10px] font-bold text-indigo-700 truncate">
+                    {(card as any).valorSecundario}
+                  </div>
+                )}
+                <div
+                  className="text-[9px] font-semibold text-slate-500 truncate pt-0.5"
+                  title={card.destaque}
+                >
                   {card.destaque}
                 </div>
               </div>

@@ -218,4 +218,72 @@ describe('Análise de FACA — Regras Técnicas, Cálculos e Cenários Mandatór
     expect(itemEstoqueLivre?.data_prevista_entrega).toBe('-')
     expect(itemEstoqueLivre?.previsao_faturamento).toBe('NAO_APLICAVEL')
   })
+
+  it('Cenário 11: Correção do card MP Específica — não utiliza carteira comercial como fonte e reflete estoque físico e potencial', async () => {
+    const dados = await FacaAnaliseService.getDadosAnaliticosCompletos()
+    const { kpis } = dados
+
+    // (1) O valor de MP Específica Disponível NÃO pode ser igual à carteira de pedidos nem à MP necessária
+    expect(kpis.mp_especifica_disponivel_t).not.toBe(kpis.carteira_total_t)
+    expect(kpis.mp_especifica_disponivel_t).not.toBe(kpis.mp_necessaria_t)
+
+    // (2) Detalhamento consolidado está presente
+    expect(kpis.mp_detalhe_consolidado).toBeDefined()
+    const mpConsolidado = kpis.mp_detalhe_consolidado!
+
+    // (3) Considera depósitos DP07, DP04 e demais depósitos elegíveis (DP18)
+    expect(mpConsolidado.depositos_considerados).toContain('DP07')
+    expect(mpConsolidado.depositos_considerados).toContain('DP04')
+    expect(mpConsolidado.depositos_considerados).toContain('DP18')
+
+    // (4) Informação distinta: MP Disponível Agora e MP Potencial Total
+    expect(mpConsolidado.mp_disponivel_agora_t).toBe(kpis.mp_especifica_disponivel_t)
+    expect(mpConsolidado.mp_potencial_total_t).toBeGreaterThanOrEqual(
+      mpConsolidado.mp_disponivel_agora_t,
+    )
+
+    // (5) Saldo a cortar na KS identificado com rendimento e sem misturar com estoque físico
+    expect(mpConsolidado.ks_saldo_a_cortar_t).toBeGreaterThan(0)
+
+    // (6) Saldo a produzir na L2 identificado com rendimento
+    expect(mpConsolidado.l2_mp_a_produzir_t).toBeGreaterThan(0)
+
+    // (7) Consolidação sem dupla contagem: sobreposições do fluxo L2 -> KS devidamente deduzidas
+    expect(mpConsolidado.sobreposicoes_deduzidas_t).toBeGreaterThanOrEqual(0)
+    const somaSemDeducao =
+      mpConsolidado.tarugos_disponiveis_t +
+      mpConsolidado.ks_saldo_a_cortar_t +
+      mpConsolidado.l2_mp_a_produzir_t
+    expect(mpConsolidado.mp_potencial_total_t).toBeCloseTo(
+      somaSemDeducao - mpConsolidado.sobreposicoes_deduzidas_t,
+      1,
+    )
+
+    // (8) Segregação estrita por tipo de aço: aços não são intercambiáveis
+    expect(mpConsolidado.por_tipo_aco.length).toBeGreaterThanOrEqual(3)
+    const acos = mpConsolidado.por_tipo_aco.map((a) => a.tipo_aco)
+    expect(acos).toContain('SAE 1045')
+    expect(acos).toContain('SAE 5160')
+    expect(acos).toContain('SAE 1070')
+
+    // Cada aço tem seu próprio balanço e status de cobertura
+    mpConsolidado.por_tipo_aco.forEach((acoData) => {
+      expect(acoData.potencial_total_t).toBeGreaterThanOrEqual(0)
+      expect(acoData.status_cobertura).toMatch(
+        /COBERTO_TOTAL|COBERTO_IMEDIATO|DEPENDENTE_KS_L2|DEFICIT_CRITICO/,
+      )
+    })
+
+    // (9) Itens detalhados possuem rastreabilidade de depósito, centro, qualidade e produtos compatíveis
+    expect(mpConsolidado.itens_detalhados.length).toBeGreaterThan(0)
+    mpConsolidado.itens_detalhados.forEach((item) => {
+      expect(item.empresa).toBeTruthy()
+      expect(item.centro).toBeTruthy()
+      expect(item.deposito).toBeTruthy()
+      expect(item.tipo_aco).toBeTruthy()
+      expect(item.bitola).toBeTruthy()
+      expect(item.status_qualidade).toMatch(/LIVRE|CONTROLE_QUALIDADE|BLOQUEADO/)
+      expect(item.produtos_faca_compativeis).toBeDefined()
+    })
+  })
 })
