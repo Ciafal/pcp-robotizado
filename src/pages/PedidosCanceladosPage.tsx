@@ -216,62 +216,9 @@ export const PedidosCanceladosPage: React.FC = () => {
     setSelectedOrder(updated)
   }
 
-  // Abertura de modal do card do topo ou aplicação de filtro direto
+  // Abertura de modal do card do topo: TODOS os 10 cards abrem o popup responsivo
+  // com dados reais e filtros pertinentes aplicados automaticamente (Requisito 1 e 2).
   const handleCardClick = (cardKey: string, cardTitle: string) => {
-    // Filtro contextual conforme especificação
-    if (cardKey === 'inconsistencia_ia') {
-      const nextVal = filters.comInconsistenciaIA === 'sim' ? 'todos' : 'sim'
-      const updated = { ...filters, comInconsistenciaIA: nextVal as any }
-      setFilters(updated)
-      cancelledOrdersService.getOrders(updated).then(setOrders)
-      return
-    }
-    if (cardKey === 'cancelamentos_pcp') {
-      const nextVal = filters.categoriaRecusa === 'PCP' ? 'todos' : 'PCP'
-      const updated = { ...filters, categoriaRecusa: nextVal as any }
-      setFilters(updated)
-      cancelledOrdersService.getOrders(updated).then(setOrders)
-      return
-    }
-    if (cardKey === 'cancelamentos_comerciais') {
-      const nextVal = filters.categoriaRecusa === 'COMERCIAL' ? 'todos' : 'COMERCIAL'
-      const updated = { ...filters, categoriaRecusa: nextVal as any }
-      setFilters(updated)
-      cancelledOrdersService.getOrders(updated).then(setOrders)
-      return
-    }
-    if (cardKey === 'cancelamentos_transporte') {
-      const nextVal = filters.categoriaRecusa === 'TRANSPORTE' ? 'todos' : 'TRANSPORTE'
-      const updated = { ...filters, categoriaRecusa: nextVal as any }
-      setFilters(updated)
-      cancelledOrdersService.getOrders(updated).then(setOrders)
-      return
-    }
-    if (cardKey === 'principal_motivo' && kpis.principalMotivoNome) {
-      const nextVal =
-        filters.motivoCancelamento === kpis.principalMotivoNome
-          ? undefined
-          : kpis.principalMotivoNome
-      const updated = { ...filters, motivoCancelamento: nextVal }
-      setFilters(updated)
-      cancelledOrdersService.getOrders(updated).then(setOrders)
-      return
-    }
-    if (cardKey === 'cancelamentos_reincidentes') {
-      const nextVal = filters.recorrencia === 'recorrente' ? 'todos' : 'recorrente'
-      const updated = { ...filters, recorrencia: nextVal as any }
-      setFilters(updated)
-      cancelledOrdersService.getOrders(updated).then(setOrders)
-      return
-    }
-    if (cardKey === 'potencialmente_evitaveis') {
-      const nextVal = filters.evitabilidade === 'evitavel' ? 'todos' : 'evitavel'
-      const updated = { ...filters, evitabilidade: nextVal as any }
-      setFilters(updated)
-      cancelledOrdersService.getOrders(updated).then(setOrders)
-      return
-    }
-
     setSelectedCardKey(cardKey)
     setSelectedCardTitle(cardTitle)
     setIsCardModalOpen(true)
@@ -436,6 +383,7 @@ export const PedidosCanceladosPage: React.FC = () => {
           onClose={() => setIsCardModalOpen(false)}
           orders={orders}
           kpis={kpis}
+          globalFilters={filters}
           onSelectOrder={handleOpenOrderDetail}
         />
 
