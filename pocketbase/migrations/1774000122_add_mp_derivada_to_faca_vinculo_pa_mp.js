@@ -80,7 +80,10 @@ migrate(
           rec.set('exige_corte', false)
           recChanged = true
         }
-        if (rec.get('disponivel_sem_corte') === null || rec.get('disponivel_sem_corte') === undefined) {
+        if (
+          rec.get('disponivel_sem_corte') === null ||
+          rec.get('disponivel_sem_corte') === undefined
+        ) {
           rec.set('disponivel_sem_corte', true)
           recChanged = true
         }
