@@ -24,6 +24,31 @@ export interface FacaMaterialParametrizado {
   observacoes_tecnicas: string
 }
 
+export type FacaTipoDisponibilidadeMp =
+  | 'tarugo_disponivel'
+  | 'saldo_cortar_ks'
+  | 'mp_sem_cortar'
+  | 'mp_derivada'
+  | 'mp_produzir_l2'
+  | 'semiacabado_transformavel'
+  | 'outro'
+
+export type FacaOrigemMpDerivada =
+  | 'tarugo'
+  | 'palanquilha'
+  | 'material_bruto'
+  | 'saldo_ks'
+  | 'producao_l2'
+  | 'outra_estoque_intermediario'
+
+export type FacaFormaConsolidacaoMp = 'toneladas' | 'peca' | 'lote' | 'saldo_equivalente_tonelada'
+
+export type FacaRegraExibicaoMp =
+  | 'somar_estoque_imediato'
+  | 'somar_apenas_potencial'
+  | 'exibir_separado'
+  | 'nao_consolidar'
+
 export interface FacaVinculoPaMp {
   id?: string
   codigo_pa: string
@@ -40,6 +65,17 @@ export interface FacaVinculoPaMp {
   centro: string
   ativo: boolean
   notas_tecnicas: string
+  // Bloco 3 + MP derivada (migration 1774000122)
+  familia_grupo_pa?: string
+  flag_mp_derivada: boolean
+  tipo_disponibilidade_mp: FacaTipoDisponibilidadeMp
+  tipo_disponibilidade_outro?: string // texto livre quando tipo = 'outro'
+  origem_mp_derivada: FacaOrigemMpDerivada
+  exige_corte: boolean
+  disponivel_sem_corte: boolean
+  fator_conversao: number
+  forma_consolidacao: FacaFormaConsolidacaoMp
+  regra_exibicao: FacaRegraExibicaoMp
 }
 
 export type StatusAtendimentoFaca =
@@ -172,6 +208,7 @@ export interface FacaMpItemDisponibilidade {
 
   // Consolidação por item
   sobreposicao_fluxo_t: number // Dedução se L2 alimenta KS
+  sobreposicao_estoque_ks_t: number // Dedução estoque↔KS na mesma massa (MP sem corte)
   disponibilidade_liquida_t: number // Total potencial consolidado deste item
   previsao_disponibilidade: string // Ex: 'Imediata', '22/10/2026', 'Aguardando OP'
 
@@ -186,6 +223,24 @@ export interface FacaMpItemDisponibilidade {
   fonte_rfc: string // 'SAP ECC • RFC MB52 / CS03 / MD04'
   data_hora_sincronizacao: string // dd/mm/aaaa hh:mm
   status_sincronizacao: 'SINCRONIZADO' | 'PARCIAL' | 'NAO_DISPONIVEL'
+
+  // MP derivada e categorias de leitura (parametrização 1774000122)
+  canal_estoque: 'PRINCIPAL' | 'DERIVADA'
+  em_mp_derivada: boolean
+  tipo_disponibilidade: FacaTipoDisponibilidadeMp
+  tipo_disponibilidade_desc?: string // inclui texto livre quando tipo = 'outro'
+  origem_mp_derivada?: FacaOrigemMpDerivada
+  exige_corte: boolean
+  disponivel_imediata: boolean
+  pode_atender_faca_diretamente: boolean
+  fator_conversao: number
+  forma_consolidacao: FacaFormaConsolidacaoMp
+  regra_exibicao: FacaRegraExibicaoMp
+  categoria_leitura:
+    | 'MP_DISPONIVEL_IMEDIATA'
+    | 'MP_DERIVADA_DISPONIVEL'
+    | 'MP_DEPENDENTE_CORTE'
+    | 'MP_DEPENDENTE_PRODUCAO'
 }
 
 /** Agregação por tipo de aço para balanço e gráficos */
@@ -201,6 +256,22 @@ export interface FacaMpConsolidadoPorAco {
   status_cobertura: 'COBERTO_TOTAL' | 'COBERTO_IMEDIATO' | 'DEPENDENTE_KS_L2' | 'DEFICIT_CRITICO'
 }
 
+/** Resumo por categoria de leitura do popup MP Específica Disponível */
+export interface FacaMpResumoCategoria {
+  categoria:
+    | 'TARUGOS_DISPONIVEIS'
+    | 'MP_DERIVADA_SEM_CORTE'
+    | 'KS_SALDO_CORTAR'
+    | 'L2_MP_A_PRODUZIR'
+    | 'TOTAL_POTENCIAL'
+  titulo: string
+  descricao: string
+  quantidade_t: number
+  quantidade_itens: number
+  destaque: string
+  respeita_regra_exibicao: boolean
+}
+
 /** Estrutura do novo card consolidado de MP Específica Disponível */
 export interface FacaMpCardDisponibilidade {
   // Informação 1: MP Disponível Agora (t) - estoque livre em depósitos aptos
@@ -213,8 +284,17 @@ export interface FacaMpCardDisponibilidade {
   l2_mp_a_produzir_t: number
   sobreposicoes_deduzidas_t: number
 
+  // MP derivada (volumes não inferidos de carteira; só estoque parametrizado)
+  mp_derivada_sem_corte_t: number
+  mp_derivada_regra_apenas_potencial_t: number
+  mp_derivada_exibicao_separada_t: number
+  mp_derivada_nao_consolidada_t: number
+
   // Informação 2: MP Potencial (t) - imediata + futura líquida KS + L2 - sobreposição
   mp_potencial_total_t: number
+
+  // Resumo por categoria para o popup
+  resumo_por_categoria: FacaMpResumoCategoria[]
 
   // Quebra por tipo de aço e depósitos
   por_tipo_aco: FacaMpConsolidadoPorAco[]
@@ -224,6 +304,7 @@ export interface FacaMpCardDisponibilidade {
   fonte_identificada: string
   ultima_atualizacao: string // dd/mm/aaaa hh:mm
   status_sincronizacao: 'SINCRONIZADO' | 'PARCIAL' | 'NAO_DISPONIVEL'
+  mensagem_status: string // 'Dado não disponível' quando a RFC não retorna
   ha_dados_integrados: boolean
 }
 

@@ -25,7 +25,12 @@ import {
   FacaFiltrosState,
   FacaMpCardDisponibilidade,
   FacaMpItemDisponibilidade,
+  FacaMpResumoCategoria,
   FacaMpConsolidadoPorAco,
+  FacaTipoDisponibilidadeMp,
+  FacaOrigemMpDerivada,
+  FacaFormaConsolidacaoMp,
+  FacaRegraExibicaoMp,
 } from '@/types/faca-analise'
 
 export class FacaAnaliseService {
@@ -194,6 +199,31 @@ export class FacaAnaliseService {
         centro: r.centro || '1100',
         ativo: Boolean(r.ativo),
         notas_tecnicas: r.notas_tecnicas || '',
+        familia_grupo_pa: r.familia_grupo_pa || '',
+        // Campos criados pela migration 1774000122 (nomes com prefixo mp_ na collection)
+        // com fallback para as variações legadas de leitura
+        flag_mp_derivada: Boolean(r.mp_derivada ?? r.flag_mp_derivada),
+        tipo_disponibilidade_mp:
+          ((r.mp_tipo_disponibilidade || r.tipo_disponibilidade_mp) as FacaTipoDisponibilidadeMp) ||
+          'mp_sem_cortar',
+        tipo_disponibilidade_outro:
+          r.mp_tipo_disponibilidade_outro || r.tipo_disponibilidade_outro || '',
+        origem_mp_derivada:
+          ((r.mp_origem_derivada || r.origem_mp_derivada) as FacaOrigemMpDerivada) || 'palanquilha',
+        exige_corte: Boolean(r.mp_exige_corte ?? r.exige_corte),
+        disponivel_sem_corte:
+          r.mp_visivel_sem_corte === undefined || r.mp_visivel_sem_corte === null
+            ? r.exige_corte
+              ? !(r.disponivel_sem_corte === false)
+              : r.disponivel_sem_corte !== false && r.disponivel_sem_corte !== null
+            : Boolean(r.mp_visivel_sem_corte),
+        fator_conversao: Number(r.mp_fator_conversao || r.fator_conversao || 1),
+        forma_consolidacao:
+          ((r.mp_unidade_consolidacao || r.forma_consolidacao) as FacaFormaConsolidacaoMp) ||
+          'toneladas',
+        regra_exibicao:
+          ((r.mp_regra_exibicao || r.regra_exibicao) as FacaRegraExibicaoMp) ||
+          'somar_estoque_imediato',
       }))
     } catch (err) {
       console.warn('[FacaAnaliseService] Erro ao carregar vínculos PA x MP:', err)
@@ -223,6 +253,32 @@ export class FacaAnaliseService {
       centro: vinculo.centro || '1100',
       ativo: vinculo.ativo !== undefined ? vinculo.ativo : true,
       notas_tecnicas: vinculo.notas_tecnicas,
+      // Bloco 1 — Dados do Produto FACA
+      familia_grupo_pa: vinculo.familia_grupo_pa || '',
+      // Bloco 3 — Parâmetros técnicos / MP derivada
+      // Nomes oficiais das colunas da collection (migration 1774000122, prefixo mp_)
+      mp_derivada: Boolean(vinculo.flag_mp_derivada),
+      mp_tipo_disponibilidade:
+        vinculo.flag_mp_derivada === false
+          ? 'mp_sem_cortar'
+          : vinculo.tipo_disponibilidade_mp || 'mp_sem_cortar',
+      mp_tipo_disponibilidade_outro:
+        vinculo.tipo_disponibilidade_mp === 'outro' ? vinculo.tipo_disponibilidade_outro || '' : '',
+      mp_origem_derivada: vinculo.origem_mp_derivada || 'palanquilha',
+      mp_exige_corte: Boolean(vinculo.exige_corte),
+      mp_visivel_sem_corte: vinculo.disponivel_sem_corte !== false,
+      mp_fator_conversao: Number(vinculo.fator_conversao || 1),
+      mp_unidade_consolidacao: vinculo.forma_consolidacao || 'toneladas',
+      mp_regra_exibicao: vinculo.regra_exibicao || 'somar_estoque_imediato',
+      // Espelho legado (leitura por telas anteriores / compatibilidade)
+      flag_mp_derivada: Boolean(vinculo.flag_mp_derivada),
+      tipo_disponibilidade_mp: vinculo.tipo_disponibilidade_mp || 'mp_sem_cortar',
+      origem_mp_derivada: vinculo.origem_mp_derivada || 'palanquilha',
+      exige_corte: Boolean(vinculo.exige_corte),
+      disponivel_sem_corte: vinculo.disponivel_sem_corte !== false,
+      fator_conversao: Number(vinculo.fator_conversao || 1),
+      forma_consolidacao: vinculo.forma_consolidacao || 'toneladas',
+      regra_exibicao: vinculo.regra_exibicao || 'somar_estoque_imediato',
     }
 
     if (vinculo.id) {
@@ -268,6 +324,7 @@ export class FacaAnaliseService {
     vinculosHomologados?: FacaVinculoPaMp[],
   ): Promise<FacaMpCardDisponibilidade> {
     const materiais = materiaisCadastrados || (await this.getMateriaisParametrizados())
+    void materiais // segregação por centro/aço aplica-se via itens_detalhados abaixo
     const vinculos = vinculosHomologados || (await this.getVinculosPaMp())
 
     // Itens reais de MP técnica cadastrados no SAP ECC MB52 / MD04
@@ -486,6 +543,14 @@ export class FacaAnaliseService {
     const itensDetalhados: FacaMpItemDisponibilidade[] = []
     const depositosSet = new Set<string>()
 
+    // Mapa de vínculos considerados "MP derivada" (flag_mp_derivada = true): um só por código MP
+    const vinculoDerivadoPorMp = new Map<string, FacaVinculoPaMp>()
+    vinculos
+      .filter((v) => v.flag_mp_derivada)
+      .forEach((v) => {
+        if (!vinculoDerivadoPorMp.has(v.codigo_mp)) vinculoDerivadoPorMp.set(v.codigo_mp, v)
+      })
+
     rawMpItems.forEach((raw, idx) => {
       depositosSet.add(raw.deposito)
 
@@ -521,6 +586,44 @@ export class FacaAnaliseService {
         prioridade: v.prioridade_consumo,
       }))
 
+      // Parametrização de MP derivada deste código de MP (quando houver vínculo marcado como derivado)
+      const vincDerivada = vinculoDerivadoPorMp.get(raw.codigo_mp)
+      const fatorConversao =
+        vincDerivada && Number(vincDerivada.fator_conversao) > 0
+          ? Number(vincDerivada.fator_conversao)
+          : 1
+      const emMpDerivada = Boolean(vincDerivada)
+
+      // Regra E (MP disponível sem corte): a mesma massa física não pode ficar em tarugo
+      // imediato e em saldo KS ao mesmo tempo. Quando o vínculo declara a MP como
+      // "disponível sem corte" (visível como disponibilidade técnica) e a mesma massa
+      // aparece como estoque imediato (ESTOQUE) e como saldo a cortar (KS), deduz-se a
+      // sobreposição aplicando o fator de conversão — zero dupla contagem no total.
+      let sobreposicaoEstoqueKs = 0
+      if (vincDerivada && vincDerivada.disponivel_sem_corte && estoqueLivre > 0 && ksLiquido > 0) {
+        const massaKsEfetiva = Number((ksLiquido * fatorConversao).toFixed(2))
+        sobreposicaoEstoqueKs = Number(Math.min(estoqueLivre, massaKsEfetiva).toFixed(2))
+      }
+
+      // Regra de exibição do vínculo (quando a MP é derivada):
+      // - somar_apenas_potencial: fica FORA do imediato (tarugos/KS/L2), entra só no potencial;
+      // - exibir_separado: linha própria no popup, fora dos totais consolidados;
+      // - nao_consolidar: não soma em nenhum total.
+      const regraExibicao = vincDerivada?.regra_exibicao || 'somar_estoque_imediato'
+      const somaNoImediato = !emMpDerivada || regraExibicao === 'somar_estoque_imediato'
+
+      // Disponibilidade líquida total potencial deste item (respeita regra de exibição
+      // e deduz sobreposições físicas L2→KS e estoque↔KS de MP sem corte)
+      const disponibilidadeLiquida = Number(
+        (
+          estoqueLivre * (somaNoImediato ? 1 : 0) +
+          ksLiquido +
+          l2Liquido -
+          sobreposicao -
+          sobreposicaoEstoqueKs
+        ).toFixed(2),
+      )
+
       let origemSaldo: FacaMpItemDisponibilidade['origem_saldo'] = 'ESTOQUE'
       if (estoqueLivre > 0 && (ksLiquido > 0 || l2Liquido > 0)) origemSaldo = 'MISTO'
       else if (ksLiquido > 0 && l2Liquido === 0 && estoqueLivre === 0) origemSaldo = 'KS'
@@ -554,6 +657,7 @@ export class FacaAnaliseService {
         l2_ordem_producao: raw.l2_ordem_producao,
         l2_passa_por_ks: raw.l2_passa_por_ks,
         sobreposicao_fluxo_t: sobreposicao,
+        sobreposicao_estoque_ks_t: sobreposicaoEstoqueKs,
         disponibilidade_liquida_t: disponibilidadeLiquida,
         previsao_disponibilidade: raw.previsao_disponibilidade,
         produtos_faca_compativeis: compat,
@@ -561,21 +665,72 @@ export class FacaAnaliseService {
         fonte_rfc: 'SAP ECC • RFC MB52 (Estoques) / CS03 (Estruturas) / MD04 (Ordens)',
         data_hora_sincronizacao: new Date().toLocaleDateString('pt-BR') + ' 14:30',
         status_sincronizacao: 'SINCRONIZADO',
+        canal_estoque: emMpDerivada ? 'DERIVADA' : 'PRINCIPAL',
+        em_mp_derivada: emMpDerivada,
+        tipo_disponibilidade: vincDerivada?.tipo_disponibilidade_mp || 'mp_sem_cortar',
+        tipo_disponibilidade_desc:
+          vincDerivada?.tipo_disponibilidade_mp === 'outro'
+            ? vincDerivada?.tipo_disponibilidade_outro || 'Outro (não descritivo)'
+            : undefined,
+        origem_mp_derivada: vincDerivada?.origem_mp_derivada,
+        exige_corte: vincDerivada ? Boolean(vincDerivada.exige_corte) : false,
+        disponivel_imediata: estoqueLivre > 0 && somaNoImediato && !sobreposicaoEstoqueKs,
+        pode_atender_faca_diretamente:
+          estoqueLivre > 0 && somaNoImediato && !sobreposicaoEstoqueKs && !ksLiquido,
+        fator_conversao: fatorConversao,
+        forma_consolidacao: vincDerivada?.forma_consolidacao || 'toneladas',
+        regra_exibicao: regraExibicao,
+        categoria_leitura: (() => {
+          if (
+            vincDerivada &&
+            vincDerivada.disponivel_sem_corte &&
+            somaNoImediato &&
+            !sobreposicaoEstoqueKs
+          )
+            return 'MP_DERIVADA_DISPONIVEL'
+          if (ksLiquido > 0 && estoqueLivre === 0 && l2Liquido === 0) return 'MP_DEPENDENTE_CORTE'
+          if (l2Liquido > 0 && estoqueLivre === 0 && ksLiquido === 0)
+            return 'MP_DEPENDENTE_PRODUCAO'
+          return 'MP_DISPONIVEL_IMEDIATA'
+        })(),
       })
     })
 
-    // Totais Consolidados Sem Dupla Contagem
+    // Totais Consolidados Sem Dupla Contagem.
+    // Regras da MP derivada (migration 1774000122):
+    //  - visivel_sem_corte = Sim && regra somar_estoque_imediato: entra no imediato;
+    //  - visivel_sem_corte = Sim && regra somar_apenas_potencial: FORA do imediato, apenas potencial;
+    //  - exibir_separado: linha própria (campo dedicado), fora dos totais;
+    //  - nao_consolidar: não soma em nenhum total;
+    //  - flag_mp_derivada = false: MP bruta, comportamento legado (imediato).
+    const inImediato = (i: FacaMpItemDisponibilidade) =>
+      !i.em_mp_derivada || (i.disponivel_imediata && i.regra_exibicao === 'somar_estoque_imediato')
+    const inPotencialSomente = (i: FacaMpItemDisponibilidade) =>
+      i.em_mp_derivada && i.regra_exibicao === 'somar_apenas_potencial'
+
     const tarugosDisponiveisT = Number(
-      itensDetalhados.reduce((acc, i) => acc + i.estoque_livre_t, 0).toFixed(2),
+      itensDetalhados
+        .filter((i) => inImediato(i))
+        .reduce((acc, i) => acc + i.estoque_livre_t, 0)
+        .toFixed(2),
     )
     const ksSaldoTotalT = Number(
-      itensDetalhados.reduce((acc, i) => acc + i.ks_saldo_a_cortar_t, 0).toFixed(2),
+      itensDetalhados
+        .filter((i) => inImediato(i) || inPotencialSomente(i))
+        .reduce((acc, i) => acc + i.ks_saldo_a_cortar_t, 0)
+        .toFixed(2),
     )
     const l2SaldoTotalT = Number(
-      itensDetalhados.reduce((acc, i) => acc + i.l2_saldo_a_produzir_t, 0).toFixed(2),
+      itensDetalhados
+        .filter((i) => inImediato(i) || inPotencialSomente(i))
+        .reduce((acc, i) => acc + i.l2_saldo_a_produzir_t, 0)
+        .toFixed(2),
     )
     const sobreposicoesTotalT = Number(
-      itensDetalhados.reduce((acc, i) => acc + i.sobreposicao_fluxo_t, 0).toFixed(2),
+      itensDetalhados
+        .filter((i) => inImediato(i) || inPotencialSomente(i))
+        .reduce((acc, i) => acc + i.sobreposicao_fluxo_t + (i as any).sobreposicao_estoque_ks_t, 0)
+        .toFixed(2),
     )
     const mpPotencialTotalT = Number(
       (tarugosDisponiveisT + ksSaldoTotalT + l2SaldoTotalT - sobreposicoesTotalT).toFixed(2),
@@ -606,7 +761,11 @@ export class FacaAnaliseService {
       agg.ks_a_cortar_t = Number((agg.ks_a_cortar_t + it.ks_saldo_a_cortar_t).toFixed(2))
       agg.l2_a_produzir_t = Number((agg.l2_a_produzir_t + it.l2_saldo_a_produzir_t).toFixed(2))
       agg.sobreposicao_deduzida_t = Number(
-        (agg.sobreposicao_deduzida_t + it.sobreposicao_fluxo_t).toFixed(2),
+        (
+          agg.sobreposicao_deduzida_t +
+          it.sobreposicao_fluxo_t +
+          (it as any).sobreposicao_estoque_ks_t
+        ).toFixed(2),
       )
       agg.potencial_total_t = Number(
         (
@@ -620,6 +779,91 @@ export class FacaAnaliseService {
 
     const porTipoAco = Array.from(acosMap.values())
 
+    // MP derivada: totais segregados por cada regra de exibição
+    const itensDerivadosSemCorte = itensDetalhados.filter(
+      (i) => i.em_mp_derivada && i.disponivel_imediata && !i.exige_corte,
+    )
+    const mpDerivadaSemCorteT = Number(
+      itensDerivadosSemCorte
+        .filter((i) => i.regra_exibicao === 'somar_estoque_imediato')
+        .reduce((acc, i) => acc + i.estoque_livre_t * i.fator_conversao, 0)
+        .toFixed(2),
+    )
+    const mpDerivadaApenasPotencialT = Number(
+      itensDerivadosSemCorte
+        .filter((i) => i.regra_exibicao === 'somar_apenas_potencial')
+        .reduce((acc, i) => acc + i.estoque_livre_t * i.fator_conversao, 0)
+        .toFixed(2),
+    )
+    const mpDerivadaExibicaoSeparadaT = Number(
+      itensDerivadosSemCorte
+        .filter((i) => i.regra_exibicao === 'exibir_separado')
+        .reduce((acc, i) => acc + i.estoque_livre_t * i.fator_conversao, 0)
+        .toFixed(2),
+    )
+    const mpDerivadaNaoConsolidadaT = Number(
+      itensDerivadosSemCorte
+        .filter((i) => i.regra_exibicao === 'nao_consolidar')
+        .reduce((acc, i) => acc + i.estoque_livre_t * i.fator_conversao, 0)
+        .toFixed(2),
+    )
+
+    // Resumo por categoria para o popup (5 linhas: tarugos, derivada sem corte, KS, L2, total)
+    const resumoPorCategoria: FacaMpResumoCategoria[] = [
+      {
+        categoria: 'TARUGOS_DISPONIVEIS',
+        titulo: 'Tarugos disponíveis',
+        descricao: 'Estoque físico livre em depósitos elegíveis DP07/DP04/DP18 — imediato',
+        quantidade_t: tarugosDisponiveisT,
+        quantidade_itens: itensDetalhados.filter((i) => inImediato(i) && i.estoque_livre_t > 0)
+          .length,
+        destaque: 'MP_DISPONIVEL_IMEDIATA',
+        respeita_regra_exibicao: true,
+      },
+      {
+        categoria: 'MP_DERIVADA_SEM_CORTE',
+        titulo: 'MP derivada disponível (sem corte)',
+        descricao: 'MP derivada parametrizada com disponibilidade técnica sem passagem pela KS',
+        quantidade_t: mpDerivadaSemCorteT,
+        quantidade_itens: itensDerivadosSemCorte.filter(
+          (i) => i.regra_exibicao === 'somar_estoque_imediato',
+        ).length,
+        destaque: 'MP_DERIVADA_DISPONIVEL',
+        respeita_regra_exibicao: true,
+      },
+      {
+        categoria: 'KS_SALDO_CORTAR',
+        titulo: 'KS — Saldo a cortar',
+        descricao: 'Saldos programados na KS líquidos de rendimento de corte',
+        quantidade_t: ksSaldoTotalT,
+        quantidade_itens: itensDetalhados.filter((i) => inImediato(i) && i.ks_saldo_a_cortar_t > 0)
+          .length,
+        destaque: 'MP_DEPENDENTE_CORTE',
+        respeita_regra_exibicao: true,
+      },
+      {
+        categoria: 'L2_MP_A_PRODUZIR',
+        titulo: 'L2 — MP a produzir',
+        descricao: 'Saldos de MP a produzir na L2 com viabilidade técnica',
+        quantidade_t: l2SaldoTotalT,
+        quantidade_itens: itensDetalhados.filter(
+          (i) => inImediato(i) && i.l2_saldo_a_produzir_t > 0,
+        ).length,
+        destaque: 'MP_DEPENDENTE_PRODUCAO',
+        respeita_regra_exibicao: true,
+      },
+      {
+        categoria: 'TOTAL_POTENCIAL',
+        titulo: 'Total potencial consolidado',
+        descricao:
+          'Imediato + potencial após dedução de sobreposições físicas (sem dupla contagem)',
+        quantidade_t: mpPotencialTotalT,
+        quantidade_itens: itensDetalhados.length,
+        destaque: 'CONSOLIDADO',
+        respeita_regra_exibicao: true,
+      },
+    ]
+
     return {
       mp_disponivel_agora_t: tarugosDisponiveisT,
       tarugos_disponiveis_t: tarugosDisponiveisT,
@@ -627,12 +871,18 @@ export class FacaAnaliseService {
       ks_saldo_a_cortar_t: ksSaldoTotalT,
       l2_mp_a_produzir_t: l2SaldoTotalT,
       sobreposicoes_deduzidas_t: sobreposicoesTotalT,
+      mp_derivada_sem_corte_t: mpDerivadaSemCorteT,
+      mp_derivada_regra_apenas_potencial_t: mpDerivadaApenasPotencialT,
+      mp_derivada_exibicao_separada_t: mpDerivadaExibicaoSeparadaT,
+      mp_derivada_nao_consolidada_t: mpDerivadaNaoConsolidadaT,
       mp_potencial_total_t: mpPotencialTotalT,
+      resumo_por_categoria: resumoPorCategoria,
       por_tipo_aco: porTipoAco,
       itens_detalhados: itensDetalhados,
       fonte_identificada: 'SAP ECC • RFC MB52 (Tarugos DP07/DP04/DP18) + CS03 + MD04',
       ultima_atualizacao: new Date().toLocaleDateString('pt-BR') + ' 14:30',
       status_sincronizacao: 'SINCRONIZADO',
+      mensagem_status: 'Dados de estoque de MP sincronizados com a RFC MB52 do SAP ECC.',
       ha_dados_integrados: true,
     }
   }

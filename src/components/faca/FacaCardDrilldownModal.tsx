@@ -44,6 +44,9 @@ import {
   ArrowRight,
   CheckCircle2,
   Info,
+  ListChecks,
+  Sigma,
+  X,
 } from 'lucide-react'
 import {
   FacaCardKpis,
@@ -154,9 +157,9 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
     return mpConsolidado.por_tipo_aco.map((aco) => ({
       aco: aco.tipo_aco,
       'Tarugos Disponíveis': aco.tarugos_disponiveis_t,
+      'MP Derivada sem Corte': (mpConsolidado as any).mp_derivada_sem_corte_t || 0,
       'KS a Cortar': aco.ks_a_cortar_t,
       'L2 a Produzir': aco.l2_a_produzir_t,
-      'Potencial Total': aco.potencial_total_t,
       'Demanda Carteira': aco.mp_necessaria_carteira_t,
     }))
   }, [mpConsolidado])
@@ -170,17 +173,46 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
     const totalL2Produzir = itensMpFiltrados.reduce((acc, i) => acc + i.l2_saldo_a_produzir_t, 0)
     const totalLiquido = itensMpFiltrados.reduce((acc, i) => acc + i.disponibilidade_liquida_t, 0)
 
+    // Identidade visual HUB/CIAFAL: azul institucional, tons neutros (sem roxo/lilás)
+    const COR_TARUGO = '#004C97'
+    const COR_MP_DERIVADA = '#2E86C1'
+    const COR_KS = '#0284C7'
+    const COR_L2 = '#4582B4'
+    const COR_DEMANDA = '#D97706'
+    const STATUS_NAO_DISPONIVEL = mpConsolidado?.status_sincronizacao === 'NAO_DISPONIVEL'
+    const semDadosRfc =
+      STATUS_NAO_DISPONIVEL || !mpConsolidado?.ha_dados_integrados
+    // Formato do valor: dado não disponível nunca vira zero — exibe o status
+    const fmtT = (v?: number) =>
+      semDadosRfc ? (
+        <span className="text-xs font-bold text-amber-700">Dado não disponível</span>
+      ) : (
+        <>{formatNumberPtBr(v || 0, 1)} t</>
+      )
+
+    const botaoFecharPadrao = (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onClose}
+        className="text-xs font-semibold border-slate-300 hover:bg-blue-50 hover:text-[#004C97] min-w-[140px]"
+      >
+        Fechar Visualização
+      </Button>
+    )
+
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[94vh] overflow-y-auto p-4 sm:p-6 bg-slate-50/50">
-          <DialogHeader className="border-b border-slate-200 pb-3">
+        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[94vh] overflow-y-auto p-4 sm:p-6 bg-[#F5F8FC]">
+          {/* Cabeçalho fixo identidade HUB */}
+          <DialogHeader className="sticky top-0 z-20 border-b border-slate-200 bg-white px-1 pt-1 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700">
+                <div className="w-10 h-10 rounded-xl bg-[#004C97] text-white flex items-center justify-center shadow-sm">
                   <Layers className="w-5 h-5" />
                 </div>
                 <div>
-                  <DialogTitle className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <DialogTitle className="text-base sm:text-lg font-black text-[#004C97] tracking-tight flex items-center gap-2">
                     MP Específica Disponível — Balanço Físico e Potencial Técnico
                     <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
                       SAP ECC RFC MB52 / MD04
@@ -189,47 +221,101 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                   <DialogDescription className="text-xs text-slate-500 pt-0.5">
                     Fonte oficial: {mpConsolidado?.fonte_identificada || 'SAP ECC • RFC MB52'}{' '}
                     &bull; Última sincronização:{' '}
-                    <strong>{mpConsolidado?.ultima_atualizacao || 'Hoje'}</strong> &bull; Status:{' '}
-                    <span className="text-emerald-700 font-bold">
-                      {mpConsolidado?.status_sincronizacao || 'SINCRONIZADO'}
-                    </span>
+                    <strong>{mpConsolidado?.ultima_atualizacao || 'Dado não disponível'}</strong>{' '}
+                    &bull; Status:{' '}
+                    {semDadosRfc ? (
+                      <span className="text-amber-700 font-bold">Dado não disponível</span>
+                    ) : (
+                      <span className="text-emerald-700 font-bold">
+                        {mpConsolidado?.status_sincronizacao || 'SINCRONIZADO'}
+                      </span>
+                    )}
                   </DialogDescription>
                 </div>
               </div>
 
-              {/* Badges de destaque consolidados */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-right">
+              {/* Badges de destaque consolidados — os 2 cards superiores alinhados entre si */}
+              <div className="flex items-stretch gap-2">
+                <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-right min-w-[190px] shadow-xs">
                   <div className="text-[10px] uppercase font-bold text-slate-500">
                     MP Disponível Agora
                   </div>
-                  <div className="text-sm font-extrabold text-indigo-700">
-                    {formatNumberPtBr(kpis.mp_especifica_disponivel_t, 1)} t
+                  <div className="text-base font-extrabold text-[#004C97] leading-tight">
+                    {fmtT(kpis.mp_especifica_disponivel_t)}
                   </div>
                 </div>
-                <div className="bg-white border border-indigo-200 px-3 py-1.5 rounded-lg text-right">
-                  <div className="text-[10px] uppercase font-bold text-indigo-600">
-                    MP Potencial Total (sem sobreposição)
+                <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-right min-w-[190px] shadow-xs">
+                  <div className="text-[10px] uppercase font-bold text-slate-500">
+                    MP Potencial Total
                   </div>
-                  <div className="text-sm font-extrabold text-[#004C97]">
-                    {formatNumberPtBr(kpis.mp_potencial_t ?? kpis.mp_especifica_disponivel_t, 1)} t
+                  <div className="text-base font-extrabold text-[#004C97] leading-tight">
+                    {fmtT(kpis.mp_potencial_t ?? kpis.mp_especifica_disponivel_t)}
                   </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Fechar balanço de MP"
+                  onClick={onClose}
+                  className="h-8 w-8 self-center rounded-lg border-slate-300 text-slate-500 hover:bg-blue-50 hover:text-[#004C97]"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </DialogHeader>
 
-          {/* 4 Cards de Composição Consolidada da MP */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
-              <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
+          {/* Resumo por categoria (5 categorias oficiais de leitura) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs mt-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <ListChecks className="w-4 h-4 text-[#004C97]" />
+                Resumo por Categoria de Disponibilidade
+              </div>
+              <span className="text-[11px] text-slate-500">
+                4 categorias de leitura distinguíveis + consolidado
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-2">
+              {(mpConsolidado?.resumo_por_categoria || []).map((cat) => (
+                <div
+                  key={cat.categoria}
+                  data-testid={`resumo-categoria-${cat.categoria}`}
+                  className={`rounded-lg border p-2.5 ${
+                    cat.categoria === 'TOTAL_POTENCIAL'
+                      ? 'border-[#004C97] bg-[#F0F6FC]'
+                      : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 leading-tight">
+                    {cat.titulo}
+                  </div>
+                  <div
+                    className={`text-sm font-black pt-1 ${
+                      cat.categoria === 'TOTAL_POTENCIAL' ? 'text-[#004C97]' : 'text-slate-900'
+                    }`}
+                  >
+                    {fmtT(cat.quantidade_t)}
+                  </div>
+                  <div className="text-[10px] text-slate-500 pt-0.5 leading-tight">
+                    {cat.descricao}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 4 Cards de Composição Consolidada da MP — alturas e espaçamentos iguais */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 items-stretch">
+            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
                 <span>1. Tarugos Disponíveis</span>
-                <Badge variant="outline" className="text-[9px] bg-slate-50">
+                <Badge variant="outline" className="text-[9px] bg-blue-50 text-[#004C97] border-blue-200">
                   Imediato
                 </Badge>
               </div>
-              <div className="text-lg font-extrabold text-slate-900 pt-1">
-                {formatNumberPtBr(mpConsolidado?.tarugos_disponiveis_t || 0, 1)} t
+              <div className="text-lg font-extrabold text-[#004C97] pt-1 mt-auto">
+                {fmtT(mpConsolidado?.tarugos_disponiveis_t)}
               </div>
               <div className="text-[10px] text-slate-500 pt-0.5">
                 Depósitos elegíveis:{' '}
@@ -239,54 +325,91 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
-              <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
-                <span>2. KS — Saldo a Cortar</span>
-                <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700">
-                  Líquido c/ perdas
+            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
+                <span>2. MP Derivada sem Corte</span>
+                <Badge variant="outline" className="text-[9px] bg-blue-50 text-[#004C97] border-blue-200">
+                  Técnica
                 </Badge>
               </div>
-              <div className="text-lg font-extrabold text-blue-700 pt-1">
-                {formatNumberPtBr(mpConsolidado?.ks_saldo_a_cortar_t || 0, 1)} t
+              <div className="text-lg font-extrabold text-[#2E86C1] pt-1 mt-auto">
+                {fmtT(mpConsolidado?.mp_derivada_sem_corte_t)}
+              </div>
+              <div className="text-[10px] text-slate-500 pt-0.5">
+                Visível sem corte + fator de conversão aplicado
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
+                <span>3. KS — Saldo a Cortar</span>
+                <Badge variant="outline" className="text-[9px] bg-sky-50 text-sky-700 border-sky-200">
+                  Dependente de corte
+                </Badge>
+              </div>
+              <div className="text-lg font-extrabold text-sky-700 pt-1 mt-auto">
+                {fmtT(mpConsolidado?.ks_saldo_a_cortar_t)}
               </div>
               <div className="text-[10px] text-slate-500 pt-0.5">
                 Rendimento médio de corte: <strong>94% a 96%</strong>
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
-              <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
-                <span>3. L2 — MP a Produzir</span>
-                <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-700">
-                  Futuro viável
+            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
+                <span>4. L2 — MP a Produzir</span>
+                <Badge variant="outline" className="text-[9px] bg-sky-50 text-sky-700 border-sky-200">
+                  Dependente de produção
                 </Badge>
               </div>
-              <div className="text-lg font-extrabold text-purple-700 pt-1">
-                {formatNumberPtBr(mpConsolidado?.l2_mp_a_produzir_t || 0, 1)} t
+              <div className="text-lg font-extrabold text-sky-700 pt-1 mt-auto">
+                {fmtT(mpConsolidado?.l2_mp_a_produzir_t)}
               </div>
               <div className="text-[10px] text-slate-500 pt-0.5">
                 Rendimento L2: <strong>91% a 93%</strong>
               </div>
             </div>
+          </div>
 
-            <div className="bg-white border border-emerald-200 rounded-xl p-3 shadow-xs">
-              <div className="flex items-center justify-between text-xs text-emerald-800 font-semibold">
-                <span>4. Total Potencial Sem Dupla Contagem</span>
-                <Badge className="text-[9px] bg-emerald-600 text-white">Consolidado</Badge>
+          {/* Bloco 4 consolidado: Total Potencial sem Dupla Contagem */}
+          <div className="bg-white border-2 border-[#004C97] rounded-xl p-3 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs font-bold uppercase tracking-wide text-[#004C97] flex items-center gap-1.5">
+                <Sigma className="w-4 h-4" />
+                Total Potencial Sem Dupla Contagem
               </div>
-              <div className="text-lg font-black text-emerald-700 pt-1">
-                {formatNumberPtBr(mpConsolidado?.mp_potencial_total_t || 0, 1)} t
+              <Badge className="bg-[#004C97] text-white text-[9px]">Consolidado</Badge>
+            </div>
+            <div className="flex flex-wrap items-end justify-between gap-2 pt-1">
+              <div className="text-xl font-black text-[#004C97]">
+                {fmtT(mpConsolidado?.mp_potencial_total_t)}
               </div>
-              <div className="text-[10px] text-emerald-800 pt-0.5">
-                Sobreposição L2 &rarr; KS deduzida:{' '}
-                <strong>
+              <div className="text-[10px] text-slate-600 text-right">
+                Sobreposições deduzidas (L2&rarr;KS e estoque↔KS de MP sem corte):{' '}
+                <strong className="text-[#004C97]">
                   -{formatNumberPtBr(mpConsolidado?.sobreposicoes_deduzidas_t || 0, 1)} t
                 </strong>
+                {Number(mpConsolidado?.mp_derivada_regra_apenas_potencial_t || 0) > 0 && (
+                  <div className="text-slate-500">
+                    MP derivada "somente potencial" inclusa: +
+                    {formatNumberPtBr(
+                      mpConsolidado.mp_derivada_regra_apenas_potencial_t,
+                      1,
+                    )}{' '}
+                    t
+                  </div>
+                )}
+                {Number(mpConsolidado?.mp_derivada_nao_consolidada_t || 0) > 0 && (
+                  <div className="text-slate-500">
+                    MP derivada não consolidada (fora dos totais):{' '}
+                    {formatNumberPtBr(mpConsolidado.mp_derivada_nao_consolidada_t, 1)} t
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Gráfico Comparativo por Tipo de Aço */}
+          {/* Gráfico Comparativo por Tipo de Aço — paleta HUB (azuis + âmbar de demanda) */}
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -312,28 +435,38 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                       borderColor: '#CBD5E1',
                     }}
                   />
-                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                  <Legend
+                    wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
+                    iconType="circle"
+                    iconSize={9}
+                  />
                   <Bar
                     dataKey="Tarugos Disponíveis"
-                    fill="#4F46E5"
+                    fill={COR_TARUGO}
                     radius={[4, 4, 0, 0]}
                     name="Tarugos Disponíveis (Imediato)"
                   />
                   <Bar
+                    dataKey="MP Derivada sem Corte"
+                    fill={COR_MP_DERIVADA}
+                    radius={[4, 4, 0, 0]}
+                    name="MP Derivada sem Corte"
+                  />
+                  <Bar
                     dataKey="KS a Cortar"
-                    fill="#0284C7"
+                    fill={COR_KS}
                     radius={[4, 4, 0, 0]}
                     name="KS a Cortar (Líquido)"
                   />
                   <Bar
                     dataKey="L2 a Produzir"
-                    fill="#9333EA"
+                    fill={COR_L2}
                     radius={[4, 4, 0, 0]}
                     name="L2 a Produzir"
                   />
                   <Bar
                     dataKey="Demanda Carteira"
-                    fill="#F59E0B"
+                    fill={COR_DEMANDA}
                     radius={[4, 4, 0, 0]}
                     name="Demanda da Carteira FACA"
                   />
@@ -520,13 +653,13 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                     <TableHead className="font-bold text-slate-700">Bitola</TableHead>
                     <TableHead className="font-bold text-slate-700 text-center">Centro</TableHead>
                     <TableHead className="font-bold text-slate-700 text-center">Depósito</TableHead>
-                    <TableHead className="font-bold text-slate-700 text-right text-indigo-700">
+                    <TableHead className="font-bold text-slate-700 text-right text-[#004C97]">
                       Estoque Livre (t)
                     </TableHead>
-                    <TableHead className="font-bold text-slate-700 text-right text-blue-700">
+                    <TableHead className="font-bold text-slate-700 text-right text-sky-700">
                       KS a Cortar (t)
                     </TableHead>
-                    <TableHead className="font-bold text-slate-700 text-right text-purple-700">
+                    <TableHead className="font-bold text-slate-700 text-right text-sky-700">
                       L2 a Produzir (t)
                     </TableHead>
                     <TableHead className="font-bold text-slate-700 text-right text-emerald-800 font-black">
@@ -558,8 +691,32 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                                 <ChevronRight className="w-4 h-4" />
                               )}
                             </TableCell>
-                            <TableCell className="font-mono font-bold text-indigo-900">
+                            <TableCell className="font-mono font-bold text-[#004C97]">
                               {item.codigo_mp}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.em_mp_derivada ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] bg-blue-50 text-[#004C97] border-blue-300 font-bold"
+                                  title={`Categoria: ${item.categoria_leitura}`}
+                                >
+                                  {item.categoria_leitura === 'MP_DERIVADA_DISPONIVEL'
+                                    ? 'DERIVADA DISPONÍVEL'
+                                    : item.categoria_leitura === 'MP_DEPENDENTE_CORTE'
+                                      ? 'DEPENDENTE CORTE'
+                                      : item.categoria_leitura === 'MP_DEPENDENTE_PRODUCAO'
+                                        ? 'DEPENDENTE PRODUÇÃO'
+                                        : 'IMEDIATA'}
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] bg-slate-50 text-slate-500 border-slate-200"
+                                >
+                                  IMEDIATA
+                                </Badge>
+                              )}
                             </TableCell>
                             <TableCell className="text-slate-800 font-medium truncate max-w-[220px]">
                               {item.descricao_mp}
@@ -578,15 +735,15 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                                 {item.deposito}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right font-extrabold text-indigo-700">
+                            <TableCell className="text-right font-extrabold text-[#004C97]">
                               {formatNumberPtBr(item.estoque_livre_t, 1)}
                             </TableCell>
-                            <TableCell className="text-right font-bold text-blue-700">
+                            <TableCell className="text-right font-bold text-sky-700">
                               {item.ks_saldo_a_cortar_t > 0
                                 ? formatNumberPtBr(item.ks_saldo_a_cortar_t, 1)
                                 : '-'}
                             </TableCell>
-                            <TableCell className="text-right font-bold text-purple-700">
+                            <TableCell className="text-right font-bold text-sky-700">
                               {item.l2_saldo_a_produzir_t > 0
                                 ? formatNumberPtBr(item.l2_saldo_a_produzir_t, 1)
                                 : '-'}
@@ -617,7 +774,7 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                                     {/* 1. Origem Física SAP */}
                                     <div className="space-y-1 border-r border-slate-100 pr-2">
                                       <div className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
-                                        <Database className="w-3.5 h-3.5 text-indigo-600" />
+                                        <Database className="w-3.5 h-3.5 text-[#004C97]" />
                                         Estoque Físico em Depósito ({item.deposito})
                                       </div>
                                       <div className="text-[11px] text-slate-600 space-y-0.5">
@@ -646,26 +803,42 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
                                         Fluxo Produtivo (KS / L2)
                                       </div>
                                       <div className="text-[11px] text-slate-600 space-y-0.5">
-                                        <div>
-                                          KS ({item.ks_status}):{' '}
-                                          <strong>{item.ks_saldo_a_cortar_t.toFixed(1)} t</strong>{' '}
-                                          (Rend. {item.ks_rendimento_corte_pct}%, Perda{' '}
-                                          {item.ks_perdas_pct}%)
-                                        </div>
-                                        <div>
-                                          L2 ({item.l2_status}):{' '}
-                                          <strong>{item.l2_saldo_a_produzir_t.toFixed(1)} t</strong>{' '}
-                                          (Rend. {item.l2_rendimento_pct}%)
-                                        </div>
-                                        {item.l2_passa_por_ks && (
-                                          <div className="text-amber-800 font-bold">
-                                            Fluxo L2 &rarr; KS: sobreposição de{' '}
-                                            {item.sobreposicao_fluxo_t.toFixed(1)} t deduzida para
-                                            evitar dupla contagem.
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
+                    <div>
+                      <div>
+                        KS ({item.ks_status}):{' '}
+                        <strong>{item.ks_saldo_a_cortar_t.toFixed(1)} t</strong> (Rend.{' '}
+                        {item.ks_rendimento_corte_pct}%, Perda {item.ks_perdas_pct}%)
+                      </div>
+                      <div>
+                        L2 ({item.l2_status}):{' '}
+                        <strong>{item.l2_saldo_a_produzir_t.toFixed(1)} t</strong> (Rend.{' '}
+                        {item.l2_rendimento_pct}%)
+                      </div>
+                      {item.l2_passa_por_ks && (
+                        <div className="text-amber-800 font-bold">
+                          Fluxo L2 &rarr; KS: sobreposição de {item.sobreposicao_fluxo_t.toFixed(1)}{' '}
+                          t deduzida para evitar dupla contagem.
+                        </div>
+                      )}
+                      {(item as any).sobreposicao_estoque_ks_t > 0 && (
+                        <div className="text-amber-800 font-bold">
+                          Massa já visível como estoque imediato:{' '}
+                          {(item as any).sobreposicao_estoque_ks_t.toFixed(1)} t deduzida do saldo
+                          KS (MP sem corte, sem dupla contagem).
+                        </div>
+                      )}
+                      {item.em_mp_derivada && (
+                        <div className="text-[#004C97] font-bold">
+                          MP derivada — Tipo: {item.tipo_disponibilidade}
+                          {item.tipo_disponibilidade_desc
+                            ? ` (${item.tipo_disponibilidade_desc})`
+                            : ''}{' '}
+                          • Origem: {item.origem_mp_derivada} • Fator: {item.fator_conversao} •
+                          Regra: {item.regra_exibicao}
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                                     {/* 3. Produtos FACA vinculados */}
                                     <div className="space-y-1">
@@ -717,15 +890,13 @@ export const FacaCardDrilldownModal: React.FC<FacaCardDrilldownModalProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between pt-2 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white rounded-xl px-3 py-2.5 text-xs text-slate-600 shadow-xs">
             <div>
-              Total filtrado: <strong>{totalLiquido.toFixed(1)} t</strong> (Livre:{' '}
-              {totalEstoqueLivre.toFixed(1)} t | KS: {totalKsCortar.toFixed(1)} t | L2:{' '}
+              Total do filtro aplicado: <strong className="text-[#004C97]">{totalLiquido.toFixed(1)} t</strong>{' '}
+              (Livre: {totalEstoqueLivre.toFixed(1)} t | KS: {totalKsCortar.toFixed(1)} t | L2:{' '}
               {totalL2Produzir.toFixed(1)} t)
             </div>
-            <Button variant="outline" size="sm" onClick={onClose} className="text-xs font-semibold">
-              Fechar Visualização
-            </Button>
+            {botaoFecharPadrao}
           </div>
         </DialogContent>
       </Dialog>
