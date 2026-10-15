@@ -29,6 +29,7 @@ import {
   Percent,
   Factory,
   Briefcase,
+  Truck,
   AlertTriangle,
   Repeat,
   Sparkles,
@@ -101,7 +102,7 @@ export const CancelledOrdersExecutiveCards: React.FC<ExecutiveCardsProps> = ({
       borderColor: 'border-l-indigo-600',
       tagColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
       activeRing: 'ring-2 ring-indigo-500',
-      fullTooltip: `${kpis.pcpQtd} pedidos atribuídos ao PCP somando ${formatTons(kpis.pcpToneladas)}. Clique para filtrar por responsabilidade PCP.`,
+      fullTooltip: `${kpis.pcpQtd} pedidos atribuídos ao PCP somando ${formatTons(kpis.pcpToneladas)} (${formatPercentPtBr(kpis.pcpPercentualVolume || 0)} do volume cancelado). Clique para filtrar por categoria PCP.`,
     },
     {
       key: 'cancelamentos_comerciais',
@@ -114,20 +115,35 @@ export const CancelledOrdersExecutiveCards: React.FC<ExecutiveCardsProps> = ({
       borderColor: 'border-l-emerald-600',
       tagColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
       activeRing: 'ring-2 ring-emerald-500',
-      fullTooltip: `${kpis.comercialQtd} pedidos cancelados por motivos comerciais somando ${formatTons(kpis.comercialToneladas)}`,
+      fullTooltip: `${kpis.comercialQtd} pedidos cancelados por motivos comerciais somando ${formatTons(kpis.comercialToneladas)} (${formatPercentPtBr(kpis.comercialPercentualVolume || 0)} do volume cancelado)`,
+    },
+    {
+      key: 'cancelamentos_transporte',
+      title: 'Transporte',
+      valuePrimary: `${kpis.transporteQtd} pedidos`,
+      valueSecondary: formatTons(kpis.transporteToneladas),
+      description: 'Frete, disponibilidade e condições logísticas',
+      tag: 'Transporte',
+      icon: Truck,
+      borderColor: 'border-l-cyan-600',
+      tagColor: 'bg-cyan-50 text-cyan-800 border-cyan-200',
+      activeRing: 'ring-2 ring-cyan-500',
+      fullTooltip: `${kpis.transporteQtd} pedidos cancelados por motivos de transporte somando ${formatTons(kpis.transporteToneladas)} (${formatPercentPtBr(kpis.transportePercentualVolume || 0)} do volume cancelado)`,
     },
     {
       key: 'principal_motivo',
       title: 'Principal motivo',
       valuePrimary: kpis.principalMotivoNome || 'Não apurado',
-      valueSecondary: formatTons(kpis.principalMotivoToneladas),
-      description: 'Maior ofensor em volume',
+      valueSecondary: `${formatTons(kpis.principalMotivoToneladas)}${kpis.principalMotivoCategoria ? ` • Cat: ${kpis.principalMotivoCategoria}` : ''}`,
+      description: kpis.principalMotivoCategoria
+        ? `Categoria: ${kpis.principalMotivoCategoria}`
+        : 'Maior ofensor em volume',
       tag: 'Top 1',
       icon: AlertTriangle,
       borderColor: 'border-l-orange-600',
       tagColor: 'bg-orange-50 text-orange-800 border-orange-200',
       activeRing: 'ring-2 ring-orange-500',
-      fullTooltip: `Principal motivo: "${kpis.principalMotivoNome}" com ${formatTons(kpis.principalMotivoToneladas)}. Clique para filtrar por este motivo.`,
+      fullTooltip: `Principal motivo: "${kpis.principalMotivoNome}" / ${formatTons(kpis.principalMotivoToneladas)} / Categoria: ${kpis.principalMotivoCategoria || 'Sem categorização'}. Clique para filtrar por este motivo.`,
     },
     {
       key: 'cancelamentos_reincidentes',
@@ -172,7 +188,25 @@ export const CancelledOrdersExecutiveCards: React.FC<ExecutiveCardsProps> = ({
 
   return (
     <div className="w-full mb-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5 items-stretch">
+      {/* Alerta discreto quando houver registros pendentes de categorização (Requisito 6) */}
+      {kpis.semCategorizacaoQtd > 0 && (
+        <div className="mb-3 px-3.5 py-2 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>
+              <strong>Atenção:</strong> {kpis.semCategorizacaoQtd} pedido(s) (
+              {formatTons(kpis.semCategorizacaoToneladas)}) aguardam categorização da recusa (Sem
+              categorização).
+            </span>
+          </div>
+          <span className="text-[11px] text-amber-700 font-medium">
+            Abra o detalhamento de cada pedido para registrar a classificação oficial.
+          </span>
+        </div>
+      )}
+
+      {/* Grid responsivo: 11 cards no total */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3.5 items-stretch">
         {cards.map((card) => {
           const Icon = card.icon
           const isActive = activeCardKey === card.key

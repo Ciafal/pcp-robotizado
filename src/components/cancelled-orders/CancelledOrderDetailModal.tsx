@@ -29,7 +29,12 @@ import {
   AnalysisStatus,
   ProbableResponsibility,
   ActionPlan5W2H,
+  CategoriaRecusa,
 } from '@/types/cancelled-orders'
+import {
+  STRUCTURED_REASONS_BY_CATEGORY,
+  getMotivosPorCategoria,
+} from '@/data/cancellation-reasons-catalog'
 import { formatTons, formatCurrencyPtBr } from '@/lib/formatters-ptbr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -79,6 +84,15 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState<'analise' | 'explicador' | '5w2h'>('analise')
+
+  // Estados Estruturados da Classificação da Recusa (Requisitos 1, 2, 10 e 11)
+  const [categoriaRecusa, setCategoriaRecusa] = useState<CategoriaRecusa | ''>(
+    order?.categoria_recusa || '',
+  )
+  const [motivoRecusa, setMotivoRecusa] = useState<string>(order?.motivo_recusa || '')
+  const [justificativaRecusa, setJustificativaRecusa] = useState<string>('')
+  const [isSavingRecusa, setIsSavingRecusa] = useState(false)
+
   const [validatedResponsibility, setValidatedResponsibility] = useState<ProbableResponsibility>(
     order?.validated_responsibility || order?.ai_suggested_responsibility || 'PCP',
   )
@@ -102,6 +116,52 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
 
   const aiPayload = order.ai_analysis_payload
   const isInconsistent = order.has_ai_inconsistency
+
+  // Salvar Classificação Estruturada da Recusa (Requisitos 1, 2, 10, 11)
+  const handleSaveRecusaClassification = async () => {
+    if (!categoriaRecusa) {
+      toast({
+        title: 'Categoria Obrigatória',
+        description: 'Selecione a Categoria da Recusa (Comercial, PCP ou Transporte).',
+        variant: 'destructive',
+      })
+      return
+    }
+    if (!motivoRecusa) {
+      toast({
+        title: 'Motivo Obrigatório',
+        description: 'Selecione o Motivo estruturado correspondente à categoria.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsSavingRecusa(true)
+    try {
+      const updated = await cancelledOrdersService.updateOrderRecusaClassification({
+        orderId: order.id,
+        categoria_recusa: categoriaRecusa as CategoriaRecusa,
+        motivo_recusa: motivoRecusa,
+        userName: 'Analista PCP / Governança',
+        justificativa: justificativaRecusa || undefined,
+      })
+
+      onOrderUpdated(updated)
+      toast({
+        title: 'Classificação da Recusa Atualizada',
+        description: `Categoria definida como "${categoriaRecusa}" e Motivo "${motivoRecusa}". Indicadores e cards recalculados em tempo real.`,
+        duration: 4000,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao Atualizar Classificação',
+        description: err.message || 'Falha ao registrar classificação estruturada.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingRecusa(false)
+    }
+  }
 
   // Salvar Validação / Feedback Humano
   const handleSaveValidation = async (status: AnalysisStatus) => {
@@ -365,6 +425,139 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
                       {order.observacao || 'Nenhuma observação informada no apontamento.'}
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* BLOCO MANDATÓRIO: CLASSIFICAÇÃO ESTRUTURADA DA RECUSA (Requisitos 1, 2, 6, 10, 11) */}
+              <div className="border border-blue-200 bg-blue-50/30 rounded-lg p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-5 h-5 text-[#004C97]" />
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Classificação Estruturada da Recusa (Oficial)
+                    </h3>
+                  </div>
+                  <span
+                    className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                      order.categoria_recusa === 'COMERCIAL'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : order.categoria_recusa === 'PCP'
+                          ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                          : order.categoria_recusa === 'TRANSPORTE'
+                            ? 'bg-cyan-100 text-cyan-800 border-cyan-300'
+                            : 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
+                    }`}
+                  >
+                    {order.categoria_recusa
+                      ? `Classificado: ${order.categoria_recusa}`
+                      : 'Aguardando categorização da recusa'}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 mb-4">
+                  A classificação é estruturada e persistida de forma independente. O motivo é
+                  filtrado estritamente pela categoria selecionada (Comercial, PCP ou Transporte).
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs mb-3">
+                  {/* Campo Obrigatório 1: Categoria da Recusa */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                      Categoria da recusa: <span className="text-rose-600">*</span>
+                    </label>
+                    <Select
+                      value={categoriaRecusa}
+                      onValueChange={(val) => {
+                        const newCat = val as CategoriaRecusa
+                        setCategoriaRecusa(newCat)
+                        // Limpa motivo se não pertencer aos permitidos da nova categoria
+                        const permitidos = getMotivosPorCategoria(newCat)
+                        if (motivoRecusa && !permitidos.includes(motivoRecusa)) {
+                          setMotivoRecusa('')
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-white border-slate-300">
+                        <SelectValue placeholder="Selecione Comercial, PCP ou Transporte" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value="COMERCIAL"
+                          className="text-xs font-semibold text-emerald-800"
+                        >
+                          COMERCIAL (Preço, condição e prazo comercial)
+                        </SelectItem>
+                        <SelectItem value="PCP" className="text-xs font-semibold text-indigo-800">
+                          PCP (Estoque, matéria-prima, restrição de laminação, capacidade)
+                        </SelectItem>
+                        <SelectItem
+                          value="TRANSPORTE"
+                          className="text-xs font-semibold text-cyan-800"
+                        >
+                          TRANSPORTE (Veículo, frete, transportadora, entrega)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Campo Obrigatório 2: Motivo da Recusa (Filtrado pela Categoria) */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                      Motivo da recusa: <span className="text-rose-600">*</span>
+                    </label>
+                    <Select
+                      value={motivoRecusa}
+                      onValueChange={(val) => setMotivoRecusa(val)}
+                      disabled={!categoriaRecusa}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-white border-slate-300 disabled:opacity-60">
+                        <SelectValue
+                          placeholder={
+                            categoriaRecusa
+                              ? 'Selecione o motivo específico da área'
+                              : 'Selecione a categoria primeiro'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getMotivosPorCategoria(categoriaRecusa as CategoriaRecusa).map((mot) => (
+                          <SelectItem key={mot} value={mot} className="text-xs">
+                            {mot}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Justificativa Opcional para Trilha de Auditoria */}
+                <div className="text-xs mb-3">
+                  <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                    Justificativa / Histórico da Alteração (Auditável)
+                  </label>
+                  <Input
+                    type="text"
+                    value={justificativaRecusa}
+                    onChange={(e) => setJustificativaRecusa(e.target.value)}
+                    placeholder="Informe a justificativa desta classificação para registro em pcp_audit_logs..."
+                    className="h-8 text-xs bg-white"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-blue-200/60">
+                  <span className="text-[11px] text-slate-500">
+                    Altera imediatamente os cards de análise e mantém histórico com valor anterior e
+                    novo.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={isSavingRecusa || !categoriaRecusa || !motivoRecusa}
+                    onClick={handleSaveRecusaClassification}
+                    className="bg-[#004C97] hover:bg-[#003d7a] text-white font-semibold text-xs h-8 px-4"
+                  >
+                    {isSavingRecusa ? 'Gravando...' : 'Salvar Classificação Estruturada'}
+                  </Button>
                 </div>
               </div>
 

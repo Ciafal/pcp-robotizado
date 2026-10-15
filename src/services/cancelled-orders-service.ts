@@ -96,6 +96,8 @@ class CancelledOrdersService {
               r.dias_sem_estoque_material !== null && r.dias_sem_estoque_material !== undefined
                 ? Number(r.dias_sem_estoque_material)
                 : null,
+            categoria_recusa: r.categoria_recusa || null,
+            motivo_recusa: r.motivo_recusa || null,
             preco_liquido: Number(r.preco_liquido || 0),
             valor_cancelado_brl: Number(r.valor_cancelado_brl || 0),
             condicao_pagamento: r.condicao_pagamento,
@@ -279,6 +281,30 @@ class CancelledOrdersService {
       list = list.filter((o) => o.categoria_motivo === filters.categoriaMotivo)
     }
 
+    // Filtro Estruturado: Categoria da Recusa (Requisito 9)
+    if (filters.categoriaRecusa && filters.categoriaRecusa !== 'todos') {
+      if (filters.categoriaRecusa === 'SEM_CATEGORIZACAO') {
+        list = list.filter(
+          (o) =>
+            !o.categoria_recusa ||
+            o.categoria_recusa === ('SEM_CATEGORIZACAO' as any) ||
+            o.categoria_recusa === null ||
+            o.categoria_recusa === undefined,
+        )
+      } else {
+        list = list.filter((o) => o.categoria_recusa === filters.categoriaRecusa)
+      }
+    }
+
+    // Filtro Estruturado: Motivo da Recusa (Requisito 9)
+    if (filters.motivoRecusa && filters.motivoRecusa !== 'todos') {
+      list = list.filter(
+        (o) =>
+          o.motivo_recusa === filters.motivoRecusa ||
+          o.motivo_original_sap === filters.motivoRecusa,
+      )
+    }
+
     if (filters.motivoCancelamento && filters.motivoCancelamento !== 'todos') {
       list = list.filter((o) => o.motivo_original_sap === filters.motivoCancelamento)
     }
@@ -356,29 +382,69 @@ class CancelledOrdersService {
     const percentualCarteiraCancelada =
       carteiraTotalEstimadaT > 0 ? (totalVolumeToneladas / carteiraTotalEstimadaT) * 100 : 0
 
-    const pcpOrders = orders.filter((o) => o.categoria_motivo === 'PCP/Planejamento')
+    // REQUISITOS 3, 4, 5 e 6: Cards alimentados EXCLUSIVAMENTE pelo campo estruturado categoria_recusa
+    // Sem dupla contagem: 1 pedido alimenta exatamente 1 card (PCP ou COMERCIAL ou TRANSPORTE).
+    // Pedidos históricos sem classificação permanecem em semCategorizacaoQtd/Toneladas e NÃO entram nesses cards.
+    const pcpOrders = orders.filter((o) => o.categoria_recusa === 'PCP')
     const pcpQtd = pcpOrders.length
     const pcpToneladas = pcpOrders.reduce((acc, o) => acc + (o.saldo_cancelado_t || 0), 0)
+    const pcpPercentualVolume =
+      totalVolumeToneladas > 0 ? (pcpToneladas / totalVolumeToneladas) * 100 : 0
 
-    const comercialOrders = orders.filter((o) => o.categoria_motivo === 'Comercial')
+    const comercialOrders = orders.filter((o) => o.categoria_recusa === 'COMERCIAL')
     const comercialQtd = comercialOrders.length
     const comercialToneladas = comercialOrders.reduce(
       (acc, o) => acc + (o.saldo_cancelado_t || 0),
       0,
     )
+    const comercialPercentualVolume =
+      totalVolumeToneladas > 0 ? (comercialToneladas / totalVolumeToneladas) * 100 : 0
 
-    // Principal motivo
-    const mapMotivos: Record<string, number> = {}
+    const transporteOrders = orders.filter((o) => o.categoria_recusa === 'TRANSPORTE')
+    const transporteQtd = transporteOrders.length
+    const transporteToneladas = transporteOrders.reduce(
+      (acc, o) => acc + (o.saldo_cancelado_t || 0),
+      0,
+    )
+    const transportePercentualVolume =
+      totalVolumeToneladas > 0 ? (transporteToneladas / totalVolumeToneladas) * 100 : 0
+
+    const semCategorizacaoOrders = orders.filter(
+      (o) => !o.categoria_recusa || (o.categoria_recusa as any) === 'SEM_CATEGORIZACAO',
+    )
+    const semCategorizacaoQtd = semCategorizacaoOrders.length
+    const semCategorizacaoToneladas = semCategorizacaoOrders.reduce(
+      (acc, o) => acc + (o.saldo_cancelado_t || 0),
+      0,
+    )
+
+    // REQUISITO 8: CARD "PRINCIPAL MOTIVO"
+    // Usa prioritariamente o motivo estruturado motivo_recusa (se ausente, fallback para motivo_original_sap)
+    // Exibe nome do motivo, volume correspondente e categoria relacionada
+    const mapMotivos: Record<string, { toneladas: number; categoria?: any; count: number }> = {}
+
     orders.forEach((o) => {
-      mapMotivos[o.motivo_original_sap] =
-        (mapMotivos[o.motivo_original_sap] || 0) + (o.saldo_cancelado_t || 0)
+      const motivoIdentificado = o.motivo_recusa || o.motivo_original_sap || 'Não informado'
+      const cat = o.categoria_recusa || 'Sem categorização'
+      if (!mapMotivos[motivoIdentificado]) {
+        mapMotivos[motivoIdentificado] = { toneladas: 0, categoria: cat, count: 0 }
+      }
+      mapMotivos[motivoIdentificado].toneladas += o.saldo_cancelado_t || 0
+      mapMotivos[motivoIdentificado].count += 1
+      if (o.categoria_recusa) {
+        mapMotivos[motivoIdentificado].categoria = o.categoria_recusa
+      }
     })
+
     let principalMotivoNome = 'Nenhum'
     let principalMotivoToneladas = 0
-    Object.entries(mapMotivos).forEach(([motivo, ton]) => {
-      if (ton > principalMotivoToneladas) {
-        principalMotivoToneladas = ton
+    let principalMotivoCategoria: any = 'Sem categorização'
+
+    Object.entries(mapMotivos).forEach(([motivo, data]) => {
+      if (data.toneladas > principalMotivoToneladas) {
+        principalMotivoToneladas = data.toneladas
         principalMotivoNome = motivo
+        principalMotivoCategoria = data.categoria
       }
     })
 
@@ -400,10 +466,18 @@ class CancelledOrdersService {
       percentualCarteiraCancelada,
       pcpQtd,
       pcpToneladas,
+      pcpPercentualVolume,
       comercialQtd,
       comercialToneladas,
+      comercialPercentualVolume,
+      transporteQtd,
+      transporteToneladas,
+      transportePercentualVolume,
+      semCategorizacaoQtd,
+      semCategorizacaoToneladas,
       principalMotivoNome,
       principalMotivoToneladas,
+      principalMotivoCategoria,
       reincidentesQtd,
       inconsistenciasIAQtd,
       potencialmenteEvitaveisQtd,
@@ -414,6 +488,87 @@ class CancelledOrdersService {
   /**
    * Salva feedback/validação humana do usuário garantindo preservação do motivo SAP original
    */
+  /**
+   * Atualização estruturada da Categoria e Motivo da Recusa (Requisitos 1, 2, 10 e 11)
+   * Registra log de auditoria detalhado em pcp_audit_logs sem sobrescrever silenciosamente.
+   */
+  public async updateOrderRecusaClassification(params: {
+    orderId: string
+    categoria_recusa: import('@/types/cancelled-orders').CategoriaRecusa
+    motivo_recusa: string
+    userName: string
+    justificativa?: string
+  }): Promise<CancelledOrderRecord> {
+    await this.init()
+    const idx = this.memoryOrders.findIndex((o) => o.id === params.orderId)
+    if (idx === -1) {
+      throw new Error(`Pedido com ID ${params.orderId} não encontrado.`)
+    }
+
+    const order = this.memoryOrders[idx]
+    const valorAnterior = {
+      categoria_recusa: order.categoria_recusa || null,
+      motivo_recusa: order.motivo_recusa || null,
+    }
+
+    const valorNovo = {
+      categoria_recusa: params.categoria_recusa,
+      motivo_recusa: params.motivo_recusa,
+    }
+
+    const updated: CancelledOrderRecord = {
+      ...order,
+      categoria_recusa: params.categoria_recusa,
+      motivo_recusa: params.motivo_recusa,
+    }
+
+    this.memoryOrders[idx] = updated
+
+    // Persiste no PocketBase
+    try {
+      await pb.collection('pcp_cancelled_orders').update(order.id, {
+        categoria_recusa: params.categoria_recusa,
+        motivo_recusa: params.motivo_recusa,
+      })
+    } catch {
+      // Mantém na memória de forma resiliente
+    }
+
+    // Registra auditoria estrita em pcp_audit_logs (Requisito 11)
+    try {
+      await pcpAuditService.recordLog({
+        user_name: params.userName,
+        action: `~ CLASSIFICAÇÃO RECUSA [OV ${order.ordem_venda}/${order.item_ordem}]: ${valorAnterior.categoria_recusa || 'SEM_CATEGORIZACAO'} -> ${valorNovo.categoria_recusa}`,
+        entity: 'pcp_cancelled_orders',
+        record_id: order.id,
+        module: 'Gestão de Carteira',
+        screen: 'Pedidos Cancelados',
+        line: order.linha,
+        center: order.centro,
+        reason: `${valorNovo.categoria_recusa} - ${valorNovo.motivo_recusa}`,
+        justification:
+          params.justificativa ||
+          `Classificação estruturada de recusa atualizada de '${valorAnterior.categoria_recusa || 'Sem categorização'}' para '${valorNovo.categoria_recusa}' com motivo '${valorNovo.motivo_recusa}'.`,
+        details: {
+          ordem_venda: order.ordem_venda,
+          item_ordem: order.item_ordem,
+          cliente: order.cliente_nome,
+          material: order.material_codigo,
+          volume_t: order.saldo_cancelado_t,
+          data_alteracao: new Date().toISOString(),
+          before_state: valorAnterior,
+          after_state: valorNovo,
+          origem_alteracao: 'PCP Robotizado - Tela Pedidos Cancelados',
+          resultado: 'SUCESSO',
+        },
+      })
+    } catch {
+      // Auditoria resiliente
+    }
+
+    return updated
+  }
+
   public async submitHumanFeedback(params: {
     orderId: string
     newStatus: AnalysisStatus

@@ -30,6 +30,7 @@ import {
   CancellationCategory,
   ProbableResponsibility,
 } from '@/types/cancelled-orders'
+import { STRUCTURED_REASONS_BY_CATEGORY } from '@/data/cancellation-reasons-catalog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -395,7 +396,89 @@ export const CancelledOrdersFilterBar: React.FC<FilterBarProps> = ({
         </div>
 
         {/* LINHA 3 */}
-        {/* 11. Curva ABC (perfeitamente alinhada na grade de 5 colunas) */}
+        {/* 11. Categoria da Recusa Oficial (Requisito 9) */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
+            Categoria da recusa
+          </label>
+          <Select
+            value={filters.categoriaRecusa || 'todos'}
+            onValueChange={(val) => {
+              update('categoriaRecusa', val as any)
+              // Ao mudar a categoria da recusa, reseta o motivo da recusa se incompatível
+              if (val !== 'todos' && val !== 'SEM_CATEGORIZACAO') {
+                const permitidos =
+                  STRUCTURED_REASONS_BY_CATEGORY[
+                    val as keyof typeof STRUCTURED_REASONS_BY_CATEGORY
+                  ] || []
+                if (filters.motivoRecusa && !permitidos.includes(filters.motivoRecusa)) {
+                  update('motivoRecusa', 'todos')
+                }
+              }
+            }}
+          >
+            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
+              <SelectValue placeholder="Todas as Categorias" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos" className="text-xs">
+                Todas (Padrão)
+              </SelectItem>
+              <SelectItem value="COMERCIAL" className="text-xs font-medium text-emerald-800">
+                Comercial
+              </SelectItem>
+              <SelectItem value="PCP" className="text-xs font-medium text-indigo-800">
+                PCP
+              </SelectItem>
+              <SelectItem value="TRANSPORTE" className="text-xs font-medium text-cyan-800">
+                Transporte
+              </SelectItem>
+              <SelectItem value="SEM_CATEGORIZACAO" className="text-xs font-medium text-amber-800">
+                Sem categorização (Históricos)
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* 12. Motivo da Recusa Filtrado pela Categoria Selecionada (Requisitos 2 e 9) */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
+            Motivo da recusa
+          </label>
+          <Select
+            value={filters.motivoRecusa || 'todos'}
+            onValueChange={(val) => update('motivoRecusa', val)}
+          >
+            <SelectTrigger className="h-9 text-xs border-slate-300 focus:border-[#004C97] focus:ring-1 focus:ring-[#004C97]">
+              <SelectValue placeholder="Todos os Motivos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos" className="text-xs">
+                Todos os Motivos
+              </SelectItem>
+              {(() => {
+                const cat = filters.categoriaRecusa
+                let motivosParaExibir: string[] = []
+                if (cat === 'COMERCIAL' || cat === 'PCP' || cat === 'TRANSPORTE') {
+                  motivosParaExibir = STRUCTURED_REASONS_BY_CATEGORY[cat] || []
+                } else {
+                  motivosParaExibir = [
+                    ...STRUCTURED_REASONS_BY_CATEGORY.COMERCIAL,
+                    ...STRUCTURED_REASONS_BY_CATEGORY.PCP,
+                    ...STRUCTURED_REASONS_BY_CATEGORY.TRANSPORTE,
+                  ]
+                }
+                return motivosParaExibir.map((m) => (
+                  <SelectItem key={m} value={m} className="text-xs">
+                    {m}
+                  </SelectItem>
+                ))
+              })()}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* 13. Curva ABC */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5 leading-none">
             Curva ABC

@@ -13,6 +13,14 @@ export type CancellationCategory =
   | 'Cadastro/Processo'
   | 'Externo'
 
+/**
+ * Classificação estruturada estrita oficial de Recusas (Requisito 1)
+ * Valores permitidos no banco: 'COMERCIAL' | 'PCP' | 'TRANSPORTE'
+ * 'SEM_CATEGORIZACAO' é o estado interno de registros históricos legados pendentes de classificação (Requisito 6).
+ */
+export type CategoriaRecusa = 'COMERCIAL' | 'PCP' | 'TRANSPORTE'
+export type CategoriaRecusaOuPendente = CategoriaRecusa | 'SEM_CATEGORIZACAO'
+
 export type ProbableResponsibility =
   | 'PCP'
   | 'Comercial'
@@ -218,6 +226,10 @@ export interface CancelledOrderRecord {
   crm_responsavel_validacao?: string
   crm_pendency_id?: string
 
+  // Campos Oficiais Estruturados de Classificação de Recusas (Requisitos 1 e 2)
+  categoria_recusa?: CategoriaRecusa | null
+  motivo_recusa?: string | null
+
   // Novos campos para Análise de Estoque Temporal e Dias Sem Estoque
   saldo_data_desejada_t?: number | null
   saldo_data_cadastro_t?: number | null
@@ -247,6 +259,7 @@ export interface CancelledOrderRecord {
 export interface CancellationReasonCatalogItem {
   id?: string
   category: CancellationCategory
+  categoria_recusa?: CategoriaRecusa
   reason: string
   default_probable_responsibility: ProbableResponsibility
   active: boolean
@@ -301,6 +314,9 @@ export interface CancelledOrdersFilterState {
   evitabilidade: string // 'todos' | 'evitavel' | 'nao_evitavel' | 'investigacao'
   curvaAbc: string // 'todos' | 'A' | 'B' | 'C'
   buscaGeral: string
+  // Novos filtros estruturados (Requisito 9)
+  categoriaRecusa?: 'todos' | 'COMERCIAL' | 'PCP' | 'TRANSPORTE' | 'SEM_CATEGORIZACAO'
+  motivoRecusa?: string
 }
 
 export interface CancellationExecutiveKPIs {
@@ -310,10 +326,18 @@ export interface CancellationExecutiveKPIs {
   percentualCarteiraCancelada: number
   pcpQtd: number
   pcpToneladas: number
+  pcpPercentualVolume: number
   comercialQtd: number
   comercialToneladas: number
+  comercialPercentualVolume: number
+  transporteQtd: number
+  transporteToneladas: number
+  transportePercentualVolume: number
+  semCategorizacaoQtd: number
+  semCategorizacaoToneladas: number
   principalMotivoNome: string
   principalMotivoToneladas: number
+  principalMotivoCategoria?: CategoriaRecusa | 'Sem categorização'
   reincidentesQtd: number
   inconsistenciasIAQtd: number
   potencialmenteEvitaveisQtd: number

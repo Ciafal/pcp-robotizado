@@ -276,14 +276,15 @@ export const CancelledOrdersTable: React.FC<CancelledOrdersTableProps> = ({
                   </div>
                 </th>
 
-                <th className="py-2.5 px-3 whitespace-nowrap min-w-[190px]">Motivo SAP</th>
+                <th className="py-2.5 px-3 whitespace-nowrap min-w-[150px]">Categoria Recusa</th>
+                <th className="py-2.5 px-3 whitespace-nowrap min-w-[180px]">Motivo Recusa / SAP</th>
                 <th className="py-2.5 px-3 whitespace-nowrap text-center w-[160px]">Ação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
               {sortedOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-slate-500">
+                  <td colSpan={12} className="py-12 text-center text-slate-500">
                     Nenhum pedido cancelado corresponde aos critérios e filtros selecionados.
                   </td>
                 </tr>
@@ -422,29 +423,50 @@ export const CancelledOrdersTable: React.FC<CancelledOrdersTableProps> = ({
                         )}
                       </td>
 
-                      {/* 10. Motivo SAP */}
+                      {/* 10. Categoria da Recusa (Estruturada) */}
+                      <td className="py-2 px-3 whitespace-nowrap">
+                        {o.categoria_recusa ? (
+                          <span
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                              o.categoria_recusa === 'COMERCIAL'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : o.categoria_recusa === 'PCP'
+                                  ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                  : 'bg-cyan-50 text-cyan-800 border-cyan-200'
+                            }`}
+                          >
+                            {o.categoria_recusa}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                            Sem categorização
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 11. Motivo Recusa / SAP */}
                       <td className="py-2 px-3 max-w-[230px]">
                         <div
                           className="font-semibold text-slate-900 truncate text-[11px]"
-                          title={o.motivo_original_sap}
+                          title={o.motivo_recusa || o.motivo_original_sap}
                         >
-                          {o.motivo_original_sap}
+                          {o.motivo_recusa || o.motivo_original_sap}
                         </div>
-                        {o.motivo_validado_apos_revisao ? (
+                        {o.motivo_recusa && o.motivo_original_sap !== o.motivo_recusa ? (
+                          <div
+                            className="text-[10px] text-slate-400 truncate mt-0.5"
+                            title={`Original SAP: ${o.motivo_original_sap}`}
+                          >
+                            SAP: {o.motivo_original_sap}
+                          </div>
+                        ) : o.motivo_validado_apos_revisao ? (
                           <div
                             className="text-[10px] text-emerald-700 font-medium truncate mt-0.5"
                             title={`CRM: ${o.motivo_validado_apos_revisao}`}
                           >
                             CRM: {o.motivo_validado_apos_revisao}
                           </div>
-                        ) : (
-                          <div
-                            className="text-[10px] text-slate-400 truncate"
-                            title={o.categoria_motivo}
-                          >
-                            Cat: {o.categoria_motivo}
-                          </div>
-                        )}
+                        ) : null}
                       </td>
 
                       {/* 11. Ação */}

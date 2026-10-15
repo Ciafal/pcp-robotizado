@@ -227,15 +227,22 @@ export const PedidosCanceladosPage: React.FC = () => {
       return
     }
     if (cardKey === 'cancelamentos_pcp') {
-      const nextVal = filters.responsabilidadeProvavel === 'PCP' ? 'todas' : 'PCP'
-      const updated = { ...filters, responsabilidadeProvavel: nextVal as any }
+      const nextVal = filters.categoriaRecusa === 'PCP' ? 'todos' : 'PCP'
+      const updated = { ...filters, categoriaRecusa: nextVal as any }
       setFilters(updated)
       cancelledOrdersService.getOrders(updated).then(setOrders)
       return
     }
     if (cardKey === 'cancelamentos_comerciais') {
-      const nextVal = filters.categoriaMotivo === 'Comercial' ? 'todas' : 'Comercial'
-      const updated = { ...filters, categoriaMotivo: nextVal as any }
+      const nextVal = filters.categoriaRecusa === 'COMERCIAL' ? 'todos' : 'COMERCIAL'
+      const updated = { ...filters, categoriaRecusa: nextVal as any }
+      setFilters(updated)
+      cancelledOrdersService.getOrders(updated).then(setOrders)
+      return
+    }
+    if (cardKey === 'cancelamentos_transporte') {
+      const nextVal = filters.categoriaRecusa === 'TRANSPORTE' ? 'todos' : 'TRANSPORTE'
+      const updated = { ...filters, categoriaRecusa: nextVal as any }
       setFilters(updated)
       cancelledOrdersService.getOrders(updated).then(setOrders)
       return

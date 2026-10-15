@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T15:12:23.652Z",
+  "generatedAt": "2026-10-15T15:42:37.367Z",
   "collections": [
     {
       "name": "users",
@@ -26805,6 +26805,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "categoria_recusa",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["COMERCIAL", "PCP", "TRANSPORTE"]
         }
       ],
       "indexes": [
@@ -27136,6 +27143,19 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "categoria_recusa",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["COMERCIAL", "PCP", "TRANSPORTE"]
+        },
+        {
+          "name": "motivo_recusa",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
