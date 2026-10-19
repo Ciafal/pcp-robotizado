@@ -157,23 +157,72 @@ class CarteiraMinimaConsolidadaService {
     const map = new Map<string, CadastroMaterialMetadata>()
 
     try {
-      // 1. sap_material_validations
+      // 1. sap_material_validations (campos oficiais: material_new_code, material_new_desc)
       const validations = await pb
         .collection('sap_material_validations')
         .getFullList({
-          fields: 'material_number,family,gauge,steel_type',
+          fields: 'material_new_code,material_new_desc',
         })
         .catch(() => [])
 
       for (const v of validations as any[]) {
-        const mat = (v.material_number || '').trim()
+        const mat = (v.material_new_code || '').trim()
         if (mat) {
+          const desc = v.material_new_desc || ''
+          const bitolaExtraida = this.extrairBitola(mat, desc)
+          const familiaExtraida = this.extrairFamilia(mat, desc)
+          const tipoAcoExtraido = this.extrairTipoAco(mat, desc)
           map.set(mat, {
             material: mat,
-            bitola: v.gauge || undefined,
-            familia: v.family || undefined,
-            tipo_aco: v.steel_type || undefined,
+            bitola: bitolaExtraida !== CLASSIFICACAO_NAO_IDENTIFICADA ? bitolaExtraida : undefined,
+            familia:
+              familiaExtraida !== CLASSIFICACAO_NAO_IDENTIFICADA ? familiaExtraida : undefined,
+            tipo_aco: tipoAcoExtraido,
           })
+        }
+      }
+    } catch {
+      // Coleção opcional ou offline
+    }
+
+    try {
+      // 1.1 line_bottleneck_matrix (campos oficiais: material_code, product_family, gauge_dimension, steel_grade)
+      const bottlenecks = await pb
+        .collection('line_bottleneck_matrix')
+        .getFullList({
+          fields: 'material_code,product_family,gauge_dimension,steel_grade',
+        })
+        .catch(() => [])
+
+      for (const b of bottlenecks as any[]) {
+        const mat = (b.material_code || '').trim()
+        if (mat) {
+          const existing: CadastroMaterialMetadata = map.get(mat) || { material: mat }
+          if (
+            !existing.bitola &&
+            b.gauge_dimension &&
+            b.gauge_dimension.trim() &&
+            b.gauge_dimension !== '-'
+          ) {
+            existing.bitola = b.gauge_dimension.trim()
+          }
+          if (
+            !existing.familia &&
+            b.product_family &&
+            b.product_family.trim() &&
+            b.product_family !== '-'
+          ) {
+            existing.familia = b.product_family.trim()
+          }
+          if (
+            !existing.tipo_aco &&
+            b.steel_grade &&
+            b.steel_grade.trim() &&
+            b.steel_grade !== '-'
+          ) {
+            existing.tipo_aco = b.steel_grade.trim()
+          }
+          map.set(mat, existing)
         }
       }
     } catch {
@@ -194,7 +243,7 @@ class CarteiraMinimaConsolidadaService {
         const mat = (c.codigo_material || '').trim()
         if (!mat) continue
 
-        const existing = map.get(mat) || { material: mat }
+        const existing: CadastroMaterialMetadata = map.get(mat) || { material: mat }
         if (!existing.cliente && (c.cliente || c.nome_cliente)) {
           existing.cliente = c.cliente || c.nome_cliente
         }

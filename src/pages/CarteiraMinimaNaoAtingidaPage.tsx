@@ -192,6 +192,7 @@ export const CarteiraMinimaNaoAtingidaPage: React.FC = () => {
 
   // Gerar análise IA objetiva sobre a visão consolidada ativa
   const handleGerarAnaliseIa = async () => {
+    if (modoVisao === 'MATERIAL') return
     setGerandoIa(true)
     try {
       const report = carteiraMinimaConsolidadaService.gerarAnaliseIa(rowsConsolidadas, modoVisao)
@@ -550,7 +551,16 @@ export const CarteiraMinimaNaoAtingidaPage: React.FC = () => {
         isOpen={modalPdfAberto}
         onClose={() => setModalPdfAberto(false)}
         itens={itensFiltrados}
+        filtros={{
+          centro: filtros.centro !== 'TODOS' ? filtros.centro : undefined,
+          linha: filtros.linha !== 'TODAS' ? filtros.linha : undefined,
+          material: filtros.busca || undefined,
+          criticidade: filtros.criticidade !== 'TODAS' ? filtros.criticidade : undefined,
+          dataDesejadaInicio: filtros.periodoInicio || undefined,
+          dataDesejadaFim: filtros.periodoFim || undefined,
+        }}
         kpis={kpis}
+        ultimaAtualizacaoSap={ultimoUpdateSap}
         modoVisao={modoVisao}
         rowsConsolidadas={rowsConsolidadas}
         analiseIaReport={relatorioIa && relatorioIa.visao === modoVisao ? relatorioIa : null}

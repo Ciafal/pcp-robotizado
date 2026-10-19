@@ -23,7 +23,7 @@ export interface MaterialConsolidadoItem {
   linha: string
   empresa: string
   data_desejada: string
-  criticidade: 'ALTA' | 'MEDIA' | 'BAIXA'
+  criticidade: 'Crítico' | 'Atenção' | 'Monitoramento' | 'Normal' | 'ALTA' | 'MEDIA' | 'BAIXA'
 }
 
 export interface CarteiraConsolidadaRow {
