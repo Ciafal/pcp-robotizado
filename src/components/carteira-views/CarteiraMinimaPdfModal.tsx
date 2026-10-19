@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useRef } from 'react'
 import {
   FileText,
   X,
@@ -9,6 +9,9 @@ import {
   Filter,
   User,
   Clock,
+  Mail,
+  ClipboardList,
+  History,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +22,9 @@ import {
 } from '@/types/carteira-minima'
 import { formatNumberPTBR } from '@/lib/number-format'
 import { pb } from '@/lib/pocketbase/client'
+import { EnviarEmailCarteiraMinimaModal } from './EnviarEmailCarteiraMinimaModal'
+import { CriarPendenciaCarteiraMinimaModal } from './CriarPendenciaCarteiraMinimaModal'
+import { HistoricoEnviosCarteiraMinimaModal } from './HistoricoEnviosCarteiraMinimaModal'
 
 interface CarteiraMinimaPdfModalProps {
   isOpen: boolean
@@ -59,6 +65,11 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
       pedidos_afetados_count: 0,
     }
 
+  const [modalEmailOpen, setModalEmailOpen] = useState(false)
+  const [modalPendenciaOpen, setModalPendenciaOpen] = useState(false)
+  const [modalHistoricoOpen, setModalHistoricoOpen] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
+
   const handlePrint = () => {
     window.print()
   }
@@ -68,6 +79,12 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
     (currentUser as any)?.name || (currentUser as any)?.email || 'Administrador Geral CIAFAL'
 
   const dataHoraEmissao = `${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+
+  // Nome padronizado do PDF exigido: PCP_Carteira_Minima_Nao_Atingida_DDMMAAAA_HHMM.pdf
+  const now = new Date()
+  const ddmmaaaa = `${String(now.getDate()).padStart(2, '0')}${String(now.getMonth() + 1).padStart(2, '0')}${now.getFullYear()}`
+  const hhmm = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`
+  const nomeArquivoPdf = `PCP_Carteira_Minima_Nao_Atingida_${ddmmaaaa}_${hhmm}.pdf`
 
   // Montagem da descrição de filtros aplicados
   const filtrosDesc: string[] = []
@@ -109,6 +126,44 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* Acesso rápido ao Histórico de Envios */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setModalHistoricoOpen(true)}
+              className="text-xs h-8 gap-1.5 text-slate-700 border-slate-300 hover:bg-slate-100"
+              title="Consultar histórico de e-mails e pendências"
+            >
+              <History className="w-3.5 h-3.5 text-slate-500" />
+              Histórico de envios
+            </Button>
+
+            {/* Ação 1: Enviar por e-mail */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setModalEmailOpen(true)}
+              className="text-xs h-8 gap-1.5 border-[#004C97]/30 text-[#004C97] hover:bg-blue-50 font-semibold"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Enviar por e-mail
+            </Button>
+
+            {/* Ação 2: Enviar pendência no HUB */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setModalPendenciaOpen(true)}
+              className="text-xs h-8 gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-50 font-semibold"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              Enviar pendência no HUB
+            </Button>
+
+            {/* Ação nativa Imprimir / Salvar PDF preservada */}
             <Button
               type="button"
               variant="default"
@@ -119,6 +174,7 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
               <Printer className="w-3.5 h-3.5" />
               Imprimir / Salvar PDF
             </Button>
+
             <button
               onClick={onClose}
               type="button"
@@ -130,7 +186,10 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
         </div>
 
         {/* Corpo do Documento Impresso / Visualizado */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-white text-slate-900 print:p-0 print:space-y-4">
+        <div
+          ref={reportRef}
+          className="flex-1 overflow-y-auto p-8 space-y-6 bg-white text-slate-900 print:p-0 print:space-y-4"
+        >
           {/* Cabeçalho Corporativo CIAFAL */}
           <div className="border-b-2 border-[#004C97] pb-4 flex items-center justify-between">
             <div>
@@ -290,6 +349,41 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal Secundário: Enviar Relatório por E-mail */}
+      {modalEmailOpen && (
+        <EnviarEmailCarteiraMinimaModal
+          isOpen={modalEmailOpen}
+          onClose={() => setModalEmailOpen(false)}
+          itens={itens}
+          filtros={filtros}
+          totalizadores={totalizadores}
+          nomeArquivoPdf={nomeArquivoPdf}
+        />
+      )}
+
+      {/* Modal Secundário: Criar Pendência PCP no Meu Dia */}
+      {modalPendenciaOpen && (
+        <CriarPendenciaCarteiraMinimaModal
+          isOpen={modalPendenciaOpen}
+          onClose={() => setModalPendenciaOpen(false)}
+          itens={itens}
+          filtros={filtros}
+          totalizadores={totalizadores}
+          nomeArquivoPdf={nomeArquivoPdf}
+          onVisualizarRelatorioOriginal={() => {
+            setModalPendenciaOpen(false)
+          }}
+        />
+      )}
+
+      {/* Modal Secundário: Histórico de Envios */}
+      {modalHistoricoOpen && (
+        <HistoricoEnviosCarteiraMinimaModal
+          isOpen={modalHistoricoOpen}
+          onClose={() => setModalHistoricoOpen(false)}
+        />
+      )}
     </div>
   )
 }

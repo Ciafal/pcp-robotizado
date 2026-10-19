@@ -56,62 +56,29 @@ let sequencialCounter = 1
 /**
  * Usuários corporativos conhecidos da base / AD corporativo
  */
-export const USUARIOS_CORPORATIVOS_HUB: DestinatarioHub[] = [
-  {
-    id: 'usr_comercial_gerente',
-    name: 'Paula Guimarães (Gerência Comercial)',
-    email: 'gerencia.comercial@ciafal.com.br',
-    role: 'Gerência Comercial',
-    sector: 'Comercial',
-    grupo: 'Gerência Comercial',
-  },
-  {
-    id: 'usr_comercial_analista',
-    name: 'Renata Albuquerque (Atendimento Comercial)',
-    email: 'comercial.atendimento@ciafal.com.br',
-    role: 'Comercial',
-    sector: 'Comercial',
-    grupo: 'Comercial',
-  },
-  {
-    id: 'usr_comercial_vendas',
-    name: 'Carlos Alberto Silva (Vendas Indústria)',
-    email: 'carlos.silva@ciafal.com.br',
-    role: 'Vendedor / Representante',
-    sector: 'Comercial',
-    grupo: 'Vendedor/Representante responsável',
-  },
-  {
-    id: 'usr_comercial_carteira',
-    name: 'Juliana Costa (Gestão de Carteira)',
-    email: 'juliana.costa@ciafal.com.br',
-    role: 'Comercial',
-    sector: 'Comercial',
-    grupo: 'Comercial',
-  },
-  {
-    id: 'usr_diretoria_comercial',
-    name: 'Eduardo Fontes (Diretoria Comercial)',
-    email: 'diretoria.comercial@ciafal.com.br',
-    role: 'Outros autorizados',
-    sector: 'Diretoria',
-    grupo: 'Outros autorizados',
-  },
-]
+/**
+ * Lista mantida vazia para retrocompatibilidade sem fallback fixo/hardcoded.
+ * Problema 1 corrigido: destinatários vêm SOMENTE do cadastro real de usuários `users` do HUB.
+ */
+export const USUARIOS_CORPORATIVOS_HUB: DestinatarioHub[] = []
 
 export const comercialComunicadoService = {
   /**
-   * Obtém usuários cadastrados no banco (users) mesclados aos grupos corporativos de Comercial do HUB
+   * Obtém usuários cadastrados no banco real (users) do HUB CIAFAL.
+   * Não utiliza contatos fixos hardcoded como fallback.
    */
   async listarDestinatariosHub(): Promise<DestinatarioHub[]> {
-    const lista: DestinatarioHub[] = [...USUARIOS_CORPORATIVOS_HUB]
+    const lista: DestinatarioHub[] = []
 
     try {
       const dbUsers = await pb.collection('users').getFullList({
         sort: 'name',
       })
       for (const u of dbUsers as any[]) {
-        if (!lista.some((x) => x.email.toLowerCase() === (u.email || '').toLowerCase())) {
+        if (
+          u.email &&
+          !lista.some((x) => x.email.toLowerCase() === (u.email || '').toLowerCase())
+        ) {
           lista.push({
             id: u.id,
             name: u.name || u.email,
@@ -120,13 +87,17 @@ export const comercialComunicadoService = {
             sector:
               u.role?.includes('COMMERCIAL') || u.role?.includes('COMERCIAL')
                 ? 'Comercial'
-                : 'Geral',
-            grupo: 'Outros autorizados',
+                : u.role?.includes('ADMIN')
+                  ? 'Administração'
+                  : u.role?.includes('PROGRAMMER')
+                    ? 'PCP'
+                    : 'Operação',
+            grupo: 'Usuários HUB',
           })
         }
       }
-    } catch {
-      // Usa fallback da lista corporativa
+    } catch (err) {
+      console.warn('[comercialComunicadoService] Erro ao carregar users do HUB:', err)
     }
 
     return lista

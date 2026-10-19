@@ -190,8 +190,26 @@ describe('Serviço de Comunicado ao Comercial — Regras de Negócio', () => {
     expect(textoIa).toContain('CRÍTICA')
   })
 
-  it('deve sugerir destinatários da área Comercial do HUB corporativo', () => {
-    const todos = USUARIOS_CORPORATIVOS_HUB
+  const mockUserComercial: DestinatarioHub = {
+    id: 'usr_real_01',
+    name: 'Paula Guimarães',
+    email: 'paula.guimaraes@ciafal.com.br',
+    role: 'Comercial',
+    sector: 'Comercial',
+    grupo: 'Usuários HUB',
+  }
+
+  const mockUserVendas: DestinatarioHub = {
+    id: 'usr_real_02',
+    name: 'Carlos Silva',
+    email: 'carlos.silva@ciafal.com.br',
+    role: 'Vendedor',
+    sector: 'Comercial',
+    grupo: 'Usuários HUB',
+  }
+
+  it('deve sugerir destinatários da área Comercial a partir dos usuários reais', () => {
+    const todos = [mockUserComercial, mockUserVendas]
     const sugeridos = comercialComunicadoService.sugerirDestinatarios([itemCritico], todos)
 
     expect(sugeridos.length).toBeGreaterThan(0)
@@ -208,7 +226,7 @@ describe('Serviço de Comunicado ao Comercial — Regras de Negócio', () => {
         mensagem: 'Mensagem teste',
         prioridade: 'Normal',
         destinos: ['COMERCIAL_HUB'],
-        destinatarios: [USUARIOS_CORPORATIVOS_HUB[0]],
+        destinatarios: [mockUserComercial],
       }),
     ).rejects.toThrow('Selecione pelo menos 1 item')
 
@@ -232,7 +250,7 @@ describe('Serviço de Comunicado ao Comercial — Regras de Negócio', () => {
       prioridade: 'Crítica',
       destinos: ['COMERCIAL_HUB', 'MEU_DIA'],
       dataMeuDia: '30/09/2026',
-      destinatarios: [USUARIOS_CORPORATIVOS_HUB[0]],
+      destinatarios: [mockUserComercial],
     })
 
     expect(resultado.success).toBe(true)
@@ -257,7 +275,7 @@ describe('Serviço de Comunicado ao Comercial — Regras de Negócio', () => {
       mensagem: 'Reenvio de cobrança urgente',
       prioridade: 'Crítica',
       destinos: ['COMERCIAL_HUB'],
-      destinatarios: [USUARIOS_CORPORATIVOS_HUB[0], USUARIOS_CORPORATIVOS_HUB[1]],
+      destinatarios: [mockUserComercial, mockUserVendas],
       ehReenvioConfirmado: true,
     })
 
