@@ -3,4 +3,4 @@ import PocketBase from 'pocketbase'
 export const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL)
 pb.autoCancellation(false)
 
-export { pb as default }
+export default pb

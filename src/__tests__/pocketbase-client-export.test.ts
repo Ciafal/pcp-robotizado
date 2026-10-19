@@ -22,8 +22,7 @@ describe('PocketBase Client Export Regression Test & Guard', () => {
       content.includes('export { pb as default, pb }')
     expect(hasNamedExport).toBe(true)
     const hasDefaultExport =
-      content.includes('export default pb') ||
-      content.includes('export { pb as default }')
+      content.includes('export default pb') || content.includes('export { pb as default }')
     expect(hasDefaultExport).toBe(true)
   })
 
