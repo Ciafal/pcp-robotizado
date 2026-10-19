@@ -16,6 +16,7 @@ import {
   Calendar,
   Building,
   Info,
+  History,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { pcpMeetingFatia1Service } from '@/services/pcp-meeting-fatia1-service'
+import { pcpCobrancasService } from '@/services/pcp-cobrancas-service'
+import { NovaCobrancaModal } from '@/components/meetings/NovaCobrancaModal'
+import { HistoricoCobrancasModal } from '@/components/meetings/HistoricoCobrancasModal'
 import {
   PCPMeetingPendencyRecord,
   PCPMeetingRecord,
@@ -56,6 +60,7 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({ on
   const [loading, setLoading] = useState(false)
   const [filterStatus, setFilterStatus] = useState<string>('TODOS')
   const [filterArea, setFilterArea] = useState<string>('TODAS')
+  const [highlightPendencyId, setHighlightPendencyId] = useState<string | null>(null)
 
   // Reuniões e ATAs para contexto obrigatório de criação
   const [availableMeetings, setAvailableMeetings] = useState<PCPMeetingRecord[]>([])
@@ -81,7 +86,12 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({ on
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(true)
   const [savingUpdate, setSavingUpdate] = useState(false)
 
-  // Modal: Enviar Alerta
+  // Modais de Nova Cobrança e Histórico de Cobranças
+  const [cobrancaTarget, setCobrancaTarget] = useState<PCPMeetingPendencyRecord | null>(null)
+  const [historicoTarget, setHistoricoTarget] = useState<PCPMeetingPendencyRecord | null>(null)
+  const [cobrancasCountMap, setCobrancasCountMap] = useState<Record<string, number>>({})
+
+  // Modal: Enviar Alerta legado mantido
   const [alertTarget, setAlertTarget] = useState<PCPMeetingPendencyRecord | null>(null)
   const [alertRecipientEmail, setAlertRecipientEmail] = useState('')
   const [sendingAlert, setSendingAlert] = useState(false)
@@ -104,11 +114,15 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({ on
   const loadPendencies = async () => {
     try {
       setLoading(true)
-      const list = await pcpMeetingFatia1Service.listPendencies({
-        status: filterStatus,
-        area: filterArea,
-      })
+      const [list, countMap] = await Promise.all([
+        pcpMeetingFatia1Service.listPendencies({
+          status: filterStatus,
+          area: filterArea,
+        }),
+        pcpCobrancasService.contarCobrancasPorPendencias(),
+      ])
       setPendencies(list)
+      setCobrancasCountMap(countMap)
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar pendências',
@@ -128,6 +142,20 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({ on
       /* intentionally ignored */
     }
   }
+
+  // Capturar query params da URL (code / highlight) para posicionar e destacar a pendência
+  useEffect(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search)
+      const highlightId = searchParams.get('highlight')
+      const pendencyCode = searchParams.get('code')
+      if (highlightId || pendencyCode) {
+        setHighlightPendencyId(highlightId || pendencyCode)
+      }
+    } catch {
+      /* intentionally ignored */
+    }
+  }, [])
 
   useEffect(() => {
     loadPendencies()
@@ -532,8 +560,20 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({ on
                   const ataDisplayCode =
                     p.ata_code || (p.ata_id ? `ATA-${p.ata_id.slice(0, 8)}` : null)
 
+                  const isHighlighted =
+                    highlightPendencyId &&
+                    (p.id === highlightPendencyId || p.pendency_code === highlightPendencyId)
+
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50/70">
+                    <tr
+                      key={p.id}
+                      id={`pendency-${p.id}`}
+                      className={`transition-colors duration-500 ${
+                        isHighlighted
+                          ? 'bg-blue-100/70 ring-2 ring-[#004C97] ring-inset animate-pulse'
+                          : 'hover:bg-slate-50/70'
+                      }`}
+                    >
                       <td className="p-3 font-mono font-bold text-slate-900">{p.pendency_code}</td>
                       <td className="p-3 text-xs leading-snug">
                         {p.origem_pendente_regularizacao || !meetingDisplayCode ? (
@@ -614,19 +654,41 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({ on
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          {/* Ação 1: Enviar Alerta */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setAlertTarget(p)
-                              setAlertRecipientEmail('')
-                            }}
-                            className="h-7 text-xs font-semibold px-2 text-amber-700 hover:text-amber-800 hover:bg-amber-50"
-                            title="Enviar lembrete da pendência por Notificação HUB e E-mail"
-                          >
-                            <Bell className="w-3.5 h-3.5 mr-1" /> Alerta
-                          </Button>
+                          {/* Regra de Negócio 8: Pendências CONCLUIDA e CANCELADA NÃO permitem cobrança */}
+                          {p.status !== 'CONCLUIDA' && p.status !== 'CANCELADA' ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCobrancaTarget(p)}
+                              className="h-7 text-xs font-bold px-2 text-[#004C97] hover:text-[#003870] hover:bg-blue-50"
+                              title="Nova Cobrança: Criar atividade no Meu Dia e enviar e-mail corporativo"
+                            >
+                              <Bell className="w-3.5 h-3.5 mr-1 text-[#004C97]" /> Nova cobrança
+                            </Button>
+                          ) : null}
+
+                          {/* Acesso ao Histórico de Cobranças (ícone de sino + contador, ex: 🔔 3 cobranças) */}
+                          {(() => {
+                            const totalCobs =
+                              (p.id ? cobrancasCountMap[p.id] : 0) ||
+                              (p.pendency_code ? cobrancasCountMap[p.pendency_code] : 0) ||
+                              0
+                            if (totalCobs > 0) {
+                              return (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setHistoricoTarget(p)}
+                                  className="h-7 text-[11px] font-semibold px-2 text-slate-700 hover:text-[#004C97] border-slate-200 hover:border-[#004C97]"
+                                  title={`Visualizar ${totalCobs} cobrança(s) desta pendência`}
+                                >
+                                  <History className="w-3 h-3 mr-1 text-[#004C97]" />
+                                  {totalCobs} cobrança{totalCobs !== 1 ? 's' : ''}
+                                </Button>
+                              )
+                            }
+                            return null
+                          })()}
 
                           {/* Ação 2: Editar / Atualizar */}
                           <Button
@@ -1244,6 +1306,27 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({ on
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ========================================================================= */}
+      {/* MODAL: NOVA COBRANÇA (MEU DIA + E-MAIL CORPORATIVO + AUDITORIA) */}
+      {/* ========================================================================= */}
+      <NovaCobrancaModal
+        open={!!cobrancaTarget}
+        onClose={() => setCobrancaTarget(null)}
+        pendency={cobrancaTarget}
+        onCobrancaSuccess={() => {
+          loadPendencies()
+        }}
+      />
+
+      {/* ========================================================================= */}
+      {/* MODAL: HISTÓRICO DE COBRANÇAS (REGISTRO CRONOLÓGICO IMUTÁVEL POR CANAL) */}
+      {/* ========================================================================= */}
+      <HistoricoCobrancasModal
+        open={!!historicoTarget}
+        onClose={() => setHistoricoTarget(null)}
+        pendency={historicoTarget}
+      />
     </div>
   )
 }
