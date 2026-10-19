@@ -50,7 +50,13 @@ import {
   Edit2,
   AlertTriangle,
   History,
+  Bell,
+  Mail,
 } from 'lucide-react'
+import { ComunicadoHubAtaModal } from './ComunicadoHubAtaModal'
+import { EnviarEmailAtaModal } from './EnviarEmailAtaModal'
+import { HistoricoDistribuicaoAtaModal } from './HistoricoDistribuicaoAtaModal'
+import { ConfirmacaoLeituraAtaBanner } from './ConfirmacaoLeituraAtaBanner'
 import { useToast } from '@/hooks/use-toast'
 
 interface CentralAtasFatia2ViewProps {
@@ -84,6 +90,11 @@ export const CentralAtasFatia2View: React.FC<CentralAtasFatia2ViewProps> = ({
   // Modal de Aprovação / Publicação
   const [approvalModal, setApprovalModal] = useState(false)
   const [publishModal, setPublishModal] = useState(false)
+
+  // Modais da Distribuição de ATAs (Novas funcionalidades SGQ)
+  const [comunicadoHubModal, setComunicadoHubModal] = useState(false)
+  const [enviarEmailModal, setEnviarEmailModal] = useState(false)
+  const [historicoModal, setHistoricoModal] = useState(false)
 
   useEffect(() => {
     loadMeetings()
@@ -281,72 +292,123 @@ export const CentralAtasFatia2View: React.FC<CentralAtasFatia2ViewProps> = ({
           </p>
         </div>
 
-        {selectedMeeting && (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* AÇÕES DE DISTRIBUIÇÃO E HISTÓRICO: [Comunicado no HUB] [Enviar por E-mail] [Imprimir / PDF SGQ] [Histórico de Distribuição] */}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!selectedAta}
+            onClick={() => setComunicadoHubModal(true)}
+            title={
+              selectedAta
+                ? 'Publicar comunicado oficial no HUB para destinatários cadastrados'
+                : 'Selecione uma ATA na lista ao lado para publicar comunicado'
+            }
+            className="text-xs h-8 border-[#004C97]/30 text-[#004C97] hover:bg-blue-50 font-semibold disabled:opacity-50"
+          >
+            <Bell className="w-3.5 h-3.5 mr-1" /> Comunicado no HUB
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!selectedAta}
+            onClick={() => setEnviarEmailModal(true)}
+            title={
+              selectedAta
+                ? 'Enviar ATA completa por e-mail com anexo PDF obrigatório'
+                : 'Selecione uma ATA na lista ao lado para enviar por e-mail'
+            }
+            className="text-xs h-8 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold disabled:opacity-50"
+          >
+            <Mail className="w-3.5 h-3.5 mr-1" /> Enviar por E-mail
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!selectedMeeting || !selectedAta}
+            onClick={handlePrintPdf}
+            title={
+              selectedMeeting && selectedAta
+                ? 'Imprimir ou salvar PDF oficial SGQ da ATA'
+                : 'Selecione uma reunião com ATA para imprimir ou gerar PDF SGQ'
+            }
+            className="text-xs h-8 border-slate-300 font-semibold disabled:opacity-50"
+          >
+            <Printer className="w-3.5 h-3.5 mr-1" /> Imprimir / PDF SGQ
+          </Button>
+
+          {selectedAta && (
             <Button
               variant="outline"
               size="sm"
-              onClick={handlePrintPdf}
-              className="text-xs h-8 border-slate-300 font-semibold"
+              onClick={() => setHistoricoModal(true)}
+              className="text-xs h-8 border-slate-300 text-slate-600 hover:bg-slate-100 font-semibold"
+              title="Consultar histórico auditado de distribuições e confirmações de leitura"
             >
-              <Printer className="w-3.5 h-3.5 mr-1" /> Imprimir / PDF SGQ
+              <History className="w-3.5 h-3.5 mr-1" /> Histórico
             </Button>
+          )}
 
-            {/* Ação: Gerar Minuta IA (após encerramento) */}
-            {(selectedMeeting.status === 'AGUARDANDO_ATA_FINAL' ||
-              selectedMeeting.status === 'REALIZADA' ||
-              selectedMeeting.status === 'MINUTA_GERADA') && (
-              <Button
-                size="sm"
-                onClick={handleGenerateFinalAta}
-                disabled={generatingAi}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-8 shadow-sm"
-              >
-                <Sparkles className="w-3.5 h-3.5 mr-1" />
-                {generatingAi ? 'Gerando com IA...' : 'GERAR ATA FINAL COM IA'}
-              </Button>
-            )}
+          {selectedMeeting && (
+            <>
+              {/* Ação: Gerar Minuta IA (após encerramento) */}
+              {(selectedMeeting.status === 'AGUARDANDO_ATA_FINAL' ||
+                selectedMeeting.status === 'REALIZADA' ||
+                selectedMeeting.status === 'MINUTA_GERADA') && (
+                <Button
+                  size="sm"
+                  onClick={handleGenerateFinalAta}
+                  disabled={generatingAi}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-8 shadow-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5 mr-1" />
+                  {generatingAi ? 'Gerando com IA...' : 'GERAR ATA FINAL COM IA'}
+                </Button>
+              )}
 
-            {/* Ação: Enviar para Aprovação */}
-            {selectedMeeting.status === 'MINUTA_GERADA' && (
-              <Button
-                size="sm"
-                onClick={handleSubmitForApproval}
-                className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs h-8"
-              >
-                <Send className="w-3.5 h-3.5 mr-1" /> Enviar para Aprovação
-              </Button>
-            )}
+              {/* Ação: Enviar para Aprovação */}
+              {selectedMeeting.status === 'MINUTA_GERADA' && (
+                <Button
+                  size="sm"
+                  onClick={handleSubmitForApproval}
+                  className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs h-8"
+                >
+                  <Send className="w-3.5 h-3.5 mr-1" /> Enviar para Aprovação
+                </Button>
+              )}
 
-            {/* Ação: Aprovar ATA */}
-            {selectedMeeting.status === 'AGUARDANDO_APROVACAO' && (
-              <Button
-                size="sm"
-                onClick={() => setApprovalModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Aprovar ATA
-              </Button>
-            )}
+              {/* Ação: Aprovar ATA */}
+              {selectedMeeting.status === 'AGUARDANDO_APROVACAO' && (
+                <Button
+                  size="sm"
+                  onClick={() => setApprovalModal(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Aprovar ATA
+                </Button>
+              )}
 
-            {/* Ação: Publicar ATA */}
-            {selectedMeeting.status === 'ATA_APROVADA' && (
-              <Button
-                size="sm"
-                onClick={() => setPublishModal(true)}
-                className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs h-8"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Publicar Oficialmente
-              </Button>
-            )}
+              {/* Ação: Publicar ATA */}
+              {selectedMeeting.status === 'ATA_APROVADA' && (
+                <Button
+                  size="sm"
+                  onClick={() => setPublishModal(true)}
+                  className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs h-8"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Publicar Oficialmente
+                </Button>
+              )}
 
-            {selectedMeeting.status === 'PUBLICADA' && (
-              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-xs py-1">
-                ✓ ATA PUBLICADA OFICIALMENTE
-              </Badge>
-            )}
-          </div>
-        )}
+              {selectedMeeting.status === 'PUBLICADA' && (
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-xs py-1">
+                  ✓ ATA PUBLICADA OFICIALMENTE
+                </Badge>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* 2. GRID PRINCIPAL: LISTA LATERAL DE REUNIÕES + PAINEL DE CONTEÚDO */}
@@ -392,6 +454,20 @@ export const CentralAtasFatia2View: React.FC<CentralAtasFatia2ViewProps> = ({
 
         {/* COLUNA DIREITA: VISUALIZADOR DA ATA & COMPARATIVO PRÉVIA X REUNIÃO */}
         <div className="lg:col-span-8 space-y-4">
+          {/* BANNER DE CONFIRMAÇÃO FORMAL DE LEITURA (Evidência principal SGQ) */}
+          {selectedMeeting && selectedAta && (
+            <ConfirmacaoLeituraAtaBanner
+              meeting={selectedMeeting}
+              ata={selectedAta}
+              onConfirmado={() => {
+                toast({
+                  title: 'Leitura Confirmada!',
+                  description: 'Sua confirmação foi registrada com sucesso na auditoria do SGQ.',
+                })
+              }}
+            />
+          )}
+
           {selectedMeeting && selectedAta ? (
             <Card className="bg-white border-slate-200 shadow-sm print:border-none print:shadow-none">
               {/* Header Formal Corporativo SGQ da ATA */}
@@ -789,6 +865,42 @@ export const CentralAtasFatia2View: React.FC<CentralAtasFatia2ViewProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL 1: COMUNICADO NO HUB */}
+      {selectedMeeting && selectedAta && (
+        <ComunicadoHubAtaModal
+          isOpen={comunicadoHubModal}
+          onClose={() => setComunicadoHubModal(false)}
+          meeting={selectedMeeting}
+          ata={selectedAta}
+          onSuccess={() => {
+            loadMeetings()
+          }}
+        />
+      )}
+
+      {/* MODAL 2: ENVIAR POR E-MAIL */}
+      {selectedMeeting && selectedAta && (
+        <EnviarEmailAtaModal
+          isOpen={enviarEmailModal}
+          onClose={() => setEnviarEmailModal(false)}
+          meeting={selectedMeeting}
+          ata={selectedAta}
+          onSuccess={() => {
+            loadMeetings()
+          }}
+        />
+      )}
+
+      {/* MODAL 3: HISTÓRICO DE DISTRIBUIÇÃO */}
+      {selectedMeeting && selectedAta && (
+        <HistoricoDistribuicaoAtaModal
+          isOpen={historicoModal}
+          onClose={() => setHistoricoModal(false)}
+          meeting={selectedMeeting}
+          ata={selectedAta}
+        />
+      )}
     </div>
   )
 }
