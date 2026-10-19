@@ -729,6 +729,13 @@ const IndicadoresControlePage = lazyWithRetry(
     })),
   'IndicadoresControlePage',
 )
+const MovimentacoesLotePage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/MovimentacoesLotePage').then((m) => ({
+      default: m.default ?? m.MovimentacoesLotePage,
+    })),
+  'MovimentacoesLotePage',
+)
 const IndicadoresPcpPage = lazyWithRetry(
   () =>
     import('@/pages/IndicadoresPcpPage').then((m) => ({
@@ -2047,6 +2054,16 @@ export const App: React.FC = () => {
                         <PermissionGuard permission="pcp.production.view">
                           <ErrorBoundary moduleName="Indicadores do Controle de Produção">
                             <IndicadoresControlePage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/controle-producao/movimentacoes-lote"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ErrorBoundary moduleName="Movimentações Lote — Controle de Produção">
+                            <MovimentacoesLotePage />
                           </ErrorBoundary>
                         </PermissionGuard>
                       }

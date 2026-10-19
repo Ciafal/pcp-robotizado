@@ -993,6 +993,13 @@ export const officialNavGroups: NavGroup[] = [
         icon: Database,
         permission: 'pcp.production.view',
       },
+      {
+        title: 'Movimentações Lote',
+        href: '/pcp/controle-producao/movimentacoes-lote',
+        icon: Boxes,
+        badge: 'Novo',
+        permission: 'pcp.batch_movements.view',
+      },
     ],
   },
   {
