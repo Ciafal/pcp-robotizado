@@ -54,6 +54,11 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
   kpis,
   ultimaAtualizacaoSap = null,
 }) => {
+  const [modalEmailOpen, setModalEmailOpen] = useState(false)
+  const [modalPendenciaOpen, setModalPendenciaOpen] = useState(false)
+  const [modalHistoricoOpen, setModalHistoricoOpen] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
+
   if (!isOpen) return null
 
   const totalizadores = totalizadoresProp ||
@@ -64,11 +69,6 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
       saldo_total_produzir_tons: 0,
       pedidos_afetados_count: 0,
     }
-
-  const [modalEmailOpen, setModalEmailOpen] = useState(false)
-  const [modalPendenciaOpen, setModalPendenciaOpen] = useState(false)
-  const [modalHistoricoOpen, setModalHistoricoOpen] = useState(false)
-  const reportRef = useRef<HTMLDivElement>(null)
 
   const handlePrint = () => {
     window.print()

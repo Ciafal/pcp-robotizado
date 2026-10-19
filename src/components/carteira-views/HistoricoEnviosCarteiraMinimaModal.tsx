@@ -59,12 +59,12 @@ export const HistoricoEnviosCarteiraMinimaModal: React.FC<
       })
   }, [isOpen])
 
-  if (!isOpen) return null
-
   const registrosFiltrados = historico.filter((item) => {
     if (filtroTipo === 'TODOS') return true
     return item.tipo === filtroTipo
   })
+
+  if (!isOpen) return null
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
