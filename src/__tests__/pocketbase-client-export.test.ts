@@ -21,7 +21,10 @@ describe('PocketBase Client Export Regression Test & Guard', () => {
       content.includes('export { pb }') ||
       content.includes('export { pb as default, pb }')
     expect(hasNamedExport).toBe(true)
-    expect(content.includes('export default pb')).toBe(true)
+    const hasDefaultExport =
+      content.includes('export default pb') ||
+      content.includes('export { pb as default }')
+    expect(hasDefaultExport).toBe(true)
   })
 
   it('should export pb as named export and as default export from index.ts hub', () => {
