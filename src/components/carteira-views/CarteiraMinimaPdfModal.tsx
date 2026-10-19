@@ -20,6 +20,11 @@ import {
   CarteiraMinimaFilterParams,
   CarteiraMinimaTotalizadores,
 } from '@/types/carteira-minima'
+import {
+  CarteiraConsolidadaRow,
+  CarteiraConsolidadaAiReport,
+  CarteiraVisaoModo,
+} from '@/types/carteira-minima-consolidada'
 import { formatNumberPTBR } from '@/lib/number-format'
 import { pb } from '@/lib/pocketbase/client'
 import { EnviarEmailCarteiraMinimaModal } from './EnviarEmailCarteiraMinimaModal'
@@ -34,6 +39,9 @@ interface CarteiraMinimaPdfModalProps {
   totalizadores?: CarteiraMinimaTotalizadores
   kpis?: CarteiraMinimaTotalizadores
   ultimaAtualizacaoSap?: string | null
+  modoVisao?: CarteiraVisaoModo
+  rowsConsolidadas?: CarteiraConsolidadaRow[]
+  analiseIaReport?: CarteiraConsolidadaAiReport | null
 }
 
 function formatarDataPtBr(dataIso?: string): string {
@@ -53,6 +61,9 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
   totalizadores: totalizadoresProp,
   kpis,
   ultimaAtualizacaoSap = null,
+  modoVisao = 'MATERIAL',
+  rowsConsolidadas = [],
+  analiseIaReport = null,
 }) => {
   const [modalEmailOpen, setModalEmailOpen] = useState(false)
   const [modalPendenciaOpen, setModalPendenciaOpen] = useState(false)
@@ -84,7 +95,15 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
   const now = new Date()
   const ddmmaaaa = `${String(now.getDate()).padStart(2, '0')}${String(now.getMonth() + 1).padStart(2, '0')}${now.getFullYear()}`
   const hhmm = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`
-  const nomeArquivoPdf = `PCP_Carteira_Minima_Nao_Atingida_${ddmmaaaa}_${hhmm}.pdf`
+  const sufixoModo = modoVisao === 'BITOLA' ? '_Bitola' : modoVisao === 'FAMILIA' ? '_Familia' : ''
+  const nomeArquivoPdf = `PCP_Carteira_Minima_Nao_Atingida${sufixoModo}_${ddmmaaaa}_${hhmm}.pdf`
+
+  const tituloRelatorio =
+    modoVisao === 'BITOLA'
+      ? 'Relatório de Carteira Mínima Não Atingida — Bitola'
+      : modoVisao === 'FAMILIA'
+        ? 'Relatório de Carteira Mínima Não Atingida — Família'
+        : 'Relatório de Carteira Mínima Não Atingida'
 
   // Montagem da descrição de filtros aplicados
   const filtrosDesc: string[] = []
@@ -196,11 +215,17 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
               <span className="text-[11px] font-bold tracking-widest text-[#004C97] uppercase">
                 HUB INDUSTRIAL CIAFAL • PCP ROBOTIZADO
               </span>
-              <h1 className="text-xl font-bold text-slate-900 mt-0.5">
-                Relatório de Carteira Mínima Não Atingida
-              </h1>
+              <h1 className="text-xl font-bold text-slate-900 mt-0.5">{tituloRelatorio}</h1>
               <p className="text-xs text-slate-600 mt-1">
-                Submódulo: Análise de Carteira • Origem dos Dados:{' '}
+                Submódulo: Análise de Carteira • Abordagem:{' '}
+                <strong className="text-[#004C97]">
+                  {modoVisao === 'BITOLA'
+                    ? 'Consolidada por Bitola'
+                    : modoVisao === 'FAMILIA'
+                      ? 'Consolidada por Família'
+                      : 'Por Material'}
+                </strong>{' '}
+                • Origem dos Dados:{' '}
                 <strong>SAP ECC via FCA (RFC Z_RFC_CARTEIRA_MINIMA_PROD)</strong>
               </p>
             </div>
@@ -249,68 +274,188 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
             </div>
           </div>
 
-          {/* Estrutura Exata Exigida da Tabela do PDF */}
-          <div>
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-              Detalhamento de Itens com Gargalo de Produção Mínima
-            </h2>
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
-              <table className="w-full text-[11px] text-left border-collapse">
-                <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="py-2 px-2.5">Material</th>
-                    <th className="py-2 px-2.5">Texto breve</th>
-                    <th className="py-2 px-2.5 text-right">Carteira (t)</th>
-                    <th className="py-2 px-2.5 text-right">Estoque livre (t)</th>
-                    <th className="py-2 px-2.5 text-right">Saldo do pedido (t)</th>
-                    <th className="py-2 px-2.5 text-right">Carteira mínima de produção (t)</th>
-                    <th className="py-2 px-2.5 text-center">Pedido</th>
-                    <th className="py-2 px-2.5 text-center">Data desejada</th>
-                    <th className="py-2 px-2.5">Observação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-800">
-                  {itens.length === 0 ? (
+          {/* TABELA DA ABORDAGEM ATIVA: CONSOLIDADA (Bitola/Família) OU ORIGINAL (Material) */}
+          {modoVisao !== 'MATERIAL' ? (
+            <div>
+              <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                Detalhamento Consolidado por {modoVisao === 'BITOLA' ? 'Bitola' : 'Família'}
+              </h2>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-[11px] text-left border-collapse">
+                  <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
                     <tr>
-                      <td colSpan={9} className="py-6 text-center text-slate-500">
-                        Nenhum registro encontrado para emissão do relatório.
-                      </td>
+                      <th className="py-2 px-2.5">
+                        {modoVisao === 'BITOLA' ? 'Bitola' : 'Família'}
+                      </th>
+                      <th className="py-2 px-2.5">Linha/Centro</th>
+                      <th className="py-2 px-2.5 text-center">Materiais (qtde)</th>
+                      <th className="py-2 px-2.5 text-center">Pedidos (qtde)</th>
+                      <th className="py-2 px-2.5 text-right">Carteira total (t)</th>
+                      <th className="py-2 px-2.5 text-right">Estoque livre (t)</th>
+                      <th className="py-2 px-2.5 text-right">Saldo a produzir (t)</th>
+                      <th className="py-2 px-2.5 text-right">Produção mínima (t)</th>
+                      <th className="py-2 px-2.5 text-right">Diferença (t)</th>
+                      <th className="py-2 px-2.5 text-center">Situação</th>
                     </tr>
-                  ) : (
-                    itens.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50">
-                        <td className="py-2 px-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
-                          {item.material}
-                        </td>
-                        <td className="py-2 px-2.5 font-medium">{item.descricao_material}</td>
-                        <td className="py-2 px-2.5 text-right font-mono whitespace-nowrap">
-                          {formatNumberPTBR(item.carteira_tons, 3)} t
-                        </td>
-                        <td className="py-2 px-2.5 text-right font-mono text-emerald-800 whitespace-nowrap">
-                          {formatNumberPTBR(item.estoque_livre_tons, 3)} t
-                        </td>
-                        <td className="py-2 px-2.5 text-right font-mono font-bold text-amber-800 whitespace-nowrap">
-                          {formatNumberPTBR(item.saldo_produzir_tons, 3)} t
-                        </td>
-                        <td className="py-2 px-2.5 text-right font-mono whitespace-nowrap">
-                          {formatNumberPTBR(item.producao_minima_tons, 3)} t
-                        </td>
-                        <td className="py-2 px-2.5 text-center font-mono font-bold text-[#004C97] whitespace-nowrap">
-                          {item.pedido_formatado}
-                        </td>
-                        <td className="py-2 px-2.5 text-center font-mono whitespace-nowrap">
-                          {formatarDataPtBr(item.data_desejada)}
-                        </td>
-                        <td className="py-2 px-2.5 text-slate-700 text-[10px] leading-relaxed">
-                          {item.observacao_ia}
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {rowsConsolidadas.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="py-6 text-center text-slate-500">
+                          Nenhum registro consolidado para emissão do relatório.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      rowsConsolidadas.map((row) => (
+                        <tr key={row.id} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
+                            {row.chave}
+                          </td>
+                          <td className="py-2 px-2.5 font-mono text-slate-700 whitespace-nowrap">
+                            {row.linha_centro}
+                          </td>
+                          <td className="py-2 px-2.5 text-center font-mono font-semibold">
+                            {row.materiais_count}
+                          </td>
+                          <td className="py-2 px-2.5 text-center font-mono font-semibold">
+                            {row.pedidos_count}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono whitespace-nowrap">
+                            {formatNumberPTBR(row.carteira_total_tons, 3)} t
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono text-emerald-800 whitespace-nowrap">
+                            {formatNumberPTBR(row.estoque_livre_total_tons, 3)} t
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono font-bold text-amber-800 whitespace-nowrap">
+                            {formatNumberPTBR(row.saldo_total_produzir_tons, 3)} t
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono whitespace-nowrap">
+                            {row.producao_minima_tons !== null
+                              ? `${formatNumberPTBR(row.producao_minima_tons, 3)} t`
+                              : row.situacao}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono font-bold whitespace-nowrap">
+                            {row.diferenca_tons !== null ? (
+                              <span
+                                className={
+                                  row.diferenca_tons < 0 ? 'text-rose-700' : 'text-emerald-700'
+                                }
+                              >
+                                {row.diferenca_tons > 0 ? '+' : ''}
+                                {formatNumberPTBR(row.diferenca_tons, 3)} t
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="py-2 px-2.5 text-center whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                row.situacao === 'Atendida'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : row.situacao === 'Não atingida'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-amber-100 text-amber-900'
+                              }`}
+                            >
+                              {row.situacao}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div>
+              <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                Detalhamento de Itens com Gargalo de Produção Mínima
+              </h2>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-[11px] text-left border-collapse">
+                  <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="py-2 px-2.5">Material</th>
+                      <th className="py-2 px-2.5">Texto breve</th>
+                      <th className="py-2 px-2.5 text-right">Carteira (t)</th>
+                      <th className="py-2 px-2.5 text-right">Estoque livre (t)</th>
+                      <th className="py-2 px-2.5 text-right">Saldo do pedido (t)</th>
+                      <th className="py-2 px-2.5 text-right">Carteira mínima de produção (t)</th>
+                      <th className="py-2 px-2.5 text-center">Pedido</th>
+                      <th className="py-2 px-2.5 text-center">Data desejada</th>
+                      <th className="py-2 px-2.5">Observação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {itens.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-6 text-center text-slate-500">
+                          Nenhum registro encontrado para emissão do relatório.
+                        </td>
+                      </tr>
+                    ) : (
+                      itens.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
+                            {item.material}
+                          </td>
+                          <td className="py-2 px-2.5 font-medium">{item.descricao_material}</td>
+                          <td className="py-2 px-2.5 text-right font-mono whitespace-nowrap">
+                            {formatNumberPTBR(item.carteira_tons, 3)} t
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono text-emerald-800 whitespace-nowrap">
+                            {formatNumberPTBR(item.estoque_livre_tons, 3)} t
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono font-bold text-amber-800 whitespace-nowrap">
+                            {formatNumberPTBR(item.saldo_produzir_tons, 3)} t
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono whitespace-nowrap">
+                            {formatNumberPTBR(item.producao_minima_tons, 3)} t
+                          </td>
+                          <td className="py-2 px-2.5 text-center font-mono font-bold text-[#004C97] whitespace-nowrap">
+                            {item.pedido_formatado}
+                          </td>
+                          <td className="py-2 px-2.5 text-center font-mono whitespace-nowrap">
+                            {formatarDataPtBr(item.data_desejada)}
+                          </td>
+                          <td className="py-2 px-2.5 text-slate-700 text-[10px] leading-relaxed">
+                            {item.observacao_ia}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* SEÇÃO DA ANÁLISE IA QUANDO DISPONÍVEL NO PDF */}
+          {analiseIaReport && (
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2 text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-[#004C97] uppercase text-[11px]">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Diagnóstico Inteligente de IA Integrado</span>
+              </div>
+              <p className="text-slate-700 leading-relaxed font-medium">
+                {analiseIaReport.resumoExecutivo}
+              </p>
+              {analiseIaReport.recomendacoesPcp.length > 0 && (
+                <div className="pt-1">
+                  <span className="font-bold text-slate-800 block text-[10px] uppercase">
+                    Principais Recomendações:
+                  </span>
+                  <ul className="list-disc list-inside space-y-0.5 text-slate-700 mt-1">
+                    {analiseIaReport.recomendacoesPcp.slice(0, 3).map((rec, i) => (
+                      <li key={i}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Rodapé Obrigatório da Especificação: Data/hora, Usuário e Filtros Aplicados */}
           <div className="border-t-2 border-slate-200 pt-4 text-[11px] text-slate-600 space-y-2">

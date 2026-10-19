@@ -58,7 +58,7 @@ async function registrarLogIntegracao(params: {
 /**
  * Registra auditoria funcional em `pcp_audit_logs`
  */
-async function registrarAuditoriaFuncional(params: {
+export async function registrarAuditoriaFuncional(params: {
   action: string
   reason: string
   justification?: string

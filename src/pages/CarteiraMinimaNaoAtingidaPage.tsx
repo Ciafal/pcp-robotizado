@@ -8,6 +8,8 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
+  Ruler,
+  Boxes,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +18,15 @@ import { CarteiraMinimaFilterBar } from '@/components/carteira-views/CarteiraMin
 import { CarteiraMinimaTable } from '@/components/carteira-views/CarteiraMinimaTable'
 import { CarteiraMinimaDetailModal } from '@/components/carteira-views/CarteiraMinimaDetailModal'
 import { CarteiraMinimaPdfModal } from '@/components/carteira-views/CarteiraMinimaPdfModal'
+import { CarteiraMinimaConsolidadaTable } from '@/components/carteira-views/CarteiraMinimaConsolidadaTable'
+import { CarteiraMinimaConsolidadaDetailModal } from '@/components/carteira-views/CarteiraMinimaConsolidadaDetailModal'
+import { CarteiraMinimaConsolidadaAiModal } from '@/components/carteira-views/CarteiraMinimaConsolidadaAiModal'
+import { carteiraMinimaConsolidadaService } from '@/services/carteira-minima-consolidada-service'
+import {
+  CarteiraVisaoModo,
+  CarteiraConsolidadaRow,
+  CarteiraConsolidadaAiReport,
+} from '@/types/carteira-minima-consolidada'
 import { EnviarComunicadoComercialModal } from '@/components/carteira-views/EnviarComunicadoComercialModal'
 import { HistoricoComunicadoItemModal } from '@/components/carteira-views/HistoricoComunicadoItemModal'
 import { VisualizadorComunicadoModal } from '@/components/carteira-views/VisualizadorComunicadoModal'
@@ -45,6 +56,15 @@ export const CarteiraMinimaNaoAtingidaPage: React.FC = () => {
     null,
   )
   const [modalPdfAberto, setModalPdfAberto] = useState<boolean>(false)
+
+  // VISÃO CONSOLIDADA: Bitola | Família | Material (tabela original)
+  const [modoVisao, setModoVisao] = useState<CarteiraVisaoModo>('MATERIAL')
+  const [rowsConsolidadas, setRowsConsolidadas] = useState<CarteiraConsolidadaRow[]>([])
+  const [consolidando, setConsolidando] = useState<boolean>(false)
+  const [rowSelecionada, setRowSelecionada] = useState<CarteiraConsolidadaRow | null>(null)
+  const [modalIaAberto, setModalIaAberto] = useState<boolean>(false)
+  const [relatorioIa, setRelatorioIa] = useState<CarteiraConsolidadaAiReport | null>(null)
+  const [gerandoIa, setGerandoIa] = useState<boolean>(false)
 
   // 1. Seleção dos itens para comunicado ao Comercial
   const [itensSelecionadosIds, setItensSelecionadosIds] = useState<string[]>([])
@@ -127,6 +147,62 @@ export const CarteiraMinimaNaoAtingidaPage: React.FC = () => {
   const kpis: CarteiraMinimaKpis = useMemo(() => {
     return carteiraMinimaService.calcularKpis(itensFiltrados)
   }, [itensFiltrados])
+
+  // Recalcular consolidação quando os itens filtrados ou o modo mudam
+  useEffect(() => {
+    let cancelado = false
+
+    const calcular = async () => {
+      if (modoVisao === 'MATERIAL') {
+        setRowsConsolidadas([])
+        return
+      }
+
+      setConsolidando(true)
+      try {
+        const rows = await carteiraMinimaConsolidadaService.consolidar(itensFiltrados, modoVisao)
+        if (!cancelado) {
+          setRowsConsolidadas(rows)
+        }
+      } catch (err) {
+        console.error('[CarteiraMinimaPage] Erro ao consolidar visão:', err)
+        if (!cancelado) {
+          setRowsConsolidadas([])
+        }
+      } finally {
+        if (!cancelado) {
+          setConsolidando(false)
+        }
+      }
+    }
+
+    calcular()
+    return () => {
+      cancelado = true
+    }
+  }, [itensFiltrados, modoVisao])
+
+  // Alternar visão consolidada (com auditoria de governança)
+  const handleAlternarVisao = async (modo: CarteiraVisaoModo) => {
+    setModoVisao(modo)
+    if (modo !== 'MATERIAL') {
+      await carteiraMinimaConsolidadaService.auditarAcessoVisao(modo, itensFiltrados.length)
+    }
+  }
+
+  // Gerar análise IA objetiva sobre a visão consolidada ativa
+  const handleGerarAnaliseIa = async () => {
+    setGerandoIa(true)
+    try {
+      const report = carteiraMinimaConsolidadaService.gerarAnaliseIa(rowsConsolidadas, modoVisao)
+      setRelatorioIa(report)
+      setModalIaAberto(true)
+    } catch (err) {
+      console.error('[CarteiraMinimaPage] Erro ao gerar análise IA:', err)
+    } finally {
+      setGerandoIa(false)
+    }
+  }
 
   const handleToggleSelecionarItem = (id: string) => {
     setItensSelecionadosIds((prev) => {
@@ -299,22 +375,34 @@ export const CarteiraMinimaNaoAtingidaPage: React.FC = () => {
         totalFiltrados={itensFiltrados.length}
       />
 
-      {/* SEÇÃO DA TABELA PRINCIPAL COM CHECKBOX E STATUS COMERCIAL */}
+      {/* SEÇÃO DA TABELA PRINCIPAL COM CHECKBOX E STATUS COMERCIAL + ALTERNADOR DE VISÃO */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#004C97]" />
-              Itens com Carteira Mínima Não Atingida ({itensFiltrados.length})
+              {modoVisao === 'MATERIAL'
+                ? `Itens com Carteira Mínima Não Atingida (${itensFiltrados.length})`
+                : `Análise Consolidada por ${modoVisao === 'BITOLA' ? 'Bitola' : 'Família'} (${rowsConsolidadas.length})`}
             </h2>
-            {itensSelecionadosIds.length > 0 && (
+            {modoVisao === 'MATERIAL' && itensSelecionadosIds.length > 0 && (
               <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
                 {itensSelecionadosIds.length} selecionado(s)
+              </Badge>
+            )}
+            {modoVisao !== 'MATERIAL' && (
+              <Badge
+                variant="outline"
+                className="bg-blue-50 text-[#004C97] border-blue-300 text-[10px] font-bold gap-1"
+              >
+                <Sparkles className="w-3 h-3" />
+                Visão {modoVisao === 'BITOLA' ? 'Bitola' : 'Família'} ativa
               </Badge>
             )}
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-500">
+            {modoVisao !== 'MATERIAL' && consolidando && <span>Consolidando dados...</span>}
             {ultimoUpdateSap && (
               <span>
                 Última leitura SAP: <strong>{ultimoUpdateSap}</strong>
@@ -323,16 +411,90 @@ export const CarteiraMinimaNaoAtingidaPage: React.FC = () => {
           </div>
         </div>
 
-        <CarteiraMinimaTable
-          itens={itens}
-          itensFiltrados={itensFiltrados}
-          itensSelecionadosIds={itensSelecionadosIds}
-          onToggleSelecionarItem={handleToggleSelecionarItem}
-          onToggleSelecionarTodos={handleToggleSelecionarTodos}
-          onVisualizarItem={(item) => setItemSelecionadoDetalhe(item)}
-          onVerHistoricoComercial={(item) => setItemHistoricoComercial(item)}
-          mapaStatusComercial={mapaStatusComercial}
-        />
+        {/* GRUPO DE BOTÕES DE ALTERNÂNCIA DE VISÃO (Material / Bitola / Família) + ANÁLISE IA */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant={modoVisao === 'MATERIAL' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleAlternarVisao('MATERIAL')}
+            className={
+              modoVisao === 'MATERIAL'
+                ? 'text-xs font-semibold h-8 px-3 bg-[#004C97] hover:bg-[#003d7a] text-white'
+                : 'text-xs font-semibold h-8 px-3 border-slate-300 text-slate-700 hover:bg-slate-100'
+            }
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Visualizar por Material</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant={modoVisao === 'BITOLA' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleAlternarVisao('BITOLA')}
+            className={
+              modoVisao === 'BITOLA'
+                ? 'text-xs font-semibold h-8 px-3 bg-[#004C97] hover:bg-[#003d7a] text-white'
+                : 'text-xs font-semibold h-8 px-3 border-slate-300 text-slate-700 hover:bg-slate-100'
+            }
+          >
+            <Ruler className="w-3.5 h-3.5" />
+            <span>Analisar Bitola</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant={modoVisao === 'FAMILIA' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleAlternarVisao('FAMILIA')}
+            className={
+              modoVisao === 'FAMILIA'
+                ? 'text-xs font-semibold h-8 px-3 bg-[#004C97] hover:bg-[#003d7a] text-white'
+                : 'text-xs font-semibold h-8 px-3 border-slate-300 text-slate-700 hover:bg-slate-100'
+            }
+          >
+            <Boxes className="w-3.5 h-3.5" />
+            <span>Analisar Família</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleGerarAnaliseIa}
+            disabled={modoVisao === 'MATERIAL' || gerandoIa || rowsConsolidadas.length === 0}
+            title={
+              modoVisao === 'MATERIAL'
+                ? 'Selecione a visão por Bitola ou por Família para habilitar a análise IA'
+                : 'Gerar análise IA objetiva e verificável'
+            }
+            className="text-xs font-semibold h-8 px-3 border-[#004C97]/40 text-[#004C97] hover:bg-blue-50 gap-1.5"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${gerandoIa ? 'animate-pulse' : ''}`} />
+            <span>{gerandoIa ? 'Analisando...' : 'Análise IA'}</span>
+          </Button>
+        </div>
+
+        {/* CONTEÚDO DA VISÃO ATIVA: TABELA MATERIAL (original) OU CONSOLIDADA */}
+        {modoVisao === 'MATERIAL' ? (
+          <CarteiraMinimaTable
+            itens={itens}
+            itensFiltrados={itensFiltrados}
+            itensSelecionadosIds={itensSelecionadosIds}
+            onToggleSelecionarItem={handleToggleSelecionarItem}
+            onToggleSelecionarTodos={handleToggleSelecionarTodos}
+            onVisualizarItem={(item) => setItemSelecionadoDetalhe(item)}
+            onVerHistoricoComercial={(item) => setItemHistoricoComercial(item)}
+            mapaStatusComercial={mapaStatusComercial}
+          />
+        ) : (
+          <CarteiraMinimaConsolidadaTable
+            modo={modoVisao}
+            rows={rowsConsolidadas}
+            onSelecionarRow={(row) => setRowSelecionada(row)}
+          />
+        )}
       </div>
 
       {/* MODAL 1: REVISÃO E ENVIO DO COMUNICADO AO COMERCIAL */}
@@ -383,12 +545,29 @@ export const CarteiraMinimaNaoAtingidaPage: React.FC = () => {
         />
       )}
 
-      {/* MODAL 5: RELATÓRIO PDF */}
+      {/* MODAL 5: RELATÓRIO PDF — ADAPTADO À ABORDAGEM ATIVA */}
       <CarteiraMinimaPdfModal
         isOpen={modalPdfAberto}
         onClose={() => setModalPdfAberto(false)}
         itens={itensFiltrados}
         kpis={kpis}
+        modoVisao={modoVisao}
+        rowsConsolidadas={rowsConsolidadas}
+        analiseIaReport={relatorioIa && relatorioIa.visao === modoVisao ? relatorioIa : null}
+      />
+
+      {/* MODAL 6: DETALHAMENTO CONSOLIDADO POR BITOLA / FAMÍLIA */}
+      <CarteiraMinimaConsolidadaDetailModal
+        isOpen={Boolean(rowSelecionada)}
+        onClose={() => setRowSelecionada(null)}
+        row={rowSelecionada}
+      />
+
+      {/* MODAL 7: ANÁLISE IA OBJETIVA E VERIFICÁVEL */}
+      <CarteiraMinimaConsolidadaAiModal
+        isOpen={modalIaAberto}
+        onClose={() => setModalIaAberto(false)}
+        report={relatorioIa}
       />
     </div>
   )
