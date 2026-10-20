@@ -35,13 +35,14 @@ describe('Controle de Ordens de Produção — 7 Cenários do Usuário e Operaç
       real_end_date: '2026-09-20',
       status_op: 'CONCLUIDA_FISICAMENTE',
       status_mes: 'FINALIZADO_OPERADOR',
-      status_sap: 'LIBERADA',
+      status_sap: 'CRIADA_LIBERADA',
       status_fechamento: 'PENDENTE_DE_FECHAMENTO',
       visual_status: 'NORMAL',
-      ai_risk_score: 'BAIXO_RISCO',
+      ai_risk_score: 'NORMAL',
       ai_risk_reason: '',
       has_pendency: false,
       has_deviation: false,
+      deviation_reason: 'Sem causa de desvio',
       last_posting_at: '2026-09-20 18:00',
       operator_leader: 'Carlos Silva',
     },
@@ -81,6 +82,7 @@ describe('Controle de Ordens de Produção — 7 Cenários do Usuário e Operaç
       ai_risk_reason: 'Pendência no COGI',
       has_pendency: true,
       has_deviation: true,
+      deviation_reason: 'Pendência COGI ativa',
       last_posting_at: '2026-09-20 12:00',
       operator_leader: 'Julio Cesar',
     },
@@ -156,15 +158,16 @@ describe('Controle de Ordens de Produção — 7 Cenários do Usuário e Operaç
         planned_end_date: '2026-09-20',
         real_start_date: '2026-09-20',
         real_end_date: '2026-09-20',
-        status_op: 'CONCLUIDA_FISICAMENTE',
-        status_mes: 'FINALIZADO_OPERADOR',
-        status_sap: 'LIBERADA',
-        status_fechamento: 'PENDENTE_DE_FECHAMENTO',
-        visual_status: 'NORMAL',
-        ai_risk_score: 'BAIXO_RISCO',
+        status_op: 'CONCLUIDA_FISICAMENTE' as const,
+        status_mes: 'FINALIZADO_OPERADOR' as const,
+        status_sap: 'CRIADA_LIBERADA' as const,
+        status_fechamento: 'PENDENTE_DE_FECHAMENTO' as const,
+        visual_status: 'NORMAL' as const,
+        ai_risk_score: 'NORMAL' as const,
         ai_risk_reason: '',
         has_pendency: false,
         has_deviation: false,
+        deviation_reason: 'Sem causa de desvio',
         last_posting_at: '2026-09-20 18:00',
         operator_leader: 'Operador',
       })),
@@ -174,21 +177,24 @@ describe('Controle de Ordens de Produção — 7 Cenários do Usuário e Operaç
         id: 'ord-pend-1',
         op_number: '10004921',
         has_pendency: true,
+        deviation_reason: 'Pendência COGI ativa',
       },
       {
         ...mockOrdersList[1],
         id: 'ord-pend-2',
         op_number: '10004925',
         has_pendency: true,
+        deviation_reason: 'Pendência COGI ativa',
       },
       // 1 já encerrada tecnicamente
       {
         ...mockOrdersList[0],
         id: 'ord-closed-1',
         op_number: '30000001',
-        status_op: 'ENCERRADA',
-        status_sap: 'FECHADA_TECNICAMENTE',
+        status_op: 'ENCERRADA' as const,
+        status_sap: 'FECHADA_TECNICAMENTE' as const,
         has_pendency: false,
+        deviation_reason: 'Sem causa de desvio',
       },
     ]
 
@@ -265,11 +271,11 @@ describe('Controle de Ordens de Produção — 7 Cenários do Usuário e Operaç
   })
 
   it('Cenário 7: Status alterado no SAP entre seleção e confirmação -> bloqueia a OP e informa concorrência', async () => {
-    // Ordem no banco foi atualizada para "BLOQUEADA" por outro operador
+    // Ordem no banco foi atualizada para "CANCELADA" por outro operador
     const updatedLiveOrders: ProductionOrder[] = [
       {
         ...mockOrdersList[0],
-        status_op: 'BLOQUEADA', // mudou de CONCLUIDA_FISICAMENTE para BLOQUEADA
+        status_op: 'CANCELADA', // mudou de CONCLUIDA_FISICAMENTE para CANCELADA
       },
     ]
 

@@ -299,6 +299,13 @@ export const pcpProductionService = {
   },
 
   /**
+   * Alias de conveniência para obter ordens de produção
+   */
+  async getProductionOrders(filters?: Partial<ProductionFiltersState>): Promise<ProductionOrder[]> {
+    return this.listOrders(filters)
+  },
+
+  /**
    * Busca apontamentos com envelope normalizado
    */
   async getPostings(opNumber?: string): Promise<ServiceResponse<ProductionPosting[]>> {
@@ -894,18 +901,43 @@ export const pcpProductionService = {
         const o =
           orders.find((ord) => ord.op_number === opNum) ||
           ({
+            id: `ord-${opNum}`,
             op_number: opNum,
-            material_code: 'MAT-GEN',
-            material_description: 'Material ' + opNum,
+            empresa_code: 'CIAFAL',
             centro_code: 'SEML1',
             linha_code: 'L1',
-            status_op: 'EM_PRODUCAO',
-            status_sap: 'LIBERADA',
+            work_center: 'SEML1',
+            material_code: 'MAT-GEN',
+            material_description: 'Material ' + opNum,
+            family_code: 'GERAL',
+            steel_grade: 'SAE 1020',
+            gauge_dimension: '50 mm',
+            product_name: 'Material ' + opNum,
+            mrp_planner: 'PCP',
+            programming_type: 'Laminação',
             quantity_planned_tons: 100,
             quantity_produced_tons: 100,
             quantity_posted_tons: 100,
+            quantity_sap_tons: 100,
             balance_tons: 0,
+            yield_planned_pct: 95.0,
+            yield_realized_pct: 95.0,
+            planned_start_date: '2026-09-20',
+            planned_end_date: '2026-09-20',
+            real_start_date: '2026-09-20',
+            real_end_date: '2026-09-20',
+            status_op: 'EM_PRODUCAO' as const,
+            status_mes: 'EM_EXECUCAO' as const,
+            status_sap: 'CRIADA_LIBERADA' as const,
+            status_fechamento: 'PENDENTE_DE_FECHAMENTO' as const,
+            visual_status: 'NORMAL' as const,
+            ai_risk_score: 'NORMAL' as const,
+            ai_risk_reason: '',
             has_pendency: false,
+            has_deviation: false,
+            deviation_reason: 'Sem causa de desvio',
+            last_posting_at: '2026-09-20 18:00',
+            operator_leader: 'Operador',
           } as ProductionOrder)
 
         const isClosed = o.status_op === 'ENCERRADA' || o.status_sap === 'FECHADA_TECNICAMENTE'

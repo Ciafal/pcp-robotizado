@@ -30,15 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Columns,
-  Lock,
-  ChevronDown,
-  ChevronRight,
-  Eye,
-  CheckSquare,
-  Square,
-} from 'lucide-react'
+import { Columns, Lock, ChevronDown, ChevronRight, Eye, CheckSquare, Square } from 'lucide-react'
 import { MESIntegrationBanner } from '@/components/production-control/MESIntegrationBanner'
 import {
   pcpProductionService,
@@ -73,8 +65,8 @@ export const ProductionOrdersPage: React.FC = () => {
     const status = searchParams.get('status')
     return {
       ...defaultProductionFilters,
-      op_number: search || '',
-      status: status || 'TODOS',
+      op: search || '',
+      statusOp: status || 'TODOS',
     }
   })
   const [activeCardFilter, setActiveCardFilter] = useState<CardFilterType>('ALL')
@@ -132,9 +124,12 @@ export const ProductionOrdersPage: React.FC = () => {
     criticidade: true,
   })
 
-  const loadData = async () => {
+  const loadData = async (overrideFilters?: any) => {
     setLoading(true)
     setLoadError(null)
+    const activeFilters = (overrideFilters && typeof overrideFilters === 'object' && 'empresa' in overrideFilters)
+      ? (overrideFilters as ProductionFiltersState)
+      : filters
     try {
       const [mes, ordersRes] = await Promise.all([
         pcpProductionService.checkMESConnection().catch(
@@ -146,7 +141,7 @@ export const ProductionOrdersPage: React.FC = () => {
             activeLinesWithRealtime: [],
           }),
         ),
-        pcpProductionService.getOrders(filters).catch((err: any) => ({
+        pcpProductionService.getOrders(activeFilters).catch((err: any) => ({
           success: false,
           data: pcpProductionService.getStandardSeedOrders(),
           error: err?.message || 'Erro ao carregar ordens',
@@ -417,7 +412,7 @@ export const ProductionOrdersPage: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadData}
+            onClick={() => loadData(filters)}
             disabled={loading}
             className="h-8 text-xs bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
           >
@@ -738,9 +733,12 @@ export const ProductionOrdersPage: React.FC = () => {
       <ErrorBoundary moduleName="Filtros de Ordens" variant="compact">
         <ProductionFilterBar
           filters={filters}
-          onChange={setFilters}
-          onApply={loadData}
-          onRefresh={loadData}
+          onChange={(newFilters) => {
+            setFilters(newFilters)
+            loadData(newFilters)
+          }}
+          onApply={() => loadData(filters)}
+          onRefresh={() => loadData(filters)}
           loading={loading}
         />
       </ErrorBoundary>
@@ -827,11 +825,12 @@ export const ProductionOrdersPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                onClick={handleSelectAllFiltered}
-                className="h-6 text-[11px] text-slate-700 hover:text-slate-900"
+                onClick={() => loadData(filters)}
+                className="text-xs bg-white text-slate-700 border-slate-200"
               >
+                {' '}
                 {displayedOrders.length > 0 &&
                 displayedOrders.every((o) => selectedOpNumbers.has(o.op_number))
                   ? 'Desmarcar todas filtradas'
@@ -922,7 +921,7 @@ export const ProductionOrdersPage: React.FC = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={loadData}
+                          onClick={() => loadData(filters)}
                           className="h-7 text-xs border-rose-300 text-rose-800 bg-white hover:bg-rose-50"
                         >
                           Tentar novamente
@@ -1320,7 +1319,7 @@ export const ProductionOrdersPage: React.FC = () => {
         order={selectedOrder}
         open={detailModalOpen}
         onOpenChange={setDetailModalOpen}
-        onOrderUpdated={loadData}
+        onOrderUpdated={() => loadData(filters)}
       />
 
       {/* POPUP: Alteração de Status em Massa (COHV SAP ECC) */}
@@ -1365,7 +1364,7 @@ export const ProductionOrdersPage: React.FC = () => {
         batchId={massResultData.batchId}
         summary={massResultData.summary}
         results={massResultData.results}
-        onRefreshData={loadData}
+        onRefreshData={() => loadData(filters)}
       />
     </div>
   )
