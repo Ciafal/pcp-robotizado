@@ -1,9 +1,22 @@
 import React from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
-import { Badge } from '../ui/badge'
-import { DeliveryImpactItem } from '../../types/pcp-commercial-simulation'
-import { formatNumberPtBr } from '../../lib/number-format'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { DeliveryImpactItem } from '@/types/pcp-commercial-simulation'
+import { formatNumberPtBr } from '@/lib/number-format'
 import { AlertTriangle, Clock } from 'lucide-react'
 
 interface DelayedOrdersModalProps {

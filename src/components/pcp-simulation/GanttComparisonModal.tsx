@@ -1,8 +1,14 @@
 import React from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
-import { Badge } from '../ui/badge'
-import { GanttComparisonItem } from '../../types/pcp-commercial-simulation'
-import { formatNumberPtBr } from '../../lib/number-format'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { GanttComparisonItem } from '@/types/pcp-commercial-simulation'
+import { formatNumberPtBr } from '@/lib/number-format'
 import { Calendar, AlertCircle, ArrowRight } from 'lucide-react'
 
 interface GanttComparisonModalProps {

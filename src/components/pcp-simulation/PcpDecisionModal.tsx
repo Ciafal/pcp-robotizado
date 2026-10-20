@@ -1,10 +1,16 @@
 import React, { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
-import { Button } from '../ui/button'
-import { Label } from '../ui/label'
-import { Textarea } from '../ui/textarea'
-import { Badge } from '../ui/badge'
-import { CommercialSimulationRecord } from '../../types/pcp-commercial-simulation'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { CommercialSimulationRecord } from '@/types/pcp-commercial-simulation'
 import { ShieldCheck, CheckCircle2, XCircle, AlertCircle, HelpCircle } from 'lucide-react'
 
 interface PcpDecisionModalProps {
