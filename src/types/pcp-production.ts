@@ -307,6 +307,109 @@ export interface ProductionFiltersState {
   comSemDesvio: 'TODOS' | 'COM_DESVIO' | 'SEM_DESVIO'
   motivoDesvio: string
   buscaTexto: string
+  // Filtros COOIS & COHV adicionais
+  confirmacao?: string
+  contador?: string
+  confirmacaoFinal?: 'TODAS' | 'SIM' | 'NAO'
+  dataApontamentoDe?: string
+  dataApontamentoAte?: string
+  turma?: string
+  situacaoFechamento?: 'TODAS' | 'APTA' | 'COM_PENDENCIA' | 'BLOQUEADA' | 'JA_ENCERRADA'
+  comSemConfirmacao?: 'TODOS' | 'COM_CONFIRMACAO' | 'SEM_CONFIRMACAO'
+}
+
+export interface ProductionOrderConfirmationItem {
+  confirmation_number: string
+  counter: string
+  posting_date: string
+  posting_time: string
+  turma: string
+  turno: string
+  quantity_tons: number
+  unit: string
+  is_final: boolean
+  deviation_reason: string
+  data_origin: ProductionDataOrigin
+  status_sap: ProductionPostingStatusSAP
+  sap_document_number?: string
+  operator_name?: string
+  has_pendency?: boolean
+}
+
+export interface ProductionOrderCooisDetail {
+  order: ProductionOrder
+  confirmations: ProductionOrderConfirmationItem[]
+  pendencies: {
+    cogi: Array<{
+      id: string
+      error_code: string
+      error_message: string
+      material_code: string
+      quantity: number
+      storage_location: string
+      detected_at: string
+    }>
+    co1p: Array<{
+      id: string
+      confirmation_number: string
+      movement_type: string
+      status: string
+      detected_at: string
+    }>
+    has_cogi: boolean
+    has_co1p: boolean
+    has_mes_sap_divergence: boolean
+    mes_sap_divergence_tons: number
+    has_incomplete_confirmation: boolean
+    missing_final_confirmation: boolean
+    balance_discrepancy_tons: number
+  }
+  history: ProductionTimelineEvent[]
+}
+
+export interface ProductionMassValidationItem {
+  op_number: string
+  material_code: string
+  material_description: string
+  centro_code: string
+  linha_code: string
+  status_op: string
+  status_sap: string
+  is_eligible: boolean
+  block_reasons: string[]
+  status_category: 'APTA' | 'COM_PENDENCIA' | 'JA_ENCERRADA' | 'BLOQUEADA'
+  quantity_planned: number
+  quantity_produced: number
+  quantity_posted: number
+  balance: number
+}
+
+export interface ProductionMassValidationSummary {
+  total_selected: number
+  aptas: number
+  com_pendencias: number
+  ja_encerradas: number
+}
+
+export interface ProductionMassOperationResult {
+  op_number: string
+  success: boolean
+  previous_status: string | null
+  new_status: string | null
+  message: string
+  concurrency_conflict?: boolean
+}
+
+export interface ProductionMassOperationResponse {
+  success: boolean
+  batch_id: string
+  summary: {
+    total: number
+    success: number
+    failed: number
+  }
+  results: ProductionMassOperationResult[]
+  last_sync: string
 }
 
 export interface ProductionOverviewCardIndicator {
