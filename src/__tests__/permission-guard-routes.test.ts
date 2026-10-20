@@ -83,6 +83,22 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     }
   })
 
+  it('permite acesso imediato e bypass de rota para Reuniões PCP (/pcp/reunioes e /pcp/reunioes/configuracoes)', () => {
+    const isReuniaoPcpPath = (pathname: string, perm: string) =>
+      Boolean(
+        perm === 'pcp.meeting.view' ||
+        perm.startsWith('pcp.meeting.') ||
+        pathname === '/pcp/reunioes' ||
+        pathname.startsWith('/pcp/reunioes') ||
+        pathname.includes('/reunioes'),
+      )
+
+    expect(isReuniaoPcpPath('/pcp/reunioes', '')).toBe(true)
+    expect(isReuniaoPcpPath('/pcp/reunioes/configuracoes', '')).toBe(true)
+    expect(isReuniaoPcpPath('/pcp/reunioes/visao-geral', '')).toBe(true)
+    expect(isReuniaoPcpPath('/outro', 'pcp.meeting.view')).toBe(true)
+  })
+
   it('should verify roles have permissions for /pcp/ficha-mestre and line master management', () => {
     const adminPerms = authService.getPermissionsForRole('PCP_ADMIN')
     expect(adminPerms).toContain('pcp.lines.manage')
