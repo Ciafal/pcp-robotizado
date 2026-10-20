@@ -207,7 +207,7 @@ export class StockDataSourceService {
       const matched = registeredDeposits.find((d) => d.code === item.deposito)
       return {
         ...item,
-        deposito_nome: matched?.name || item.deposito_nome,
+        deposito_nome: matched?.description || item.deposito_nome,
       }
     })
 

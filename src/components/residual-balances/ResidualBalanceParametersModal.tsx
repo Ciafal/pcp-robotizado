@@ -188,7 +188,7 @@ export const ResidualBalanceParametersModal: React.FC<ResidualBalanceParametersM
       const res = await ResidualBalancesService.saveParameter({
         id: editingParam?.id,
         deposito: deposito.toUpperCase(),
-        deposito_nome: depMeta?.name || '',
+        deposito_nome: depMeta?.description || '',
         descricao: descricao.trim(),
         tipo_regra: tipoRegra,
         quantidade: tipoRegra !== 'FAIXA_QUANTIDADE' ? Number(quantidade) : undefined,
@@ -325,7 +325,7 @@ export const ResidualBalanceParametersModal: React.FC<ResidualBalanceParametersM
                   >
                     {deposits.map((d) => (
                       <option key={d.code} value={d.code}>
-                        {d.code} - {d.name}
+                        {d.code} - {d.description}
                       </option>
                     ))}
                   </select>

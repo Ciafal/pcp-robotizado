@@ -334,7 +334,7 @@ export class ResidualBalancesService {
         const depMeta = allDeposits.find((d) => d.code === it.deposito)
         depMap.set(it.deposito, {
           deposito: it.deposito,
-          deposito_nome: depMeta?.name || it.deposito_nome || `Depósito ${it.deposito}`,
+          deposito_nome: depMeta?.description || it.deposito_nome || `Depósito ${it.deposito}`,
           total_materiais: 0,
           total_lotes: 0,
           volume_residual: 0,
