@@ -127,9 +127,10 @@ export const ProductionOrdersPage: React.FC = () => {
   const loadData = async (overrideFilters?: any) => {
     setLoading(true)
     setLoadError(null)
-    const activeFilters = (overrideFilters && typeof overrideFilters === 'object' && 'empresa' in overrideFilters)
-      ? (overrideFilters as ProductionFiltersState)
-      : filters
+    const activeFilters =
+      overrideFilters && typeof overrideFilters === 'object' && 'empresa' in overrideFilters
+        ? (overrideFilters as ProductionFiltersState)
+        : filters
     try {
       const [mes, ordersRes] = await Promise.all([
         pcpProductionService.checkMESConnection().catch(
