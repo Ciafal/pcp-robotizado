@@ -137,8 +137,10 @@ export interface CapacityImpactByCenter {
 export interface SetupAndSequencingAnalysis {
   additional_setup_minutes: number
   setup_reason: string
-  gauge_change: boolean
-  profile_change: boolean
+  gauge_change?: boolean
+  gaugeChange?: boolean
+  profile_change?: boolean
+  profileChange?: boolean
   steel_grade_change: boolean
   campaign_change: boolean
   sequence_break_detected: boolean

@@ -509,7 +509,9 @@ export class CommercialSimulationEngine {
     return {
       additional_setup_minutes: setupMin,
       setup_reason: reason,
+      gauge_change: gaugeChange,
       gaugeChange,
+      profile_change: profileChange,
       profileChange,
       steel_grade_change: steelChange,
       campaign_change: setupMin >= 60,

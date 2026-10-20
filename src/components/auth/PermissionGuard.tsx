@@ -191,6 +191,18 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('cancelados'),
   )
 
+  // Rota canônica de Reuniões PCP (/pcp/reunioes, /pcp/reunioes/configuracoes e aliases)
+  const isReuniaoPcpRoute = Boolean(
+    permission === 'pcp.meeting.view' ||
+    permission.startsWith('pcp.meeting.') ||
+    currentPathname === '/pcp/reunioes' ||
+    currentPathname.startsWith('/pcp/reunioes') ||
+    currentPathname.includes('/reunioes') ||
+    currentHash.includes('reunioes') ||
+    windowPath.includes('reunioes') ||
+    windowPath.includes('/pcp/reunioes'),
+  )
+
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
 
@@ -308,6 +320,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isChecklistFechamentoRoute ||
     isCarteiraMinimaRoute ||
     isPedidosCanceladosRoute ||
+    isReuniaoPcpRoute ||
+    permission === 'pcp.meeting.view' ||
     isCadastrosOrMasterDataEarly
   ) {
     return <>{children}</>
@@ -378,8 +392,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isChecklistFechamentoRoute ||
     isCarteiraMinimaRoute ||
     isCarteiraRouteOrPerm ||
+    isReuniaoPcpRoute ||
+    permission === 'pcp.meeting.view' ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.mp_opt.view' ||
+    currentPathname.startsWith('/pcp/reunioes') ||
     currentPathname.startsWith('/pcp/controle-producao') ||
     currentPathname.startsWith('/pcp/producao') ||
     currentPathname.startsWith('/pcp/gestao-materia-prima') ||
@@ -471,6 +488,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.production.view' ||
     permission === 'pcp.rules.view' ||
     permission === 'pcp.mp_opt.view' ||
+    permission === 'pcp.meeting.view' ||
     currentPathname === '/' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
@@ -478,9 +496,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp-robotizado') ||
     currentPathname.startsWith('/pcp/entregas') ||
+    currentPathname.startsWith('/pcp/reunioes') ||
     currentPathname.startsWith('/pcp/gestao-materia-prima') ||
     currentPathname.includes('/pcp/controle-producao') ||
     currentPathname.includes('/pcp/producao') ||
+    isReuniaoPcpRoute ||
     isGestaoMpRoute ||
     isCadastrosOrMasterData
   ) {
@@ -638,6 +658,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.carteira.view' ||
       permission.startsWith('pcp.carteira.') ||
       permission === 'pcp.mp_opt.view' ||
+      permission === 'pcp.meeting.view' ||
+      permission.startsWith('pcp.meeting.') ||
       currentPathname === '/' ||
       currentPathname === '/pcp/cadastros/hierarquia' ||
       currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
@@ -645,6 +667,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.startsWith('/pcp/ficha-mestre') ||
       currentPathname.startsWith('/pcp/entregas') ||
+      currentPathname.startsWith('/pcp/reunioes') ||
       currentPathname.startsWith('/pcp/programacao/parada') ||
       currentPathname.startsWith('/pcp/gestao-materia-prima') ||
       currentPathname.startsWith('/pcp/analise-real-time') ||
@@ -652,6 +675,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentPathname.includes('/hierarquia') ||
       currentPathname.includes('/ficha-mestre') ||
       currentPathname.startsWith('/pcp/analise-carteira') ||
+      isReuniaoPcpRoute ||
       isGestaoIndustrializadorRoute ||
       isGestaoMpRoute ||
       isParadaRoute
@@ -676,17 +700,21 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.production.view' ||
       permission === 'pcp.mp_opt.view' ||
+      permission === 'pcp.meeting.view' ||
+      permission.startsWith('pcp.meeting.') ||
       isDadosIbgeRoute ||
       isHierarquiaRoute ||
       isGestaoIndustrializadorRoute ||
       isGestaoMpRoute ||
       isChecklistFechamentoRoute ||
       isParadaRoute ||
+      isReuniaoPcpRoute ||
       currentPathname === '/pcp/cadastros/hierarquia' ||
       currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
       currentPathname.startsWith('/pcp/cadastros') ||
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.startsWith('/pcp/entregas') ||
+      currentPathname.startsWith('/pcp/reunioes') ||
       currentPathname.startsWith('/pcp/programacao/parada') ||
       currentPathname.startsWith('/pcp/gestao-materia-prima') ||
       currentPathname.includes('/hierarquia') ||
@@ -781,17 +809,21 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission.startsWith('pcp.carteira.') ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.mp_opt.view' ||
+    permission === 'pcp.meeting.view' ||
+    permission.startsWith('pcp.meeting.') ||
     currentPathname === '/' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
     currentPathname.startsWith('/pcp/cockpit') ||
     currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp-robotizado') ||
+    currentPathname.startsWith('/pcp/reunioes') ||
     currentPathname.startsWith('/pcp/gestao-materia-prima') ||
     isDadosIbgeRoute ||
     isHierarquiaRoute ||
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
+    isReuniaoPcpRoute ||
     currentPathname === '/pcp/cadastros/hierarquia' ||
     currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
     currentPathname.startsWith('/pcp/cadastros') ||
