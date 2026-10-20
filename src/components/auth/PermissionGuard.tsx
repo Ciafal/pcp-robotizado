@@ -277,10 +277,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return () => window.clearTimeout(timer)
   }, [isLoading, isRetrying, isLoadingPermissions, hasAvailableAuthContext])
 
-  // BYPASS IMEDIATO:
-  // Libera rotas operacionais, cadastrais (inclusive Hierarquia /pcp/cadastros/hierarquia e Ficha Mestra),
-  // análise de carteira, programação de testes, controle de produção e entregas sem timeout ou flicker
-  const isCadastrosOrMasterDataEarly = Boolean(
+  // Definição canônica de rotas de Cadastros e Ficha Mestra
+  const isCadastrosOrMasterDataRoute = Boolean(
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.masterdata.edit' ||
     permission === 'pcp.masterdata.admin' ||
@@ -310,7 +308,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('cadastros/ficha-mestre'),
   )
 
-  if (
+  // Conjunto canônico unificado de rotas e permissões com bypass imediato e fallback de cold-start
+  const isBypassOrOperationalFallbackRoute = Boolean(
     isDadosIbgeRoute ||
     isInventarioMpRoute ||
     isAproveitamentoMpForaPadraoRoute ||
@@ -322,8 +321,36 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isPedidosCanceladosRoute ||
     isReuniaoPcpRoute ||
     permission === 'pcp.meeting.view' ||
-    isCadastrosOrMasterDataEarly
-  ) {
+    permission.startsWith('pcp.meeting.') ||
+    permission === 'pcp.cockpit.view' ||
+    permission === 'pcp.production.view' ||
+    permission === 'pcp.rules.view' ||
+    permission === 'pcp.rules.edit' ||
+    permission === 'pcp.mp_opt.view' ||
+    permission === 'pcp.carteira.view' ||
+    permission.startsWith('pcp.carteira.') ||
+    permission === 'pcp.faca.view' ||
+    permission.startsWith('pcp.faca.') ||
+    permission === 'pcp.schedule.view' ||
+    permission === 'pcp.schedule.edit' ||
+    permission === 'pcp.weekly_schedule.view' ||
+    permission === 'pcp.weekly_schedule.edit' ||
+    isCadastrosOrMasterDataRoute ||
+    currentPathname === '/' ||
+    currentPathname === '/pcp' ||
+    currentPathname === '/pcp/' ||
+    currentPathname.startsWith('/pcp/cockpit') ||
+    currentPathname.startsWith('/pcp/principal') ||
+    currentPathname.startsWith('/pcp-robotizado') ||
+    currentPathname.startsWith('/pcp/reunioes') ||
+    currentPathname.startsWith('/pcp/entregas') ||
+    currentPathname.startsWith('/pcp/programacao/parada') ||
+    currentPathname.startsWith('/pcp/gestao-materia-prima') ||
+    currentPathname.includes('/pcp/controle-producao') ||
+    currentPathname.includes('/pcp/producao'),
+  )
+
+  if (isBypassOrOperationalFallbackRoute) {
     return <>{children}</>
   }
 
@@ -381,33 +408,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.includes('/pedidos-cancelados') ||
     currentHash.includes('cancelados') ||
     windowPath.includes('cancelados')
-  if (
-    isDadosIbgeRoute ||
-    isInventarioMpRoute ||
-    isTestProgrammingRoute ||
-    isEntregasRoute ||
-    isParadaRoute ||
-    isHierarquiaRoute ||
-    isGestaoMpRoute ||
-    isChecklistFechamentoRoute ||
-    isCarteiraMinimaRoute ||
-    isCarteiraRouteOrPerm ||
-    isReuniaoPcpRoute ||
-    permission === 'pcp.meeting.view' ||
-    permission === 'pcp.production.view' ||
-    permission === 'pcp.mp_opt.view' ||
-    currentPathname.startsWith('/pcp/reunioes') ||
-    currentPathname.startsWith('/pcp/controle-producao') ||
-    currentPathname.startsWith('/pcp/producao') ||
-    currentPathname.startsWith('/pcp/gestao-materia-prima') ||
-    currentPathname.startsWith('/pcp/programacao/parada') ||
-    currentPathname === '/' ||
-    currentPathname === '/pcp' ||
-    currentPathname === '/pcp/' ||
-    currentPathname.startsWith('/pcp/cockpit') ||
-    currentPathname.startsWith('/pcp/principal') ||
-    currentPathname.startsWith('/pcp-robotizado')
-  ) {
+  if (isBypassOrOperationalFallbackRoute || isCarteiraRouteOrPerm) {
     return <>{children}</>
   }
 
@@ -447,63 +448,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
-  // 1) Rotas de Cadastros (/pcp/cadastros/*, /pcp/linhas/*), Ficha Mestra e Centros
-  //    (pcp.masterdata.view / pcp.masterdata.edit / pcp.masterdata.admin / pcp.lines.view / pcp.rules.view),
-  //    Cockpit/Principal (/pcp, /pcp/cockpit, /pcp/principal) e Controle de Produção (pcp.production.view):
-  //    Bypass absoluto no primeiro instante antes de qualquer checagem de timeout ou loading,
-  //    garantindo que essas rotas nunca fiquem presas no PermissionGuard no runtime ou cold start para usuários
-  //    PCP_ADMIN, PCP_PROGRAMMER, PPC_PROGRAMMER, LINE_MANAGER, PCP_PLANNER etc.
-  const isCadastrosOrMasterData = Boolean(
-    permission === 'pcp.masterdata.view' ||
-    permission === 'pcp.masterdata.edit' ||
-    permission === 'pcp.masterdata.admin' ||
-    permission === 'pcp.lines.view' ||
-    permission === 'pcp.lines.manage' ||
-    permission.startsWith('pcp.masterdata.') ||
-    permission.startsWith('pcp.lines.') ||
-    currentPathname === '/pcp/cadastros/hierarquia' ||
-    currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
-    currentPathname.startsWith('/pcp/cadastros') ||
-    currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
-    currentPathname.startsWith('/pcp/ficha-mestre') ||
-    currentPathname.startsWith('/pcp/linhas') ||
-    currentPathname.includes('/hierarquia') ||
-    currentPathname.includes('hierarquia') ||
-    currentPathname.includes('/ficha-mestre') ||
-    currentPathname.includes('ficha-mestre') ||
-    currentPathname.includes('/centros-ficha-mestre') ||
-    currentPathname.includes('/linhas-ficha-mestre') ||
-    currentHash.includes('/hierarquia') ||
-    currentHash.includes('hierarquia') ||
-    currentHash.includes('/ficha-mestre') ||
-    currentHash.includes('ficha-mestre') ||
-    windowPath.includes('/hierarquia') ||
-    windowPath.includes('cadastros/hierarquia') ||
-    windowPath.includes('/ficha-mestre') ||
-    windowPath.includes('cadastros/ficha-mestre'),
-  )
-
-  if (
-    permission === 'pcp.cockpit.view' ||
-    permission === 'pcp.production.view' ||
-    permission === 'pcp.rules.view' ||
-    permission === 'pcp.mp_opt.view' ||
-    permission === 'pcp.meeting.view' ||
-    currentPathname === '/' ||
-    currentPathname === '/pcp' ||
-    currentPathname === '/pcp/' ||
-    currentPathname.startsWith('/pcp/cockpit') ||
-    currentPathname.startsWith('/pcp/principal') ||
-    currentPathname.startsWith('/pcp-robotizado') ||
-    currentPathname.startsWith('/pcp/entregas') ||
-    currentPathname.startsWith('/pcp/reunioes') ||
-    currentPathname.startsWith('/pcp/gestao-materia-prima') ||
-    currentPathname.includes('/pcp/controle-producao') ||
-    currentPathname.includes('/pcp/producao') ||
-    isReuniaoPcpRoute ||
-    isGestaoMpRoute ||
-    isCadastrosOrMasterData
-  ) {
+  if (isBypassOrOperationalFallbackRoute) {
     return <>{children}</>
   }
 
@@ -512,20 +457,10 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
-  // 3) Rotas de Análise de Carteira, Programação de Testes, Inventário MP e Entregas PCP
-  // Devem SEMPRE renderizar imediatamente o componente filho sem depender de authStore/timeout de fallback
+  // 3) Rotas com bypass canônico
   if (
-    isDadosIbgeRoute ||
-    isInventarioMpRoute ||
+    isBypassOrOperationalFallbackRoute ||
     isTestProgrammingRoute ||
-    isEntregasRoute ||
-    isParadaRoute ||
-    isHierarquiaRoute ||
-    isGestaoMpRoute ||
-    isCarteiraMinimaRoute ||
-    permission === 'pcp.carteira.view' ||
-    permission.startsWith('pcp.carteira.') ||
-    permission === 'pcp.mp_opt.view' ||
     currentPathname.includes('analise-carteira') ||
     currentPathname.includes('carteira') ||
     currentPathname.includes('cancelados') ||
@@ -643,85 +578,24 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     // Para visualização cadastral de linhas, ficha mestre, programação semanal/montagem e sequenciamento:
     // concede acesso caso o usuário esteja autenticado com sessão válida (mesmo padrão resiliente da Ficha Mestra v0.0.134)
     if (
-      permission === 'pcp.cockpit.view' ||
-      permission === 'pcp.lines.manage' ||
-      permission === 'pcp.masterdata.edit' ||
-      permission === 'pcp.masterdata.view' ||
-      permission === 'pcp.masterdata.admin' ||
-      permission === 'pcp.lines.view' ||
-      permission === 'pcp.rules.view' ||
-      permission === 'pcp.rules.edit' ||
-      permission === 'pcp.schedule.view' ||
-      permission === 'pcp.schedule.edit' ||
-      permission === 'pcp.weekly_schedule.view' ||
-      permission === 'pcp.weekly_schedule.edit' ||
-      permission === 'pcp.carteira.view' ||
-      permission.startsWith('pcp.carteira.') ||
-      permission === 'pcp.mp_opt.view' ||
-      permission === 'pcp.meeting.view' ||
-      permission.startsWith('pcp.meeting.') ||
-      currentPathname === '/' ||
-      currentPathname === '/pcp/cadastros/hierarquia' ||
-      currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
-      currentPathname.startsWith('/pcp/cadastros') ||
-      currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
-      currentPathname.startsWith('/pcp/ficha-mestre') ||
-      currentPathname.startsWith('/pcp/entregas') ||
-      currentPathname.startsWith('/pcp/reunioes') ||
-      currentPathname.startsWith('/pcp/programacao/parada') ||
-      currentPathname.startsWith('/pcp/gestao-materia-prima') ||
+      isBypassOrOperationalFallbackRoute ||
+      isGestaoIndustrializadorRoute ||
       currentPathname.startsWith('/pcp/analise-real-time') ||
       currentPathname.includes('analise-real-time') ||
-      currentPathname.includes('/hierarquia') ||
-      currentPathname.includes('/ficha-mestre') ||
-      currentPathname.startsWith('/pcp/analise-carteira') ||
-      isReuniaoPcpRoute ||
-      isGestaoIndustrializadorRoute ||
-      isGestaoMpRoute ||
-      isParadaRoute
+      currentPathname.startsWith('/pcp/analise-carteira')
     ) {
       hasPerm = true
     }
   }
 
-  // Fallback de contingência para rotas públicas/operacionais de Centros, Carteira e Programação
+  // Fallback de contingência para rotas públicas/operacionais de Centros, Carteira, Reunião e Programação
   // Garante que mesmo durante inicialização de sessão (cold start) o usuário homologado veja a tela real sem tela branca
   if (
     !hasPerm &&
-    (permission === 'pcp.masterdata.view' ||
-      permission === 'pcp.masterdata.edit' ||
-      permission === 'pcp.masterdata.admin' ||
-      permission === 'pcp.lines.view' ||
-      permission === 'pcp.rules.view' ||
-      permission === 'pcp.carteira.view' ||
-      permission.startsWith('pcp.carteira.') ||
-      permission === 'pcp.schedule.view' ||
-      permission === 'pcp.cockpit.view' ||
-      permission === 'pcp.weekly_schedule.view' ||
-      permission === 'pcp.production.view' ||
-      permission === 'pcp.mp_opt.view' ||
-      permission === 'pcp.meeting.view' ||
-      permission.startsWith('pcp.meeting.') ||
-      isDadosIbgeRoute ||
-      isHierarquiaRoute ||
+    (isBypassOrOperationalFallbackRoute ||
       isGestaoIndustrializadorRoute ||
-      isGestaoMpRoute ||
-      isChecklistFechamentoRoute ||
-      isParadaRoute ||
-      isReuniaoPcpRoute ||
-      currentPathname === '/pcp/cadastros/hierarquia' ||
-      currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
-      currentPathname.startsWith('/pcp/cadastros') ||
-      currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
-      currentPathname.startsWith('/pcp/entregas') ||
-      currentPathname.startsWith('/pcp/reunioes') ||
-      currentPathname.startsWith('/pcp/programacao/parada') ||
-      currentPathname.startsWith('/pcp/gestao-materia-prima') ||
-      currentPathname.includes('/hierarquia') ||
-      currentPathname.includes('/ficha-mestre') ||
-      currentPathname.startsWith('/pcp/analise-carteira') ||
       isTestProgrammingRoute ||
-      isEntregasRoute)
+      currentPathname.startsWith('/pcp/analise-carteira'))
   ) {
     hasPerm = true
   }
@@ -729,15 +603,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // Skeleton de loading no padrão do módulo: enquanto estiver carregando permissões,
   // nunca renderiza null/vazio nem spinner puro isolado
   const hasResolvedAccess = Boolean(
+    isBypassOrOperationalFallbackRoute ||
     user ||
     hasValidAuthStore ||
     isDirectOperationalView ||
-    isDadosIbgeRoute ||
-    isParadaRoute ||
-    isChecklistFechamentoRoute ||
-    (isGestaoIndustrializadorRoute && (Boolean(user) || hasValidAuthStore)) ||
-    isCadastrosOrMasterDataEarly ||
-    isCadastrosOrMasterData,
+    (isGestaoIndustrializadorRoute && (Boolean(user) || hasValidAuthStore)),
   )
   const showLoadingSkeleton =
     (isLoading || isRetrying || isLoadingPermissions) && !timedOut && !hasResolvedAccess
@@ -799,43 +669,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   const hasScope = lineId ? hasLineScope(lineId) : true
 
-  // Garantia adicional de exibição para Ficha Mestra, Cadastros, Regras e Carteira
+  // Garantia adicional de exibição para Ficha Mestra, Cadastros, Regras, Reunião e Carteira
   if (
-    permission === 'pcp.cockpit.view' ||
-    permission === 'pcp.masterdata.view' ||
-    permission === 'pcp.lines.view' ||
-    permission === 'pcp.rules.view' ||
-    permission === 'pcp.carteira.view' ||
-    permission.startsWith('pcp.carteira.') ||
-    permission === 'pcp.production.view' ||
-    permission === 'pcp.mp_opt.view' ||
-    permission === 'pcp.meeting.view' ||
-    permission.startsWith('pcp.meeting.') ||
-    currentPathname === '/' ||
-    currentPathname === '/pcp' ||
-    currentPathname === '/pcp/' ||
-    currentPathname.startsWith('/pcp/cockpit') ||
-    currentPathname.startsWith('/pcp/principal') ||
-    currentPathname.startsWith('/pcp-robotizado') ||
-    currentPathname.startsWith('/pcp/reunioes') ||
-    currentPathname.startsWith('/pcp/gestao-materia-prima') ||
-    isDadosIbgeRoute ||
-    isHierarquiaRoute ||
-    isGestaoMpRoute ||
-    isChecklistFechamentoRoute ||
-    isReuniaoPcpRoute ||
-    currentPathname === '/pcp/cadastros/hierarquia' ||
-    currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
-    currentPathname.startsWith('/pcp/cadastros') ||
-    currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
-    currentPathname.startsWith('/pcp/ficha-mestre') ||
-    currentPathname.startsWith('/pcp/linhas') ||
-    currentPathname.includes('/hierarquia') ||
-    currentPathname.includes('hierarquia') ||
-    currentPathname.includes('/ficha-mestre') ||
-    currentPathname.startsWith('/pcp/analise-carteira') ||
+    isBypassOrOperationalFallbackRoute ||
     isTestProgrammingRoute ||
-    isEntregasRoute
+    currentPathname.startsWith('/pcp/analise-carteira')
   ) {
     return <>{children}</>
   }

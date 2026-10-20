@@ -1406,12 +1406,16 @@ export const PCPSidebar: React.FC = () => {
       const isCadastrosRoute =
         g.groupTitle === 'CADASTROS' && currentPath.startsWith('/pcp/cadastros')
       // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão ou se estiver em rota interna do grupo
+      const isReuniaoRoute =
+        g.groupTitle === 'REUNIÃO PCP' && currentPath.startsWith('/pcp/reunioes')
+      // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão ou se estiver em rota interna do grupo
       const isGovernanceRoute =
         g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' &&
         (currentPath.startsWith('/pcp/auditoria') ||
           currentPath.startsWith('/pcp/motivos') ||
           currentPath.startsWith('/pcp/integracoes') ||
-          currentPath.startsWith('/pcp/configuracoes') ||
+          (currentPath.startsWith('/pcp/configuracoes') &&
+            !currentPath.startsWith('/pcp/reunioes/configuracoes')) ||
           currentPath.startsWith('/pcp/admin/acessos') ||
           currentPath.startsWith('/pcp/status-homologacao') ||
           currentPath.startsWith('/pcp/qualidade-dados'))
@@ -1423,7 +1427,8 @@ export const PCPSidebar: React.FC = () => {
         isProducaoRoute ||
         isCadastrosRoute ||
         isProgramacaoRoute ||
-        isIndustrializadorRoute
+        isIndustrializadorRoute ||
+        isReuniaoRoute
       ) {
         initial[g.groupTitle] = false
       } else {
@@ -1479,7 +1484,8 @@ export const PCPSidebar: React.FC = () => {
               location.pathname.startsWith('/pcp/integracoes')) ||
             (itemCleanHref.includes('acessos') &&
               (location.pathname.startsWith('/pcp/admin') ||
-                location.pathname.startsWith('/pcp/configuracoes'))) ||
+                (location.pathname.startsWith('/pcp/configuracoes') &&
+                  !location.pathname.startsWith('/pcp/reunioes/configuracoes')))) ||
             (itemCleanHref.includes('homologacao') &&
               location.pathname.startsWith('/pcp/status-homologacao')) ||
             (itemCleanHref.includes('qualidade-dados') &&
@@ -1499,7 +1505,8 @@ export const PCPSidebar: React.FC = () => {
           location.pathname.startsWith('/pcp/motivos') ||
           location.pathname.startsWith('/pcp/justificativas') ||
           location.pathname.startsWith('/pcp/integracoes') ||
-          location.pathname.startsWith('/pcp/configuracoes') ||
+          (location.pathname.startsWith('/pcp/configuracoes') &&
+            !location.pathname.startsWith('/pcp/reunioes/configuracoes')) ||
           location.pathname.startsWith('/pcp/admin/acessos') ||
           location.pathname.startsWith('/pcp/status-homologacao') ||
           location.pathname.startsWith('/pcp/qualidade-dados'))
@@ -1515,6 +1522,10 @@ export const PCPSidebar: React.FC = () => {
       const isCadastrosDirect =
         group.groupTitle === 'CADASTROS' && location.pathname.startsWith('/pcp/cadastros')
 
+      // Se a rota for do grupo REUNIÃO PCP (/pcp/reunioes), força expansão
+      const isReuniaoDirect =
+        group.groupTitle === 'REUNIÃO PCP' && location.pathname.startsWith('/pcp/reunioes')
+
       // Se a rota for do grupo PROGRAMAÇÃO (/pcp/programacao/parada, etc.), força expansão
       const isProgramacaoDirect =
         group.groupTitle === 'PROGRAMAÇÃO' &&
@@ -1528,7 +1539,8 @@ export const PCPSidebar: React.FC = () => {
         isGovernanceDirect ||
         isProducaoDirect ||
         isCadastrosDirect ||
-        isProgramacaoDirect
+        isProgramacaoDirect ||
+        isReuniaoDirect
       ) {
         setCollapsedGroups((prev) => {
           if (prev[group.groupTitle]) {
@@ -1737,9 +1749,12 @@ export const PCPSidebar: React.FC = () => {
                                                                 ? location.pathname.startsWith(
                                                                     '/pcp/admin',
                                                                   ) ||
-                                                                  location.pathname.startsWith(
+                                                                  (location.pathname.startsWith(
                                                                     '/pcp/configuracoes',
-                                                                  )
+                                                                  ) &&
+                                                                    !location.pathname.startsWith(
+                                                                      '/pcp/reunioes/configuracoes',
+                                                                    ))
                                                                 : group.groupTitle === 'CADASTROS'
                                                                   ? location.pathname === item.href
                                                                   : location.pathname ===
