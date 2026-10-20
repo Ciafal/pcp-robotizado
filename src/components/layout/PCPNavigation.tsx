@@ -1000,6 +1000,13 @@ export const officialNavGroups: NavGroup[] = [
         badge: 'Novo',
         permission: 'pcp.batch_movements.view',
       },
+      {
+        title: 'Saldos Residuais',
+        href: '/pcp/controle-producao/saldos-residuais',
+        icon: Layers,
+        badge: 'Novo',
+        permission: 'pcp.residual_balances.view',
+      },
     ],
   },
   {

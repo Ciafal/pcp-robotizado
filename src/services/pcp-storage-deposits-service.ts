@@ -285,3 +285,12 @@ class PcpStorageDepositsService {
 }
 
 export const pcpStorageDepositsService = new PcpStorageDepositsService()
+
+/**
+ * Aliases e funções auxiliares para acesso simples aos depósitos
+ */
+export type StorageDeposit = StorageDepositItem
+
+export function getStorageDeposits(): StorageDepositItem[] {
+  return pcpStorageDepositsService.getProvisionalDeposits()
+}

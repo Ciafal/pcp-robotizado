@@ -736,6 +736,13 @@ const MovimentacoesLotePage = lazyWithRetry(
     })),
   'MovimentacoesLotePage',
 )
+const SaldosResiduaisPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/SaldosResiduaisPage').then((m) => ({
+      default: m.default ?? m.SaldosResiduaisPage,
+    })),
+  'SaldosResiduaisPage',
+)
 const IndicadoresPcpPage = lazyWithRetry(
   () =>
     import('@/pages/IndicadoresPcpPage').then((m) => ({
@@ -2064,6 +2071,16 @@ export const App: React.FC = () => {
                         <PermissionGuard permission="pcp.production.view">
                           <ErrorBoundary moduleName="Movimentações Lote — Controle de Produção">
                             <MovimentacoesLotePage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/controle-producao/saldos-residuais"
+                      element={
+                        <PermissionGuard permission="pcp.residual_balances.view">
+                          <ErrorBoundary moduleName="Saldos Residuais — Controle de Produção">
+                            <SaldosResiduaisPage />
                           </ErrorBoundary>
                         </PermissionGuard>
                       }

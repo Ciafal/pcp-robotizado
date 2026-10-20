@@ -233,7 +233,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission.startsWith('pcp.mp_out_of_standard.') ||
     permission === 'pcp.meeting.view' ||
     permission === 'pcp.executive.view' ||
-    permission === 'pcp.production.view'
+    permission === 'pcp.production.view' ||
+    permission === 'pcp.residual_balances.view' ||
+    permission.startsWith('pcp.residual_balances.')
 
   // Se já temos permissões/usuário disponíveis no AuthContext, ou cache/authStore válido,
   // temos contexto de auth resolvido e não há necessidade de armar o timer de timeout
