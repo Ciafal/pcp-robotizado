@@ -17,6 +17,28 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ProductionFilterBar } from '@/components/production-control/ProductionFilterBar'
 import { ProductionOrderDetailModal } from '@/components/production-control/ProductionOrderDetailModal'
+import { ProductionOrderCooisDetailModal } from '@/components/production-control/ProductionOrderCooisDetailModal'
+import { MassStatusChangeModal } from '@/components/production-control/MassStatusChangeModal'
+import { MassCloseModal } from '@/components/production-control/MassCloseModal'
+import { MassOperationResultModal } from '@/components/production-control/MassOperationResultModal'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Columns,
+  Lock,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  CheckSquare,
+  Square,
+} from 'lucide-react'
 import { MESIntegrationBanner } from '@/components/production-control/MESIntegrationBanner'
 import {
   pcpProductionService,
@@ -59,6 +81,56 @@ export const ProductionOrdersPage: React.FC = () => {
 
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [cooisModalOpen, setCooisModalOpen] = useState(false)
+
+  // Seleção múltipla para ações em massa
+  const [selectedOpNumbers, setSelectedOpNumbers] = useState<Set<string>>(new Set())
+
+  // Modais de ações coletivas
+  const [massStatusModalOpen, setMassStatusModalOpen] = useState(false)
+  const [massCloseModalOpen, setMassCloseModalOpen] = useState(false)
+  const [massResultModalOpen, setMassResultModalOpen] = useState(false)
+  const [massResultData, setMassResultData] = useState<{
+    title: string
+    batchId: string
+    summary: { total: number; success: number; failed: number }
+    results: any[]
+  }>({
+    title: '',
+    batchId: '',
+    summary: { total: 0, success: 0, failed: 0 },
+    results: [],
+  })
+
+  // Visibilidade de colunas
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+    op: true,
+    confirmacao_coois: true,
+    contador: true,
+    empresa: true,
+    linha: true,
+    centro: true,
+    material: true,
+    descricao: true,
+    programado: true,
+    produzido: true,
+    apontado: true,
+    saldo: true,
+    data_apontamento: true,
+    turma: true,
+    turno: true,
+    hora_apontamento: true,
+    conf_final: true,
+    causa_desvio: true,
+    data_prevista: true,
+    status_op: true,
+    status_mes: true,
+    status_sap: true,
+    rendimento: true,
+    produtividade: true,
+    pendencias: true,
+    criticidade: true,
+  })
 
   const loadData = async () => {
     setLoading(true)
@@ -169,6 +241,95 @@ export const ProductionOrdersPage: React.FC = () => {
     return orders
   }, [orders, activeCardFilter])
 
+  // Seleção coletiva de OPs
+  const handleToggleSelectOp = (opNumber: string) => {
+    const next = new Set(selectedOpNumbers)
+    if (next.has(opNumber)) {
+      next.delete(opNumber)
+    } else {
+      next.add(opNumber)
+    }
+    setSelectedOpNumbers(next)
+  }
+
+  const handleSelectAllFiltered = () => {
+    const allFilteredOps = displayedOrders.map((o) => o.op_number)
+    const allSelected =
+      allFilteredOps.length > 0 && allFilteredOps.every((op) => selectedOpNumbers.has(op))
+    if (allSelected) {
+      setSelectedOpNumbers(new Set())
+    } else {
+      setSelectedOpNumbers(new Set(allFilteredOps))
+    }
+  }
+
+  const handleClearSelection = () => {
+    setSelectedOpNumbers(new Set())
+  }
+
+  // Abrir detalhes COOIS
+  const handleOpenCooisDetail = (order: ProductionOrder) => {
+    setSelectedOrder(order)
+    setCooisModalOpen(true)
+  }
+
+  // Obter ordens selecionadas para envio aos modais
+  const selectedOrdersList = useMemo(() => {
+    return orders.filter((o) => selectedOpNumbers.has(o.op_number))
+  }, [orders, selectedOpNumbers])
+
+  const handleExportSelectedCSV = () => {
+    const list = selectedOrdersList.length > 0 ? selectedOrdersList : displayedOrders
+    if (list.length === 0) return
+    const headers = [
+      'OP',
+      'Empresa',
+      'Linha',
+      'Centro',
+      'Material',
+      'Descricao',
+      'Qtde_Programada_t',
+      'Qtde_Produzida_t',
+      'Qtde_Apontada_t',
+      'Saldo_t',
+      'Status_OP',
+      'Status_MES',
+      'Status_SAP',
+      'Rendimento_Real_pct',
+      'Criticidade',
+    ]
+    const rows = list.map((o) => [
+      o.op_number,
+      o.empresa_code,
+      o.linha_code,
+      o.centro_code,
+      o.material_code,
+      `"${(o.material_description || '').replace(/"/g, '""')}"`,
+      String(o.quantity_planned_tons).replace('.', ','),
+      String(o.quantity_produced_tons).replace('.', ','),
+      String(o.quantity_posted_tons).replace('.', ','),
+      String(o.balance_tons).replace('.', ','),
+      o.status_op,
+      o.status_mes,
+      o.status_sap,
+      String(o.yield_realized_pct).replace('.', ','),
+      o.criticality,
+    ])
+    const csvContent =
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute(
+      'download',
+      `ordens-selecionadas-ciafal-${new Date().toISOString().slice(0, 10)}.csv`,
+    )
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const handleExportCSV = () => {
     if (displayedOrders.length === 0) return
     const headers = [
@@ -270,8 +431,139 @@ export const ProductionOrdersPage: React.FC = () => {
             className="h-8 text-xs bg-white text-[#004C97] border-slate-200 hover:bg-slate-50"
           >
             <Download className="w-3.5 h-3.5 mr-1.5" />
-            Exportar
+            Exportar Visão
           </Button>
+
+          {/* Selecionar Colunas */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs bg-white text-slate-700 border-slate-200"
+              >
+                <Columns className="w-3.5 h-3.5 mr-1.5" />
+                Selecionar colunas
+                <ChevronDown className="w-3 h-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 max-h-80 overflow-y-auto">
+              <DropdownMenuLabel className="text-xs">Colunas da Tabela</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.confirmacao_coois}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, confirmacao_coois: Boolean(c) }))
+                }
+              >
+                Confirmação (COOIS)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.contador}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, contador: Boolean(c) }))
+                }
+              >
+                Contador (COOIS)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.conf_final}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, conf_final: Boolean(c) }))
+                }
+              >
+                Confirmação Final
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.causa_desvio}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, causa_desvio: Boolean(c) }))
+                }
+              >
+                Causa de Desvio
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.turma}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, turma: Boolean(c) }))
+                }
+              >
+                Turma
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.turno}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, turno: Boolean(c) }))
+                }
+              >
+                Turno
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.hora_apontamento}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, hora_apontamento: Boolean(c) }))
+                }
+              >
+                Hora de Apontamento
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.data_apontamento}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, data_apontamento: Boolean(c) }))
+                }
+              >
+                Data Apontamento (DD/MM)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.empresa}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, empresa: Boolean(c) }))
+                }
+              >
+                Empresa
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.linha}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, linha: Boolean(c) }))
+                }
+              >
+                Linha
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.centro}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, centro: Boolean(c) }))
+                }
+              >
+                Centro
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.rendimento}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, rendimento: Boolean(c) }))
+                }
+              >
+                Rendimento (%)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.produtividade}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, produtividade: Boolean(c) }))
+                }
+              >
+                Produtividade (t/h)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={visibleColumns.status_mes}
+                onCheckedChange={(c) =>
+                  setVisibleColumns((prev) => ({ ...prev, status_mes: Boolean(c) }))
+                }
+              >
+                Status MES
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -453,11 +745,72 @@ export const ProductionOrdersPage: React.FC = () => {
         />
       </ErrorBoundary>
 
-      {/* TABELA DE ORDENS COM TODAS AS COLUNAS E AÇÕES DIRECIONADAS */}
+      {/* BARRA DE AÇÕES COLETIVAS (AO SELECIONAR OPS) */}
+      {selectedOpNumbers.size > 0 && (
+        <div className="bg-[#004C97] text-white rounded-xl p-3 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-white/20 rounded-md">
+              <CheckSquare className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <span className="font-bold text-sm block">
+                {selectedOpNumbers.size}{' '}
+                {selectedOpNumbers.size === 1 ? 'ordem selecionada' : 'ordens selecionadas'}
+              </span>
+              <span className="text-[11px] text-blue-100">
+                Ações coletivas sincronizadas com auditoria corporativa e SAP ECC
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMassStatusModalOpen(true)}
+              className="h-8 text-xs bg-white text-[#004C97] hover:bg-blue-50 border-transparent font-medium"
+            >
+              <Layers className="w-3.5 h-3.5 mr-1.5" />
+              Alterar status
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMassCloseModalOpen(true)}
+              className="h-8 text-xs bg-rose-600 hover:bg-rose-700 text-white hover:text-white border-transparent font-medium"
+            >
+              <Lock className="w-3.5 h-3.5 mr-1.5" />
+              Encerrar ordens
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportSelectedCSV}
+              className="h-8 text-xs bg-white/10 hover:bg-white/20 text-white border-white/30"
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              Exportar selecionadas
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearSelection}
+              className="h-8 text-xs text-white hover:bg-white/20 hover:text-white"
+            >
+              Limpar seleção
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* TABELA DE ORDENS COM TODAS AS COLUNAS, CAMPOS COOIS E AÇÕES DIRECIONADAS */}
       <ErrorBoundary moduleName="Tabela de Ordens de Produção" variant="compact">
         <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
           <div className="p-3 border-b bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-600">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <span>
                 Mostrando <strong>{displayedOrders.length}</strong> ordens de produção
               </span>
@@ -472,19 +825,57 @@ export const ProductionOrdersPage: React.FC = () => {
                 </Button>
               )}
             </div>
-            <span className="text-slate-500">
-              Valores em pt-BR (toneladas em <strong>t</strong>; percentuais com vírgula)
-            </span>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSelectAllFiltered}
+                className="h-6 text-[11px] text-slate-700 hover:text-slate-900"
+              >
+                {displayedOrders.length > 0 &&
+                displayedOrders.every((o) => selectedOpNumbers.has(o.op_number))
+                  ? 'Desmarcar todas filtradas'
+                  : 'Selecionar todos os resultados filtrados'}
+              </Button>
+              <span className="text-slate-500 hidden sm:inline">
+                Valores em pt-BR (toneladas em <strong>t</strong>; percentuais com vírgula)
+              </span>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="w-full text-xs text-left border-collapse">
               <thead className="bg-slate-100/90 text-slate-700 font-semibold border-b sticky top-0 z-10">
                 <tr>
+                  {/* Checkbox de Seleção Coletiva */}
+                  <th className="py-2.5 px-3 w-10 text-center">
+                    <Checkbox
+                      checked={
+                        displayedOrders.length > 0 &&
+                        displayedOrders.every((o) => selectedOpNumbers.has(o.op_number))
+                      }
+                      onCheckedChange={handleSelectAllFiltered}
+                      aria-label="Selecionar todas as ordens visíveis"
+                    />
+                  </th>
                   <th className="py-2.5 px-3">OP</th>
-                  <th className="py-2.5 px-3">Empresa</th>
-                  <th className="py-2.5 px-3">Linha</th>
-                  <th className="py-2.5 px-3">Centro</th>
+                  {visibleColumns.confirmacao_coois && <th className="py-2.5 px-3">Confirmação</th>}
+                  {visibleColumns.contador && <th className="py-2.5 px-3 text-center">Contador</th>}
+                  {visibleColumns.conf_final && (
+                    <th className="py-2.5 px-3 text-center">Conf. Final</th>
+                  )}
+                  {visibleColumns.causa_desvio && <th className="py-2.5 px-3">Causa de Desvio</th>}
+                  {visibleColumns.data_apontamento && (
+                    <th className="py-2.5 px-3 text-center">Data Apont.</th>
+                  )}
+                  {visibleColumns.turma && <th className="py-2.5 px-3 text-center">Turma</th>}
+                  {visibleColumns.turno && <th className="py-2.5 px-3 text-center">Turno</th>}
+                  {visibleColumns.hora_apontamento && (
+                    <th className="py-2.5 px-3 text-center">Hora Apont.</th>
+                  )}
+                  {visibleColumns.empresa && <th className="py-2.5 px-3">Empresa</th>}
+                  {visibleColumns.linha && <th className="py-2.5 px-3">Linha</th>}
+                  {visibleColumns.centro && <th className="py-2.5 px-3">Centro</th>}
                   <th className="py-2.5 px-3">Material</th>
                   <th className="py-2.5 px-3">Descrição</th>
                   <th className="py-2.5 px-3 text-right">Prog. (t)</th>
@@ -495,10 +886,16 @@ export const ProductionOrdersPage: React.FC = () => {
                   <th className="py-2.5 px-3 text-center">Início Real</th>
                   <th className="py-2.5 px-3 text-center">Fim Real</th>
                   <th className="py-2.5 px-3 text-center">Status OP</th>
-                  <th className="py-2.5 px-3 text-center">Status MES</th>
+                  {visibleColumns.status_mes && (
+                    <th className="py-2.5 px-3 text-center">Status MES</th>
+                  )}
                   <th className="py-2.5 px-3 text-center">Status SAP</th>
-                  <th className="py-2.5 px-3 text-center">Rendimento</th>
-                  <th className="py-2.5 px-3 text-center">Produtiv.</th>
+                  {visibleColumns.rendimento && (
+                    <th className="py-2.5 px-3 text-center">Rendimento</th>
+                  )}
+                  {visibleColumns.produtividade && (
+                    <th className="py-2.5 px-3 text-center">Produtiv.</th>
+                  )}
                   <th className="py-2.5 px-3 text-center">Pendências</th>
                   <th className="py-2.5 px-3 text-center">Criticidade</th>
                   <th className="py-2.5 px-3 text-center">Ações</th>
@@ -507,7 +904,7 @@ export const ProductionOrdersPage: React.FC = () => {
               <tbody className="divide-y divide-slate-200 bg-white">
                 {loading ? (
                   <tr>
-                    <td colSpan={21} className="py-12 text-center text-slate-500 text-xs">
+                    <td colSpan={28} className="py-12 text-center text-slate-500 text-xs">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <RefreshCw className="w-5 h-5 text-[#004C97] animate-spin" />
                         <span>Carregando ordens...</span>
@@ -517,7 +914,7 @@ export const ProductionOrdersPage: React.FC = () => {
                 ) : loadError ? (
                   <tr>
                     <td
-                      colSpan={21}
+                      colSpan={28}
                       className="py-8 text-center text-rose-700 text-xs bg-rose-50/50"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
@@ -535,7 +932,7 @@ export const ProductionOrdersPage: React.FC = () => {
                   </tr>
                 ) : displayedOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={21} className="py-10 text-center text-slate-500 text-xs">
+                    <td colSpan={28} className="py-10 text-center text-slate-500 text-xs">
                       Nenhuma Ordem de Produção encontrada.
                     </td>
                   </tr>
@@ -546,29 +943,174 @@ export const ProductionOrdersPage: React.FC = () => {
                       ? formatDatePTBR(o.started_at.slice(0, 10))
                       : '-'
                     const fimReal = o.ended_at ? formatDatePTBR(o.ended_at.slice(0, 10)) : '-'
+                    const isSelected = selectedOpNumbers.has(o.op_number)
+
+                    // Obter apontamentos / confirmações da OP (COOIS)
+                    const confirmations = pcpProductionService.getOrderConfirmations(o.op_number)
+                    const lastConf = confirmations[0] // mais recente
+                    const hasConfirmations = confirmations.length > 0
 
                     return (
                       <tr
                         key={o.id}
-                        onClick={() => handleOpenDetail(o)}
-                        className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                        className={`transition-colors cursor-pointer ${
+                          isSelected ? 'bg-blue-50/80 hover:bg-blue-100/60' : 'hover:bg-slate-50/70'
+                        }`}
+                        onClick={() => handleOpenCooisDetail(o)}
                       >
-                        <td className="py-2.5 px-3 font-bold text-[#004C97] font-mono whitespace-nowrap">
-                          {o.op_number}
+                        {/* Checkbox */}
+                        <td
+                          className="py-2.5 px-3 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => handleToggleSelectOp(o.op_number)}
+                            aria-label={`Selecionar OP ${o.op_number}`}
+                          />
                         </td>
-                        <td className="py-2.5 px-3 font-medium text-slate-700 whitespace-nowrap">
-                          {o.empresa_code}
+
+                        {/* OP (clicável para abrir COOIS) */}
+                        <td className="py-2.5 px-3 font-bold text-[#004C97] font-mono whitespace-nowrap hover:underline">
+                          <span title="Clique para abrir detalhes COOIS">{o.op_number}</span>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-800 whitespace-nowrap">
-                          {o.linha_code}
-                        </td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
-                          {o.centro_code}
-                        </td>
+
+                        {/* Confirmação COOIS (com suporte a múltiplas sem concatenação ilegível) */}
+                        {visibleColumns.confirmacao_coois && (
+                          <td className="py-2.5 px-3 font-mono text-[11px] whitespace-nowrap">
+                            {hasConfirmations ? (
+                              <div className="flex items-center gap-1">
+                                <span className="font-semibold text-slate-800">
+                                  {lastConf.confirmation_number}
+                                </span>
+                                {confirmations.length > 1 && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] px-1 py-0 bg-slate-100 text-slate-600 font-sans"
+                                    title={`Total de ${confirmations.length} apontamentos registrados nesta OP`}
+                                  >
+                                    +{confirmations.length - 1}
+                                  </Badge>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Contador COOIS */}
+                        {visibleColumns.contador && (
+                          <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
+                            {hasConfirmations ? (
+                              <span className="text-slate-700">{lastConf.counter}</span>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Confirmação Final */}
+                        {visibleColumns.conf_final && (
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            {hasConfirmations ? (
+                              lastConf.is_final ? (
+                                <Badge className="bg-emerald-600 text-white font-medium text-[9px] px-1.5 py-0.5">
+                                  🟢 Final
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-amber-500 text-white font-medium text-[9px] px-1.5 py-0.5">
+                                  🟡 Parcial
+                                </Badge>
+                              )
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">-</span>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Causa de Desvio ("Sem causa de desvio" quando vazio — nunca undefined/null) */}
+                        {visibleColumns.causa_desvio && (
+                          <td className="py-2.5 px-3 max-w-[170px]">
+                            <span
+                              className={`text-[11px] truncate block ${
+                                o.deviation_reason || lastConf?.deviation_reason
+                                  ? 'text-amber-800 font-medium'
+                                  : 'text-slate-500'
+                              }`}
+                              title={
+                                o.deviation_reason ||
+                                lastConf?.deviation_reason ||
+                                'Sem causa de desvio'
+                              }
+                            >
+                              {o.deviation_reason ||
+                                lastConf?.deviation_reason ||
+                                'Sem causa de desvio'}
+                            </span>
+                          </td>
+                        )}
+
+                        {/* Data do Apontamento DD/MM/AAAA */}
+                        {visibleColumns.data_apontamento && (
+                          <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
+                            {lastConf?.posting_date ? (
+                              <span>{formatDatePTBR(lastConf.posting_date)}</span>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Turma */}
+                        {visibleColumns.turma && (
+                          <td className="py-2.5 px-3 text-center text-[11px] whitespace-nowrap text-slate-700">
+                            {lastConf?.turma || '-'}
+                          </td>
+                        )}
+
+                        {/* Turno */}
+                        {visibleColumns.turno && (
+                          <td className="py-2.5 px-3 text-center text-[11px] whitespace-nowrap text-slate-700">
+                            {lastConf?.turno || '-'}
+                          </td>
+                        )}
+
+                        {/* Hora de Apontamento (24h) */}
+                        {visibleColumns.hora_apontamento && (
+                          <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
+                            {lastConf?.posting_time || '-'}
+                          </td>
+                        )}
+
+                        {/* Empresa */}
+                        {visibleColumns.empresa && (
+                          <td className="py-2.5 px-3 font-medium text-slate-700 whitespace-nowrap">
+                            {o.empresa_code}
+                          </td>
+                        )}
+
+                        {/* Linha */}
+                        {visibleColumns.linha && (
+                          <td className="py-2.5 px-3 text-slate-800 whitespace-nowrap">
+                            {o.linha_code}
+                          </td>
+                        )}
+
+                        {/* Centro */}
+                        {visibleColumns.centro && (
+                          <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                            {o.centro_code}
+                          </td>
+                        )}
+
+                        {/* Material */}
                         <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600 whitespace-nowrap">
                           {o.material_code}
                         </td>
-                        <td className="py-2.5 px-3 max-w-[220px]">
+
+                        {/* Descrição */}
+                        <td className="py-2.5 px-3 max-w-[200px]">
                           <div
                             className="font-medium text-slate-900 truncate"
                             title={o.material_description}
@@ -576,6 +1118,8 @@ export const ProductionOrdersPage: React.FC = () => {
                             {o.material_description}
                           </div>
                         </td>
+
+                        {/* Quantidades e Saldo */}
                         <td className="py-2.5 px-3 text-right font-mono font-medium whitespace-nowrap">
                           {formatQuantity(o.quantity_planned_tons, 't')}
                         </td>
@@ -592,6 +1136,8 @@ export const ProductionOrdersPage: React.FC = () => {
                             {formatQuantity(o.balance_tons, 't')}
                           </span>
                         </td>
+
+                        {/* Datas previstas e reais */}
                         <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
                           {dataPrevista}
                         </td>
@@ -601,6 +1147,8 @@ export const ProductionOrdersPage: React.FC = () => {
                         <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
                           {fimReal}
                         </td>
+
+                        {/* Status OP */}
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           <Badge
                             variant="outline"
@@ -615,11 +1163,17 @@ export const ProductionOrdersPage: React.FC = () => {
                             {o.status_op.replace(/_/g, ' ')}
                           </Badge>
                         </td>
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                          <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
-                            {o.status_mes}
-                          </Badge>
-                        </td>
+
+                        {/* Status MES */}
+                        {visibleColumns.status_mes && (
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
+                              {o.status_mes}
+                            </Badge>
+                          </td>
+                        )}
+
+                        {/* Status SAP */}
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {o.status_sap?.includes('ERRO') ||
                           o.status_sap?.includes('REJEITADA') ||
@@ -640,20 +1194,30 @@ export const ProductionOrdersPage: React.FC = () => {
                             </Badge>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
-                          <span
-                            className={
-                              o.yield_realized_pct < o.yield_planned_pct
-                                ? 'font-bold text-rose-700'
-                                : 'text-emerald-700'
-                            }
-                          >
-                            {formatPercentagePTBR(o.yield_realized_pct)}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
-                          {formatQuantity(o.productivity_realized_ton_h || 0, 't/h')}
-                        </td>
+
+                        {/* Rendimento */}
+                        {visibleColumns.rendimento && (
+                          <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
+                            <span
+                              className={
+                                o.yield_realized_pct < o.yield_planned_pct
+                                  ? 'font-bold text-rose-700'
+                                  : 'text-emerald-700'
+                              }
+                            >
+                              {formatPercentagePTBR(o.yield_realized_pct)}
+                            </span>
+                          </td>
+                        )}
+
+                        {/* Produtividade */}
+                        {visibleColumns.produtividade && (
+                          <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
+                            {formatQuantity(o.productivity_realized_ton_h || 0, 't/h')}
+                          </td>
+                        )}
+
+                        {/* Pendências */}
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {o.has_pendency ||
                           o.op_number === '10004921' ||
@@ -674,6 +1238,8 @@ export const ProductionOrdersPage: React.FC = () => {
                             <span className="text-slate-400 text-[11px]">-</span>
                           )}
                         </td>
+
+                        {/* Criticidade */}
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           <Badge
                             variant="outline"
@@ -692,6 +1258,8 @@ export const ProductionOrdersPage: React.FC = () => {
                                 : '🟢 Normal'}
                           </Badge>
                         </td>
+
+                        {/* Ações */}
                         <td
                           className="py-2.5 px-3 text-center whitespace-nowrap"
                           onClick={(e) => e.stopPropagation()}
@@ -700,35 +1268,21 @@ export const ProductionOrdersPage: React.FC = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleOpenCooisDetail(o)}
+                              className="h-7 px-2 text-xs font-semibold text-[#004C97] hover:bg-blue-50"
+                              title="Abrir Visão COOIS (Cabeçalho + Confirmações + Pendências + Histórico)"
+                            >
+                              <Eye className="w-3.5 h-3.5 mr-1" />
+                              Ver detalhes
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleOpenDetail(o)}
-                              className="h-7 px-2 text-xs font-medium text-[#004C97] hover:bg-blue-50"
-                              title="Detalhar OP completa"
-                            >
-                              Detalhar OP
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                navigate(
-                                  `/pcp/controle-producao/apontamentos?search=${o.op_number}`,
-                                )
-                              }
                               className="h-7 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                              title="Ver Apontamentos desta OP"
+                              title="Ficha Operacional & Conciliação"
                             >
-                              Ver Apontamentos
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                navigate(`/pcp/controle-producao/historico?search=${o.op_number}`)
-                              }
-                              className="h-7 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                              title="Ver Histórico e timeline desta OP"
-                            >
-                              Ver Histórico
+                              Ficha OP
                             </Button>
                             <Button
                               variant="ghost"
@@ -739,7 +1293,8 @@ export const ProductionOrdersPage: React.FC = () => {
                               className="h-7 px-2 text-xs font-medium text-blue-700 hover:bg-blue-50"
                               title="Análise IA com Fato, Histórico, Hipótese e Ação Sugerida"
                             >
-                              Análise IA
+                              <Sparkles className="w-3 h-3 mr-1 text-blue-600" />
+                              IA
                             </Button>
                           </div>
                         </td>
@@ -753,12 +1308,64 @@ export const ProductionOrdersPage: React.FC = () => {
         </div>
       </ErrorBoundary>
 
-      {/* Modal Amplo de Detalhe Completo da OP */}
+      {/* Modal COOIS de Detalhes da Ordem (Cabeçalho, Confirmações, Pendências, Histórico) */}
+      <ProductionOrderCooisDetailModal
+        order={selectedOrder}
+        isOpen={cooisModalOpen}
+        onClose={() => setCooisModalOpen(false)}
+      />
+
+      {/* Modal Clássico de Detalhe Operacional */}
       <ProductionOrderDetailModal
         order={selectedOrder}
         open={detailModalOpen}
         onOpenChange={setDetailModalOpen}
         onOrderUpdated={loadData}
+      />
+
+      {/* POPUP: Alteração de Status em Massa (COHV SAP ECC) */}
+      <MassStatusChangeModal
+        isOpen={massStatusModalOpen}
+        onClose={() => setMassStatusModalOpen(false)}
+        selectedOrders={selectedOrdersList}
+        onSuccess={(res) => {
+          setMassResultData({
+            title: 'Alteração de Status em Massa (COHV)',
+            batchId: res.batch_id,
+            summary: res.summary,
+            results: res.results,
+          })
+          setMassResultModalOpen(true)
+          setSelectedOpNumbers(new Set())
+        }}
+      />
+
+      {/* POPUP: Encerramento de Ordens com Pré-Validação (TECO SAP ECC) */}
+      <MassCloseModal
+        isOpen={massCloseModalOpen}
+        onClose={() => setMassCloseModalOpen(false)}
+        selectedOrders={selectedOrdersList}
+        onSuccess={(res) => {
+          setMassResultData({
+            title: 'Encerramento Técnico de Ordens (TECO)',
+            batchId: res.batch_id,
+            summary: res.summary,
+            results: res.results,
+          })
+          setMassResultModalOpen(true)
+          setSelectedOpNumbers(new Set())
+        }}
+      />
+
+      {/* POPUP: Resultado da Operação com Exportação e Resumo */}
+      <MassOperationResultModal
+        isOpen={massResultModalOpen}
+        onClose={() => setMassResultModalOpen(false)}
+        operationTitle={massResultData.title}
+        batchId={massResultData.batchId}
+        summary={massResultData.summary}
+        results={massResultData.results}
+        onRefreshData={loadData}
       />
     </div>
   )

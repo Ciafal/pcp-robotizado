@@ -403,7 +403,7 @@ export const ProductionFilterBar: React.FC<ProductionFilterBarProps> = ({
           {/* Desvio */}
           <div>
             <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
-              Filtro de Desvio
+              Com / Sem Causa de Desvio
             </label>
             <Select
               value={filters.comSemDesvio}
@@ -414,8 +414,157 @@ export const ProductionFilterBar: React.FC<ProductionFilterBarProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="TODOS">Todos</SelectItem>
-                <SelectItem value="COM_DESVIO">Apenas com Desvio</SelectItem>
-                <SelectItem value="SEM_DESVIO">Sem Desvio</SelectItem>
+                <SelectItem value="COM_DESVIO">Com causa de desvio</SelectItem>
+                <SelectItem value="SEM_DESVIO">Sem causa de desvio</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Motivo de Desvio */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
+              Causa de Desvio (Texto)
+            </label>
+            <Input
+              value={filters.motivoDesvio === 'TODOS' ? '' : filters.motivoDesvio}
+              onChange={(e) => handleFieldChange('motivoDesvio', e.target.value || 'TODOS')}
+              placeholder="Ex: refugo, temperatura..."
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Confirmação (COOIS) */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
+              Nº Confirmação
+            </label>
+            <Input
+              value={filters.confirmacao || ''}
+              onChange={(e) => handleFieldChange('confirmacao', e.target.value)}
+              placeholder="Ex: CONF-0010..."
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Contador (COOIS) */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
+              Contador
+            </label>
+            <Input
+              value={filters.contador || ''}
+              onChange={(e) => handleFieldChange('contador', e.target.value)}
+              placeholder="Ex: 1, 2..."
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Confirmação Final */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
+              Confirmação Final
+            </label>
+            <Select
+              value={filters.confirmacaoFinal || 'TODAS'}
+              onValueChange={(val) => handleFieldChange('confirmacaoFinal', val)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Confirmação Final" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODAS">Todas</SelectItem>
+                <SelectItem value="SIM">Sim (🟢 Final)</SelectItem>
+                <SelectItem value="NAO">Não (🟡 Parcial)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Com / Sem Confirmação */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
+              Com / Sem Confirmação
+            </label>
+            <Select
+              value={filters.comSemConfirmacao || 'TODOS'}
+              onValueChange={(val) => handleFieldChange('comSemConfirmacao', val)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Apontamentos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODOS">Todos</SelectItem>
+                <SelectItem value="COM_CONFIRMACAO">Com Confirmação</SelectItem>
+                <SelectItem value="SEM_CONFIRMACAO">Sem Confirmação</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Turma */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
+              Turma
+            </label>
+            <Select
+              value={filters.turma || 'TODAS'}
+              onValueChange={(val) => handleFieldChange('turma', val)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Turma" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODAS">Todas as Turmas</SelectItem>
+                <SelectItem value="Turma A">Turma A</SelectItem>
+                <SelectItem value="Turma B">Turma B</SelectItem>
+                <SelectItem value="Turma C">Turma C</SelectItem>
+                <SelectItem value="Turma D">Turma D</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Data do Apontamento De */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
+              Apontamento De (DD/MM)
+            </label>
+            <Input
+              type="date"
+              value={filters.dataApontamentoDe || ''}
+              onChange={(e) => handleFieldChange('dataApontamentoDe', e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Data do Apontamento Até */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
+              Apontamento Até (DD/MM)
+            </label>
+            <Input
+              type="date"
+              value={filters.dataApontamentoAte || ''}
+              onChange={(e) => handleFieldChange('dataApontamentoAte', e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+
+          {/* Situação para Fechamento */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-600 uppercase mb-1 block">
+              Situação para Fechamento
+            </label>
+            <Select
+              value={filters.situacaoFechamento || 'TODAS'}
+              onValueChange={(val) => handleFieldChange('situacaoFechamento', val)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Situação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODAS">Todas</SelectItem>
+                <SelectItem value="APTA">🟢 Apta para encerramento</SelectItem>
+                <SelectItem value="COM_PENDENCIA">🔴 Com pendência</SelectItem>
+                <SelectItem value="BLOQUEADA">🔴 Bloqueada para encerramento</SelectItem>
+                <SelectItem value="JA_ENCERRADA">🟡 Já encerrada</SelectItem>
               </SelectContent>
             </Select>
           </div>
