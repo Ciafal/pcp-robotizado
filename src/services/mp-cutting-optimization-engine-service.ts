@@ -5,6 +5,10 @@ import type {
   MPCuttingScenarioItem,
   MPCuttingSimulationResult,
 } from '@/types/mp-cutting-weight-standards'
+import {
+  pcpMultipleSelectionService,
+  type AvailableMultipleItem,
+} from './pcp-multiple-selection-service'
 import { mpCuttingWeightStandardsService } from './mp-cutting-weight-standards-service'
 
 export interface FichaMestraTechnicalParameters {
@@ -93,11 +97,23 @@ class MPCuttingOptimizationEngineService {
       // Notificar que parâmetros dimensionais estritos dependem de ficha mestra completa
     }
 
+    // Deduzir dimensões nominais da bitola padrão CIAFAL
+    let derivedGauge = gauge || '130 × 130 mm'
+    if (materialCode.includes('150')) {
+      derivedGauge = '150 × 150 mm'
+    } else if (materialCode.includes('160')) {
+      derivedGauge = '160 × 160 mm'
+    } else if (materialCode.includes('200')) {
+      derivedGauge = '200 × 200 mm'
+    } else if (materialCode.includes('75')) {
+      derivedGauge = 'Ø 75 mm'
+    }
+
     return {
       material_code: materialCode,
       center_code: centerCode,
       nominal_length_mm: 6000, // 6 metros padrão tarugo / barra
-      gauge_dimension: gauge || '130x130 mm',
+      gauge_dimension: derivedGauge,
       density_kg_m3: density,
       linear_mass_kg_m: linearMass || 132.5, // Tarugo 130x130 SAE 1020 nominal
       cutting_width_mm: 5.0, // Perda dimensional de 5mm por golpe de serra / maçarico
@@ -272,6 +288,37 @@ class MPCuttingOptimizationEngineService {
       },
     ]
 
+    // Se o tipo de corte for BLOCOS e houver múltiplos selecionados pelo usuário,
+    // carregar os objetos reais dos múltiplos para individualizar dimensões e rastreabilidade
+    let selectedMultiplesData: AvailableMultipleItem[] = []
+    const isMultiplesMode =
+      filters.cutting_type === 'BLOCOS' &&
+      Boolean(filters.selected_heat_number) &&
+      Array.isArray(filters.selected_multiple_numbers) &&
+      filters.selected_multiple_numbers.length > 0
+
+    if (isMultiplesMode) {
+      const allHeatMultiples = await pcpMultipleSelectionService.getMultiplesByHeat(
+        filters.material_code,
+        filters.center_code,
+        filters.selected_heat_number!,
+      )
+      selectedMultiplesData = allHeatMultiples.filter((m) =>
+        filters.selected_multiple_numbers!.includes(m.multiple_number),
+      )
+    }
+
+    // Validação de múltiplos: alertar e bloquear múltiplo sem dimensões cadastradas
+    const invalidMultiples = selectedMultiplesData.filter(
+      (m) => m.unit_weight_kg <= 0 || m.piece_length_mm <= 0 || m.width_mm <= 0 || m.height_mm <= 0,
+    )
+    if (invalidMultiples.length > 0) {
+      const invalidNames = invalidMultiples.map((m) => m.multiple_number).join(', ')
+      throw new Error(
+        `Múltiplo(s) sem dimensões cadastradas no estoque dimensional: [${invalidNames}]. Cadastre as dimensões físicas completas no estoque antes de incluir no plano de corte.`,
+      )
+    }
+
     const scenarios: MPCuttingScenarioItem[] = []
 
     for (let i = 0; i < scenarioTemplates.length; i++) {
@@ -351,7 +398,7 @@ class MPCuttingOptimizationEngineService {
       }
 
       // Distribuição detalhada dos blocos/múltiplos
-      // Dimensões do bloco derivadas estritamente da Ficha Mestra e do peso calculado da mesma linha
+      // Dimensões do bloco derivadas estritamente da Ficha Mestra ou dos múltiplos individuais selecionados
       const linearMass = techParams.linear_mass_kg_m || 132.5
       let widthMm = 130
       let heightMm = 130
@@ -364,32 +411,74 @@ class MPCuttingOptimizationEngineService {
       }
 
       const distribution = []
-      const sampleSize = Math.min(piecesCount, 8)
-      for (let p = 1; p <= sampleSize; p++) {
-        const slightVar = Math.sin(p) * 0.002 * targetWeight
-        const pieceCalc = Number((calculatedUnitWeight + slightVar).toFixed(2))
-        // Comprimento calculado estritamente derivado do peso calculado e massa linear da Ficha Mestra
-        const calculatedLengthMm = Math.round((pieceCalc / linearMass) * 1000)
-        const formattedLength = calculatedLengthMm.toLocaleString('pt-BR')
-        const dimensionDisplay = `${widthMm} × ${heightMm} × ${formattedLength} mm`
 
-        distribution.push({
-          item_index: p,
-          item_type: tmpl.type === 'BLOCOS' ? ('BLOCO' as const) : ('MÚLTIPLO' as const),
-          target_kg: targetWeight,
-          calculated_kg: pieceCalc,
-          tolerance_range_kg: `${minWeight.toFixed(2)} a ${maxWeight.toFixed(2)} kg`,
-          status:
-            pieceCalc >= minWeight && pieceCalc <= maxWeight
-              ? ('CONFORME' as const)
-              : ('DESVIO' as const),
-          dimension_display: dimensionDisplay,
-          calculated_length_mm: calculatedLengthMm,
-          width_mm: widthMm,
-          height_mm: heightMm,
-          gauge_dimension: techParams.gauge_dimension || `${widthMm}x${heightMm} mm`,
-          linear_mass_kg_m: linearMass,
-        })
+      if (isMultiplesMode && selectedMultiplesData.length > 0) {
+        // MODO INDIVIDUALIZADO: Iterar pelos múltiplos reais selecionados
+        // Cada múltiplo gera bloco(s) vinculados a sua corrida, número, lote e dimensões reais
+        let itemIndex = 1
+        for (const mult of selectedMultiplesData) {
+          // Uso físico: cada múltiplo selecionado representa sua quantidade disponível
+          // Impede uso duplo da mesma quantidade física na mesma simulação
+          const multWidth = mult.width_mm || widthMm
+          const multHeight = mult.height_mm || heightMm
+          const multLength = mult.piece_length_mm
+          const multWeight = mult.unit_weight_kg > 0 ? mult.unit_weight_kg : calculatedUnitWeight
+          const formattedLength = multLength.toLocaleString('pt-BR')
+          const dimensionDisplay = `${multWidth} × ${multHeight} × ${formattedLength} mm`
+
+          const isConforme = multWeight >= minWeight && multWeight <= maxWeight
+
+          distribution.push({
+            item_index: itemIndex++,
+            item_type: 'BLOCO' as const,
+            target_kg: targetWeight,
+            calculated_kg: multWeight,
+            tolerance_range_kg: `${minWeight.toFixed(2)} a ${maxWeight.toFixed(2)} kg`,
+            status: isConforme ? ('CONFORME' as const) : ('DESVIO' as const),
+            dimension_display: dimensionDisplay,
+            calculated_length_mm: multLength,
+            width_mm: multWidth,
+            height_mm: multHeight,
+            gauge_dimension: `${multWidth} × ${multHeight} mm`,
+            linear_mass_kg_m: linearMass,
+            heat_number: mult.heat_number || filters.selected_heat_number,
+            multiple_number: mult.multiple_number,
+            batch_code: mult.batch_code,
+            origin_type: mult.origin,
+          })
+        }
+      } else {
+        // MODO AGREGADO (comportamento padrão preservado quando não há múltiplos selecionados)
+        const sampleSize = Math.min(piecesCount, 8)
+        for (let p = 1; p <= sampleSize; p++) {
+          const slightVar = Math.sin(p) * 0.002 * targetWeight
+          const pieceCalc = Number((calculatedUnitWeight + slightVar).toFixed(2))
+          // Comprimento calculado estritamente derivado do peso calculado e massa linear da Ficha Mestra
+          const calculatedLengthMm = Math.round((pieceCalc / linearMass) * 1000)
+          const formattedLength = calculatedLengthMm.toLocaleString('pt-BR')
+          const dimensionDisplay = `${widthMm} × ${heightMm} × ${formattedLength} mm`
+
+          distribution.push({
+            item_index: p,
+            item_type: tmpl.type === 'BLOCOS' ? ('BLOCO' as const) : ('MÚLTIPLO' as const),
+            target_kg: targetWeight,
+            calculated_kg: pieceCalc,
+            tolerance_range_kg: `${minWeight.toFixed(2)} a ${maxWeight.toFixed(2)} kg`,
+            status:
+              pieceCalc >= minWeight && pieceCalc <= maxWeight
+                ? ('CONFORME' as const)
+                : ('DESVIO' as const),
+            dimension_display: dimensionDisplay,
+            calculated_length_mm: calculatedLengthMm,
+            width_mm: widthMm,
+            height_mm: heightMm,
+            gauge_dimension: techParams.gauge_dimension || `${widthMm} × ${heightMm} mm`,
+            linear_mass_kg_m: linearMass,
+            heat_number: undefined, // Indicador de não individualizado
+            multiple_number: undefined,
+            origin_type: 'AGREGADO' as const,
+          })
+        }
       }
 
       const totalCutsCount = Math.round(piecesCount * tmpl.cutsMultiplier)
@@ -430,6 +519,9 @@ class MPCuttingOptimizationEngineService {
           satisfied_restrictions: [
             `Respeita limites estritos do padrão: ${minWeight} kg a ${maxWeight} kg`,
             `Compatibilidade técnica material × centro ${filters.center_code} validada`,
+            isMultiplesMode
+              ? `Rastreabilidade individualizada por Corrida (${filters.selected_heat_number}) e ${selectedMultiplesData.length} Múltiplo(s)`
+              : 'Cálculo com parâmetros agregados da Ficha Mestra (não individualizado por múltiplo)',
             `Perda teórica de corte considerada: ${techParams.theoretical_loss_pct}% (Apara + Carepa)`,
             `Parâmetros técnicos validados da Ficha Mestra (Bitola ${techParams.gauge_dimension}, Massa Linear ${techParams.linear_mass_kg_m} kg/m)`,
           ],

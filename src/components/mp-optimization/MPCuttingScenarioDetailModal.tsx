@@ -295,9 +295,11 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                   <Table className="min-w-[700px]">
                     <TableHeader className="bg-slate-50">
                       <TableRow>
-                        <TableHead className="text-xs font-bold w-[70px]">Item #</TableHead>
-                        <TableHead className="text-xs font-bold w-[90px]">Tipo</TableHead>
-                        <TableHead className="text-xs font-bold min-w-[190px]">
+                        <TableHead className="text-xs font-bold w-[60px]">Item #</TableHead>
+                        <TableHead className="text-xs font-bold w-[75px]">Tipo</TableHead>
+                        <TableHead className="text-xs font-bold min-w-[90px]">Corrida</TableHead>
+                        <TableHead className="text-xs font-bold min-w-[100px]">Múltiplo</TableHead>
+                        <TableHead className="text-xs font-bold min-w-[180px]">
                           Dimensões do Bloco
                         </TableHead>
                         <TableHead className="text-xs font-bold whitespace-nowrap">
@@ -309,7 +311,7 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                         <TableHead className="text-xs font-bold whitespace-nowrap">
                           Faixa Tolerância (t)
                         </TableHead>
-                        <TableHead className="text-xs font-bold w-[90px]">Status</TableHead>
+                        <TableHead className="text-xs font-bold w-[80px]">Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -338,6 +340,46 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                           <TableRow key={d.item_index} className="text-xs hover:bg-slate-50/80">
                             <TableCell className="font-mono font-medium">#{d.item_index}</TableCell>
                             <TableCell>{d.item_type}</TableCell>
+                            <TableCell className="font-mono text-slate-800">
+                              {d.heat_number ? (
+                                <span className="font-bold text-blue-950 font-mono">
+                                  {d.heat_number}
+                                </span>
+                              ) : (
+                                <span
+                                  className="text-slate-400 font-sans"
+                                  title="Cálculo agregado não individualizado por corrida"
+                                >
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-mono text-slate-800">
+                              {d.multiple_number ? (
+                                <div className="flex items-center gap-1 font-mono">
+                                  <span className="font-bold text-slate-900">
+                                    {d.multiple_number}
+                                  </span>
+                                  {d.origin_type &&
+                                    d.origin_type !== 'SAP' &&
+                                    d.origin_type !== 'AGREGADO' && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[9px] px-1 py-0 bg-amber-50 text-amber-900 border-amber-200"
+                                      >
+                                        Homol.
+                                      </Badge>
+                                    )}
+                                </div>
+                              ) : (
+                                <span
+                                  className="text-slate-400 font-sans"
+                                  title="Cálculo agregado não individualizado por múltiplo"
+                                >
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
                             <TableCell className="font-medium text-slate-900 whitespace-nowrap">
                               <Tooltip>
                                 <TooltipTrigger asChild>

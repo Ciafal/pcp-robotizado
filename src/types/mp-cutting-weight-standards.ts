@@ -54,6 +54,9 @@ export interface MPCuttingOptimizationFilters {
   // Parâmetros manuais ajustados com permissão do usuário
   manual_adjustment_active?: boolean
   manual_adjustment_notes?: string
+  // Seleção de Corrida e Múltiplos (quando Tipo de Corte = BLOCOS)
+  selected_heat_number?: string // Corrida selecionada
+  selected_multiple_numbers?: string[] // Números dos múltiplos selecionados (sem duplicados)
 }
 
 export interface MPCuttingScenarioItem {
@@ -102,6 +105,10 @@ export interface MPCuttingScenarioItem {
       height_mm?: number
       gauge_dimension?: string
       linear_mass_kg_m?: number
+      heat_number?: string // Corrida de origem (ou undefined / "—" no plano agregado)
+      multiple_number?: string // Número do múltiplo de origem (ou undefined / "—")
+      batch_code?: string // Lote rastreável
+      origin_type?: 'SAP' | 'HOMOLOGACAO' | 'AGREGADO'
     }>
     satisfied_restrictions: string[]
     industrial_alerts: string[]
