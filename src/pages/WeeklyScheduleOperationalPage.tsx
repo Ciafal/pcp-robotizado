@@ -3566,6 +3566,373 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         </Button>
       </div>
 
+      {/* NOVO CABEÇALHO ÚNICO, OFICIAL E DEFINITIVO DA PROGRAMAÇÃO */}
+      <div
+        data-testid="schedule-official-header"
+        className="bg-emerald-50/70 border border-emerald-200/90 rounded-lg p-2.5 sm:p-3 shadow-xs space-y-2 text-xs"
+      >
+        {/* Linha 1 = Empresa / Tipo de Programação / Linha */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-4">
+          {/* Empresa */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-700">Empresa:</span>
+            <select
+              value={companyCode}
+              onChange={(e) => setCompanyCode(e.target.value)}
+              aria-label="Empresa"
+              className="text-xs bg-white border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97] shadow-2xs"
+            >
+              <option value="" disabled>
+                [ Selecione a empresa ]
+              </option>
+              <option value="CIAFAL">CIAFAL Matriz</option>
+              <option value="CIAFAL_SUL">CIAFAL Sul</option>
+            </select>
+          </div>
+
+          {/* Tipo de Programação */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-700">Tipo de Programação:</span>
+            <select
+              value={selectedProgrammingType}
+              onChange={(e) => {
+                const val = e.target.value
+                setSelectedProgrammingType(val)
+                setItems([])
+                setSavedBaselineItems([])
+                setSelectedScheduleItem(null)
+              }}
+              aria-label="Tipo de Programação"
+              className="text-xs bg-white border border-slate-300 rounded px-2 py-1 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97] shadow-2xs"
+            >
+              <option value="" disabled>
+                [ Selecione o tipo ]
+              </option>
+              <option value="ALL">Todos</option>
+              {PROGRAMMING_TYPES_CATALOG.map((cat) => (
+                <option
+                  key={typeof cat === 'string' ? cat : (cat as any).value}
+                  value={typeof cat === 'string' ? cat : (cat as any).value}
+                >
+                  {typeof cat === 'string' ? cat : (cat as any).label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Linha Produtiva */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-700">Linha:</span>
+            <select
+              value={selectedLineCode}
+              onChange={(e) => setSelectedLineCode(e.target.value)}
+              aria-label="Linha Produtiva"
+              className="text-xs bg-white border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97] shadow-2xs"
+            >
+              <option value="" disabled>
+                [ Selecione o centro ]
+              </option>
+              {eligibleLines.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.code} - {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Linha 2 = Turno / Turma / Versão */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-4">
+          {/* Turno da Ficha Mestra */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-700">Turno:</span>
+            <select
+              value={targetShiftCode}
+              onChange={(e) => {
+                const shCode = e.target.value
+                setTargetShiftCode(shCode)
+                const foundShift = (currentLineOverview?.shifts || []).find(
+                  (s) => s.code === shCode,
+                )
+                if (foundShift) {
+                  setTargetShiftName(foundShift.name)
+                  const matchedRel = (currentLineOverview?.shiftCrews || []).find(
+                    (sc) =>
+                      (sc.shift_id === shCode || sc.expand?.shift_id?.code === shCode) &&
+                      sc.active !== false,
+                  )
+                  const crewName =
+                    matchedRel?.expand?.crew_id?.name ||
+                    matchedRel?.expand?.crew_id?.code ||
+                    (currentLineOverview?.crews && currentLineOverview.crews.length > 0
+                      ? currentLineOverview.crews[0].name
+                      : '')
+                  setTargetCrewName(crewName)
+                }
+              }}
+              aria-label="Turno da Ficha Mestra"
+              className="text-xs bg-white border border-slate-300 rounded px-2 py-1 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97] shadow-2xs"
+            >
+              <option value="" disabled>
+                [ Selecione o turno ]
+              </option>
+              {(currentLineOverview?.shifts || []).map((sh) => (
+                <option key={sh.code} value={sh.code}>
+                  {sh.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Turma da Ficha Mestra */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-700">Turma:</span>
+            <select
+              value={targetCrewName}
+              onChange={(e) => setTargetCrewName(e.target.value)}
+              aria-label="Turma da Ficha Mestra"
+              className="text-xs bg-white border border-slate-300 rounded px-2 py-1 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97] shadow-2xs"
+            >
+              <option value="" disabled>
+                [ Selecione a turma ]
+              </option>
+              {(currentLineOverview?.crews || []).map((cr) => (
+                <option key={cr.code || cr.id} value={cr.name}>
+                  {cr.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro Versão (V01, V02, ...) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-700">Versão:</span>
+            <select
+              value={selectedVersionFilter}
+              onChange={async (e) => {
+                const val = e.target.value
+                if (val === '') {
+                  setSelectedVersionFilter('')
+                  return
+                }
+                if (val === 'LATEST') {
+                  setSelectedVersionFilter('LATEST')
+                  if (selectedLineCode) loadLineData(selectedLineCode)
+                  return
+                }
+                const vNum = Number(val)
+                setSelectedVersionFilter(vNum)
+                setCurrentVersion(vNum)
+
+                // Carrega snapshot correspondente em weekly_schedule_versions
+                const targetRecord = versionHistoryList.find((v) => v.version_number === vNum)
+                if (
+                  targetRecord &&
+                  targetRecord.new_schedule_data &&
+                  targetRecord.new_schedule_data.length > 0
+                ) {
+                  setItems(targetRecord.new_schedule_data)
+                  setSavedBaselineItems(targetRecord.new_schedule_data)
+                  setCurrentWorkflowState(targetRecord.new_schedule_data[0]?.status || 'DRAFT')
+                  toast({
+                    title: `Versão V${String(vNum).padStart(2, '0')} Carregada`,
+                    description: `Criado em: ${targetRecord.created ? new Date(targetRecord.created).toLocaleString('pt-BR') : 'Hoje'} | Responsável: ${targetRecord.user_name}`,
+                  })
+                }
+              }}
+              aria-label="Filtro Versão"
+              className="text-xs bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97] shadow-2xs"
+            >
+              <option value="" disabled>
+                —
+              </option>
+              <option value="LATEST">Atual (V{String(currentVersion).padStart(2, '0')})</option>
+              {Array.from(
+                new Set([
+                  currentVersion,
+                  ...versionHistoryList.map((v) => v.version_number).filter(Boolean),
+                ]),
+              )
+                .sort((a, b) => b - a)
+                .map((vNum) => (
+                  <option key={vNum} value={vNum}>
+                    V{String(vNum).padStart(2, '0')}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Linha 3 = Período / Tipo + Adicionais Responsivos */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-4">
+          {/* Seletor Canônico de Semana / Período */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-700">Período:</span>
+            <WeekPeriodSelector
+              currentYear={selectedYear}
+              currentWeekNumber={selectedWeekNumber}
+              onSelectWeek={(y, w) => {
+                setSelectedYear(y)
+                setSelectedWeekNumber(w)
+              }}
+            />
+          </div>
+
+          {/* Filtro: Tipo de Programação (Principal vs Derivadas) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-700">Tipo:</span>
+            <select
+              value={programmingTypeFilter}
+              onChange={(e) =>
+                setProgrammingTypeFilter(
+                  e.target.value as
+                    | 'ALL'
+                    | 'PRINCIPAL'
+                    | 'DERIVADA_TODAS'
+                    | 'DERIVADA_AUTOMATICA'
+                    | 'DERIVADA_MANUAL',
+                )
+              }
+              aria-label="Filtro Tipo de Programação"
+              className="text-xs bg-white border border-slate-300 rounded px-2 py-1 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97] shadow-2xs"
+            >
+              <option value="ALL">Todos</option>
+              <option value="PRINCIPAL">Principal</option>
+              <option value="DERIVADA_TODAS">Derivada</option>
+              <option value="DERIVADA_AUTOMATICA">Derivada Automática</option>
+              <option value="DERIVADA_MANUAL">Derivada c/ Ajuste Manual</option>
+            </select>
+          </div>
+
+          {/* Seletor do Dia Focalizado (quando em modo DIA) */}
+          {scheduleViewType === 'DIA' && (
+            <div className="flex items-center gap-1.5 bg-blue-50/80 border border-blue-200 px-2 py-0.5 rounded shadow-2xs">
+              <span className="text-[11px] font-bold text-[#004C97]">Dia Focalizado:</span>
+              <select
+                value={selectedDayOfWeek}
+                onChange={(e) =>
+                  setSelectedDayOfWeek(
+                    e.target.value as 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
+                  )
+                }
+                aria-label="Dia Focalizado"
+                className="text-xs bg-white border border-blue-300 rounded px-1.5 py-0.5 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+              >
+                <option value="SEG">Segunda (SEG)</option>
+                <option value="TER">Terça (TER)</option>
+                <option value="QUA">Quarta (QUA)</option>
+                <option value="QUI">Quinta (QUI)</option>
+                <option value="SEX">Sexta (SEX)</option>
+                <option value="SAB">Sábado (SAB)</option>
+                <option value="DOM">Domingo (DOM)</option>
+              </select>
+            </div>
+          )}
+
+          {/* PATCH 5: Indicador DISCRETO "↳ Derivada de:" — visível SOMENTE se centro selecionado for derivado */}
+          {selectedLineCode && selectedCenterDerivation.isDerived && (
+            <>
+              {selectedCenterDerivation.hasSource ? (
+                <div
+                  data-testid="derived-source-indicator"
+                  className="flex items-center gap-1 px-2 py-1 rounded bg-blue-50/80 border border-blue-200/80 text-blue-900 text-[11px] font-medium shadow-2xs"
+                  title={`Centro derivado cadastrado na Ficha Mestra com origem em ${selectedCenterDerivation.sourceCenterDisplay || selectedCenterDerivation.sourceCenterCode}`}
+                >
+                  <span className="font-semibold text-[#004C97]">↳ Derivada de:</span>
+                  <strong className="font-bold text-slate-800">
+                    {selectedCenterDerivation.sourceCenterDisplay ||
+                      `${selectedCenterDerivation.sourceCenterCode} - ${selectedCenterDerivation.sourceCenterName || 'Origem'}`}
+                  </strong>
+                </div>
+              ) : (
+                <div
+                  data-testid="derived-source-missing-warning"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-50 border border-amber-300 text-amber-900 text-[11px] shadow-2xs"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>
+                    Centro configurado como derivado, porém não possui Centro de Origem definido na
+                    Ficha Mestra.
+                  </span>
+                  <a
+                    href="/cadastros/centros"
+                    className="underline font-bold text-[#004C97] hover:text-[#003d7a] ml-1"
+                  >
+                    [Abrir Cadastro do Centro]
+                  </a>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* PATCH 7.4: Aviso de Origem sem programação com ações amigáveis */}
+          {derivationNoticeMessage && derivationNoticeMessage.type === 'empty_origin' && (
+            <div
+              data-testid="derivation-empty-origin-notice"
+              className="flex items-center gap-2 px-2.5 py-1 rounded bg-amber-50 border border-amber-300 text-amber-900 text-xs shadow-xs"
+            >
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>{derivationNoticeMessage.message}</span>
+              <div className="flex items-center gap-1.5 ml-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-[11px] font-semibold border-amber-400 text-amber-900 bg-amber-100 hover:bg-amber-200"
+                  onClick={() => {
+                    setDerivationNoticeMessage(null)
+                    const periodEl = document.querySelector(
+                      '[data-testid="period-selector-btn"]',
+                    ) as HTMLElement | null
+                    if (periodEl) {
+                      periodEl.click()
+                      periodEl.focus()
+                    }
+                  }}
+                >
+                  [Alterar período]
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-[11px] font-semibold border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
+                  onClick={() => {
+                    setDerivationNoticeMessage(null)
+                  }}
+                >
+                  [Continuar programação manual]
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Status de Centro Origem para outros centros (quando houver destinos ativos) */}
+          {activeSourceDerivationRules.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/80 border border-slate-200 text-[11px] font-medium text-slate-700 shadow-2xs">
+              <GitFork className="w-3 h-3 text-[#004C97]" />
+              <span>
+                Origem de Derivação • {derivationMetrics.uniqueTargetCenters.length}{' '}
+                {derivationMetrics.uniqueTargetCenters.length === 1 ? 'Centro' : 'Centros'}
+              </span>
+            </div>
+          )}
+
+          {/* Aviso discreto quando houver itens aguardando derivação */}
+          {derivationMetrics.pendingCount > 0 && (
+            <div
+              className="flex items-center gap-1 px-2 py-1 rounded bg-amber-50 border border-amber-300 text-amber-900 text-[11px] font-bold shadow-2xs"
+              title="Itens da semana aguardando programação derivada nos centros destino"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span>
+                {derivationMetrics.pendingCount}{' '}
+                {derivationMetrics.pendingCount === 1 ? 'item aguardando' : 'itens aguardando'}{' '}
+                programação derivada
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Painel Pré-Aprovação de Validação de Documentos de Referência (Requisito 10) */}
       <PreApprovalDocumentValidationPanel
         validationResult={documentValidationResult}
@@ -3864,478 +4231,120 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             )}
           </div>
         ) : (
-          /* Lado Esquerdo Semanal: Filtros Operacionais Compactos (Empresa | Tipo de Programação | Linha | Turno | Turma | Período) + Ações */
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Filtros em linha horizontal compacta com wrap responsivo sem scroll */}
-            <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-md p-1">
-              {/* Empresa */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-600">Empresa:</span>
-                <select
-                  value={companyCode}
-                  onChange={(e) => setCompanyCode(e.target.value)}
-                  aria-label="Empresa"
-                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
-                >
-                  <option value="" disabled>
-                    [ Selecione a empresa ]
-                  </option>
-                  <option value="CIAFAL">CIAFAL Matriz</option>
-                  <option value="CIAFAL_SUL">CIAFAL Sul</option>
-                </select>
-              </div>
+          /* Lado Esquerdo Semanal: Ações da Grade Operacional */
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              size="sm"
+              disabled={!isLineActive}
+              onClick={() => {
+                if (!isLineActive) {
+                  toast({
+                    variant: 'destructive',
+                    title: 'Linha Inativa',
+                    description: 'Esta linha está inativa para novas programações.',
+                  })
+                  return
+                }
+                handleOpenAddModal('SEG')
+              }}
+              className={`h-7 text-xs font-bold flex items-center gap-1 shadow-2xs ${
+                !isLineActive
+                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                  : 'bg-[#004C97] hover:bg-[#003d7a] text-white'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" /> Adicionar Produto
+            </Button>
 
-              {/* Tipo de Programação [ Todos ▼ ] - ITEM 1 */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-600">Tipo de Programação:</span>
-                <select
-                  value={selectedProgrammingType}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    setSelectedProgrammingType(val)
-                    setItems([])
-                    setSavedBaselineItems([])
-                    setSelectedScheduleItem(null)
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!selectedScheduleItem}
+              onClick={() => {
+                if (selectedScheduleItem) {
+                  const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
+                  if (idx !== -1) handleRemove(idx)
+                }
+              }}
+              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <Trash2 className="w-3 h-3 mr-1 text-slate-500" />
+              Remover
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!selectedScheduleItem}
+              onClick={() => {
+                if (selectedScheduleItem) {
+                  const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
+                  if (idx !== -1) handleDuplicate(idx)
+                }
+              }}
+              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <Copy className="w-3 h-3 mr-1 text-slate-500" />
+              Duplicar
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!selectedScheduleItem || isCurrentWeekHistorical || isScheduleApproved}
+              onClick={() => {
+                if (selectedScheduleItem) {
+                  handleSplitLot(selectedScheduleItem)
+                }
+              }}
+              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <Scissors className="w-3 h-3 mr-1 text-slate-500" />
+              Dividir Qtd.
+            </Button>
+
+            {/* PATCH 6: Botão "Gerar Programação Derivada" visível SOMENTE quando centroDerivado === true && centroOrigem != null */}
+            {Boolean(selectedLineCode) &&
+              selectedCenterDerivation.isDerived === true &&
+              selectedCenterDerivation.hasSource === true &&
+              Boolean(selectedCenterDerivation.sourceCenterCode) && (
+                <Button
+                  size="sm"
+                  data-testid="btn-generate-derived-scheduling"
+                  disabled={isGeneratingDerivedSchedule || isScheduleHistoricalLocked}
+                  onClick={() => {
+                    handleGenerateDerivedFromSourceCenter()
                   }}
-                  aria-label="Tipo de Programação"
-                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                  title={`Buscar programação em ${selectedCenterDerivation.sourceCenterDisplay || selectedCenterDerivation.sourceCenterCode} e gerar programação no centro destino ${selectedLineCode}`}
+                  className="h-7 px-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1 shadow-2xs"
                 >
-                  <option value="" disabled>
-                    [ Selecione o tipo ]
-                  </option>
-                  <option value="ALL">Todos</option>
-                  {PROGRAMMING_TYPES_CATALOG.map((cat) => (
-                    <option
-                      key={typeof cat === 'string' ? cat : (cat as any).value}
-                      value={typeof cat === 'string' ? cat : (cat as any).value}
-                    >
-                      {typeof cat === 'string' ? cat : (cat as any).label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Linha Produtiva (linhas elegíveis ativas) */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-600">Linha:</span>
-                <select
-                  value={selectedLineCode}
-                  onChange={(e) => setSelectedLineCode(e.target.value)}
-                  aria-label="Linha Produtiva"
-                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
-                >
-                  <option value="" disabled>
-                    [ Selecione o centro ]
-                  </option>
-                  {eligibleLines.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.code} - {l.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Turno da Ficha Mestra */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-600">Turno:</span>
-                <select
-                  value={targetShiftCode}
-                  onChange={(e) => {
-                    const shCode = e.target.value
-                    setTargetShiftCode(shCode)
-                    const foundShift = (currentLineOverview?.shifts || []).find(
-                      (s) => s.code === shCode,
-                    )
-                    if (foundShift) {
-                      setTargetShiftName(foundShift.name)
-                      const matchedRel = (currentLineOverview?.shiftCrews || []).find(
-                        (sc) =>
-                          (sc.shift_id === shCode || sc.expand?.shift_id?.code === shCode) &&
-                          sc.active !== false,
-                      )
-                      const crewName =
-                        matchedRel?.expand?.crew_id?.name ||
-                        matchedRel?.expand?.crew_id?.code ||
-                        (currentLineOverview?.crews && currentLineOverview.crews.length > 0
-                          ? currentLineOverview.crews[0].name
-                          : '')
-                      setTargetCrewName(crewName)
-                    }
-                  }}
-                  aria-label="Turno da Ficha Mestra"
-                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
-                >
-                  <option value="" disabled>
-                    [ Selecione o turno ]
-                  </option>
-                  {(currentLineOverview?.shifts || []).map((sh) => (
-                    <option key={sh.code} value={sh.code}>
-                      {sh.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Turma da Ficha Mestra */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-600">Turma:</span>
-                <select
-                  value={targetCrewName}
-                  onChange={(e) => setTargetCrewName(e.target.value)}
-                  aria-label="Turma da Ficha Mestra"
-                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
-                >
-                  <option value="" disabled>
-                    [ Selecione a turma ]
-                  </option>
-                  {(currentLineOverview?.crews || []).map((cr) => (
-                    <option key={cr.code || cr.id} value={cr.name}>
-                      {cr.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Seletor do Dia Focalizado (quando em modo DIA) */}
-              {scheduleViewType === 'DIA' && (
-                <div className="flex items-center gap-1 bg-blue-50/70 border border-blue-200 px-1 py-0.5 rounded">
-                  <span className="text-[11px] font-bold text-[#004C97]">Dia Focalizado:</span>
-                  <select
-                    value={selectedDayOfWeek}
-                    onChange={(e) =>
-                      setSelectedDayOfWeek(
-                        e.target.value as 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
-                      )
-                    }
-                    aria-label="Dia Focalizado"
-                    className="text-xs bg-white border border-blue-300 rounded px-1.5 py-0.5 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
-                  >
-                    <option value="SEG">Segunda (SEG)</option>
-                    <option value="TER">Terça (TER)</option>
-                    <option value="QUA">Quarta (QUA)</option>
-                    <option value="QUI">Quinta (QUI)</option>
-                    <option value="SEX">Sexta (SEX)</option>
-                    <option value="SAB">Sábado (SAB)</option>
-                    <option value="DOM">Domingo (DOM)</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Seletor Canônico de Semana / Período */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-600">Período:</span>
-                <WeekPeriodSelector
-                  currentYear={selectedYear}
-                  currentWeekNumber={selectedWeekNumber}
-                  onSelectWeek={(y, w) => {
-                    setSelectedYear(y)
-                    setSelectedWeekNumber(w)
-                  }}
-                />
-              </div>
-
-              {/* ITEM 3: Filtro Versão (V01, V02, ...) */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-600">Versão:</span>
-                <select
-                  value={selectedVersionFilter}
-                  onChange={async (e) => {
-                    const val = e.target.value
-                    if (val === '') {
-                      setSelectedVersionFilter('')
-                      return
-                    }
-                    if (val === 'LATEST') {
-                      setSelectedVersionFilter('LATEST')
-                      if (selectedLineCode) loadLineData(selectedLineCode)
-                      return
-                    }
-                    const vNum = Number(val)
-                    setSelectedVersionFilter(vNum)
-                    setCurrentVersion(vNum)
-
-                    // Carrega snapshot correspondente em weekly_schedule_versions
-                    const targetRecord = versionHistoryList.find((v) => v.version_number === vNum)
-                    if (
-                      targetRecord &&
-                      targetRecord.new_schedule_data &&
-                      targetRecord.new_schedule_data.length > 0
-                    ) {
-                      setItems(targetRecord.new_schedule_data)
-                      setSavedBaselineItems(targetRecord.new_schedule_data)
-                      setCurrentWorkflowState(targetRecord.new_schedule_data[0]?.status || 'DRAFT')
-                      toast({
-                        title: `Versão V${String(vNum).padStart(2, '0')} Carregada`,
-                        description: `Criado em: ${targetRecord.created ? new Date(targetRecord.created).toLocaleString('pt-BR') : 'Hoje'} | Responsável: ${targetRecord.user_name}`,
-                      })
-                    }
-                  }}
-                  aria-label="Filtro Versão"
-                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-mono font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
-                >
-                  <option value="" disabled>
-                    —
-                  </option>
-                  <option value="LATEST">Atual (V{String(currentVersion).padStart(2, '0')})</option>
-                  {Array.from(
-                    new Set([
-                      currentVersion,
-                      ...versionHistoryList.map((v) => v.version_number).filter(Boolean),
-                    ]),
-                  )
-                    .sort((a, b) => b - a)
-                    .map((vNum) => (
-                      <option key={vNum} value={vNum}>
-                        V{String(vNum).padStart(2, '0')}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Filtro: Tipo de Programação (Principal vs Derivadas) */}
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-600">Tipo:</span>
-                <select
-                  value={programmingTypeFilter}
-                  onChange={(e) =>
-                    setProgrammingTypeFilter(
-                      e.target.value as
-                        | 'ALL'
-                        | 'PRINCIPAL'
-                        | 'DERIVADA_TODAS'
-                        | 'DERIVADA_AUTOMATICA'
-                        | 'DERIVADA_MANUAL',
-                    )
-                  }
-                  aria-label="Filtro Tipo de Programação"
-                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
-                >
-                  <option value="ALL">Todos</option>
-                  <option value="PRINCIPAL">Principal</option>
-                  <option value="DERIVADA_TODAS">Derivada</option>
-                  <option value="DERIVADA_AUTOMATICA">Derivada Automática</option>
-                  <option value="DERIVADA_MANUAL">Derivada c/ Ajuste Manual</option>
-                </select>
-              </div>
-
-              {/* PATCH 5: Indicador DISCRETO "↳ Derivada de:" — visível SOMENTE se centro selecionado for derivado */}
-              {selectedLineCode && selectedCenterDerivation.isDerived && (
-                <>
-                  {selectedCenterDerivation.hasSource ? (
-                    <div
-                      data-testid="derived-source-indicator"
-                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50/80 border border-blue-200/80 text-blue-900 text-[11px] font-medium"
-                      title={`Centro derivado cadastrado na Ficha Mestra com origem em ${selectedCenterDerivation.sourceCenterDisplay || selectedCenterDerivation.sourceCenterCode}`}
-                    >
-                      <span className="font-semibold text-[#004C97]">↳ Derivada de:</span>
-                      <strong className="font-bold text-slate-800">
-                        {selectedCenterDerivation.sourceCenterDisplay ||
-                          `${selectedCenterDerivation.sourceCenterCode} - ${selectedCenterDerivation.sourceCenterName || 'Origem'}`}
-                      </strong>
-                    </div>
+                  {isGeneratingDerivedSchedule ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <div
-                      data-testid="derived-source-missing-warning"
-                      className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-50 border border-amber-300 text-amber-900 text-[11px]"
-                    >
-                      <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                      <span>
-                        Centro configurado como derivado, porém não possui Centro de Origem definido
-                        na Ficha Mestra.
-                      </span>
-                      <a
-                        href="/cadastros/centros"
-                        className="underline font-bold text-[#004C97] hover:text-[#003d7a] ml-1"
-                      >
-                        [Abrir Cadastro do Centro]
-                      </a>
-                    </div>
+                    <GitFork className="w-3.5 h-3.5" />
                   )}
-                </>
+                  {isGeneratingDerivedSchedule ? 'Gerando...' : 'Gerar Programação Derivada'}
+                </Button>
               )}
 
-              {/* PATCH 7.4: Aviso de Origem sem programação com ações amigáveis */}
-              {derivationNoticeMessage && derivationNoticeMessage.type === 'empty_origin' && (
-                <div
-                  data-testid="derivation-empty-origin-notice"
-                  className="flex items-center gap-2 px-2.5 py-1 rounded bg-amber-50 border border-amber-300 text-amber-900 text-xs shadow-xs"
+            {/* Botão de Origem: abrir modal quando o centro atual é a ORIGEM de outros centros */}
+            {activeSourceDerivationRules.length > 0 &&
+              derivationMetrics.pendingCount > 0 &&
+              !selectedCenterDerivation.isDerived && (
+                <Button
+                  size="sm"
+                  disabled={isScheduleHistoricalLocked}
+                  onClick={() => setIsDerivedModalOpen(true)}
+                  title={`Gerar programação derivada para centros destino: ${derivationMetrics.uniqueTargetCenters.join(', ')}`}
+                  className="h-7 px-2 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-amber-300 flex items-center gap-1 shadow-2xs"
                 >
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>{derivationNoticeMessage.message}</span>
-                  <div className="flex items-center gap-1.5 ml-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-[11px] font-semibold border-amber-400 text-amber-900 bg-amber-100 hover:bg-amber-200"
-                      onClick={() => {
-                        setDerivationNoticeMessage(null)
-                        const periodEl = document.querySelector(
-                          '[data-testid="period-selector-btn"]',
-                        ) as HTMLElement | null
-                        if (periodEl) {
-                          periodEl.click()
-                          periodEl.focus()
-                        }
-                      }}
-                    >
-                      [Alterar período]
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-[11px] font-semibold border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
-                      onClick={() => {
-                        setDerivationNoticeMessage(null)
-                      }}
-                    >
-                      [Continuar programação manual]
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Status de Centro Origem para outros centros (quando houver destinos ativos) */}
-              {activeSourceDerivationRules.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-700">
-                  <GitFork className="w-3 h-3 text-[#004C97]" />
-                  <span>
-                    Origem de Derivação • {derivationMetrics.uniqueTargetCenters.length}{' '}
-                    {derivationMetrics.uniqueTargetCenters.length === 1 ? 'Centro' : 'Centros'}
+                  <GitFork className="w-3.5 h-3.5 text-amber-400" />
+                  Derivar para Destinos
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">
+                    {derivationMetrics.pendingCount}
                   </span>
-                </div>
+                </Button>
               )}
-
-              {/* Aviso discreto quando houver itens aguardando derivação (item 28) */}
-              {derivationMetrics.pendingCount > 0 && (
-                <div
-                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-300 text-amber-900 text-[11px] font-bold"
-                  title="Itens da semana aguardando programação derivada nos centros destino"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  <span>
-                    {derivationMetrics.pendingCount}{' '}
-                    {derivationMetrics.pendingCount === 1 ? 'item aguardando' : 'itens aguardando'}{' '}
-                    programação derivada
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Ações da Grade Operacional */}
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                disabled={!isLineActive}
-                onClick={() => {
-                  if (!isLineActive) {
-                    toast({
-                      variant: 'destructive',
-                      title: 'Linha Inativa',
-                      description: 'Esta linha está inativa para novas programações.',
-                    })
-                    return
-                  }
-                  handleOpenAddModal('SEG')
-                }}
-                className={`h-7 text-xs font-bold flex items-center gap-1 shadow-2xs ${
-                  !isLineActive
-                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                    : 'bg-[#004C97] hover:bg-[#003d7a] text-white'
-                }`}
-              >
-                <Plus className="w-3.5 h-3.5" /> Adicionar Produto
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!selectedScheduleItem}
-                onClick={() => {
-                  if (selectedScheduleItem) {
-                    const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
-                    if (idx !== -1) handleRemove(idx)
-                  }
-                }}
-                className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-              >
-                <Trash2 className="w-3 h-3 mr-1 text-slate-500" />
-                Remover
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!selectedScheduleItem}
-                onClick={() => {
-                  if (selectedScheduleItem) {
-                    const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
-                    if (idx !== -1) handleDuplicate(idx)
-                  }
-                }}
-                className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-              >
-                <Copy className="w-3 h-3 mr-1 text-slate-500" />
-                Duplicar
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!selectedScheduleItem || isCurrentWeekHistorical || isScheduleApproved}
-                onClick={() => {
-                  if (selectedScheduleItem) {
-                    handleSplitLot(selectedScheduleItem)
-                  }
-                }}
-                className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-              >
-                <Scissors className="w-3 h-3 mr-1 text-slate-500" />
-                Dividir Qtd.
-              </Button>
-
-              {/* PATCH 6: Botão "Gerar Programação Derivada" visível SOMENTE quando centroDerivado === true && centroOrigem != null */}
-              {Boolean(selectedLineCode) &&
-                selectedCenterDerivation.isDerived === true &&
-                selectedCenterDerivation.hasSource === true &&
-                Boolean(selectedCenterDerivation.sourceCenterCode) && (
-                  <Button
-                    size="sm"
-                    data-testid="btn-generate-derived-scheduling"
-                    disabled={isGeneratingDerivedSchedule || isScheduleHistoricalLocked}
-                    onClick={() => {
-                      handleGenerateDerivedFromSourceCenter()
-                    }}
-                    title={`Buscar programação em ${selectedCenterDerivation.sourceCenterDisplay || selectedCenterDerivation.sourceCenterCode} e gerar programação no centro destino ${selectedLineCode}`}
-                    className="h-7 px-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1 shadow-2xs"
-                  >
-                    {isGeneratingDerivedSchedule ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <GitFork className="w-3.5 h-3.5" />
-                    )}
-                    {isGeneratingDerivedSchedule ? 'Gerando...' : 'Gerar Programação Derivada'}
-                  </Button>
-                )}
-
-              {/* Botão de Origem: abrir modal quando o centro atual é a ORIGEM de outros centros */}
-              {activeSourceDerivationRules.length > 0 &&
-                derivationMetrics.pendingCount > 0 &&
-                !selectedCenterDerivation.isDerived && (
-                  <Button
-                    size="sm"
-                    disabled={isScheduleHistoricalLocked}
-                    onClick={() => setIsDerivedModalOpen(true)}
-                    title={`Gerar programação derivada para centros destino: ${derivationMetrics.uniqueTargetCenters.join(', ')}`}
-                    className="h-7 px-2 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-amber-300 flex items-center gap-1 shadow-2xs"
-                  >
-                    <GitFork className="w-3.5 h-3.5 text-amber-400" />
-                    Derivar para Destinos
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">
-                      {derivationMetrics.pendingCount}
-                    </span>
-                  </Button>
-                )}
-            </div>
           </div>
         )}
 
