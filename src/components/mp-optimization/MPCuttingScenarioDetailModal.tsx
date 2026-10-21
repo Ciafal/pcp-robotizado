@@ -29,7 +29,9 @@ import {
   BarChart3,
   Flame,
   FileText,
+  Info,
 } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import type { MPCuttingScenarioItem } from '@/types/mp-cutting-weight-standards'
 
@@ -288,79 +290,168 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                 <Scissors className="w-4 h-4 text-blue-900" /> Distribuição de Pesos por Peça
               </h4>
 
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow>
-                      <TableHead className="text-xs font-bold">Item #</TableHead>
-                      <TableHead className="text-xs font-bold">Tipo</TableHead>
-                      <TableHead className="text-xs font-bold">Peso Ideal (t)</TableHead>
-                      <TableHead className="text-xs font-bold">Peso Calculado (t)</TableHead>
-                      <TableHead className="text-xs font-bold">Faixa Tolerância (t)</TableHead>
-                      <TableHead className="text-xs font-bold">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {comp.distribution.map((d) => (
-                      <TableRow key={d.item_index} className="text-xs">
-                        <TableCell className="font-mono font-medium">#{d.item_index}</TableCell>
-                        <TableCell>{d.item_type}</TableCell>
-                        <TableCell>
-                          {(d.target_kg / 1000).toLocaleString('pt-BR', {
-                            minimumFractionDigits: 3,
-                            maximumFractionDigits: 3,
-                          })}{' '}
-                          t
-                        </TableCell>
-                        <TableCell className="font-bold text-blue-950">
-                          {(d.calculated_kg / 1000).toLocaleString('pt-BR', {
-                            minimumFractionDigits: 3,
-                            maximumFractionDigits: 3,
-                          })}{' '}
-                          t
-                        </TableCell>
-                        <TableCell className="text-slate-500">
-                          {d.tolerance_range_kg
-                            ? (() => {
-                                // Se a string for algo como "1200.00 a 1300.00 kg", formata em toneladas com 3 casas
-                                const match = d.tolerance_range_kg.match(
-                                  /([0-9.,]+)\s*a\s*([0-9.,]+)/,
-                                )
-                                if (match) {
-                                  const v1 = parseFloat(match[1].replace(',', '.'))
-                                  const v2 = parseFloat(match[2].replace(',', '.'))
-                                  if (!isNaN(v1) && !isNaN(v2)) {
-                                    const t1 = (v1 / 1000).toLocaleString('pt-BR', {
-                                      minimumFractionDigits: 3,
-                                      maximumFractionDigits: 3,
-                                    })
-                                    const t2 = (v2 / 1000).toLocaleString('pt-BR', {
-                                      minimumFractionDigits: 3,
-                                      maximumFractionDigits: 3,
-                                    })
-                                    return `${t1} a ${t2} t`
-                                  }
-                                }
-                                return d.tolerance_range_kg.replace(/kg/g, 't')
-                              })()
-                            : ''}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={
-                              d.status === 'CONFORME'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]'
-                                : 'bg-amber-50 text-amber-700 border-amber-200 text-[10px]'
-                            }
-                          >
-                            {d.status}
-                          </Badge>
-                        </TableCell>
+              <div className="overflow-x-auto rounded border border-slate-100 max-w-full">
+                <TooltipProvider delayDuration={150}>
+                  <Table className="min-w-[700px]">
+                    <TableHeader className="bg-slate-50">
+                      <TableRow>
+                        <TableHead className="text-xs font-bold w-[70px]">Item #</TableHead>
+                        <TableHead className="text-xs font-bold w-[90px]">Tipo</TableHead>
+                        <TableHead className="text-xs font-bold min-w-[190px]">
+                          Dimensões do Bloco
+                        </TableHead>
+                        <TableHead className="text-xs font-bold whitespace-nowrap">
+                          Peso Ideal (t)
+                        </TableHead>
+                        <TableHead className="text-xs font-bold whitespace-nowrap">
+                          Peso Calculado (t)
+                        </TableHead>
+                        <TableHead className="text-xs font-bold whitespace-nowrap">
+                          Faixa Tolerância (t)
+                        </TableHead>
+                        <TableHead className="text-xs font-bold w-[90px]">Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {comp.distribution.map((d) => {
+                        // Derivação segura e consistente da dimensão caso o objeto ainda não venha com dimension_display
+                        const linearMass = d.linear_mass_kg_m || comp.linear_mass_kg_m || 132.5
+                        let widthMm = d.width_mm || 130
+                        let heightMm = d.height_mm || 130
+                        const rawGauge = d.gauge_dimension || comp.gauge_dimension || ''
+                        if (rawGauge && (!d.width_mm || !d.height_mm)) {
+                          const match = rawGauge.match(/(\d+)\s*[xX×]\s*(\d+)/)
+                          if (match) {
+                            widthMm = parseInt(match[1], 10)
+                            heightMm = parseInt(match[2], 10)
+                          }
+                        }
+                        const calculatedLengthMm =
+                          d.calculated_length_mm ||
+                          Math.round((d.calculated_kg / linearMass) * 1000)
+                        const formattedLength = calculatedLengthMm.toLocaleString('pt-BR')
+                        const dimensionText =
+                          d.dimension_display || `${widthMm} × ${heightMm} × ${formattedLength} mm`
+                        const sectionText = `${widthMm} × ${heightMm} mm`
+
+                        return (
+                          <TableRow key={d.item_index} className="text-xs hover:bg-slate-50/80">
+                            <TableCell className="font-mono font-medium">#{d.item_index}</TableCell>
+                            <TableCell>{d.item_type}</TableCell>
+                            <TableCell className="font-medium text-slate-900 whitespace-nowrap">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center gap-1.5 cursor-help py-0.5 px-1.5 rounded hover:bg-blue-50/80 transition-colors font-mono text-[11px] text-blue-950 font-semibold border border-transparent hover:border-blue-200">
+                                    <span>{dimensionText}</span>
+                                    <Info className="w-3.5 h-3.5 text-blue-800 shrink-0 opacity-70 hover:opacity-100" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-950 text-slate-100 border-slate-800 text-xs p-3 space-y-1.5 max-w-sm shadow-xl z-50"
+                                >
+                                  <p className="font-semibold text-amber-300 text-[11px] leading-tight">
+                                    Dimensões calculadas para este bloco conforme o Plano de Corte
+                                    selecionado.
+                                  </p>
+                                  <div className="border-t border-slate-800 pt-1.5 space-y-0.5 text-[11px] text-slate-300 font-sans">
+                                    <div>
+                                      <span className="text-slate-400">Seção do material:</span>{' '}
+                                      <strong className="text-white font-mono">
+                                        {sectionText}
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Comprimento calculado:</span>{' '}
+                                      <strong className="text-white font-mono">
+                                        {formattedLength} mm
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">
+                                        Massa linear da Ficha Mestra:
+                                      </span>{' '}
+                                      <strong className="text-white font-mono">
+                                        {linearMass.toLocaleString('pt-BR')} kg/m
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Peso calculado:</span>{' '}
+                                      <strong className="text-blue-300 font-mono">
+                                        {d.calculated_kg.toLocaleString('pt-BR', {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        })}{' '}
+                                        kg (
+                                        {(d.calculated_kg / 1000).toLocaleString('pt-BR', {
+                                          minimumFractionDigits: 3,
+                                          maximumFractionDigits: 3,
+                                        })}{' '}
+                                        t)
+                                      </strong>
+                                    </div>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell>
+                              {(d.target_kg / 1000).toLocaleString('pt-BR', {
+                                minimumFractionDigits: 3,
+                                maximumFractionDigits: 3,
+                              })}{' '}
+                              t
+                            </TableCell>
+                            <TableCell className="font-bold text-blue-950">
+                              {(d.calculated_kg / 1000).toLocaleString('pt-BR', {
+                                minimumFractionDigits: 3,
+                                maximumFractionDigits: 3,
+                              })}{' '}
+                              t
+                            </TableCell>
+                            <TableCell className="text-slate-500">
+                              {d.tolerance_range_kg
+                                ? (() => {
+                                    // Se a string for algo como "1200.00 a 1300.00 kg", formata em toneladas com 3 casas
+                                    const match = d.tolerance_range_kg.match(
+                                      /([0-9.,]+)\s*a\s*([0-9.,]+)/,
+                                    )
+                                    if (match) {
+                                      const v1 = parseFloat(match[1].replace(',', '.'))
+                                      const v2 = parseFloat(match[2].replace(',', '.'))
+                                      if (!isNaN(v1) && !isNaN(v2)) {
+                                        const t1 = (v1 / 1000).toLocaleString('pt-BR', {
+                                          minimumFractionDigits: 3,
+                                          maximumFractionDigits: 3,
+                                        })
+                                        const t2 = (v2 / 1000).toLocaleString('pt-BR', {
+                                          minimumFractionDigits: 3,
+                                          maximumFractionDigits: 3,
+                                        })
+                                        return `${t1} a ${t2} t`
+                                      }
+                                    }
+                                    return d.tolerance_range_kg.replace(/kg/g, 't')
+                                  })()
+                                : ''}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  d.status === 'CONFORME'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200 text-[10px]'
+                                }
+                              >
+                                {d.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </TooltipProvider>
               </div>
             </div>
 

@@ -96,6 +96,12 @@ export interface MPCuttingScenarioItem {
       calculated_kg: number
       tolerance_range_kg: string
       status: 'CONFORME' | 'DESVIO'
+      dimension_display?: string
+      calculated_length_mm?: number
+      width_mm?: number
+      height_mm?: number
+      gauge_dimension?: string
+      linear_mass_kg_m?: number
     }>
     satisfied_restrictions: string[]
     industrial_alerts: string[]

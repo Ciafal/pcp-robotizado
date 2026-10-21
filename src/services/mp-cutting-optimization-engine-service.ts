@@ -351,11 +351,28 @@ class MPCuttingOptimizationEngineService {
       }
 
       // Distribuição detalhada dos blocos/múltiplos
+      // Dimensões do bloco derivadas estritamente da Ficha Mestra e do peso calculado da mesma linha
+      const linearMass = techParams.linear_mass_kg_m || 132.5
+      let widthMm = 130
+      let heightMm = 130
+      if (techParams.gauge_dimension) {
+        const match = techParams.gauge_dimension.match(/(\d+)\s*[xX×]\s*(\d+)/)
+        if (match) {
+          widthMm = parseInt(match[1], 10)
+          heightMm = parseInt(match[2], 10)
+        }
+      }
+
       const distribution = []
       const sampleSize = Math.min(piecesCount, 8)
       for (let p = 1; p <= sampleSize; p++) {
         const slightVar = Math.sin(p) * 0.002 * targetWeight
         const pieceCalc = Number((calculatedUnitWeight + slightVar).toFixed(2))
+        // Comprimento calculado estritamente derivado do peso calculado e massa linear da Ficha Mestra
+        const calculatedLengthMm = Math.round((pieceCalc / linearMass) * 1000)
+        const formattedLength = calculatedLengthMm.toLocaleString('pt-BR')
+        const dimensionDisplay = `${widthMm} × ${heightMm} × ${formattedLength} mm`
+
         distribution.push({
           item_index: p,
           item_type: tmpl.type === 'BLOCOS' ? ('BLOCO' as const) : ('MÚLTIPLO' as const),
@@ -366,6 +383,12 @@ class MPCuttingOptimizationEngineService {
             pieceCalc >= minWeight && pieceCalc <= maxWeight
               ? ('CONFORME' as const)
               : ('DESVIO' as const),
+          dimension_display: dimensionDisplay,
+          calculated_length_mm: calculatedLengthMm,
+          width_mm: widthMm,
+          height_mm: heightMm,
+          gauge_dimension: techParams.gauge_dimension || `${widthMm}x${heightMm} mm`,
+          linear_mass_kg_m: linearMass,
         })
       }
 
