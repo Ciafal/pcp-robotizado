@@ -1307,6 +1307,12 @@ export const officialNavGroups: NavGroup[] = [
         permission: 'pcp.schedule.view',
       },
       {
+        title: 'Simulações',
+        href: '/pcp/relatorios/simulacoes',
+        icon: Layers,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Capacidade',
         href: '/pcp/planejamento?tab=aderencia',
         icon: BarChart3,
@@ -1408,6 +1414,9 @@ export const PCPSidebar: React.FC = () => {
       // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão ou se estiver em rota interna do grupo
       const isReuniaoRoute =
         g.groupTitle === 'REUNIÃO PCP' && currentPath.startsWith('/pcp/reunioes')
+      const isRelatoriosRoute =
+        g.groupTitle === 'RELATÓRIOS' &&
+        (currentPath.startsWith('/pcp/relatorios') || currentPath.startsWith('/pcp/simulacoes'))
       // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão ou se estiver em rota interna do grupo
       const isGovernanceRoute =
         g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' &&
@@ -1428,7 +1437,8 @@ export const PCPSidebar: React.FC = () => {
         isCadastrosRoute ||
         isProgramacaoRoute ||
         isIndustrializadorRoute ||
-        isReuniaoRoute
+        isReuniaoRoute ||
+        isRelatoriosRoute
       ) {
         initial[g.groupTitle] = false
       } else {
@@ -1526,6 +1536,12 @@ export const PCPSidebar: React.FC = () => {
       const isReuniaoDirect =
         group.groupTitle === 'REUNIÃO PCP' && location.pathname.startsWith('/pcp/reunioes')
 
+      // Se a rota for do grupo RELATÓRIOS (/pcp/relatorios, /pcp/simulacoes), força expansão
+      const isRelatoriosDirect =
+        group.groupTitle === 'RELATÓRIOS' &&
+        (location.pathname.startsWith('/pcp/relatorios') ||
+          location.pathname.startsWith('/pcp/simulacoes'))
+
       // Se a rota for do grupo PROGRAMAÇÃO (/pcp/programacao/parada, etc.), força expansão
       const isProgramacaoDirect =
         group.groupTitle === 'PROGRAMAÇÃO' &&
@@ -1540,7 +1556,8 @@ export const PCPSidebar: React.FC = () => {
         isProducaoDirect ||
         isCadastrosDirect ||
         isProgramacaoDirect ||
-        isReuniaoDirect
+        isReuniaoDirect ||
+        isRelatoriosDirect
       ) {
         setCollapsedGroups((prev) => {
           if (prev[group.groupTitle]) {
@@ -1755,14 +1772,27 @@ export const PCPSidebar: React.FC = () => {
                                                                     !location.pathname.startsWith(
                                                                       '/pcp/reunioes/configuracoes',
                                                                     ))
-                                                                : group.groupTitle === 'CADASTROS'
-                                                                  ? location.pathname === item.href
-                                                                  : location.pathname ===
-                                                                      item.href ||
-                                                                    (item.href.includes('?') &&
-                                                                      location.pathname +
-                                                                        location.search ===
-                                                                        item.href)
+                                                                : item.href ===
+                                                                    '/pcp/relatorios/simulacoes'
+                                                                  ? location.pathname ===
+                                                                      '/pcp/relatorios/simulacoes' ||
+                                                                    location.pathname.startsWith(
+                                                                      '/pcp/relatorios/simulacoes',
+                                                                    ) ||
+                                                                    location.pathname ===
+                                                                      '/pcp/simulacoes' ||
+                                                                    location.pathname.startsWith(
+                                                                      '/pcp/simulacoes',
+                                                                    )
+                                                                  : group.groupTitle === 'CADASTROS'
+                                                                    ? location.pathname ===
+                                                                      item.href
+                                                                    : location.pathname ===
+                                                                        item.href ||
+                                                                      (item.href.includes('?') &&
+                                                                        location.pathname +
+                                                                          location.search ===
+                                                                          item.href)
 
                     const isProducaoChild = group.groupTitle === 'CONTROLE DE PRODUÇÃO'
 

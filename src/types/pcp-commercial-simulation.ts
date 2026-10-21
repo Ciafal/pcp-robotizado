@@ -30,7 +30,14 @@ export type SimulationApprovalStatus =
   | 'REPROVADA_PCP'
   | 'SOLICITADO_AJUSTE_PCP'
 
+export type SimulationType = 'COMERCIAL' | 'PRODUTIVA'
+
 export interface SimulationFormData {
+  company_code?: string
+  plant_code?: string
+  line_code?: string
+  production_center?: string
+  simulation_type?: SimulationType
   customer_name: string
   customer_code?: string
   product_code: string

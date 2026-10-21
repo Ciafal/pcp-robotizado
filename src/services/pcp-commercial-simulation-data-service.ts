@@ -208,6 +208,80 @@ export class CommercialSimulationDataService {
   /**
    * Busca produtos existentes no cadastro / Ficha Mestra
    */
+  /**
+   * Retorna linhas e centros compatíveis da Ficha Mestra
+   */
+  public static async getCompatibleInfrastructure(productCode?: string): Promise<{
+    lines: { code: string; name: string; plant_code?: string; company_code?: string }[]
+    centers: { code: string; name: string; line_code?: string }[]
+  }> {
+    const linesMap = new Map<
+      string,
+      { code: string; name: string; plant_code?: string; company_code?: string }
+    >()
+    const centersMap = new Map<string, { code: string; name: string; line_code?: string }>()
+
+    try {
+      const masters = await pb.collection('line_masters').getFullList({
+        fields: 'code,name,plant_code,company_code,production_center_code',
+        requestKey: null,
+      })
+      masters.forEach((m: any) => {
+        if (m.code) {
+          linesMap.set(m.code, {
+            code: m.code,
+            name: m.name || m.code,
+            plant_code: m.plant_code || 'DIV',
+            company_code: m.company_code || 'CIAFAL',
+          })
+          if (m.production_center_code) {
+            centersMap.set(m.production_center_code, {
+              code: m.production_center_code,
+              name: m.production_center_code,
+              line_code: m.code,
+            })
+          }
+        }
+      })
+    } catch {
+      /* intentionally ignored */
+    }
+
+    // Centros padrão homologados CIAFAL
+    if (linesMap.size === 0) {
+      linesMap.set('L1', {
+        code: 'L1',
+        name: 'Linha 1 - Laminação',
+        plant_code: 'DIV',
+        company_code: 'CIAFAL',
+      })
+      linesMap.set('L2', {
+        code: 'L2',
+        name: 'Linha 2 - Perfis Pesados',
+        plant_code: 'DIV',
+        company_code: 'CIAFAL',
+      })
+      linesMap.set('L3', {
+        code: 'L3',
+        name: 'Linha 3 - Tubos',
+        plant_code: 'CTG',
+        company_code: 'CIAFAL',
+      })
+    }
+
+    if (centersMap.size === 0) {
+      centersMap.set('L1', { code: 'L1', name: 'Centro L1 (Laminação)', line_code: 'L1' })
+      centersMap.set('L2', { code: 'L2', name: 'Centro L2 (Laminação Pesada)', line_code: 'L2' })
+      centersMap.set('ACAB_L2', { code: 'ACAB_L2', name: 'Centro Acabamento L2', line_code: 'L2' })
+      centersMap.set('L3', { code: 'L3', name: 'Centro L3 (Conformação Tubos)', line_code: 'L3' })
+    }
+
+    return {
+      lines: Array.from(linesMap.values()),
+      centers: Array.from(centersMap.values()),
+    }
+  }
+
   public static async getExistingProducts(): Promise<{ code: string; description: string }[]> {
     const map = new Map<string, string>()
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   RotateCcw,
   Sparkles,
@@ -73,7 +73,20 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
     effectiveRules,
   } = useControlTower()
 
+  const navigate = useNavigate()
   const { user, isGlobal, scopes } = useAuth()
+
+  const handleOpenSimulations = () => {
+    const params = new URLSearchParams()
+    if (filters.plantCode && filters.plantCode !== 'ALL') {
+      params.set('planta', filters.plantCode)
+    }
+    if (filters.lineCode && filters.lineCode !== 'ALL') {
+      params.set('linha', filters.lineCode)
+    }
+    const query = params.toString() ? `?${params.toString()}` : ''
+    navigate(`/pcp/relatorios/simulacoes${query}`)
+  }
   const [isHomologationOpen, setIsHomologationOpen] = useState(false)
   const [isRuleInspectorOpen, setIsRuleInspectorOpen] = useState(false)
 
@@ -251,8 +264,8 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsSimulatorModalOpen(true)}
-              title="Simular Cenário"
+              onClick={handleOpenSimulations}
+              title="Abrir Simulações"
               className="h-8 px-2.5 sm:px-3 gap-1.5 border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shrink-0"
             >
               <Layers className="w-3.5 h-3.5 text-[#004C97] shrink-0" />
@@ -304,11 +317,11 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
                   Ações Avançadas
                 </DropdownMenuLabel>
                 <DropdownMenuItem
-                  onClick={() => setIsSimulatorModalOpen(true)}
+                  onClick={handleOpenSimulations}
                   className="text-xs cursor-pointer focus:bg-slate-100 2xl:hidden"
                 >
                   <Layers className="w-3.5 h-3.5 mr-2 text-[#004C97]" />
-                  Simular Cenário
+                  Abrir Simulações
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setIsVersionModalOpen(true)}

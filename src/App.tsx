@@ -764,6 +764,13 @@ const DashboardIndicadoresPcpPage = lazyWithRetry(
     })),
   'DashboardIndicadoresPcpPage',
 )
+const CommercialSimulationPage = lazyWithRetry(
+  () =>
+    import('@/pages/pcp/CommercialSimulationPage').then((m) => ({
+      default: m.default ?? m.CommercialSimulationPage,
+    })),
+  'CommercialSimulationPage',
+)
 const CogiPendenciesPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/CogiPendenciesPage').then((m) => ({
@@ -1366,6 +1373,20 @@ export const App: React.FC = () => {
                           </ErrorBoundary>
                         </PermissionGuard>
                       }
+                    />
+                    <Route
+                      path="/pcp/relatorios/simulacoes"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ErrorBoundary moduleName="Simulações do PCP">
+                            <CommercialSimulationPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/simulacoes"
+                      element={<Navigate to="/pcp/relatorios/simulacoes" replace />}
                     />
                     <Route
                       path="/pcp/relatorios"
