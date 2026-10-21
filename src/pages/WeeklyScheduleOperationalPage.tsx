@@ -3445,288 +3445,125 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         </div>
       )}
 
-      {/* 1. CABEÇALHO COMPACTO DA ÁREA PRINCIPAL COM ESTEIRA DE AÇÕES UNIFICADA EM TODOS OS MODOS */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-        <div>
-          {scheduleViewType === 'MES' ? (
-            /* Linha 1 Mês: Título Oficial Mensal + Selo EM PROGRAMAÇÃO */
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
-                PROGRAMAÇÃO MENSAL -{' '}
-                {weekRange.startDate
-                  .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-                  .toUpperCase()}
-              </h1>
-              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-black uppercase px-2 py-0.5">
-                EM PROGRAMAÇÃO
-              </Badge>
-              <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
-            </div>
-          ) : scheduleViewType === 'DIA' ? (
-            /* Linha 1 Dia: Título Oficial do Modo Dia */
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
-                {dailyHeaderTitle}
-              </h1>
-              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
-                RASCUNHO
-              </Badge>
-              <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[10px] font-bold uppercase px-2 py-0.5">
-                VISÃO DIÁRIA
-              </Badge>
-            </div>
-          ) : (
-            /* Linha 1 Semanal/Timeline/Oficina: Título Oficial + Selo RASCUNHO */
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
-                {scheduleViewType === 'OFICINA_CILINDROS'
-                  ? 'PROGRAMAÇÃO INTEGRADA — OFICINA DE CILINDROS'
-                  : scheduleViewType === 'TIMELINE'
-                    ? 'LINHA DO TEMPO OPERACIONAL'
-                    : 'PROGRAMAÇÃO SEMANAL - MONTAGEM'}
-              </h1>
-              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
-                RASCUNHO
-              </Badge>
-              <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
-            </div>
-          )}
+      {/* 1. BARRA DE AÇÕES DA PROGRAMAÇÃO UNIFICADA */}
+      <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-2.5 flex flex-wrap items-center justify-end gap-2">
+        {scheduleViewType === 'MES' && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                toast({
+                  title: 'Navegação Mensal',
+                  description: 'Exibindo programação do mês anterior (Julho/2026).',
+                })
+              }}
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+            >
+              <ChevronLeft className="w-3 h-3 mr-0.5" /> Mês Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                toast({
+                  title: 'Navegação Mensal',
+                  description: 'Exibindo programação do mês seguinte (Setembro/2026).',
+                })
+              }}
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+            >
+              Mês Seguinte <ChevronRight className="w-3 h-3 ml-0.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsComparisonModalOpen(true)}
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+            >
+              <GitCompare className="w-3.5 h-3.5 mr-1 text-slate-500" />
+              Comparar Cenários
+            </Button>
+          </>
+        )}
 
-          {/* Linha 2 Compacta Contextual */}
-          {scheduleViewType === 'MES' ? (
-            <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} -{' '}
-                {currentLineOverview?.line.name || 'Linha Operacional'}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Tipo:</strong>{' '}
-                <Badge className="bg-slate-100 text-slate-800 border-slate-300 text-[10px] font-semibold py-0">
-                  {selectedProgrammingType === 'ALL' ? 'Todos' : selectedProgrammingType}
-                </Badge>
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Mês:</strong>{' '}
-                {weekRange.startDate.toLocaleDateString('pt-BR', {
-                  month: 'long',
-                  year: 'numeric',
-                })}{' '}
-                (S{selectedWeekNumber})
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Cenário:</strong> Principal
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Status:</strong> EM PROGRAMAÇÃO
-              </span>
-            </div>
-          ) : scheduleViewType === 'DIA' ? (
-            <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} -{' '}
-                {currentLineOverview?.line.name || 'Linha Operacional'}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Dia:</strong> {selectedDayOfWeek} (
-                {dailySummary.dateFormatted})
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Turno Ativo:</strong> {targetShiftName} (
-                {targetCrewName})
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1 font-mono font-bold text-[#004C97]">
-                <strong className="text-slate-800">Versão:</strong> V
-                {String(currentVersion).padStart(2, '0')}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Semana Ref.:</strong> W{selectedWeekNumber}
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} -{' '}
-                {currentLineOverview?.line.name || 'Linha Operacional'}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Tipo:</strong>{' '}
-                <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-semibold py-0">
-                  {selectedProgrammingType === 'ALL' ? 'Todos' : selectedProgrammingType}
-                </Badge>
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Turno Ativo:</strong> {targetShiftName} (
-                {targetCrewName})
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Semana:</strong> {selectedWeekNumber} (
-                {weekRange.display})
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1 font-mono font-bold text-[#004C97]">
-                <strong className="text-slate-800">Versão:</strong> V
-                {String(currentVersion).padStart(2, '0')}
-                {fullVersionHistoryList.length > 1 && (
-                  <span className="text-slate-500 font-normal text-[10px] ml-1">
-                    ({fullVersionHistoryList.length - 1} alteraç
-                    {fullVersionHistoryList.length - 1 === 1 ? 'ão' : 'ões'} desde aprovação)
-                  </span>
-                )}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Estabilidade:</strong>
-                <Badge
-                  onClick={() => setIsVersionHistoryModalOpen(true)}
-                  className="bg-emerald-100 text-emerald-900 hover:bg-emerald-200 border-emerald-300 font-mono text-[9px] font-bold cursor-pointer transition-colors"
-                  title="Clique para abrir Histórico & Auditoria de Alterações"
-                >
-                  82/100 (Estável)
-                </Badge>
-              </span>
-              <span className="text-slate-300">•</span>
-              <button
-                type="button"
-                onClick={() => (window.location.href = '/pcp/alteracoes')}
-                className="text-[#004C97] hover:underline font-bold text-[10.5px] inline-flex items-center gap-0.5"
-              >
-                Central de Alterações &rarr;
-              </button>
-            </div>
-          )}
-        </div>
+        {/* 1. Simular */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRunSimulation}
+          className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+        >
+          <Play className="w-3 h-3 mr-1 text-slate-600 shrink-0" />
+          <span>Simular</span>
+        </Button>
 
-        {/* BARRA DE AÇÕES UNIFICADA EM TODOS OS MODOS COM ORDEM FIXA (1. Simular, 2. Analisar com IA, 3. Salvar Rascunho, 4. Consultar Rascunhos, 5. Enviar para Aprovação) */}
-        <div className="flex flex-wrap items-center gap-2 justify-end w-full sm:w-auto">
-          {scheduleViewType === 'MES' && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  toast({
-                    title: 'Navegação Mensal',
-                    description: 'Exibindo programação do mês anterior (Julho/2026).',
-                  })
-                }}
-                className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-              >
-                <ChevronLeft className="w-3 h-3 mr-0.5" /> Mês Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  toast({
-                    title: 'Navegação Mensal',
-                    description: 'Exibindo programação do mês seguinte (Setembro/2026).',
-                  })
-                }}
-                className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-              >
-                Mês Seguinte <ChevronRight className="w-3 h-3 ml-0.5" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsComparisonModalOpen(true)}
-                className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-              >
-                <GitCompare className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                Comparar Cenários
-              </Button>
-            </>
-          )}
+        {/* 2. Analisar com IA */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={
+            scheduleViewType === 'MES' ? () => setIsMonthlyAiModalOpen(true) : handleAiAnalysis
+          }
+          className="h-7 px-2.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs inline-flex items-center justify-center"
+        >
+          <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600 shrink-0" />
+          <span>Analisar com IA</span>
+        </Button>
 
-          {/* 1. Simular */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRunSimulation}
-            className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-          >
-            <Play className="w-3 h-3 mr-1 text-slate-600 shrink-0" />
-            <span>Simular</span>
-          </Button>
+        {/* 3. Salvar Rascunho */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSaveDraft}
+          disabled={isSaving}
+          className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+        >
+          <Save className="w-3 h-3 mr-1 text-slate-500 shrink-0" />
+          <span>{isSaving ? 'Salvando...' : 'Salvar Rascunho'}</span>
+        </Button>
 
-          {/* 2. Analisar com IA */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={
-              scheduleViewType === 'MES' ? () => setIsMonthlyAiModalOpen(true) : handleAiAnalysis
-            }
-            className="h-7 px-2.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs inline-flex items-center justify-center"
-          >
-            <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600 shrink-0" />
-            <span>Analisar com IA</span>
-          </Button>
+        {/* 4. Consultar Rascunhos */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsDraftsModalOpen(true)}
+          className="h-7 px-2.5 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs inline-flex items-center justify-center"
+        >
+          <FileText className="w-3 h-3 mr-1 text-amber-600 shrink-0" />
+          <span>Consultar Rascunhos</span>
+        </Button>
 
-          {/* 3. Salvar Rascunho */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSaveDraft}
-            disabled={isSaving}
-            className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-          >
-            <Save className="w-3 h-3 mr-1 text-slate-500 shrink-0" />
-            <span>{isSaving ? 'Salvando...' : 'Salvar Rascunho'}</span>
-          </Button>
+        {/* 5. Enviar para Aprovação */}
+        <Button
+          size="sm"
+          onClick={handleSendForApproval}
+          disabled={isSendingApproval}
+          className={`h-7 px-3 text-xs font-semibold text-white shadow-xs inline-flex items-center justify-center ${
+            documentValidationResult.blocking_violations_count > 0
+              ? 'bg-rose-600 hover:bg-rose-700'
+              : 'bg-[#004C97] hover:bg-[#003d7a]'
+          }`}
+          title={
+            documentValidationResult.blocking_violations_count > 0
+              ? 'Envio bloqueado por violação de regra obrigatória do SGQ'
+              : 'Submeter programação para aprovação formal'
+          }
+        >
+          <Send className="w-3 h-3 mr-1 shrink-0" />
+          <span>{isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}</span>
+        </Button>
 
-          {/* 4. Consultar Rascunhos */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsDraftsModalOpen(true)}
-            className="h-7 px-2.5 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs inline-flex items-center justify-center"
-          >
-            <FileText className="w-3 h-3 mr-1 text-amber-600 shrink-0" />
-            <span>Consultar Rascunhos</span>
-          </Button>
-
-          {/* 5. Enviar para Aprovação */}
-          <Button
-            size="sm"
-            onClick={handleSendForApproval}
-            disabled={isSendingApproval}
-            className={`h-7 px-3 text-xs font-semibold text-white shadow-xs inline-flex items-center justify-center ${
-              documentValidationResult.blocking_violations_count > 0
-                ? 'bg-rose-600 hover:bg-rose-700'
-                : 'bg-[#004C97] hover:bg-[#003d7a]'
-            }`}
-            title={
-              documentValidationResult.blocking_violations_count > 0
-                ? 'Envio bloqueado por violação de regra obrigatória do SGQ'
-                : 'Submeter programação para aprovação formal'
-            }
-          >
-            <Send className="w-3 h-3 mr-1 shrink-0" />
-            <span>{isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}</span>
-          </Button>
-
-          {/* 6. Criar Ordens Produção (SAP ECC via RFC/BAPI) */}
-          <Button
-            size="sm"
-            onClick={() => setIsCreateSapOrdersModalOpen(true)}
-            className="h-7 px-3 text-xs font-bold text-white bg-[#004C97] hover:bg-[#003d7a] shadow-xs inline-flex items-center justify-center"
-            title="Criar Ordens de Produção no SAP ECC via RFC/BAPI"
-          >
-            <Send className="w-3 h-3 mr-1 shrink-0 text-blue-200" />
-            <span>Criar Ordens Produção</span>
-          </Button>
-        </div>
+        {/* 6. Criar Ordens Produção (SAP ECC via RFC/BAPI) */}
+        <Button
+          size="sm"
+          onClick={() => setIsCreateSapOrdersModalOpen(true)}
+          className="h-7 px-3 text-xs font-bold text-white bg-[#004C97] hover:bg-[#003d7a] shadow-xs inline-flex items-center justify-center"
+          title="Criar Ordens de Produção no SAP ECC via RFC/BAPI"
+        >
+          <Send className="w-3 h-3 mr-1 shrink-0 text-blue-200" />
+          <span>Criar Ordens Produção</span>
+        </Button>
       </div>
 
       {/* Painel Pré-Aprovação de Validação de Documentos de Referência (Requisito 10) */}
