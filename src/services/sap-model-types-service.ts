@@ -845,7 +845,9 @@ class SapModelTypesService {
         user_email: `${params.usuario.toLowerCase().replace(/\s+/g, '.')}@ciafal.com.br`,
         action: 'APROVACAO',
         sap_source: 'SISTEMA_VALIDACAO_SAP',
-        justification: params.justificativa || `Governança de Tipos de Modelo SAP (${params.acao}): ${params.tipo_codigo_modelo}`,
+        justification:
+          params.justificativa ||
+          `Governança de Tipos de Modelo SAP (${params.acao}): ${params.tipo_codigo_modelo}`,
         rule_result: JSON.stringify({
           acao: params.acao,
           tipo_codigo_modelo_id: params.tipo_codigo_modelo_id,

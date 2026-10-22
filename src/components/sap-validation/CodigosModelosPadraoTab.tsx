@@ -49,7 +49,7 @@ import {
   SapMaterialTypeOption,
   DUPLICATE_COMBINATION_ERROR_MSG,
 } from '@/services/sap-model-types-service'
-import { authService } from '@/services/pcp-auth'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface VinculadoDraft {
   tempId: string
@@ -65,11 +65,11 @@ interface VinculadoDraft {
 }
 
 export const CodigosModelosPadraoTab: React.FC = () => {
-  const currentUser = authService.getCurrentUser()
+  const { user: currentUser, can } = useAuth()
 
   // Permissões com suporte a papéis e governança do PCP
-  const canManage = authService.can('pcp.sap_validation.models.manage') || true
-  const canView = authService.can('pcp.sap_validation.models.view') || true
+  const canManage = can?.('pcp.sap_validation.models.manage') ?? true
+  const canView = can?.('pcp.sap_validation.models.view') ?? true
 
   // Dados principais
   const [modelTypes, setModelTypes] = useState<SapModelType[]>([])

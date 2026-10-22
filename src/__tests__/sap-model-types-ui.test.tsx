@@ -4,11 +4,19 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { CodigosModelosPadraoTab } from '@/components/sap-validation/CodigosModelosPadraoTab'
 import { sapModelTypesService } from '@/services/sap-model-types-service'
 
-vi.mock('@/services/pcp-auth', () => ({
-  authService: {
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { name: 'Engenheiro PCP', email: 'engenharia@ciafal.com.br' },
     can: () => true,
-    getCurrentUser: () => ({ name: 'Engenheiro PCP', email: 'engenharia@ciafal.com.br' }),
-  },
+    canAny: () => true,
+    canAll: () => true,
+    hasLineScope: () => true,
+    isLoading: false,
+    isGlobal: true,
+    scopes: [],
+    delegations: [],
+    permissions: [],
+  }),
 }))
 
 describe('CodigosModelosPadraoTab — Interface, Regras Visuais e Interação', () => {

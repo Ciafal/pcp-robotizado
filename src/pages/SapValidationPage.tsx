@@ -166,9 +166,9 @@ export const SapValidationPage: React.FC = () => {
             Códigos SAP Pendentes
           </TabsTrigger>
 
-          {/* Aba 5: Histórico / Auditoria */}
+          {/* Aba 5: Códigos Modelos Padrão */}
           <TabsTrigger
-            value="historico-auditoria"
+            value="modelos-padrao"
             className="data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs text-xs py-2 px-3.5 gap-2 font-semibold"
           >
             <BookmarkCheck className="w-3.5 h-3.5 text-[#004C97]" />
