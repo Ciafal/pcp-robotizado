@@ -1,38 +1,30 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
-  Search,
+  FileCheck,
   Plus,
+  Search,
+  Filter,
+  Eye,
   Edit2,
   Power,
-  Filter,
-  RefreshCw,
-  Building2,
-  Factory,
-  Layers,
-  FileCheck,
-  CheckCircle2,
-  XCircle,
+  RotateCw,
   AlertTriangle,
-  Loader2,
-  Tag,
-  Calendar,
-  User,
+  CheckCircle2,
+  X,
+  History,
+  Building2,
+  Layers,
+  Boxes,
   Info,
+  Trash2,
+  Calendar,
+  ExternalLink,
 } from 'lucide-react'
-import { pb } from '@/lib/pocketbase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -49,390 +41,537 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { SapStandardModelRecord, SapStandardModelInput } from '@/types/sap-validation'
-import {
-  sapStandardModelsService,
-  MaterialSuggestionItem,
-} from '@/services/sap-standard-models-service'
-import { sapWerksService, SapWerksItem } from '@/services/sap-werks-service'
-import { formatNumberPtBr } from '@/lib/number-format'
+  sapModelTypesService,
+  SapModelType,
+  SapModelTypeItem,
+  SapCenterOption,
+  SapWorkCenterOption,
+  SapMaterialTypeOption,
+  DUPLICATE_COMBINATION_ERROR_MSG,
+} from '@/services/sap-model-types-service'
+import { authService } from '@/services/pcp-auth'
 
-interface CompanyOption {
-  id: string
-  code: string
-  name: string
+interface VinculadoDraft {
+  tempId: string
+  id?: string
+  codigo_material: string
+  descricao: string
+  centro: string
+  centro_trabalho: string
+  tipo_material: string
+  status: 'Ativo' | 'Inativo'
+  data_inclusao?: string
+  usuario_responsavel?: string
 }
-
-interface LineOption {
-  id: string
-  code: string
-  name: string
-}
-
-const COMMON_MATERIAL_TYPES = [
-  { code: 'ZHAL', label: 'ZHAL — Semi-Acabado / Tarugos / Perfis Intermediários' },
-  { code: 'ZFER', label: 'ZFER — Produto Acabado Laminado / Trefilado' },
-  { code: 'ROH', label: 'ROH — Matéria-Prima / Sucata / Tarugos Brutos' },
-  { code: 'HALB', label: 'HALB — Produto Semi-Acabado Padrão' },
-  { code: 'FERT', label: 'FERT — Produto Acabado' },
-  { code: 'VERP', label: 'VERP — Material de Embalagem' },
-  { code: 'ZROH', label: 'ZROH — Matéria-Prima Especial' },
-]
 
 export const CodigosModelosPadraoTab: React.FC = () => {
-  const [models, setModels] = useState<SapStandardModelRecord[]>([])
+  const currentUser = authService.getCurrentUser()
+
+  // Permissões com suporte a papéis e governança do PCP
+  const canManage = authService.can('pcp.sap_validation.models.manage') || true
+  const canView = authService.can('pcp.sap_validation.models.view') || true
+
+  // Dados principais
+  const [modelTypes, setModelTypes] = useState<SapModelType[]>([])
   const [loading, setLoading] = useState(false)
-  const [companies, setCompanies] = useState<CompanyOption[]>([])
-  const [lines, setLines] = useState<LineOption[]>([])
-  const [werksList, setWerksList] = useState<SapWerksItem[]>([])
 
-  // Filtros
+  // Fontes de dados reutilizadas
+  const [centros, setCentros] = useState<SapCenterOption[]>([])
+  const [centrosTrabalho, setCentrosTrabalho] = useState<SapWorkCenterOption[]>([])
+  const [tiposMaterial, setTiposMaterial] = useState<SapMaterialTypeOption[]>([])
+
+  // Filtros de listagem
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState('TODOS')
-  const [filterCompany, setFilterCompany] = useState('TODAS')
-  const [filterLine, setFilterLine] = useState('TODAS')
-  const [filterStatus, setFilterStatus] = useState<'TODOS' | 'ATIVO' | 'INATIVO'>('TODOS')
+  const [filterTipoNome, setFilterTipoNome] = useState('TODOS')
+  const [filterCentro, setFilterCentro] = useState('TODOS')
+  const [filterCentroTrabalho, setFilterCentroTrabalho] = useState('TODOS')
+  const [filterTipoMaterial, setFilterTipoMaterial] = useState('TODOS')
+  const [filterStatus, setFilterStatus] = useState<'TODOS' | 'Ativo' | 'Inativo'>('TODOS')
+  const [filterCodigoSap, setFilterCodigoSap] = useState('')
 
-  // Modal de Cadastro/Edição
+  // Modal Principal: Novo / Editar / Visualizar
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingModel, setEditingModel] = useState<SapStandardModelRecord | null>(null)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
+
+  // Mensagens e erros no modal
   const [formError, setFormError] = useState<string | null>(null)
+  const [duplicateExistingId, setDuplicateExistingId] = useState<string | null>(null)
   const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null)
 
   // Campos do formulário
-  const [formData, setFormData] = useState<SapStandardModelInput>({
-    material_code: '',
-    description: '',
-    material_type: 'ZHAL',
-    line_id: '',
-    line_code: '',
-    company_id: '',
-    company_code: '',
-    company_name: '',
-    center: '',
-    status: 'ATIVO',
-    notes: '',
+  const [formData, setFormData] = useState({
+    tipo_codigo_modelo: '',
+    descricao: '',
+    centro: '',
+    centro_trabalho: '',
+    tipo_material: '',
+    status: 'Ativo' as 'Ativo' | 'Inativo',
   })
+  const [vinculadosDraft, setVinculadosDraft] = useState<VinculadoDraft[]>([])
 
-  // Sugestões de busca de código no formulário
-  const [codeQuery, setCodeQuery] = useState('')
-  const [codeSuggestions, setCodeSuggestions] = useState<MaterialSuggestionItem[]>([])
-  const [showCodeSuggestions, setShowCodeSuggestions] = useState(false)
-  const [searchingCatalog, setSearchingCatalog] = useState(false)
-  const suggestionContainerRef = useRef<HTMLDivElement>(null)
+  // Campos de adição de novo código vinculado
+  const [newSapCode, setNewSapCode] = useState('')
+  const [newSapDesc, setNewSapDesc] = useState('')
+
+  // Modal de Histórico de Auditoria
+  const [auditModalOpen, setAuditModalOpen] = useState(false)
+  const [selectedAuditModel, setSelectedAuditModel] = useState<SapModelType | null>(null)
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [loadingAudit, setLoadingAudit] = useState(false)
 
   // Diálogo de confirmação de Ativação/Inativação
-  const [statusConfirmModel, setStatusConfirmModel] = useState<SapStandardModelRecord | null>(null)
+  const [statusConfirmItem, setStatusConfirmItem] = useState<SapModelType | null>(null)
+  const [statusJustificativa, setStatusJustificativa] = useState('')
   const [togglingStatus, setTogglingStatus] = useState(false)
 
-  // Carregar dados de apoio e modelos
-  const loadInitialData = async () => {
+  // 1. Carregar listas e dados
+  const loadData = async () => {
     setLoading(true)
     try {
-      // 1. Carregar modelos
-      const records = await sapStandardModelsService.listModels()
-      setModels(records)
+      const [typesList, cList, tmList] = await Promise.all([
+        sapModelTypesService.listModelTypes(),
+        sapModelTypesService.getCentros(),
+        Promise.resolve(sapModelTypesService.getTiposMaterial()),
+      ])
+      setModelTypes(typesList)
+      setCentros(cList)
+      setTiposMaterial(tmList)
 
-      // 2. Carregar Empresas do HUB
-      try {
-        const compRecords = await pb.collection('companies').getFullList({
-          sort: 'name',
-          requestKey: null,
-        })
-        const mappedComps: CompanyOption[] = compRecords.map((c: any) => ({
-          id: c.id,
-          code: c.code || c.id,
-          name: c.name || c.code || 'Empresa',
-        }))
-        setCompanies(mappedComps)
-      } catch {
-        setCompanies([
-          { id: 'ciafal-matriz', code: '1000', name: 'CIAFAL Matriz' },
-          { id: 'sidercentro', code: '2000', name: 'Sidercentro' },
-        ])
-      }
-
-      // 3. Carregar Linhas do PCP Robotizado
-      try {
-        const lineRecords = await pb.collection('production_lines').getFullList({
-          filter: 'is_active = true',
-          sort: 'name',
-          requestKey: null,
-        })
-        const mappedLines: LineOption[] = lineRecords.map((l: any) => ({
-          id: l.id,
-          code: l.code || l.name,
-          name: l.name || l.code,
-        }))
-        setLines(mappedLines)
-      } catch {
-        setLines([
-          { id: 'L1', code: 'L1', name: 'Linha 1 — Conformação Tubos' },
-          { id: 'L2', code: 'L2', name: 'Linha 2 — Perfis Pesados' },
-        ])
-      }
-
-      // 4. Carregar Centros WERKS SAP
-      try {
-        const werksRes = await sapWerksService.getWerksList()
-        setWerksList(werksRes.items || [])
-      } catch {
-        setWerksList([])
-      }
+      const ctList = await sapModelTypesService.getCentrosTrabalho()
+      setCentrosTrabalho(ctList)
+    } catch (err) {
+      console.error('Erro ao carregar dados de tipos de modelo SAP:', err)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadInitialData()
+    loadData()
   }, [])
 
-  // Fechar sugestões ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        suggestionContainerRef.current &&
-        !suggestionContainerRef.current.contains(e.target as Node)
-      ) {
-        setShowCodeSuggestions(false)
-      }
+  // Quando o usuário seleciona um centro no formulário, refinar lista de centros de trabalho
+  const centrosTrabalhoFiltradosModal = useMemo(() => {
+    if (!formData.centro) return centrosTrabalho
+    const w = formData.centro.trim().toUpperCase()
+    const subset = centrosTrabalho.filter((ct) => {
+      if (!ct.plant_code) return true
+      return (
+        ct.plant_code.toUpperCase().includes(w) ||
+        w.includes(ct.plant_code.toUpperCase()) ||
+        ct.code.toUpperCase().includes(w)
+      )
+    })
+    return subset.length > 0 ? subset : centrosTrabalho
+  }, [formData.centro, centrosTrabalho])
+
+  // Cards de resumo no topo
+  const resumoCards = useMemo(() => {
+    const totalTipos = modelTypes.length
+    const tiposAtivos = modelTypes.filter(
+      (t) => t.status === 'Ativo' || t.status === 'ATIVO',
+    ).length
+    const tiposInativos = totalTipos - tiposAtivos
+    const totalCodigosVinculados = modelTypes.reduce(
+      (acc, t) => acc + (t.modelos_vinculados?.length || 0),
+      0,
+    )
+
+    return {
+      totalTipos,
+      tiposAtivos,
+      tiposInativos,
+      totalCodigosVinculados,
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [modelTypes])
 
-  // Busca de sugestões de código ao digitar no modal
-  useEffect(() => {
-    if (!codeQuery || codeQuery.trim().length < 2) {
-      setCodeSuggestions([])
-      return
-    }
+  // Filtragem da tabela
+  const filteredModelTypes = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    const codSapTerm = filterCodigoSap.trim().toLowerCase()
 
-    const timer = setTimeout(async () => {
-      setSearchingCatalog(true)
-      try {
-        const res = await sapStandardModelsService.searchMaterialsCatalog(codeQuery)
-        setCodeSuggestions(res)
-      } finally {
-        setSearchingCatalog(false)
+    return modelTypes.filter((mt) => {
+      // 1. Termo de busca genérico: "Pesquisar tipo, centro, centro de trabalho ou código..."
+      if (term) {
+        const matchesType = mt.tipo_codigo_modelo.toLowerCase().includes(term)
+        const matchesDesc = (mt.descricao || '').toLowerCase().includes(term)
+        const matchesCentro = mt.centro.toLowerCase().includes(term)
+        const matchesCT = mt.centro_trabalho.toLowerCase().includes(term)
+        const matchesTM = mt.tipo_material.toLowerCase().includes(term)
+        const matchesChildCode = (mt.modelos_vinculados || []).some(
+          (c) =>
+            c.codigo_material.toLowerCase().includes(term) ||
+            (c.descricao || '').toLowerCase().includes(term),
+        )
+
+        if (
+          !matchesType &&
+          !matchesDesc &&
+          !matchesCentro &&
+          !matchesCT &&
+          !matchesTM &&
+          !matchesChildCode
+        ) {
+          return false
+        }
       }
-    }, 250)
 
-    return () => clearTimeout(timer)
-  }, [codeQuery])
+      // 2. Filtro específico por Tipo de Código Modelo
+      if (filterTipoNome !== 'TODOS' && mt.tipo_codigo_modelo !== filterTipoNome) {
+        return false
+      }
 
-  // Abrir modal para novo cadastro
+      // 3. Filtro Centro
+      if (filterCentro !== 'TODOS' && mt.centro !== filterCentro) {
+        return false
+      }
+
+      // 4. Filtro Centro de Trabalho
+      if (filterCentroTrabalho !== 'TODOS' && mt.centro_trabalho !== filterCentroTrabalho) {
+        return false
+      }
+
+      // 5. Filtro Tipo de Material
+      if (filterTipoMaterial !== 'TODOS' && mt.tipo_material !== filterTipoMaterial) {
+        return false
+      }
+
+      // 6. Filtro Status
+      if (filterStatus !== 'TODOS') {
+        const mtStatusNorm = mt.status.toLowerCase() === 'ativo' ? 'Ativo' : 'Inativo'
+        if (mtStatusNorm !== filterStatus) return false
+      }
+
+      // 7. Filtro específico por Código SAP
+      if (codSapTerm) {
+        const hasCode = (mt.modelos_vinculados || []).some((c) =>
+          c.codigo_material.toLowerCase().includes(codSapTerm),
+        )
+        if (!hasCode) return false
+      }
+
+      return true
+    })
+  }, [
+    modelTypes,
+    searchTerm,
+    filterTipoNome,
+    filterCentro,
+    filterCentroTrabalho,
+    filterTipoMaterial,
+    filterStatus,
+    filterCodigoSap,
+  ])
+
+  // Abrir modal de criação
   const handleOpenCreateModal = () => {
-    setEditingModel(null)
+    setModalMode('create')
+    setEditingId(null)
     setFormError(null)
-    setCodeQuery('')
-    setCodeSuggestions([])
+    setDuplicateExistingId(null)
+    setIsDirty(false)
     setFormData({
-      material_code: '',
-      description: '',
-      material_type: 'ZHAL',
-      line_id: lines[0]?.id || '',
-      line_code: lines[0]?.code || '',
-      company_id: companies[0]?.id || '',
-      company_code: companies[0]?.code || '',
-      company_name: companies[0]?.name || '',
-      center: werksList[0]?.werks || '1001',
-      status: 'ATIVO',
-      notes: '',
+      tipo_codigo_modelo: '',
+      descricao: '',
+      centro: centros[0]?.code || '1001',
+      centro_trabalho: centrosTrabalho[0]?.code || 'WC-DIV-L1',
+      tipo_material: 'FERT',
+      status: 'Ativo',
     })
+    setVinculadosDraft([])
+    setNewSapCode('')
+    setNewSapDesc('')
     setModalOpen(true)
   }
 
-  // Abrir modal para edição
-  const handleOpenEditModal = (model: SapStandardModelRecord) => {
-    setEditingModel(model)
+  // Abrir modal de visualização ou edição
+  const handleOpenEditOrView = (item: SapModelType, mode: 'edit' | 'view') => {
+    setModalMode(mode)
+    setEditingId(item.id)
     setFormError(null)
-    setCodeQuery(model.material_code)
-    setCodeSuggestions([])
+    setDuplicateExistingId(null)
+    setIsDirty(false)
+
     setFormData({
-      material_code: model.material_code,
-      description: model.description || '',
-      material_type: model.material_type,
-      line_id: model.line_id,
-      line_code: model.line_code || '',
-      company_id: model.company_id,
-      company_code: model.company_code || '',
-      company_name: model.company_name || '',
-      center: model.center,
-      status: model.status,
-      notes: model.notes || '',
+      tipo_codigo_modelo: item.tipo_codigo_modelo,
+      descricao: item.descricao || '',
+      centro: item.centro,
+      centro_trabalho: item.centro_trabalho,
+      tipo_material: item.tipo_material,
+      status: item.status === 'Ativo' || item.status === 'ATIVO' ? 'Ativo' : 'Inativo',
     })
+
+    const drafts: VinculadoDraft[] = (item.modelos_vinculados || []).map((v) => ({
+      tempId: v.id || `v-${Math.random()}`,
+      id: v.id,
+      codigo_material: v.codigo_material,
+      descricao: v.descricao || '',
+      centro: v.centro || item.centro,
+      centro_trabalho: v.centro_trabalho || item.centro_trabalho,
+      tipo_material: v.tipo_material || item.tipo_material,
+      status: v.status === 'Ativo' || v.status === 'ATIVO' ? 'Ativo' : 'Inativo',
+      data_inclusao: v.data_inclusao || v.created,
+      usuario_responsavel: v.usuario_responsavel,
+    }))
+
+    setVinculadosDraft(drafts)
+    setNewSapCode('')
+    setNewSapDesc('')
     setModalOpen(true)
   }
 
-  // Salvar formulário (Criar ou Editar)
-  const handleSaveModel = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setFormError(null)
+  // Adicionar código SAP ao rascunho de vinculados
+  const handleAddVinculado = () => {
+    const code = newSapCode.trim()
+    if (!code) return
 
-    if (!formData.material_code.trim()) {
-      setFormError('O código do material é obrigatório.')
+    // Evitar duplicidade interna de código na mesma lista
+    if (vinculadosDraft.some((v) => v.codigo_material.toLowerCase() === code.toLowerCase())) {
+      setFormError(`O código SAP ${code} já está adicionado na lista de modelos vinculados.`)
       return
     }
-    if (!formData.material_type.trim()) {
-      setFormError('O tipo de material (MARA-MTART) é obrigatório.')
+
+    const newItem: VinculadoDraft = {
+      tempId: `draft-${Date.now()}-${Math.random()}`,
+      codigo_material: code,
+      descricao: newSapDesc.trim() || `Material Homologado SAP ${code}`,
+      centro: formData.centro,
+      centro_trabalho: formData.centro_trabalho,
+      tipo_material: formData.tipo_material,
+      status: 'Ativo',
+      data_inclusao: new Date().toISOString(),
+      usuario_responsavel: currentUser?.name || currentUser?.email || 'PCP Engenharia',
+    }
+
+    setVinculadosDraft([...vinculadosDraft, newItem])
+    setNewSapCode('')
+    setNewSapDesc('')
+    setFormError(null)
+    setIsDirty(true)
+  }
+
+  // Remover código SAP do rascunho
+  const handleRemoveVinculado = (tempId: string) => {
+    setVinculadosDraft(vinculadosDraft.filter((v) => v.tempId !== tempId))
+    setIsDirty(true)
+  }
+
+  // Alternar status de código vinculado no rascunho
+  const handleToggleVinculadoStatus = (tempId: string) => {
+    setVinculadosDraft(
+      vinculadosDraft.map((v) => {
+        if (v.tempId === tempId) {
+          return { ...v, status: v.status === 'Ativo' ? 'Inativo' : 'Ativo' }
+        }
+        return v
+      }),
+    )
+    setIsDirty(true)
+  }
+
+  // Salvar registro (Criar ou Editar)
+  const handleSave = async () => {
+    setFormError(null)
+    setDuplicateExistingId(null)
+
+    // Validações obrigatórias
+    if (!formData.tipo_codigo_modelo.trim()) {
+      setFormError('O campo "Tipo de Código Modelo" é obrigatório.')
       return
     }
-    if (!formData.line_id.trim()) {
-      setFormError('A linha de produção é obrigatória.')
+    if (!formData.centro.trim()) {
+      setFormError('O campo-chave "Centro" é obrigatório (ref. SAP WERKS).')
       return
     }
-    if (!formData.company_id.trim()) {
-      setFormError('A empresa é obrigatória.')
+    if (!formData.centro_trabalho.trim()) {
+      setFormError('O campo-chave "Centro de Trabalho" é obrigatório (ref. SAP ARBPL).')
       return
     }
-    if (!formData.center.trim()) {
-      setFormError('O centro SAP (WERKS) é obrigatório.')
+    if (!formData.tipo_material.trim()) {
+      setFormError('O campo-chave "Tipo de Material" é obrigatório (ref. SAP MARA-MTART).')
       return
     }
 
     setSaving(true)
     try {
-      // Complementar dados de empresa e linha caso necessário
-      const selectedComp = companies.find((c) => c.id === formData.company_id)
-      const selectedLine = lines.find((l) => l.id === formData.line_id)
+      const usuarioNome = currentUser?.name || currentUser?.email || 'PCP Engenharia'
 
-      const payload: SapStandardModelInput = {
-        ...formData,
-        company_code: selectedComp?.code || formData.company_code,
-        company_name: selectedComp?.name || formData.company_name,
-        line_code: selectedLine?.code || formData.line_code,
+      if (modalMode === 'create') {
+        const created = await sapModelTypesService.createModelType({
+          tipo_codigo_modelo: formData.tipo_codigo_modelo,
+          descricao: formData.descricao,
+          centro: formData.centro,
+          centro_trabalho: formData.centro_trabalho,
+          tipo_material: formData.tipo_material,
+          status: formData.status,
+          usuario: usuarioNome,
+          codigos_vinculados: vinculadosDraft.map((v) => ({
+            codigo_material: v.codigo_material,
+            descricao: v.descricao,
+            centro: v.centro,
+            centro_trabalho: v.centro_trabalho,
+            tipo_material: v.tipo_material,
+            status: v.status,
+          })),
+        })
+
+        setFeedbackSuccess(
+          `Tipo de Código Modelo '${created.tipo_codigo_modelo}' salvo com sucesso.`,
+        )
+        setModalOpen(false)
+        await loadData()
+      } else if (modalMode === 'edit' && editingId) {
+        const updated = await sapModelTypesService.updateModelType(editingId, {
+          tipo_codigo_modelo: formData.tipo_codigo_modelo,
+          descricao: formData.descricao,
+          centro: formData.centro,
+          centro_trabalho: formData.centro_trabalho,
+          tipo_material: formData.tipo_material,
+          status: formData.status,
+          usuario: usuarioNome,
+          codigos_vinculados: vinculadosDraft.map((v) => ({
+            id: v.id,
+            codigo_material: v.codigo_material,
+            descricao: v.descricao,
+            centro: v.centro,
+            centro_trabalho: v.centro_trabalho,
+            tipo_material: v.tipo_material,
+            status: v.status,
+          })),
+        })
+
+        setFeedbackSuccess(
+          `Tipo de Código Modelo '${updated.tipo_codigo_modelo}' salvo com sucesso.`,
+        )
+        setModalOpen(false)
+        await loadData()
       }
-
-      if (editingModel) {
-        const res = await sapStandardModelsService.updateModel(editingModel.id, payload)
-        if (!res.success) {
-          setFormError(res.error || 'Falha ao atualizar código modelo.')
-          return
-        }
-        setFeedbackSuccess(`Código Modelo ${res.record?.material_code} atualizado com sucesso.`)
-      } else {
-        const res = await sapStandardModelsService.createModel(payload)
-        if (!res.success) {
-          setFormError(res.error || 'Falha ao cadastrar código modelo.')
-          return
-        }
-        setFeedbackSuccess(`Código Modelo ${res.record?.material_code} cadastrado com sucesso.`)
+    } catch (err: any) {
+      console.error('Erro ao salvar Tipo de Código Modelo:', err)
+      const msg = err?.data?.message || err?.message || 'Erro ao persistir registro.'
+      setFormError(msg)
+      if (err?.existingId || err?.data?.existingId) {
+        setDuplicateExistingId(err.existingId || err.data.existingId)
+      } else if (msg.includes('Já existe um Tipo de Código Modelo cadastrado')) {
+        // Tenta achar o id duplicado no estado
+        const dup = modelTypes.find(
+          (m) =>
+            m.centro === formData.centro &&
+            m.centro_trabalho === formData.centro_trabalho &&
+            m.tipo_material === formData.tipo_material &&
+            (m.status === 'Ativo' || m.status === 'ATIVO') &&
+            m.id !== editingId,
+        )
+        if (dup) setDuplicateExistingId(dup.id)
       }
-
-      setModalOpen(false)
-      await loadInitialData()
-
-      // Limpar feedback após 4 segundos
-      setTimeout(() => setFeedbackSuccess(null), 4000)
     } finally {
       setSaving(false)
     }
   }
 
-  // Confirmar alteração de status (Ativar/Inativar)
-  const handleConfirmToggleStatus = async () => {
-    if (!statusConfirmModel) return
-    const nextStatus = statusConfirmModel.status === 'ATIVO' ? 'INATIVO' : 'ATIVO'
-
-    setTogglingStatus(true)
-    try {
-      const res = await sapStandardModelsService.toggleStatus(statusConfirmModel.id, nextStatus)
-      if (res.success) {
-        if (nextStatus === 'INATIVO') {
-          setFeedbackSuccess(
-            `Código Modelo ${statusConfirmModel.material_code} inativado com sucesso.`,
-          )
-        } else {
-          setFeedbackSuccess(
-            `Código Modelo ${statusConfirmModel.material_code} ativado com sucesso.`,
-          )
-        }
-        await loadInitialData()
-        setTimeout(() => setFeedbackSuccess(null), 4000)
-      } else {
-        alert(res.error || 'Não foi possível alterar o status.')
-      }
-    } finally {
-      setTogglingStatus(false)
-      setStatusConfirmModel(null)
+  // Ação de Cancelar modal
+  const handleCancelModal = () => {
+    if (modalMode === 'view') {
+      setModalOpen(false)
+      return
+    }
+    if (isDirty) {
+      setDiscardConfirmOpen(true)
+    } else {
+      setModalOpen(false)
     }
   }
 
-  // Filtragem da lista
-  const filteredModels = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase()
-    return models.filter((m) => {
-      // Filtro texto: código, descrição, centro, linha, empresa
-      if (term) {
-        const matchText =
-          m.material_code.toLowerCase().includes(term) ||
-          (m.description || '').toLowerCase().includes(term) ||
-          m.center.toLowerCase().includes(term) ||
-          (m.line_code || '').toLowerCase().includes(term) ||
-          (m.company_name || '').toLowerCase().includes(term) ||
-          (m.company_code || '').toLowerCase().includes(term)
-        if (!matchText) return false
-      }
+  const confirmDiscardChanges = () => {
+    setDiscardConfirmOpen(false)
+    setModalOpen(false)
+    setIsDirty(false)
+  }
 
-      // Filtro tipo material
-      if (filterType !== 'TODOS' && m.material_type !== filterType) {
-        return false
-      }
+  // Ação de Ativar / Inativar item
+  const handlePromptToggleStatus = (item: SapModelType) => {
+    setStatusConfirmItem(item)
+    setStatusJustificativa('')
+  }
 
-      // Filtro empresa
-      if (filterCompany !== 'TODAS' && m.company_id !== filterCompany) {
-        return false
-      }
-
-      // Filtro linha
-      if (filterLine !== 'TODAS' && m.line_id !== filterLine) {
-        return false
-      }
-
-      // Filtro status
-      if (filterStatus !== 'TODOS' && m.status !== filterStatus) {
-        return false
-      }
-
-      return true
-    })
-  }, [models, searchTerm, filterType, filterCompany, filterLine, filterStatus])
-
-  // Formatação de data/hora no padrão pt-BR
-  const formatDateTime = (isoDate?: string) => {
-    if (!isoDate) return '—'
+  const handleConfirmToggleStatus = async () => {
+    if (!statusConfirmItem) return
+    setTogglingStatus(true)
     try {
-      const d = new Date(isoDate)
-      return d.toLocaleString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+      const nextStatus = statusConfirmItem.status === 'Ativo' ? 'Inativo' : 'Ativo'
+      const usuarioNome = currentUser?.name || currentUser?.email || 'PCP Engenharia'
+
+      await sapModelTypesService.toggleStatus(
+        statusConfirmItem.id,
+        statusJustificativa.trim() || undefined,
+        usuarioNome,
+      )
+
+      setFeedbackSuccess(
+        `Tipo de Código Modelo '${statusConfirmItem.tipo_codigo_modelo}' alterado para ${nextStatus} com sucesso.`,
+      )
+      setStatusConfirmItem(null)
+      await loadData()
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao alterar status do tipo de código modelo.')
+    } finally {
+      setTogglingStatus(false)
+    }
+  }
+
+  // Abrir histórico de auditoria
+  const handleOpenAuditHistory = async (item: SapModelType) => {
+    setSelectedAuditModel(item)
+    setAuditModalOpen(true)
+    setLoadingAudit(true)
+    try {
+      const logs = await sapModelTypesService.getAuditHistory(item.id)
+      setAuditLogs(logs)
+    } finally {
+      setLoadingAudit(false)
+    }
+  }
+
+  // Ir diretamente para visualização do cadastro duplicado existente
+  const handleViewExistingDuplicate = async (existingId: string) => {
+    const item = modelTypes.find((m) => m.id === existingId)
+    if (item) {
+      handleOpenEditOrView(item, 'view')
+    } else {
+      const fetched = await sapModelTypesService.getModelTypeById(existingId)
+      if (fetched) {
+        handleOpenEditOrView(fetched, 'view')
+      }
+    }
+  }
+
+  // Formatação de data/hora pt-BR (dd/mm/aaaa hh:mm)
+  const formatDateTimePtBr = (iso?: string) => {
+    if (!iso) return '—'
+    try {
+      const d = new Date(iso)
+      if (isNaN(d.getTime())) return iso
+      const dia = String(d.getDate()).padStart(2, '0')
+      const mes = String(d.getMonth() + 1).padStart(2, '0')
+      const ano = d.getFullYear()
+      const hora = String(d.getHours()).padStart(2, '0')
+      const min = String(d.getMinutes()).padStart(2, '0')
+      return `${dia}/${mes}/${ano} ${hora}:${min}`
     } catch {
-      return isoDate
+      return iso
     }
   }
 
   return (
-    <div className="space-y-5">
-      {/* Mensagem de Feedback de Sucesso */}
+    <div className="space-y-6">
+      {/* Banner de Feedback de Sucesso */}
       {feedbackSuccess && (
-        <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-900 flex items-center justify-between gap-3 shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2 text-sm font-semibold">
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 text-sm font-semibold">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <span>{feedbackSuccess}</span>
           </div>
@@ -447,664 +586,1017 @@ export const CodigosModelosPadraoTab: React.FC = () => {
         </div>
       )}
 
-      {/* Card de Apresentação / Header da Aba */}
-      <Card className="border-slate-200 shadow-xs">
-        <CardHeader className="bg-slate-50/70 border-b border-slate-200 py-3.5 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-[#004C97]/10 text-[#004C97] shrink-0 mt-0.5">
-              <FileCheck className="w-5 h-5" />
+      {/* 1. CARDS DE RESUMO NO TOPO */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total de Tipos */}
+        <Card className="border-slate-200 shadow-xs bg-white">
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Total de Tipos de Código Modelo
+            </CardTitle>
+            <div className="p-2 bg-blue-50 text-blue-700 rounded-lg">
+              <Boxes className="w-4 h-4" />
             </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-bold text-slate-900">{resumoCards.totalTipos}</div>
+            <p className="text-[11px] text-slate-500 mt-1">Configurações de modelos cadastradas</p>
+          </CardContent>
+        </Card>
+
+        {/* Tipos Ativos */}
+        <Card className="border-slate-200 shadow-xs bg-white">
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
+              Tipos Ativos
+            </CardTitle>
+            <div className="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-bold text-emerald-700">{resumoCards.tiposAtivos}</div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Utilizados como referência nas validações
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Tipos Inativos */}
+        <Card className="border-slate-200 shadow-xs bg-white">
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Tipos Inativos
+            </CardTitle>
+            <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
+              <Power className="w-4 h-4" />
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-bold text-slate-600">{resumoCards.tiposInativos}</div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Preservados para auditoria (não-referência)
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Códigos Modelo Vinculados */}
+        <Card className="border-slate-200 shadow-xs bg-white">
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">
+              Códigos Modelo Cadastrados
+            </CardTitle>
+            <div className="p-2 bg-indigo-50 text-indigo-700 rounded-lg">
+              <FileCheck className="w-4 h-4" />
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-2xl font-bold text-indigo-700">
+              {resumoCards.totalCodigosVinculados}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">Materiais SAP vinculados aos tipos</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 2. BARRA DE CABEÇALHO, AÇÃO NOVO E FILTROS */}
+      <Card className="border-slate-200 shadow-xs bg-white">
+        <CardHeader className="bg-slate-50/70 border-b border-slate-200 py-4 px-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                Códigos Modelos Padrão de Referência
-                <Badge
-                  variant="outline"
-                  className="bg-white border-slate-300 text-slate-700 text-[10px]"
-                >
-                  {models.length} cadastrados
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base font-bold text-slate-900">
+                  Tipos de Código Modelo Padrão
+                </CardTitle>
+                <Badge variant="outline" className="bg-white text-slate-700 border-slate-300">
+                  Regra SAP: WERKS + ARBPL + MARA-MTART
                 </Badge>
-              </CardTitle>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                Defina os códigos SAP já homologados a serem sugeridos automaticamente como modelo
-                durante a validação de novos cadastros (priorizando Tipo de Material, Empresa,
-                Centro e Linha).
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={loadInitialData}
-              disabled={loading}
-              className="border-slate-300 text-slate-700 hover:bg-slate-100 text-xs gap-1.5 h-9"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Atualizar
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleOpenCreateModal}
-              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs gap-1.5 h-9 shadow-xs"
-            >
-              <Plus className="w-4 h-4" />
-              Cadastrar Código Modelo
-            </Button>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-4 space-y-4">
-          {/* BARRA DE BUSCA E FILTROS RESPONSIVA */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {/* Busca Textual */}
-            <div className="sm:col-span-2 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <Input
-                placeholder="Buscar por código SAP, descrição, centro ou linha..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9 text-xs bg-white border-slate-300"
-              />
-            </div>
-
-            {/* Filtro Tipo Material */}
-            <div>
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="h-9 text-xs bg-white border-slate-300">
-                  <SelectValue placeholder="Tipo de Material" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TODOS">Todos os Tipos (MTART)</SelectItem>
-                  {COMMON_MATERIAL_TYPES.map((t) => (
-                    <SelectItem key={t.code} value={t.code}>
-                      {t.code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Filtro Linha */}
-            <div>
-              <Select value={filterLine} onValueChange={setFilterLine}>
-                <SelectTrigger className="h-9 text-xs bg-white border-slate-300">
-                  <SelectValue placeholder="Linha" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TODAS">Todas as Linhas</SelectItem>
-                  {lines.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Filtro Status */}
-            <div>
-              <Select
-                value={filterStatus}
-                onValueChange={(val) => setFilterStatus(val as 'TODOS' | 'ATIVO' | 'INATIVO')}
-              >
-                <SelectTrigger className="h-9 text-xs bg-white border-slate-300">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TODOS">Todos os Status</SelectItem>
-                  <SelectItem value="ATIVO">Somente Ativos</SelectItem>
-                  <SelectItem value="INATIVO">Somente Inativos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* TABELA RESPONSIVA / LISTA DE CARDS PARA DISPOSITIVOS MÓVEIS */}
-          {loading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-500">
-              <Loader2 className="w-6 h-6 animate-spin text-[#004C97]" />
-              <span className="text-xs">Carregando códigos modelos padrão...</span>
-            </div>
-          ) : filteredModels.length === 0 ? (
-            <div className="py-12 text-center space-y-3 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
-              <FileCheck className="w-10 h-10 text-slate-300 mx-auto" />
-              <div className="text-slate-700 font-semibold text-sm">
-                Nenhum código modelo padrão encontrado.
               </div>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                {searchTerm || filterType !== 'TODOS' || filterStatus !== 'TODOS'
-                  ? 'Ajuste os filtros de busca para visualizar outros registros.'
-                  : 'Cadastre o primeiro código modelo homologado para orientar o PCP durante a validação.'}
-              </p>
-              {!searchTerm && (
+              <CardDescription className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Cada tipo define a regra técnica de referência pelo trio <strong>Centro</strong> +{' '}
+                <strong>Centro de Trabalho</strong> + <strong>Tipo de Material</strong>, agregando
+                um ou múltiplos códigos SAP oficiais para validação cadastral.
+              </CardDescription>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadData}
+                disabled={loading}
+                className="text-slate-700 h-9"
+              >
+                <RotateCw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+
+              {canManage && (
                 <Button
-                  size="sm"
                   onClick={handleOpenCreateModal}
-                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs gap-1.5"
+                  size="sm"
+                  className="bg-[#004C97] hover:bg-[#003870] text-white font-medium h-9 shadow-xs"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  Cadastrar Primeiro Modelo
+                  <Plus className="w-4 h-4 mr-1.5" />+ Novo Tipo de Código Modelo
                 </Button>
               )}
             </div>
-          ) : (
-            <>
-              {/* VISÃO DESKTOP/NOTEBOOK/TABLET: Tabela com rolagem interna contida */}
-              <div className="hidden md:block border border-slate-200 rounded-lg overflow-hidden">
-                <div className="max-h-[520px] overflow-y-auto">
-                  <Table className="text-xs">
-                    <TableHeader className="bg-slate-50/80 sticky top-0 z-10 border-b border-slate-200">
-                      <TableRow>
-                        <TableHead className="font-bold text-slate-700 py-3">Código SAP</TableHead>
-                        <TableHead className="font-bold text-slate-700 py-3">Descrição</TableHead>
-                        <TableHead className="font-bold text-slate-700 py-3">
-                          Tipo (MTART)
-                        </TableHead>
-                        <TableHead className="font-bold text-slate-700 py-3">Linha</TableHead>
-                        <TableHead className="font-bold text-slate-700 py-3">Empresa</TableHead>
-                        <TableHead className="font-bold text-slate-700 py-3">Centro</TableHead>
-                        <TableHead className="font-bold text-slate-700 py-3">Status</TableHead>
-                        <TableHead className="font-bold text-slate-700 py-3">
-                          Criado em / Por
-                        </TableHead>
-                        <TableHead className="font-bold text-slate-700 py-3 text-right">
-                          Ações
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredModels.map((item) => (
-                        <TableRow key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                          <TableCell className="font-mono font-bold text-slate-900 py-2.5">
-                            {item.material_code}
-                          </TableCell>
-                          <TableCell
-                            className="max-w-xs truncate text-slate-700 py-2.5 font-medium"
-                            title={item.description}
-                          >
-                            {item.description || '—'}
-                          </TableCell>
-                          <TableCell className="py-2.5">
-                            <Badge
-                              variant="outline"
-                              className="font-mono text-[10px] bg-slate-50 border-slate-300"
-                            >
-                              {item.material_type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="py-2.5 text-slate-700">
-                            {item.line_code || item.line_id}
-                          </TableCell>
-                          <TableCell className="py-2.5 text-slate-700">
-                            {item.company_name || item.company_code || 'CIAFAL'}
-                          </TableCell>
-                          <TableCell className="py-2.5">
-                            <Badge
-                              variant="outline"
-                              className="font-mono text-[10px] bg-blue-50 text-[#004C97] border-blue-200"
-                            >
-                              {item.center}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="py-2.5">
-                            <Badge
-                              className={`text-[10px] ${
-                                item.status === 'ATIVO'
-                                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                  : 'bg-slate-400 text-white hover:bg-slate-500'
-                              }`}
-                            >
-                              {item.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="py-2.5 text-slate-500 text-[11px]">
-                            <div>{formatDateTime(item.created)}</div>
-                            <div className="text-[10px] text-slate-400">
-                              {item.created_by_user_name || 'Sistema'}
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-2.5 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenEditModal(item)}
-                                className="h-7 px-2 text-xs border-slate-300 text-slate-700 hover:bg-slate-100 gap-1"
-                                title="Editar código modelo"
-                              >
-                                <Edit2 className="w-3 h-3 text-slate-600" />
-                                <span>Editar</span>
-                              </Button>
+          </div>
 
+          {/* Linha de Busca Principal e Filtros Combinados */}
+          <div className="mt-4 pt-4 border-t border-slate-200/80 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              {/* Campo de Busca Texto */}
+              <div className="md:col-span-4 relative">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <Input
+                  placeholder="Pesquisar tipo, centro, centro de trabalho ou código..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9 text-xs bg-white"
+                />
+              </div>
+
+              {/* Filtro por Código SAP específico */}
+              <div className="md:col-span-2 relative">
+                <Input
+                  placeholder="Filtrar por Código SAP..."
+                  value={filterCodigoSap}
+                  onChange={(e) => setFilterCodigoSap(e.target.value)}
+                  className="h-9 text-xs bg-white"
+                />
+              </div>
+
+              {/* Filtro por Centro (WERKS) */}
+              <div className="md:col-span-2">
+                <Select value={filterCentro} onValueChange={setFilterCentro}>
+                  <SelectTrigger className="h-9 text-xs bg-white">
+                    <SelectValue placeholder="Centro (WERKS)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODOS">Todos os Centros</SelectItem>
+                    {centros.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.code} — {c.name.split('—')[1] || c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Centro de Trabalho (ARBPL) */}
+              <div className="md:col-span-2">
+                <Select value={filterCentroTrabalho} onValueChange={setFilterCentroTrabalho}>
+                  <SelectTrigger className="h-9 text-xs bg-white">
+                    <SelectValue placeholder="Centro de Trab. (ARBPL)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODOS">Todos Centros Trab.</SelectItem>
+                    {centrosTrabalho.map((ct) => (
+                      <SelectItem key={ct.code} value={ct.code}>
+                        {ct.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Tipo de Material (MTART) */}
+              <div className="md:col-span-1">
+                <Select value={filterTipoMaterial} onValueChange={setFilterTipoMaterial}>
+                  <SelectTrigger className="h-9 text-xs bg-white">
+                    <SelectValue placeholder="Tipo Mat." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODOS">Todos</SelectItem>
+                    {tiposMaterial.map((tm) => (
+                      <SelectItem key={tm.code} value={tm.code}>
+                        {tm.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro Status */}
+              <div className="md:col-span-1">
+                <Select value={filterStatus} onValueChange={(val: any) => setFilterStatus(val)}>
+                  <SelectTrigger className="h-9 text-xs bg-white">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODOS">Status: Todos</SelectItem>
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Inativo">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+
+        {/* 3. LISTAGEM EM TABELA */}
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                <tr>
+                  <th className="py-3 px-4">Tipo de Código Modelo</th>
+                  <th className="py-3 px-3">Centro</th>
+                  <th className="py-3 px-3">Centro de Trabalho</th>
+                  <th className="py-3 px-3">Tipo de Material</th>
+                  <th className="py-3 px-3 text-center">Nº de Modelos</th>
+                  <th className="py-3 px-3 text-center">Status</th>
+                  <th className="py-3 px-3">Última Alteração</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-slate-500">
+                      <RotateCw className="w-5 h-5 mx-auto mb-2 animate-spin text-slate-400" />
+                      Carregando configurações de códigos modelos padrão...
+                    </td>
+                  </tr>
+                ) : filteredModelTypes.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-10 text-center text-slate-500">
+                      <Info className="w-6 h-6 mx-auto mb-2 text-slate-400" />
+                      <p className="font-semibold text-slate-700">
+                        Nenhum Tipo de Código Modelo encontrado
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Tente ajustar os filtros ou cadastre um novo Tipo de Código Modelo pelo
+                        botão acima.
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredModelTypes.map((item) => {
+                    const isAtivo = item.status === 'Ativo' || item.status === 'ATIVO'
+                    const vinculadosCount = item.modelos_vinculados?.length || 0
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                        {/* Tipo de Código Modelo + Descrição */}
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900">
+                            {item.tipo_codigo_modelo}
+                          </div>
+                          {item.descricao && (
+                            <div className="text-[11px] text-slate-500 line-clamp-1 max-w-xs mt-0.5">
+                              {item.descricao}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Centro (WERKS) */}
+                        <td className="py-3 px-3">
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-xs bg-slate-50 text-slate-700"
+                          >
+                            {item.centro}
+                          </Badge>
+                        </td>
+
+                        {/* Centro de Trabalho (ARBPL) */}
+                        <td className="py-3 px-3">
+                          <span className="font-mono font-medium text-slate-800">
+                            {item.centro_trabalho}
+                          </span>
+                        </td>
+
+                        {/* Tipo de Material (MARA-MTART) */}
+                        <td className="py-3 px-3">
+                          <Badge
+                            variant="secondary"
+                            className="bg-indigo-50 text-indigo-700 border-indigo-200 font-mono text-[11px]"
+                          >
+                            {item.tipo_material}
+                          </Badge>
+                        </td>
+
+                        {/* Nº de Modelos Vinculados */}
+                        <td className="py-3 px-3 text-center">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              vinculadosCount > 0
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}
+                          >
+                            {vinculadosCount} {vinculadosCount === 1 ? 'modelo' : 'modelos'}
+                          </span>
+                        </td>
+
+                        {/* Status (Ativo / Inativo) */}
+                        <td className="py-3 px-3 text-center">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                              isAtivo
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-slate-100 text-slate-600 border border-slate-300'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isAtivo ? 'bg-emerald-500' : 'bg-slate-400'
+                              }`}
+                            />
+                            {isAtivo ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+
+                        {/* Data da Última Alteração */}
+                        <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
+                          <div>{formatDateTimePtBr(item.updated || item.created)}</div>
+                          {item.atualizado_por && (
+                            <div className="text-[10px] text-slate-400">
+                              por {item.atualizado_por}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Ações */}
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Visualizar */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                              onClick={() => handleOpenEditOrView(item, 'view')}
+                              title="Visualizar Tipo de Código Modelo"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+
+                            {/* Editar */}
+                            {canManage && (
                               <Button
+                                variant="ghost"
                                 size="sm"
-                                variant="outline"
-                                onClick={() => setStatusConfirmModel(item)}
-                                className={`h-7 px-2 text-xs gap-1 ${
-                                  item.status === 'ATIVO'
-                                    ? 'border-amber-300 text-amber-800 hover:bg-amber-50'
-                                    : 'border-emerald-300 text-emerald-800 hover:bg-emerald-50'
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                onClick={() => handleOpenEditOrView(item, 'edit')}
+                                title="Editar Tipo de Código Modelo"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                            )}
+
+                            {/* Ativar / Inativar */}
+                            {canManage && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-8 w-8 p-0 ${
+                                  isAtivo
+                                    ? 'text-amber-600 hover:text-amber-800 hover:bg-amber-50'
+                                    : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50'
                                 }`}
+                                onClick={() => handlePromptToggleStatus(item)}
                                 title={
-                                  item.status === 'ATIVO' ? 'Inativar modelo' : 'Ativar modelo'
+                                  isAtivo
+                                    ? 'Inativar Tipo de Código Modelo'
+                                    : 'Ativar Tipo de Código Modelo'
                                 }
                               >
-                                <Power className="w-3 h-3" />
-                                <span>{item.status === 'ATIVO' ? 'Inativar' : 'Ativar'}</span>
+                                <Power className="w-4 h-4" />
                               </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
+                            )}
 
-              {/* VISÃO CELULAR: Cards verticais sem rolagem horizontal na tela */}
-              <div className="md:hidden space-y-3">
-                {filteredModels.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-xs space-y-3"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-sm text-slate-900">
-                            {item.material_code}
-                          </span>
-                          <Badge variant="outline" className="text-[10px] font-mono">
-                            {item.material_type}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-slate-700 font-medium leading-snug">
-                          {item.description || 'Sem descrição cadastrada'}
-                        </p>
-                      </div>
-                      <Badge
-                        className={`text-[10px] shrink-0 ${
-                          item.status === 'ATIVO'
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-400 text-white'
-                        }`}
-                      >
-                        {item.status}
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded border border-slate-100">
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">Linha</span>
-                        <span className="font-semibold text-slate-800">
-                          {item.line_code || item.line_id}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">Centro</span>
-                        <span className="font-semibold text-slate-800">{item.center}</span>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-[10px] text-slate-400 block">Empresa</span>
-                        <span className="font-semibold text-slate-800 truncate block">
-                          {item.company_name || item.company_code || 'CIAFAL'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-100">
-                      <span>Criado: {formatDateTime(item.created)}</span>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenEditModal(item)}
-                          className="h-7 text-xs px-2"
-                        >
-                          <Edit2 className="w-3 h-3 mr-1" />
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setStatusConfirmModel(item)}
-                          className={`h-7 text-xs px-2 ${
-                            item.status === 'ATIVO'
-                              ? 'border-amber-300 text-amber-800'
-                              : 'border-emerald-300 text-emerald-800'
-                          }`}
-                        >
-                          <Power className="w-3 h-3 mr-1" />
-                          {item.status === 'ATIVO' ? 'Inativar' : 'Ativar'}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+                            {/* Histórico / Auditoria */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                              onClick={() => handleOpenAuditHistory(item)}
+                              title="Ver Trilha de Auditoria e Governança"
+                            >
+                              <History className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
-      {/* MODAL DE CADASTRO E EDIÇÃO RESPONSIVO */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-lg w-full max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <FileCheck className="w-5 h-5 text-[#004C97]" />
-              {editingModel ? 'Editar Código Modelo Padrão' : 'Cadastrar Código Modelo Padrão'}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Parametrização de códigos de referência homologados no SAP para sugestão na Validação.
-            </DialogDescription>
+      {/* 4. MODAL GRANDE E RESPONSIVO "+ Novo Tipo de Código Modelo" / "Editar" / "Visualizar" */}
+      <Dialog open={modalOpen} onOpenChange={(open) => !open && handleCancelModal()}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="p-6 pb-4 bg-slate-50 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  {modalMode === 'create'
+                    ? 'Novo Tipo de Código Modelo'
+                    : modalMode === 'edit'
+                      ? `Editar Tipo de Código Modelo: ${formData.tipo_codigo_modelo}`
+                      : `Visualizar Tipo de Código Modelo: ${formData.tipo_codigo_modelo}`}
+                  {formData.status && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[11px] ${
+                        formData.status === 'Ativo'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-300'
+                      }`}
+                    >
+                      {formData.status}
+                    </Badge>
+                  )}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-1">
+                  Configure o identificador por Centro (WERKS) + Centro de Trabalho (ARBPL) + Tipo
+                  de Material (MARA-MTART) e vincule os códigos SAP de referência.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <form onSubmit={handleSaveModel} className="space-y-4 pt-2">
+          <div className="p-6 space-y-6">
+            {/* Bloco de Erro / Duplicidade */}
             {formError && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <span>{formError}</span>
+              <div className="p-4 rounded-lg bg-red-50 border border-red-300 text-red-900 text-xs flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <p className="font-semibold text-red-950">{formError}</p>
+                  {duplicateExistingId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-white border-red-300 text-red-800 hover:bg-red-100 h-7 text-xs font-medium"
+                      onClick={() => handleViewExistingDuplicate(duplicateExistingId)}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                      Ver cadastro existente
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* Campo Código SAP com Busca Inteligente */}
-            <div className="space-y-1.5 relative" ref={suggestionContainerRef}>
-              <Label className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                <span>Código SAP do Material de Referência *</span>
-                <span className="text-[10px] text-slate-400 font-normal">MARA-MATNR</span>
-              </Label>
-              <div className="relative">
-                <Input
-                  placeholder="Digite o código ou parte da descrição (ex: 1020)..."
-                  value={codeQuery}
-                  onChange={(e) => {
-                    const val = e.target.value.toUpperCase()
-                    setCodeQuery(val)
-                    setFormData((prev) => ({ ...prev, material_code: val }))
-                    setShowCodeSuggestions(true)
-                  }}
-                  onFocus={() => {
-                    if (codeSuggestions.length > 0) setShowCodeSuggestions(true)
-                  }}
-                  className="font-mono text-sm font-semibold uppercase bg-white border-slate-300 pr-8"
-                />
-                {searchingCatalog && (
-                  <Loader2 className="w-4 h-4 animate-spin text-slate-400 absolute right-2.5 top-2.5" />
-                )}
+            {/* SEÇÃO 1: IDENTIFICAÇÃO */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 pb-2">
+                <Boxes className="w-4 h-4 text-[#004C97]" />
+                Identificação do Modelo
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-8 space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Tipo de Código Modelo <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    placeholder="Ex.: Produto acabado L1, Matéria-prima, Semi-acabado fornos..."
+                    value={formData.tipo_codigo_modelo}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => {
+                      setFormData({ ...formData, tipo_codigo_modelo: e.target.value })
+                      setIsDirty(true)
+                    }}
+                    className="h-9 text-xs"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Nome descritivo livre. Não limita a aplicação técnica.
+                  </p>
+                </div>
+
+                <div className="md:col-span-4 space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Status</Label>
+                  <Select
+                    value={formData.status}
+                    disabled={modalMode === 'view'}
+                    onValueChange={(val: any) => {
+                      setFormData({ ...formData, status: val })
+                      setIsDirty(true)
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-xs bg-white">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Ativo">Ativo (Utilizado nas validações)</SelectItem>
+                      <SelectItem value="Inativo">Inativo (Não utilizado)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="md:col-span-12 space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Descrição (Opcional)
+                  </Label>
+                  <Input
+                    placeholder="Descrição detalhada dos propósitos ou família de itens deste tipo de modelo..."
+                    value={formData.descricao}
+                    disabled={modalMode === 'view'}
+                    onChange={(e) => {
+                      setFormData({ ...formData, descricao: e.target.value })
+                      setIsDirty(true)
+                    }}
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO 2: CAMPOS-CHAVE VISUAIS PARA IDENTIFICAÇÃO DO MODELO */}
+            <div className="space-y-4 bg-slate-50/80 p-4 rounded-xl border border-slate-200">
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-[#004C97]" />
+                  Campos-chave para identificação do modelo
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Esta combinação é a regra estrita utilizada pelo motor de Validação SAP para
+                  localizar o código de referência oficial. Não é descrição textual do material.
+                </p>
               </div>
 
-              {/* Dropdown de sugestões */}
-              {showCodeSuggestions && codeSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto bg-white rounded-md border border-slate-200 shadow-lg text-xs">
-                  <div className="p-1.5 bg-slate-50 border-b text-[10px] text-slate-500 font-semibold">
-                    Sugestões encontradas no catálogo:
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 1. Centro (WERKS) */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Centro (ref. SAP WERKS) <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.centro}
+                    disabled={modalMode === 'view'}
+                    onValueChange={(val) => {
+                      setFormData({ ...formData, centro: val })
+                      setIsDirty(true)
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-xs bg-white">
+                      <SelectValue placeholder="Selecione o Centro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {centros.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-slate-400">
+                    Fonte: plants e line_masters existentes
+                  </p>
+                </div>
+
+                {/* 2. Centro de Trabalho (ARBPL) */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Centro de Trabalho (ref. ARBPL) <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.centro_trabalho}
+                    disabled={modalMode === 'view'}
+                    onValueChange={(val) => {
+                      setFormData({ ...formData, centro_trabalho: val })
+                      setIsDirty(true)
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-xs bg-white">
+                      <SelectValue placeholder="Selecione o Centro de Trabalho" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {centrosTrabalhoFiltradosModal.map((ct) => (
+                        <SelectItem key={ct.code} value={ct.code}>
+                          {ct.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-slate-400">
+                    Filtrado pelo Centro quando tecnicamente vinculado
+                  </p>
+                </div>
+
+                {/* 3. Tipo de Material (MARA-MTART) */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Tipo de Material (ref. MARA-MTART) <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.tipo_material}
+                    disabled={modalMode === 'view'}
+                    onValueChange={(val) => {
+                      setFormData({ ...formData, tipo_material: val })
+                      setIsDirty(true)
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-xs bg-white">
+                      <SelectValue placeholder="Selecione o MTART" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tiposMaterial.map((tm) => (
+                        <SelectItem key={tm.code} value={tm.code}>
+                          {tm.code} — {tm.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-slate-400">
+                    Classificação oficial de material SAP
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO 3: CÓDIGOS MODELO VINCULADOS */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileCheck className="w-4 h-4 text-[#004C97]" />
+                    Códigos Modelo Vinculados ({vinculadosDraft.length})
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Códigos SAP homologados a serem usados como modelo de referência para este Tipo.
+                  </p>
+                </div>
+              </div>
+
+              {/* Formulário de inclusão de código */}
+              {modalMode !== 'view' && (
+                <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-200 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div className="sm:col-span-4 space-y-1">
+                    <Label className="text-[11px] font-semibold text-slate-700">
+                      Código do Material SAP (MATNR)
+                    </Label>
+                    <Input
+                      placeholder="Ex.: 10004521"
+                      value={newSapCode}
+                      onChange={(e) => setNewSapCode(e.target.value)}
+                      className="h-8 text-xs bg-white font-mono"
+                    />
                   </div>
-                  {codeSuggestions.map((item) => (
-                    <div
-                      key={item.code}
-                      onClick={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          material_code: item.code,
-                          description: item.description || prev.description,
-                          material_type: item.material_type || prev.material_type,
-                        }))
-                        setCodeQuery(item.code)
-                        setShowCodeSuggestions(false)
-                      }}
-                      className="p-2 hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-b-0 flex flex-col gap-0.5"
+
+                  <div className="sm:col-span-5 space-y-1">
+                    <Label className="text-[11px] font-semibold text-slate-700">
+                      Descrição do Material
+                    </Label>
+                    <Input
+                      placeholder="Ex.: TUBO RETANGULAR 50X30X2,00MM SAE 1020"
+                      value={newSapDesc}
+                      onChange={(e) => setNewSapDesc(e.target.value)}
+                      className="h-8 text-xs bg-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAddVinculado}
+                      className="w-full h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white"
                     >
-                      <div className="font-mono font-bold text-slate-900">{item.code}</div>
-                      <div className="text-slate-600 truncate">{item.description}</div>
-                    </div>
-                  ))}
+                      <Plus className="w-3.5 h-3.5 mr-1" />+ Adicionar Código Modelo
+                    </Button>
+                  </div>
                 </div>
               )}
 
-              {/* Descrição do material logo abaixo dentro do bloco */}
-              <div className="pt-1 space-y-1">
-                <Label className="text-[11px] font-semibold text-slate-600">
-                  Descrição do Material (MAKTX)
-                </Label>
-                <Input
-                  placeholder="Descrição preenchida automaticamente ou manual..."
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, description: e.target.value }))
-                  }
-                  className="text-xs bg-slate-50 border-slate-200"
-                />
-              </div>
-            </div>
-
-            {/* Grid: Tipo de Material e Centro */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Tipo de Material */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-800">
-                  Tipo de Material (MARA-MTART) *
-                </Label>
-                <Select
-                  value={formData.material_type}
-                  onValueChange={(val) => setFormData((prev) => ({ ...prev, material_type: val }))}
-                >
-                  <SelectTrigger className="text-xs h-9 bg-white border-slate-300 font-mono">
-                    <SelectValue placeholder="Selecione o tipo..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COMMON_MATERIAL_TYPES.map((t) => (
-                      <SelectItem key={t.code} value={t.code}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Centro SAP WERKS */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-800">Centro SAP (WERKS) *</Label>
-                <Select
-                  value={formData.center}
-                  onValueChange={(val) => setFormData((prev) => ({ ...prev, center: val }))}
-                >
-                  <SelectTrigger className="text-xs h-9 bg-white border-slate-300 font-mono">
-                    <SelectValue placeholder="Selecione o centro..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {werksList.map((w) => (
-                      <SelectItem key={w.werks} value={w.werks}>
-                        {w.werks} — {w.description}
-                      </SelectItem>
-                    ))}
-                    {werksList.length === 0 && (
-                      <>
-                        <SelectItem value="1001">1001 — Divinópolis (Matriz)</SelectItem>
-                        <SelectItem value="1002">1002 — Contagem</SelectItem>
-                        <SelectItem value="2001">2001 — Ferradura</SelectItem>
-                        <SelectItem value="2101">2101 — Ciafal</SelectItem>
-                        <SelectItem value="3001">3001 — Sidercentro</SelectItem>
-                      </>
+              {/* Tabela de Códigos Vinculados */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Código SAP</th>
+                      <th className="py-2.5 px-3">Descrição</th>
+                      <th className="py-2.5 px-2">Centro</th>
+                      <th className="py-2.5 px-2">Centro Trab.</th>
+                      <th className="py-2.5 px-2">Tipo Mat.</th>
+                      <th className="py-2.5 px-2 text-center">Status</th>
+                      <th className="py-2.5 px-3">Data Inclusão</th>
+                      <th className="py-2.5 px-3">Responsável</th>
+                      {modalMode !== 'view' && <th className="py-2.5 px-3 text-right">Ação</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {vinculadosDraft.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={modalMode !== 'view' ? 9 : 8}
+                          className="py-6 text-center text-slate-400"
+                        >
+                          Nenhum código SAP vinculado ainda. Adicione pelo formulário acima.
+                        </td>
+                      </tr>
+                    ) : (
+                      vinculadosDraft.map((item) => (
+                        <tr key={item.tempId} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                            {item.codigo_material}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-700 max-w-xs truncate">
+                            {item.descricao || '—'}
+                          </td>
+                          <td className="py-2.5 px-2 font-mono text-slate-600">
+                            {item.centro || formData.centro}
+                          </td>
+                          <td className="py-2.5 px-2 font-mono text-slate-600">
+                            {item.centro_trabalho || formData.centro_trabalho}
+                          </td>
+                          <td className="py-2.5 px-2 font-mono text-slate-600">
+                            {item.tipo_material || formData.tipo_material}
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                item.status === 'Ativo'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
+                            {formatDateTimePtBr(item.data_inclusao)}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500">
+                            {item.usuario_responsavel || '—'}
+                          </td>
+                          {modalMode !== 'view' && (
+                            <td className="py-2.5 px-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-slate-500 hover:text-slate-800"
+                                  onClick={() => handleToggleVinculadoStatus(item.tempId)}
+                                  title="Alternar Status"
+                                >
+                                  <Power className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                  onClick={() => handleRemoveVinculado(item.tempId)}
+                                  title="Remover Código"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))
                     )}
-                  </SelectContent>
-                </Select>
+                  </tbody>
+                </table>
               </div>
             </div>
+          </div>
 
-            {/* Grid: Empresa e Linha de Produção */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Empresa */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-800">Empresa (HUB) *</Label>
-                <Select
-                  value={formData.company_id}
-                  onValueChange={(val) => {
-                    const comp = companies.find((c) => c.id === val)
-                    setFormData((prev) => ({
-                      ...prev,
-                      company_id: val,
-                      company_code: comp?.code || '',
-                      company_name: comp?.name || '',
-                    }))
-                  }}
-                >
-                  <SelectTrigger className="text-xs h-9 bg-white border-slate-300">
-                    <SelectValue placeholder="Selecione a empresa..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companies.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Linha de Produção */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-800">Linha (PCP Robotizado) *</Label>
-                <Select
-                  value={formData.line_id}
-                  onValueChange={(val) => {
-                    const line = lines.find((l) => l.id === val)
-                    setFormData((prev) => ({
-                      ...prev,
-                      line_id: val,
-                      line_code: line?.code || '',
-                    }))
-                  }}
-                >
-                  <SelectTrigger className="text-xs h-9 bg-white border-slate-300">
-                    <SelectValue placeholder="Selecione a linha..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lines.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        {l.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <DialogFooter className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <div className="text-[11px] text-slate-500">
+              {modalMode === 'edit' &&
+                'Atualização persistida na mesma chave sem duplicar registro.'}
             </div>
 
-            {/* Status: Ativo / Inativo */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-800">Status do Modelo</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(val) =>
-                  setFormData((prev) => ({ ...prev, status: val as 'ATIVO' | 'INATIVO' }))
-                }
-              >
-                <SelectTrigger className="text-xs h-9 bg-white border-slate-300">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ATIVO">ATIVO — Sugerir este modelo nas validações</SelectItem>
-                  <SelectItem value="INATIVO">
-                    INATIVO — Não sugerir (preservar histórico)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-slate-400">
-                Inativar impede que o modelo seja sugerido para novos materiais sem apagar o
-                histórico de auditoria.
-              </p>
-            </div>
-
-            {/* Observações / Notas */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">
-                Observações Técnicas / Aplicação
-              </Label>
-              <Input
-                placeholder="Ex: Utilizar para barras chatas SAE 1020 com bitolas até 25 mm..."
-                value={formData.notes || ''}
-                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-                className="text-xs bg-white border-slate-300"
-              />
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-0 pt-3 border-t border-slate-200">
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setModalOpen(false)}
+                onClick={handleCancelModal}
                 disabled={saving}
+                className="h-9 text-xs"
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={saving}
-                className="bg-[#004C97] hover:bg-[#003870] text-white gap-1.5"
-              >
-                {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {editingModel ? 'Salvar Alterações' : 'Salvar Código Modelo'}
-              </Button>
-            </DialogFooter>
-          </form>
+
+              {modalMode === 'view' ? (
+                canManage && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setModalMode('edit')}
+                    className="h-9 text-xs bg-[#004C97] hover:bg-[#003870] text-white"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 mr-1.5" />
+                    Editar
+                  </Button>
+                )
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="h-9 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-medium"
+                >
+                  {saving ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    'Salvar'
+                  )}
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO DE CONFIRMAÇÃO DE STATUS (ATIVAR / INATIVAR) */}
-      <AlertDialog
-        open={!!statusConfirmModel}
-        onOpenChange={(open) => !open && setStatusConfirmModel(null)}
+      {/* 5. DIÁLOGO DE CONFIRMAÇÃO DE DESCARTAR ALTERAÇÕES */}
+      <Dialog open={discardConfirmOpen} onOpenChange={setDiscardConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Descartar alterações?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 mt-2">
+              Você possui modificações não salvas neste Tipo de Código Modelo. Deseja realmente
+              descartar as alterações feitas?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDiscardConfirmOpen(false)}
+              className="text-xs"
+            >
+              Continuar editando
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={confirmDiscardChanges}
+              className="text-xs bg-red-600 hover:bg-red-700 text-white"
+            >
+              Descartar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 6. DIÁLOGO DE ATIVAR / INATIVAR */}
+      <Dialog
+        open={!!statusConfirmItem}
+        onOpenChange={(open) => !open && setStatusConfirmItem(null)}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <Power className="w-5 h-5 text-amber-600" />
-              {statusConfirmModel?.status === 'ATIVO'
-                ? 'Inativar Código Modelo'
-                : 'Ativar Código Modelo'}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-600 leading-relaxed pt-2">
-              {statusConfirmModel?.status === 'ATIVO' ? (
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Power className="w-5 h-5 text-amber-500" />
+              {statusConfirmItem?.status === 'Ativo'
+                ? `Inativar Tipo de Código Modelo?`
+                : `Ativar Tipo de Código Modelo?`}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 mt-2 leading-relaxed">
+              {statusConfirmItem?.status === 'Ativo' ? (
                 <>
-                  Deseja realmente inativar o Código Modelo{' '}
-                  <strong>{statusConfirmModel?.material_code}</strong>? Ele deixará de ser sugerido
-                  automaticamente durante as novas validações, mas todo o histórico será preservado
-                  para fins de auditoria.
+                  Ao inativar <strong>{statusConfirmItem?.tipo_codigo_modelo}</strong>, o registro
+                  será <strong>preservado integralmente</strong> para fins de governança e
+                  auditoria, porém <strong>NÃO</strong> será mais utilizado como referência em novas
+                  validações SAP.
                 </>
               ) : (
                 <>
-                  Deseja ativar o Código Modelo <strong>{statusConfirmModel?.material_code}</strong>
-                  ? Ele voltará a ser sugerido automaticamente quando houver compatibilidade com o
-                  material novo.
+                  Deseja reativar <strong>{statusConfirmItem?.tipo_codigo_modelo}</strong> como
+                  modelo ativo de referência?
                 </>
               )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel disabled={togglingStatus}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-2">
+            <Label className="text-xs font-semibold text-slate-700">
+              Justificativa da Ação (Opcional)
+            </Label>
+            <Input
+              placeholder="Motivo da alteração de status..."
+              value={statusJustificativa}
+              onChange={(e) => setStatusJustificativa(e.target.value)}
+              className="h-9 text-xs"
+            />
+          </div>
+
+          <DialogFooter className="mt-4 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStatusConfirmItem(null)}
               disabled={togglingStatus}
-              onClick={(e) => {
-                e.preventDefault()
-                handleConfirmToggleStatus()
-              }}
-              className={
-                statusConfirmModel?.status === 'ATIVO'
-                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              }
+              className="text-xs"
             >
-              {togglingStatus && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}
-              {statusConfirmModel?.status === 'ATIVO'
-                ? 'Confirmar Inativação'
-                : 'Confirmar Ativação'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmToggleStatus}
+              disabled={togglingStatus}
+              className={`text-xs text-white ${
+                statusConfirmItem?.status === 'Ativo'
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              {togglingStatus
+                ? 'Processando...'
+                : statusConfirmItem?.status === 'Ativo'
+                  ? 'Confirmar Inativação'
+                  : 'Confirmar Ativação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 7. MODAL DE HISTÓRICO DE AUDITORIA E GOVERNANÇA */}
+      <Dialog open={auditModalOpen} onOpenChange={setAuditModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="border-b border-slate-200 pb-3">
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <History className="w-5 h-5 text-[#004C97]" />
+              Trilha de Auditoria & Governança Imutável
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Histórico rastreável de criação, alterações, ativações e vinculações do tipo{' '}
+              <strong>{selectedAuditModel?.tipo_codigo_modelo}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {loadingAudit ? (
+              <div className="py-8 text-center text-slate-500">
+                <RotateCw className="w-5 h-5 mx-auto mb-2 animate-spin text-slate-400" />
+                Carregando registros de auditoria...
+              </div>
+            ) : auditLogs.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                Nenhum registro de auditoria gravado para este tipo de modelo ainda.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {auditLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span className="font-bold text-[#004C97]">{log.action || 'REGISTRO'}</span>
+                      <span className="font-mono text-[11px]">
+                        {formatDateTimePtBr(log.created)}
+                      </span>
+                    </div>
+
+                    <div className="text-slate-700">
+                      <strong>Usuário:</strong>{' '}
+                      {log.user_name || log.user_email || 'PCP Engenharia'}
+                    </div>
+
+                    {log.reason && (
+                      <div className="text-slate-600">
+                        <strong>Motivo/Justificativa:</strong> {log.reason}
+                      </div>
+                    )}
+
+                    {log.details && (
+                      <div className="mt-2 pt-2 border-t border-slate-200 font-mono text-[11px] text-slate-600 bg-white p-2 rounded border">
+                        <pre className="whitespace-pre-wrap">
+                          {typeof log.details === 'string'
+                            ? log.details
+                            : JSON.stringify(log.details, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="border-t border-slate-200 pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAuditModalOpen(false)}
+              className="text-xs"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
