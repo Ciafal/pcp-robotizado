@@ -282,16 +282,23 @@ class PcpMonthlySummaryService {
 
     try {
       // 1. Centros cadastrados em pcp_center_derivations
-      const derivations = await pb.collection('pcp_center_derivations').getFullList({
-        sort: 'origin_center_code',
-      })
+      const derivations = await pb
+        .collection('pcp_center_derivations')
+        .getFullList({
+          sort: 'source_center_code',
+        })
+        .catch((err) => {
+          console.warn('pcp_center_derivations query fallback:', err)
+          return []
+        })
       derivations.forEach((d: any) => {
-        if (d.origin_center_code && !seen.has(d.origin_center_code)) {
-          seen.add(d.origin_center_code)
+        const centerCode = d.source_center_code || d.center_code
+        if (centerCode && !seen.has(centerCode)) {
+          seen.add(centerCode)
           list.push({
-            code: d.origin_center_code,
-            name: `${d.origin_center_code} - ${d.target_center_name || 'Centro Industrial'}`,
-            company: 'CIAFAL',
+            code: centerCode,
+            name: `${centerCode} - ${d.source_center_name || 'Centro Industrial'}`,
+            company: d.source_center_company || 'CIAFAL',
             isPlant: true,
           })
         }
@@ -302,9 +309,15 @@ class PcpMonthlySummaryService {
 
     try {
       // 2. Centros de line_masters / production_lines
-      const lines = await pb.collection('production_lines').getFullList({
-        sort: 'code',
-      })
+      const lines = await pb
+        .collection('production_lines')
+        .getFullList({
+          sort: 'code',
+        })
+        .catch((err) => {
+          console.warn('production_lines query fallback:', err)
+          return []
+        })
       lines.forEach((l: any) => {
         const center = l.plant_code || l.sap_plant_code || '1010'
         if (center && !seen.has(center)) {

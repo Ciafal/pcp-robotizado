@@ -23,9 +23,11 @@ vi.mock('@/lib/pocketbase/client', () => ({
 
 describe('Seleção de Corrida e Múltiplos — Testes de Aceitação', () => {
   it('1. Cenário individualizado com múltiplos possui corrida e número do múltiplo em cada bloco', () => {
-    const mockScenarioWithMultiples: MPCuttingScenarioItem = {
+    const mockScenarioWithMultiples: any = {
       id: 'SCEN-1',
+      name: 'Cenário Individualizado',
       title: 'Cenário Individualizado',
+      cutting_type: 'BLOCOS',
       type: 'BLOCOS',
       pieces_count: 2,
       target_unit_weight_kg: 1250,
@@ -100,9 +102,11 @@ describe('Seleção de Corrida e Múltiplos — Testes de Aceitação', () => {
   })
 
   it('2. Modo agregado (sem múltiplos selecionados) exibe "—" para corrida e múltiplo', () => {
-    const mockScenarioAggregated: MPCuttingScenarioItem = {
+    const mockScenarioAggregated: any = {
       id: 'SCEN-2',
+      name: 'Cenário Agregado Padrão',
       title: 'Cenário Agregado Padrão',
+      cutting_type: 'BLOCOS',
       type: 'BLOCOS',
       pieces_count: 1,
       target_unit_weight_kg: 1250,
@@ -159,7 +163,7 @@ describe('Seleção de Corrida e Múltiplos — Testes de Aceitação', () => {
       cutting_type: 'BLOCOS',
       material_code: 'TARUGO-130-1020',
       selected_standard_codes: ['PAD-130-PADRAO'],
-      optimization_criterion: 'MAIOR_RENDIMENTO_METALURGICO',
+      optimization_criterion: 'MAIOR_APROVEITAMENTO',
       target_weight_kg: 1250,
       min_weight_kg: 1200,
       max_weight_kg: 1300,

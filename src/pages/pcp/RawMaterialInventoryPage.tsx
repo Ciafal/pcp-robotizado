@@ -361,46 +361,58 @@ export const RawMaterialInventoryPage: React.FC = () => {
 
   // Recálculo dinâmico do Resumo Operacional
   const operationalSummary = useMemo(() => {
-    const totalOrders = items.length
-    const totalTonsRequired = items.reduce((sum, it) => sum + (it.planned_requirement_tons || 0), 0)
-    const totalPiecesRequired = items.reduce((sum, it) => sum + (it.sap_pieces_count || 0), 0)
-    const totalPiecesInventoried = items.reduce((sum, it) => {
+    const safeItems = Array.isArray(items) ? items : []
+    const totalOrders = safeItems.length
+    const totalTonsRequired = safeItems.reduce(
+      (sum, it) => sum + (it?.planned_requirement_tons || 0),
+      0,
+    )
+    const totalPiecesRequired = safeItems.reduce((sum, it) => sum + (it?.sap_pieces_count || 0), 0)
+    const totalPiecesInventoried = safeItems.reduce((sum, it) => {
+      const itemId = it?.id || ''
       const val =
-        editedItems[it.id || '']?.dp07_inventoried_pieces !== undefined
-          ? editedItems[it.id || '']?.dp07_inventoried_pieces
-          : it.dp07_inventoried_pieces
+        editedItems[itemId]?.dp07_inventoried_pieces !== undefined
+          ? editedItems[itemId]?.dp07_inventoried_pieces
+          : it?.dp07_inventoried_pieces
       return sum + (val || 0)
     }, 0)
 
-    const pendingMaterials = items.filter((it) => {
+    const pendingMaterials = safeItems.filter((it) => {
+      if (!it) return false
+      const itemId = it.id || ''
       const pieces =
-        editedItems[it.id || '']?.dp07_inventoried_pieces !== undefined
-          ? editedItems[it.id || '']?.dp07_inventoried_pieces
+        editedItems[itemId]?.dp07_inventoried_pieces !== undefined
+          ? editedItems[itemId]?.dp07_inventoried_pieces
           : it.dp07_inventoried_pieces
       return pieces === null || pieces === undefined || it.status === 'Aguardando Inventário'
     }).length
 
-    const divergentMaterials = items.filter((it) => {
+    const divergentMaterials = safeItems.filter((it) => {
+      if (!it) return false
+      const itemId = it.id || ''
       const pieces =
-        editedItems[it.id || '']?.dp07_inventoried_pieces !== undefined
-          ? editedItems[it.id || '']?.dp07_inventoried_pieces
+        editedItems[itemId]?.dp07_inventoried_pieces !== undefined
+          ? editedItems[itemId]?.dp07_inventoried_pieces
           : it.dp07_inventoried_pieces
       if (pieces === null || pieces === undefined) return false
       return pieces !== it.sap_pieces_count
     }).length
 
-    const readyOrdersCount = items.filter((it) => it.status === 'Pronto para Enfornamento').length
+    const readyOrdersCount = safeItems.filter(
+      (it) => it?.status === 'Pronto para Enfornamento',
+    ).length
 
-    const delayRiskOrdersCount = items.filter((it) => {
+    const delayRiskOrdersCount = safeItems.filter((it) => {
+      if (!it) return false
       if (it.status === 'Pronto para Enfornamento' || it.status === 'Cancelado') return false
       return true
     }).length
 
     return {
       totalOrders,
-      totalTonsRequired: Number(totalTonsRequired.toFixed(2)),
-      totalPiecesRequired,
-      totalPiecesInventoried,
+      totalTonsRequired: Number(totalTonsRequired.toFixed(2)) || 0,
+      totalPiecesRequired: totalPiecesRequired || 0,
+      totalPiecesInventoried: totalPiecesInventoried || 0,
       pendingMaterials,
       divergentMaterials,
       readyOrdersCount,
@@ -433,8 +445,12 @@ export const RawMaterialInventoryPage: React.FC = () => {
     if (!hasActiveFilter && !selectedHeaderId) {
       return []
     }
+    if (!Array.isArray(items)) {
+      return []
+    }
 
     return items.filter((it) => {
+      if (!it) return false
       // 1. Filtros Rápidos
       const todayStr = new Date().toISOString().split('T')[0]
       const tomorrow = new Date()
@@ -459,17 +475,11 @@ export const RawMaterialInventoryPage: React.FC = () => {
       if (quickFilter === 'PRONTOS' && it.status !== 'Pronto para Enfornamento') return false
 
       // 2. Filtros Avançados
-      if (
-        filterCompany &&
-        !(it.company ?? '').toLowerCase().includes(filterCompany.toLowerCase())
-      )
+      if (filterCompany && !(it.company ?? '').toLowerCase().includes(filterCompany.toLowerCase()))
         return false
       if (filterLine && !(it.line ?? '').toLowerCase().includes(filterLine.toLowerCase()))
         return false
-      if (
-        filterCenter &&
-        !(it.center ?? '').toLowerCase().includes(filterCenter.toLowerCase())
-      )
+      if (filterCenter && !(it.center ?? '').toLowerCase().includes(filterCenter.toLowerCase()))
         return false
       if (
         filterDeposit &&
@@ -488,10 +498,7 @@ export const RawMaterialInventoryPage: React.FC = () => {
         !(it.raw_material_description ?? '').toLowerCase().includes(filterMaterial.toLowerCase())
       )
         return false
-      if (
-        filterHeat &&
-        !(it.heat_number ?? '').toLowerCase().includes(filterHeat.toLowerCase())
-      )
+      if (filterHeat && !(it.heat_number ?? '').toLowerCase().includes(filterHeat.toLowerCase()))
         return false
       if (filterEnfornamentoType !== 'TODOS' && it.enfornamento_type !== filterEnfornamentoType)
         return false
@@ -781,13 +788,15 @@ export const RawMaterialInventoryPage: React.FC = () => {
       </div>
 
       {/* 1.1 BARRA "GESTÃO DE INVENTÁRIO" COM EXATAMENTE 4 AÇÕES SEMPRE VISÍVEIS */}
-      <GestaoInventarioBar
-        onGerarDemanda={handleOpenGerarDemanda}
-        onToggleDemandas={handleToggleDemandas}
-        showingDemandas={showDemandasSection}
-        onLancarInventario={() => handleOpenLancarInventario()}
-        onHistorico={() => handleOpenHistorico()}
-      />
+      <ErrorBoundary moduleName="Inventário de matéria-prima — Barra de Gestão">
+        <GestaoInventarioBar
+          onGerarDemanda={handleOpenGerarDemanda}
+          onToggleDemandas={handleToggleDemandas}
+          showingDemandas={showDemandasSection}
+          onLancarInventario={() => handleOpenLancarInventario()}
+          onHistorico={() => handleOpenHistorico()}
+        />
+      </ErrorBoundary>
 
       {/* ESTADO DE ERRO CONTEXTUAL DE COMUNICAÇÃO DENTRO DA PÁGINA */}
       {loadError && (
@@ -801,6 +810,7 @@ export const RawMaterialInventoryPage: React.FC = () => {
             variant="outline"
             onClick={() => {
               loadHeaders()
+              loadDemands()
               if (selectedHeaderId) loadItems(selectedHeaderId)
             }}
             className="h-7 text-xs border-rose-300 text-rose-700 hover:bg-rose-100"
@@ -814,7 +824,7 @@ export const RawMaterialInventoryPage: React.FC = () => {
       {showDemandasSection && (
         <ErrorBoundary moduleName="Inventário de matéria-prima — Demandas">
           <DemandasInventarioTable
-            demands={inventoryDemands}
+            demands={inventoryDemands || []}
             loading={loadingDemands}
             onVisualizar={(demanda) => {
               // Visualização aberta internamente na tabela
@@ -832,273 +842,283 @@ export const RawMaterialInventoryPage: React.FC = () => {
 
       {/* PAINEL DE INTEGRAÇÕES & GOVERNANÇA (ISOLADO DO DP07) */}
       {showGovernance && (
-        <div className="transition-all animate-in fade-in-50">
-          <IntegrationGovernancePanel
-            onStateChange={() => {
-              if (selectedHeaderId) loadItems(selectedHeaderId)
-            }}
-          />
-        </div>
+        <ErrorBoundary moduleName="Inventário de matéria-prima — Governança">
+          <div className="transition-all animate-in fade-in-50">
+            <IntegrationGovernancePanel
+              onStateChange={() => {
+                if (selectedHeaderId) loadItems(selectedHeaderId)
+              }}
+            />
+          </div>
+        </ErrorBoundary>
       )}
 
       {/* 2. RESUMO OPERACIONAL COM CARDS COMPACTOS (8 CARDS OBRIGATÓRIOS) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-        {/* Card 1: Ordens programadas */}
-        <Card className="border border-slate-200 shadow-2xs">
-          <CardContent className="p-2.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
-              Ordens Programadas
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-lg font-black text-slate-900 font-mono">
-                {operationalSummary.totalOrders}
+      <ErrorBoundary moduleName="Inventário de matéria-prima — Resumo Operacional">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          {/* Card 1: Ordens programadas */}
+          <Card className="border border-slate-200 shadow-2xs">
+            <CardContent className="p-2.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
+                Ordens Programadas
               </span>
-              <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400" />
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-lg font-black text-slate-900 font-mono">
+                  {operationalSummary.totalOrders}
+                </span>
+                <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Card 2: Toneladas necessárias */}
-        <Card className="border border-slate-200 shadow-2xs">
-          <CardContent className="p-2.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
-              Toneladas Necessárias
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-lg font-black text-slate-900 font-mono">
-                {operationalSummary.totalTonsRequired}
+          {/* Card 2: Toneladas necessárias */}
+          <Card className="border border-slate-200 shadow-2xs">
+            <CardContent className="p-2.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
+                Toneladas Necessárias
               </span>
-              <span className="text-[10px] text-slate-500 font-bold">t</span>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-lg font-black text-slate-900 font-mono">
+                  {operationalSummary.totalTonsRequired}
+                </span>
+                <span className="text-[10px] text-slate-500 font-bold">t</span>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Card 3: Nº peças necessárias */}
-        <Card className="border border-slate-200 shadow-2xs">
-          <CardContent className="p-2.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
-              Nº Peças Necessárias
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-lg font-black text-slate-900 font-mono">
-                {operationalSummary.totalPiecesRequired}
+          {/* Card 3: Nº peças necessárias */}
+          <Card className="border border-slate-200 shadow-2xs">
+            <CardContent className="p-2.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
+                Nº Peças Necessárias
               </span>
-              <span className="text-[10px] text-slate-500 font-bold">pçs</span>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-lg font-black text-slate-900 font-mono">
+                  {operationalSummary.totalPiecesRequired}
+                </span>
+                <span className="text-[10px] text-slate-500 font-bold">pçs</span>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Card 4: Nº peças inventariadas */}
-        <Card className="border border-slate-200 shadow-2xs">
-          <CardContent className="p-2.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
-              Peças Inventariadas
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-lg font-black text-[#004C97] font-mono">
-                {operationalSummary.totalPiecesInventoried}
+          {/* Card 4: Nº peças inventariadas */}
+          <Card className="border border-slate-200 shadow-2xs">
+            <CardContent className="p-2.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
+                Peças Inventariadas
               </span>
-              <span className="text-[10px] text-slate-500 font-bold">pçs</span>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-lg font-black text-[#004C97] font-mono">
+                  {operationalSummary.totalPiecesInventoried}
+                </span>
+                <span className="text-[10px] text-slate-500 font-bold">pçs</span>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Card 5: Materiais pendentes */}
-        <Card className="border border-slate-200 shadow-2xs">
-          <CardContent className="p-2.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
-              Materiais Pendentes
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span
-                className={`text-lg font-black font-mono ${
-                  operationalSummary.pendingMaterials > 0 ? 'text-amber-600' : 'text-slate-900'
-                }`}
-              >
-                {operationalSummary.pendingMaterials}
+          {/* Card 5: Materiais pendentes */}
+          <Card className="border border-slate-200 shadow-2xs">
+            <CardContent className="p-2.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
+                Materiais Pendentes
               </span>
-              <Clock className="w-3.5 h-3.5 text-amber-500" />
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex items-baseline justify-between mt-1">
+                <span
+                  className={`text-lg font-black font-mono ${
+                    operationalSummary.pendingMaterials > 0 ? 'text-amber-600' : 'text-slate-900'
+                  }`}
+                >
+                  {operationalSummary.pendingMaterials}
+                </span>
+                <Clock className="w-3.5 h-3.5 text-amber-500" />
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Card 6: Materiais com divergência */}
-        <Card className="border border-slate-200 shadow-2xs">
-          <CardContent className="p-2.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
-              Com Divergência
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span
-                className={`text-lg font-black font-mono ${
-                  operationalSummary.divergentMaterials > 0 ? 'text-rose-600' : 'text-slate-900'
-                }`}
-              >
-                {operationalSummary.divergentMaterials}
+          {/* Card 6: Materiais com divergência */}
+          <Card className="border border-slate-200 shadow-2xs">
+            <CardContent className="p-2.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
+                Com Divergência
               </span>
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex items-baseline justify-between mt-1">
+                <span
+                  className={`text-lg font-black font-mono ${
+                    operationalSummary.divergentMaterials > 0 ? 'text-rose-600' : 'text-slate-900'
+                  }`}
+                >
+                  {operationalSummary.divergentMaterials}
+                </span>
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Card 7: Ordens prontas para enfornamento */}
-        <Card className="border border-slate-200 shadow-2xs">
-          <CardContent className="p-2.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
-              Prontas Enfornamento
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-lg font-black text-emerald-600 font-mono">
-                {operationalSummary.readyOrdersCount}
+          {/* Card 7: Ordens prontas para enfornamento */}
+          <Card className="border border-slate-200 shadow-2xs">
+            <CardContent className="p-2.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
+                Prontas Enfornamento
               </span>
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-lg font-black text-emerald-600 font-mono">
+                  {operationalSummary.readyOrdersCount}
+                </span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Card 8: Ordens com risco de atraso */}
-        <Card className="border border-slate-200 shadow-2xs">
-          <CardContent className="p-2.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
-              Risco de Atraso
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span
-                className={`text-lg font-black font-mono ${
-                  operationalSummary.delayRiskOrdersCount > 0 ? 'text-orange-600' : 'text-slate-900'
-                }`}
-              >
-                {operationalSummary.delayRiskOrdersCount}
+          {/* Card 8: Ordens com risco de atraso */}
+          <Card className="border border-slate-200 shadow-2xs">
+            <CardContent className="p-2.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block truncate">
+                Risco de Atraso
               </span>
-              <ShieldAlert className="w-3.5 h-3.5 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              <div className="flex items-baseline justify-between mt-1">
+                <span
+                  className={`text-lg font-black font-mono ${
+                    operationalSummary.delayRiskOrdersCount > 0
+                      ? 'text-orange-600'
+                      : 'text-slate-900'
+                  }`}
+                >
+                  {operationalSummary.delayRiskOrdersCount}
+                </span>
+                <ShieldAlert className="w-3.5 h-3.5 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </ErrorBoundary>
 
       {/* 3. FILTROS RÁPIDOS E FILTROS DETALHADOS */}
-      <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs space-y-3">
-        {/* Filtros Rápidos */}
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 pb-2.5">
-          <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
-            <Filter className="w-3 h-3 text-[#004C97]" />
-            Visão Rápida:
-          </span>
-          {(
-            [
-              { id: 'TODOS', label: 'Todos' },
-              { id: 'HOJE', label: 'Hoje' },
-              { id: 'AMANHA', label: 'Amanhã' },
-              { id: 'PENDENTES', label: 'Pendentes' },
-              { id: 'DIVERGENCIAS', label: 'Divergências' },
-              { id: 'PRONTOS', label: 'Prontos para Enfornamento' },
-            ] as const
-          ).map((filter) => {
-            const active = quickFilter === filter.id
-            return (
-              <Button
-                key={filter.id}
-                size="sm"
-                variant={active ? 'default' : 'outline'}
-                onClick={() => setQuickFilter(filter.id)}
-                className={`h-7 px-2.5 text-xs font-semibold ${
-                  active
-                    ? 'bg-[#004C97] text-white hover:bg-[#003B75]'
-                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {filter.label}
-              </Button>
-            )
-          })}
-        </div>
+      <ErrorBoundary moduleName="Inventário de matéria-prima — Filtros">
+        <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs space-y-3">
+          {/* Filtros Rápidos */}
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 pb-2.5">
+            <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
+              <Filter className="w-3 h-3 text-[#004C97]" />
+              Visão Rápida:
+            </span>
+            {(
+              [
+                { id: 'TODOS', label: 'Todos' },
+                { id: 'HOJE', label: 'Hoje' },
+                { id: 'AMANHA', label: 'Amanhã' },
+                { id: 'PENDENTES', label: 'Pendentes' },
+                { id: 'DIVERGENCIAS', label: 'Divergências' },
+                { id: 'PRONTOS', label: 'Prontos para Enfornamento' },
+              ] as const
+            ).map((filter) => {
+              const active = quickFilter === filter.id
+              return (
+                <Button
+                  key={filter.id}
+                  size="sm"
+                  variant={active ? 'default' : 'outline'}
+                  onClick={() => setQuickFilter(filter.id)}
+                  className={`h-7 px-2.5 text-xs font-semibold ${
+                    active
+                      ? 'bg-[#004C97] text-white hover:bg-[#003B75]'
+                      : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {filter.label}
+                </Button>
+              )
+            })}
+          </div>
 
-        {/* Filtros Detalhados */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Ordem</label>
-            <Input
-              value={filterOrder}
-              onChange={(e) => setFilterOrder(e.target.value)}
-              placeholder="Buscar por ordem..."
-              className="h-7 text-xs mt-0.5"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase">
-              Material / Descrição
-            </label>
-            <Input
-              value={filterMaterial}
-              onChange={(e) => setFilterMaterial(e.target.value)}
-              placeholder="Código ou descrição..."
-              className="h-7 text-xs mt-0.5"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Corrida / Lote</label>
-            <Input
-              value={filterHeat}
-              onChange={(e) => setFilterHeat(e.target.value)}
-              placeholder="Nº da corrida..."
-              className="h-7 text-xs mt-0.5"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="h-7 text-xs mt-0.5">
-                <SelectValue placeholder="Selecione o status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TODOS">Todos os Status</SelectItem>
-                <SelectItem value="Aguardando Inventário">Aguardando Inventário</SelectItem>
-                <SelectItem value="Em Inventário">Em Inventário</SelectItem>
-                <SelectItem value="Inventário Parcial">Inventário Parcial</SelectItem>
-                <SelectItem value="Inventário Concluído">Inventário Concluído</SelectItem>
-                <SelectItem value="Divergência Encontrada">Divergência Encontrada</SelectItem>
-                <SelectItem value="Aguardando Material">Aguardando Material</SelectItem>
-                <SelectItem value="Material Bloqueado">Material Bloqueado</SelectItem>
-                <SelectItem value="Preparação em Andamento">Preparação em Andamento</SelectItem>
-                <SelectItem value="Pronto para Enfornamento">Pronto para Enfornamento</SelectItem>
-                <SelectItem value="Cancelado">Cancelado</SelectItem>
-                <SelectItem value="Substituído por Nova Versão">
-                  Substituído por Nova Versão
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase">
-              Localização WMS
-            </label>
-            <Input
-              value={filterWmsLocation}
-              onChange={(e) => setFilterWmsLocation(e.target.value)}
-              placeholder="Galpão, rua ou box..."
-              className="h-7 text-xs mt-0.5"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setFilterOrder('')
-                setFilterMaterial('')
-                setFilterHeat('')
-                setFilterStatus('TODOS')
-                setFilterWmsLocation('')
-                setQuickFilter('TODOS')
-              }}
-              className="h-7 text-xs w-full text-slate-600 hover:bg-slate-100"
-            >
-              <RotateCcw className="w-3 h-3 mr-1" />
-              Limpar Filtros
-            </Button>
+          {/* Filtros Detalhados */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Ordem</label>
+              <Input
+                value={filterOrder}
+                onChange={(e) => setFilterOrder(e.target.value)}
+                placeholder="Buscar por ordem..."
+                className="h-7 text-xs mt-0.5"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                Material / Descrição
+              </label>
+              <Input
+                value={filterMaterial}
+                onChange={(e) => setFilterMaterial(e.target.value)}
+                placeholder="Código ou descrição..."
+                className="h-7 text-xs mt-0.5"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                Corrida / Lote
+              </label>
+              <Input
+                value={filterHeat}
+                onChange={(e) => setFilterHeat(e.target.value)}
+                placeholder="Nº da corrida..."
+                className="h-7 text-xs mt-0.5"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-7 text-xs mt-0.5">
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TODOS">Todos os Status</SelectItem>
+                  <SelectItem value="Aguardando Inventário">Aguardando Inventário</SelectItem>
+                  <SelectItem value="Em Inventário">Em Inventário</SelectItem>
+                  <SelectItem value="Inventário Parcial">Inventário Parcial</SelectItem>
+                  <SelectItem value="Inventário Concluído">Inventário Concluído</SelectItem>
+                  <SelectItem value="Divergência Encontrada">Divergência Encontrada</SelectItem>
+                  <SelectItem value="Aguardando Material">Aguardando Material</SelectItem>
+                  <SelectItem value="Material Bloqueado">Material Bloqueado</SelectItem>
+                  <SelectItem value="Preparação em Andamento">Preparação em Andamento</SelectItem>
+                  <SelectItem value="Pronto para Enfornamento">Pronto para Enfornamento</SelectItem>
+                  <SelectItem value="Cancelado">Cancelado</SelectItem>
+                  <SelectItem value="Substituído por Nova Versão">
+                    Substituído por Nova Versão
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                Localização WMS
+              </label>
+              <Input
+                value={filterWmsLocation}
+                onChange={(e) => setFilterWmsLocation(e.target.value)}
+                placeholder="Galpão, rua ou box..."
+                className="h-7 text-xs mt-0.5"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setFilterOrder('')
+                  setFilterMaterial('')
+                  setFilterHeat('')
+                  setFilterStatus('TODOS')
+                  setFilterWmsLocation('')
+                  setQuickFilter('TODOS')
+                }}
+                className="h-7 text-xs w-full text-slate-600 hover:bg-slate-100"
+              >
+                <RotateCcw className="w-3 h-3 mr-1" />
+                Limpar Filtros
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </ErrorBoundary>
 
       {/* 4. TABELA OPERACIONAL COM AS 22 COLUNAS EXATAS E ORIGEM VISÍVEL (COM ERRORBOUNDARY LOCAL) */}
       <ErrorBoundary moduleName="Inventário de matéria-prima — Grade Operacional DP07">
@@ -1289,7 +1309,8 @@ export const RawMaterialInventoryPage: React.FC = () => {
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Boxes className="w-8 h-8 text-slate-300" />
                         <p className="font-semibold">
-                          Nenhum inventário de matéria-prima encontrado para os filtros selecionados.
+                          Nenhum inventário de matéria-prima encontrado para os filtros
+                          selecionados.
                         </p>
                         <p className="text-[11px] text-slate-400">
                           O inventário é gerado automaticamente na confirmação de programação com
@@ -1300,376 +1321,378 @@ export const RawMaterialInventoryPage: React.FC = () => {
                   </tr>
                 ) : (
                   filteredItems.map((item, index) => {
-                  const edits = editedItems[item.id || '']
-                  const currentPieces =
-                    edits?.dp07_inventoried_pieces !== undefined
-                      ? edits.dp07_inventoried_pieces
-                      : item.dp07_inventoried_pieces
-                  const currentSeq =
-                    edits?.dp07_enfornamento_sequence !== undefined
-                      ? edits.dp07_enfornamento_sequence
-                      : (item.dp07_enfornamento_sequence ?? item.pcp_planned_sequence)
-                  const currentObs =
-                    edits?.dp07_observation !== undefined
-                      ? edits.dp07_observation
-                      : item.dp07_observation || ''
+                    const edits = editedItems[item.id || '']
+                    const currentPieces =
+                      edits?.dp07_inventoried_pieces !== undefined
+                        ? edits.dp07_inventoried_pieces
+                        : item.dp07_inventoried_pieces
+                    const currentSeq =
+                      edits?.dp07_enfornamento_sequence !== undefined
+                        ? edits.dp07_enfornamento_sequence
+                        : (item.dp07_enfornamento_sequence ?? item.pcp_planned_sequence)
+                    const currentObs =
+                      edits?.dp07_observation !== undefined
+                        ? edits.dp07_observation
+                        : item.dp07_observation || ''
 
-                  const hasPendingEdits = edits !== undefined
-                  const divergence =
-                    currentPieces !== null && currentPieces !== undefined
-                      ? currentPieces - item.sap_pieces_count
-                      : item.pieces_divergence
+                    const hasPendingEdits = edits !== undefined
+                    const divergence =
+                      currentPieces !== null && currentPieces !== undefined
+                        ? currentPieces - item.sap_pieces_count
+                        : item.pieces_divergence
 
-                  // Avalia alertas do item
-                  const alerts = RawMaterialInventoryService.evaluateItemAlerts(item)
-                  const hasCriticalAlert = alerts.some((a) => a.severity === 'CRITICAL')
-                  const hasWarningAlert = alerts.some((a) => a.severity === 'WARNING')
+                    // Avalia alertas do item
+                    const alerts = RawMaterialInventoryService.evaluateItemAlerts(item)
+                    const hasCriticalAlert = alerts.some((a) => a.severity === 'CRITICAL')
+                    const hasWarningAlert = alerts.some((a) => a.severity === 'WARNING')
 
-                  // Comparação Sequência DP07 x PCP
-                  const isSequenceDiff =
-                    currentSeq !== null &&
-                    currentSeq !== undefined &&
-                    currentSeq !== item.pcp_planned_sequence
+                    // Comparação Sequência DP07 x PCP
+                    const isSequenceDiff =
+                      currentSeq !== null &&
+                      currentSeq !== undefined &&
+                      currentSeq !== item.pcp_planned_sequence
 
-                  return (
-                    <tr
-                      key={item.id || index}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, item.id || '')}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, item.id || '')}
-                      className={`hover:bg-slate-50/80 transition-colors ${
-                        item.status === 'Pronto para Enfornamento'
-                          ? 'bg-emerald-50/20'
-                          : item.status === 'Material Bloqueado'
-                            ? 'bg-rose-50/30'
-                            : ''
-                      }`}
-                    >
-                      {/* Drag Handle */}
-                      <td className="p-2 text-center text-slate-400 cursor-grab active:cursor-grabbing">
-                        <GripVertical className="w-4 h-4 mx-auto" />
-                      </td>
-
-                      {/* 1. Empresa */}
-                      <td className="p-2.5 font-semibold text-slate-800">{item.company}</td>
-                      {/* 2. Linha */}
-                      <td className="p-2.5 font-semibold text-slate-800">{item.line}</td>
-                      {/* 3. Centro */}
-                      <td className="p-2.5 font-mono text-slate-600">{item.center}</td>
-                      {/* 4. Data Enfornamento */}
-                      <td className="p-2.5 font-mono text-slate-700">{item.enfornamento_date}</td>
-                      {/* 5. Hora Prevista Enfornamento */}
-                      <td className="p-2.5 font-mono font-bold text-slate-800">
-                        {item.expected_enfornamento_time}
-                      </td>
-                      {/* 6. Ordem (Situação individual PCP) */}
-                      <td className="p-2.5 font-mono font-bold text-[#004C97]">
-                        <button
-                          type="button"
-                          onClick={() => setDetailModalItem(item)}
-                          className="hover:underline text-left"
-                          title="Abrir detalhe completo da ordem"
-                        >
-                          {item.production_order}
-                        </button>
-                      </td>
-                      {/* 7. Código Matéria-Prima */}
-                      <td className="p-2.5 font-mono font-bold text-slate-900">
-                        <button
-                          type="button"
-                          onClick={() => setDetailModalItem(item)}
-                          className="hover:underline text-[#004C97] text-left flex items-center gap-1 group"
-                          title="Clique para ver detalhe completo da ordem"
-                        >
-                          <span>{item.raw_material_code}</span>
-                          <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                        </button>
-                      </td>
-                      {/* 8. Descrição Matéria-Prima */}
-                      <td
-                        className="p-2.5 text-slate-700 truncate max-w-[240px]"
-                        title={item.raw_material_description}
+                    return (
+                      <tr
+                        key={item.id || index}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item.id || '')}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, item.id || '')}
+                        className={`hover:bg-slate-50/80 transition-colors ${
+                          item.status === 'Pronto para Enfornamento'
+                            ? 'bg-emerald-50/20'
+                            : item.status === 'Material Bloqueado'
+                              ? 'bg-rose-50/30'
+                              : ''
+                        }`}
                       >
-                        {item.raw_material_description}
-                      </td>
-                      {/* 9. Corrida/Lote (Situação individual SAP) */}
-                      <td className="p-2.5 font-mono text-slate-700">
-                        {(() => {
-                          const sapSit = FieldSituationResolver.resolve('heat_number', item)
-                          return (
-                            <div>
-                              <button
-                                type="button"
-                                onClick={() => setDetailModalItem(item)}
-                                className="hover:underline font-semibold text-slate-800 group inline-flex items-center gap-1"
-                                title="Clique para ver detalhe completo"
-                              >
-                                <span>{item.heat_number}</span>
-                              </button>
-                              {sapSit.is_unavailable && (
-                                <span
-                                  className="block text-[8.5px] text-rose-600 font-bold leading-tight"
-                                  title={sapSit.sublabel}
-                                >
-                                  SAP Indisponível
-                                </span>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </td>
-                      {/* 10. Bitola/Produto Produzido */}
-                      <td className="p-2.5 text-slate-700">{item.produced_gauge_product}</td>
-                      {/* 11. Tipo de Enfornamento */}
-                      <td className="p-2.5">
-                        <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[9px] font-bold">
-                          {item.enfornamento_type}
-                        </Badge>
-                      </td>
-                      {/* 12. Estoque SAP (t) */}
-                      <td className="p-2.5 text-right font-mono text-slate-700">
-                        {item.sap_stock_tons}
-                      </td>
-                      {/* 13. Necessidade (t) */}
-                      <td className="p-2.5 text-right font-mono font-bold text-slate-900">
-                        {item.planned_requirement_tons}
-                      </td>
-                      {/* 14. Nº Peças SAP */}
-                      <td className="p-2.5 text-right font-mono font-bold text-slate-900">
-                        {item.sap_pieces_count}
-                      </td>
-                      {/* 15. Localização Física (Situação individual WMS) */}
-                      <td className="p-2.5 text-slate-700">
-                        {(() => {
-                          const wmsSit = FieldSituationResolver.resolve(
-                            'wms_physical_location',
-                            item,
-                          )
-                          return (
-                            <div>
-                              <span className="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 block truncate">
-                                {item.wms_physical_location}
-                              </span>
-                              {wmsSit.is_unavailable && (
-                                <span
-                                  className="block text-[8.5px] text-rose-600 font-bold leading-tight mt-0.5"
-                                  title={wmsSit.sublabel}
-                                >
-                                  WMS Indisponível (Pendência)
-                                </span>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </td>
+                        {/* Drag Handle */}
+                        <td className="p-2 text-center text-slate-400 cursor-grab active:cursor-grabbing">
+                          <GripVertical className="w-4 h-4 mx-auto" />
+                        </td>
 
-                      {/* 16. Nº Peças Inventariadas (DP07 - EDITÁVEL) */}
-                      <td className="p-2 bg-blue-50/40 border-l border-r border-blue-200">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={currentPieces ?? ''}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              item.id || '',
-                              'dp07_inventoried_pieces',
-                              e.target.value === '' ? null : Number(e.target.value),
+                        {/* 1. Empresa */}
+                        <td className="p-2.5 font-semibold text-slate-800">{item.company}</td>
+                        {/* 2. Linha */}
+                        <td className="p-2.5 font-semibold text-slate-800">{item.line}</td>
+                        {/* 3. Centro */}
+                        <td className="p-2.5 font-mono text-slate-600">{item.center}</td>
+                        {/* 4. Data Enfornamento */}
+                        <td className="p-2.5 font-mono text-slate-700">{item.enfornamento_date}</td>
+                        {/* 5. Hora Prevista Enfornamento */}
+                        <td className="p-2.5 font-mono font-bold text-slate-800">
+                          {item.expected_enfornamento_time}
+                        </td>
+                        {/* 6. Ordem (Situação individual PCP) */}
+                        <td className="p-2.5 font-mono font-bold text-[#004C97]">
+                          <button
+                            type="button"
+                            onClick={() => setDetailModalItem(item)}
+                            className="hover:underline text-left"
+                            title="Abrir detalhe completo da ordem"
+                          >
+                            {item.production_order}
+                          </button>
+                        </td>
+                        {/* 7. Código Matéria-Prima */}
+                        <td className="p-2.5 font-mono font-bold text-slate-900">
+                          <button
+                            type="button"
+                            onClick={() => setDetailModalItem(item)}
+                            className="hover:underline text-[#004C97] text-left flex items-center gap-1 group"
+                            title="Clique para ver detalhe completo da ordem"
+                          >
+                            <span>{item.raw_material_code}</span>
+                            <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                          </button>
+                        </td>
+                        {/* 8. Descrição Matéria-Prima */}
+                        <td
+                          className="p-2.5 text-slate-700 truncate max-w-[240px]"
+                          title={item.raw_material_description}
+                        >
+                          {item.raw_material_description}
+                        </td>
+                        {/* 9. Corrida/Lote (Situação individual SAP) */}
+                        <td className="p-2.5 font-mono text-slate-700">
+                          {(() => {
+                            const sapSit = FieldSituationResolver.resolve('heat_number', item)
+                            return (
+                              <div>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailModalItem(item)}
+                                  className="hover:underline font-semibold text-slate-800 group inline-flex items-center gap-1"
+                                  title="Clique para ver detalhe completo"
+                                >
+                                  <span>{item.heat_number}</span>
+                                </button>
+                                {sapSit.is_unavailable && (
+                                  <span
+                                    className="block text-[8.5px] text-rose-600 font-bold leading-tight"
+                                    title={sapSit.sublabel}
+                                  >
+                                    SAP Indisponível
+                                  </span>
+                                )}
+                              </div>
                             )
-                          }
-                          className="h-7 text-xs font-mono font-bold bg-white text-blue-900 border-blue-300 focus-visible:ring-blue-500"
-                          placeholder="Informe qtd..."
-                        />
-                      </td>
+                          })()}
+                        </td>
+                        {/* 10. Bitola/Produto Produzido */}
+                        <td className="p-2.5 text-slate-700">{item.produced_gauge_product}</td>
+                        {/* 11. Tipo de Enfornamento */}
+                        <td className="p-2.5">
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[9px] font-bold">
+                            {item.enfornamento_type}
+                          </Badge>
+                        </td>
+                        {/* 12. Estoque SAP (t) */}
+                        <td className="p-2.5 text-right font-mono text-slate-700">
+                          {item.sap_stock_tons}
+                        </td>
+                        {/* 13. Necessidade (t) */}
+                        <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                          {item.planned_requirement_tons}
+                        </td>
+                        {/* 14. Nº Peças SAP */}
+                        <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                          {item.sap_pieces_count}
+                        </td>
+                        {/* 15. Localização Física (Situação individual WMS) */}
+                        <td className="p-2.5 text-slate-700">
+                          {(() => {
+                            const wmsSit = FieldSituationResolver.resolve(
+                              'wms_physical_location',
+                              item,
+                            )
+                            return (
+                              <div>
+                                <span className="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 block truncate">
+                                  {item.wms_physical_location}
+                                </span>
+                                {wmsSit.is_unavailable && (
+                                  <span
+                                    className="block text-[8.5px] text-rose-600 font-bold leading-tight mt-0.5"
+                                    title={wmsSit.sublabel}
+                                  >
+                                    WMS Indisponível (Pendência)
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </td>
 
-                      {/* 17. Divergência Peças (Sistema = DP07 - SAP) */}
-                      <td className="p-2.5 text-center font-mono">
-                        {divergence === null || divergence === undefined ? (
-                          <span className="text-slate-400 text-[10px]">Pendente</span>
-                        ) : divergence === 0 ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-[10px]">
-                            OK (0)
-                          </Badge>
-                        ) : divergence > 0 ? (
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 font-bold text-[10px]">
-                            +{divergence}
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-bold text-[10px] animate-pulse">
-                            {divergence} (Falta)
-                          </Badge>
-                        )}
-                      </td>
-
-                      {/* 18. Sequência de Enfornamento (DP07 - EDITÁVEL) */}
-                      <td className="p-2 bg-blue-50/40 border-l border-r border-blue-200">
-                        <div className="flex items-center gap-1">
+                        {/* 16. Nº Peças Inventariadas (DP07 - EDITÁVEL) */}
+                        <td className="p-2 bg-blue-50/40 border-l border-r border-blue-200">
                           <Input
                             type="number"
-                            min={1}
-                            value={currentSeq ?? ''}
+                            min={0}
+                            value={currentPieces ?? ''}
                             onChange={(e) =>
                               handleFieldChange(
                                 item.id || '',
-                                'dp07_enfornamento_sequence',
+                                'dp07_inventoried_pieces',
                                 e.target.value === '' ? null : Number(e.target.value),
                               )
                             }
-                            className="h-7 text-xs font-mono font-bold bg-white text-blue-900 border-blue-300 w-16"
+                            className="h-7 text-xs font-mono font-bold bg-white text-blue-900 border-blue-300 focus-visible:ring-blue-500"
+                            placeholder="Informe qtd..."
                           />
-                          <span className="text-[10px] font-mono text-slate-500">
-                            (PCP #{item.pcp_planned_sequence})
-                          </span>
-                        </div>
-                        {isSequenceDiff && (
-                          <span className="text-[9px] text-amber-700 font-semibold block leading-tight mt-0.5">
-                            Seq. diferente da prog.
-                          </span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* 19. Status */}
-                      <td className="p-2.5">{getStatusBadge(item.status)}</td>
-
-                      {/* 20. Observação (DP07 - EDITÁVEL) */}
-                      <td className="p-2 bg-blue-50/40 border-l border-r border-blue-200">
-                        <Input
-                          type="text"
-                          value={currentObs}
-                          onChange={(e) =>
-                            handleFieldChange(item.id || '', 'dp07_observation', e.target.value)
-                          }
-                          placeholder="Observação opcional..."
-                          className="h-7 text-xs bg-white border-blue-200"
-                        />
-                      </td>
-
-                      {/* 21. Responsável */}
-                      <td
-                        className="p-2.5 text-slate-600 truncate max-w-[130px]"
-                        title={item.responsible_user}
-                      >
-                        {item.responsible_user || '—'}
-                      </td>
-
-                      {/* 22. Data/Hora Atualização */}
-                      <td className="p-2.5 font-mono text-[10.5px] text-slate-500">
-                        {item.updated_at_timestamp
-                          ? new Date(item.updated_at_timestamp).toLocaleTimeString('pt-BR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : '—'}
-                      </td>
-
-                      {/* Ações */}
-                      <td className="p-2 text-center sticky right-0 bg-white/95 backdrop-blur z-10 border-l border-slate-200">
-                        <div className="flex items-center justify-center gap-1">
-                          {hasPendingEdits && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveItem(item)}
-                              disabled={savingItemId === item.id}
-                              className="h-7 px-2 bg-[#004C97] hover:bg-[#003B75] text-white text-[10px] font-bold"
-                              title="Salvar alterações"
-                            >
-                              {savingItemId === item.id ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Save className="w-3 h-3" />
-                              )}
-                            </Button>
+                        {/* 17. Divergência Peças (Sistema = DP07 - SAP) */}
+                        <td className="p-2.5 text-center font-mono">
+                          {divergence === null || divergence === undefined ? (
+                            <span className="text-slate-400 text-[10px]">Pendente</span>
+                          ) : divergence === 0 ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-[10px]">
+                              OK (0)
+                            </Badge>
+                          ) : divergence > 0 ? (
+                            <Badge className="bg-blue-100 text-blue-800 border-blue-300 font-bold text-[10px]">
+                              +{divergence}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-bold text-[10px] animate-pulse">
+                              {divergence} (Falta)
+                            </Badge>
                           )}
+                        </td>
 
-                          {item.status !== 'Pronto para Enfornamento' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleConcludePreparation(item)}
-                              disabled={savingItemId === item.id}
-                              className="h-7 px-2 text-[10px] font-bold border-emerald-500 text-emerald-700 hover:bg-emerald-50"
-                              title="Concluir Preparação (Pronto para Enfornamento)"
-                            >
-                              <Check className="w-3 h-3 mr-0.5 text-emerald-600" />
-                              Pronto
-                            </Button>
+                        {/* 18. Sequência de Enfornamento (DP07 - EDITÁVEL) */}
+                        <td className="p-2 bg-blue-50/40 border-l border-r border-blue-200">
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              min={1}
+                              value={currentSeq ?? ''}
+                              onChange={(e) =>
+                                handleFieldChange(
+                                  item.id || '',
+                                  'dp07_enfornamento_sequence',
+                                  e.target.value === '' ? null : Number(e.target.value),
+                                )
+                              }
+                              className="h-7 text-xs font-mono font-bold bg-white text-blue-900 border-blue-300 w-16"
+                            />
+                            <span className="text-[10px] font-mono text-slate-500">
+                              (PCP #{item.pcp_planned_sequence})
+                            </span>
+                          </div>
+                          {isSequenceDiff && (
+                            <span className="text-[9px] text-amber-700 font-semibold block leading-tight mt-0.5">
+                              Seq. diferente da prog.
+                            </span>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </ErrorBoundary>
-      {/* 5. PAINEL DE ALERTAS ATIVOS (REQUISITO 11) */}
-      <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs space-y-2">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-500" />
-            <h2 className="text-xs font-black uppercase text-slate-900 tracking-wider">
-              Painel de Alertas & Governança da Preparação
-            </h2>
+                        </td>
+
+                        {/* 19. Status */}
+                        <td className="p-2.5">{getStatusBadge(item.status)}</td>
+
+                        {/* 20. Observação (DP07 - EDITÁVEL) */}
+                        <td className="p-2 bg-blue-50/40 border-l border-r border-blue-200">
+                          <Input
+                            type="text"
+                            value={currentObs}
+                            onChange={(e) =>
+                              handleFieldChange(item.id || '', 'dp07_observation', e.target.value)
+                            }
+                            placeholder="Observação opcional..."
+                            className="h-7 text-xs bg-white border-blue-200"
+                          />
+                        </td>
+
+                        {/* 21. Responsável */}
+                        <td
+                          className="p-2.5 text-slate-600 truncate max-w-[130px]"
+                          title={item.responsible_user}
+                        >
+                          {item.responsible_user || '—'}
+                        </td>
+
+                        {/* 22. Data/Hora Atualização */}
+                        <td className="p-2.5 font-mono text-[10.5px] text-slate-500">
+                          {item.updated_at_timestamp
+                            ? new Date(item.updated_at_timestamp).toLocaleTimeString('pt-BR', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '—'}
+                        </td>
+
+                        {/* Ações */}
+                        <td className="p-2 text-center sticky right-0 bg-white/95 backdrop-blur z-10 border-l border-slate-200">
+                          <div className="flex items-center justify-center gap-1">
+                            {hasPendingEdits && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveItem(item)}
+                                disabled={savingItemId === item.id}
+                                className="h-7 px-2 bg-[#004C97] hover:bg-[#003B75] text-white text-[10px] font-bold"
+                                title="Salvar alterações"
+                              >
+                                {savingItemId === item.id ? (
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Save className="w-3 h-3" />
+                                )}
+                              </Button>
+                            )}
+
+                            {item.status !== 'Pronto para Enfornamento' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleConcludePreparation(item)}
+                                disabled={savingItemId === item.id}
+                                className="h-7 px-2 text-[10px] font-bold border-emerald-500 text-emerald-700 hover:bg-emerald-50"
+                                title="Concluir Preparação (Pronto para Enfornamento)"
+                              >
+                                <Check className="w-3 h-3 mr-0.5 text-emerald-600" />
+                                Pronto
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-          <span className="text-[10px] font-mono text-slate-400">
-            Monitoramento Automático em Tempo Real
-          </span>
         </div>
-
-        <div className="space-y-1.5">
-          {items.flatMap((it) => RawMaterialInventoryService.evaluateItemAlerts(it)).length ===
-          0 ? (
-            <div className="p-3 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>
-                Nenhum alerta crítico ativo. Todas as ordens em conformidade com o enfornamento da
-                L1.
-              </span>
+      </ErrorBoundary>
+      {/* 5. PAINEL DE ALERTAS ATIVOS (REQUISITO 11) */}
+      <ErrorBoundary moduleName="Inventário de matéria-prima — Painel de Alertas">
+        <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs space-y-2">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              <h2 className="text-xs font-black uppercase text-slate-900 tracking-wider">
+                Painel de Alertas & Governança da Preparação
+              </h2>
             </div>
-          ) : (
-            items
-              .flatMap((it) => RawMaterialInventoryService.evaluateItemAlerts(it))
-              .map((alert, idx) => (
-                <div
-                  key={idx}
-                  className={`p-2.5 rounded-lg border text-xs flex items-start gap-2.5 ${
-                    alert.severity === 'CRITICAL'
-                      ? 'bg-rose-50/80 border-rose-200 text-rose-950'
-                      : alert.severity === 'WARNING'
-                        ? 'bg-amber-50/80 border-amber-200 text-amber-950'
-                        : 'bg-blue-50/80 border-blue-200 text-blue-950'
-                  }`}
-                >
-                  <AlertTriangle
-                    className={`w-4 h-4 shrink-0 mt-0.5 ${
+            <span className="text-[10px] font-mono text-slate-400">
+              Monitoramento Automático em Tempo Real
+            </span>
+          </div>
+
+          <div className="space-y-1.5">
+            {(items || []).flatMap((it) => RawMaterialInventoryService.evaluateItemAlerts(it))
+              .length === 0 ? (
+              <div className="p-3 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span>
+                  Nenhum alerta crítico ativo. Todas as ordens em conformidade com o enfornamento da
+                  L1.
+                </span>
+              </div>
+            ) : (
+              (items || [])
+                .flatMap((it) => RawMaterialInventoryService.evaluateItemAlerts(it))
+                .map((alert, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-2.5 rounded-lg border text-xs flex items-start gap-2.5 ${
                       alert.severity === 'CRITICAL'
-                        ? 'text-rose-600'
+                        ? 'bg-rose-50/80 border-rose-200 text-rose-950'
                         : alert.severity === 'WARNING'
-                          ? 'text-amber-600'
-                          : 'text-blue-600'
-                    }`}
-                  />
-                  <div className="flex-1">
-                    <div className="font-bold tracking-tight">{alert.title}</div>
-                    <div className="text-[11px] mt-0.5 opacity-90">{alert.description}</div>
-                  </div>
-                  <Badge
-                    className={`text-[9px] uppercase font-black ${
-                      alert.severity === 'CRITICAL'
-                        ? 'bg-rose-600 text-white'
-                        : 'bg-amber-500 text-white'
+                          ? 'bg-amber-50/80 border-amber-200 text-amber-950'
+                          : 'bg-blue-50/80 border-blue-200 text-blue-950'
                     }`}
                   >
-                    {alert.type}
-                  </Badge>
-                </div>
-              ))
-          )}
+                    <AlertTriangle
+                      className={`w-4 h-4 shrink-0 mt-0.5 ${
+                        alert.severity === 'CRITICAL'
+                          ? 'text-rose-600'
+                          : alert.severity === 'WARNING'
+                            ? 'text-amber-600'
+                            : 'text-blue-600'
+                      }`}
+                    />
+                    <div className="flex-1">
+                      <div className="font-bold tracking-tight">{alert.title}</div>
+                      <div className="text-[11px] mt-0.5 opacity-90">{alert.description}</div>
+                    </div>
+                    <Badge
+                      className={`text-[9px] uppercase font-black ${
+                        alert.severity === 'CRITICAL'
+                          ? 'bg-rose-600 text-white'
+                          : 'bg-amber-500 text-white'
+                      }`}
+                    >
+                      {alert.type}
+                    </Badge>
+                  </div>
+                ))
+            )}
+          </div>
         </div>
-      </div>
+      </ErrorBoundary>
 
       {/* 5.1 PAINEL / DRAWER COMPLETO DA ORDEM (4 BLOCOS OPERACIONAIS) */}
       <OrderDetailDrawer

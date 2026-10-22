@@ -61,38 +61,56 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     // Registra o código de ocorrência e stack internamente nos logs de auditoria (pcp_audit_logs)
+    // Valores válidos do schema PocketBase:
+    // event_type: RULE_ACTION (ou SCHEDULE_ACTION, etc.)
+    // outcome: FAILED (ou ALLOW, DENY, SUCCESS)
     try {
-      import('@/lib/pocketbase/client').then(({ default: pb }) => {
-        const currentUser = pb.authStore.record || pb.authStore.model
-        pb.collection('pcp_audit_logs')
-          .create({
-            user_id: currentUser?.id || null,
-            user_email: (currentUser as any)?.email || '',
-            user_name: (currentUser as any)?.name || 'Sistema PCP',
-            user_role: (currentUser as any)?.role || 'SYSTEM',
-            event_type: 'AUDIT_TRAIL',
-            action: 'ERROR_BOUNDARY_CAPTURED',
-            resource: this.props.moduleName || 'UNKNOWN_MODULE',
-            resource_id: this.occurrenceCode,
-            permission_required: 'pcp.audit.view',
-            scope: 'UI_ERROR_BOUNDARY',
-            outcome: 'FAILURE',
-            details: {
-              occurrence_code: this.occurrenceCode,
-              module_name: this.props.moduleName || 'UNKNOWN_MODULE',
-              error_message: error.message,
-              error_stack: error.stack,
-              component_stack: errorInfo.componentStack,
-              timestamp: new Date().toISOString(),
-              url: typeof window !== 'undefined' ? window.location.href : '',
-            },
-          })
-          .catch(() => {
-            // falha em registrar log de auditoria não deve lançar nova exceção
-          })
-      })
-    } catch {
-      // safe fallback
+      import('@/lib/pocketbase/client')
+        .then(({ default: pb }) => {
+          if (!pb?.collection) return
+          const currentUser = pb.authStore?.record || pb.authStore?.model
+          pb.collection('pcp_audit_logs')
+            .create({
+              user_id: currentUser?.id || null,
+              user_email: (currentUser as any)?.email || '',
+              user_name: (currentUser as any)?.name || 'Sistema PCP',
+              user_role: (currentUser as any)?.role || 'SYSTEM',
+              event_type: 'RULE_ACTION',
+              action: 'ERROR_BOUNDARY_CAPTURED',
+              resource: this.props.moduleName || 'UI_COMPONENT',
+              resource_id: this.occurrenceCode,
+              record_id: this.occurrenceCode,
+              permission_required: 'pcp.audit.view',
+              scope: 'UI_ERROR_BOUNDARY',
+              outcome: 'FAILED',
+              source: 'PCP Robotizado ErrorBoundary',
+              status: 'FAILED',
+              details: {
+                occurrence_code: this.occurrenceCode,
+                module_name: this.props.moduleName || 'UI_COMPONENT',
+                error_message: error?.message || 'Erro de renderização desconhecido',
+                error_stack: error?.stack || '',
+                component_stack: errorInfo?.componentStack || '',
+                timestamp: new Date().toISOString(),
+                url: typeof window !== 'undefined' ? window.location.href : '',
+              },
+            })
+            .catch((logErr) => {
+              // Best-effort silencioso: falha em registrar log de auditoria NUNCA interfere no ErrorBoundary
+              console.error(
+                'Falha silenciosa ao persistir log de auditoria do ErrorBoundary:',
+                logErr,
+              )
+            })
+        })
+        .catch((importErr) => {
+          console.error(
+            'Falha silenciosa ao importar PocketBase client no ErrorBoundary:',
+            importErr,
+          )
+        })
+    } catch (catchErr) {
+      console.error('Falha de execução ao registrar ocorrência de auditoria:', catchErr)
     }
   }
 
@@ -126,10 +144,19 @@ export class ErrorBoundary extends Component<Props, State> {
         (typeof window !== 'undefined' &&
           window.location.pathname.includes('/pcp/cadastros/ficha-mestre'))
 
-      // Fallback compacto para widgets individuais (cards, tabelas, gráficos)
-      if (this.props.variant === 'compact' || this.props.variant === 'inline') {
+      // Fallback compacto para widgets individuais ou quando moduleName indica submódulo interno
+      const isSubmodule = Boolean(
+        this.props.variant === 'compact' ||
+        this.props.variant === 'inline' ||
+        (this.props.moduleName &&
+          this.props.moduleName !== 'Sistema' &&
+          this.props.moduleName !== 'Central de Sequenciamento' &&
+          !isCentrosFichaMestre),
+      )
+
+      if (isSubmodule) {
         return (
-          <div className="p-3 rounded-lg border border-rose-200 bg-rose-50/70 text-rose-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+          <div className="p-3 my-2 rounded-lg border border-rose-200 bg-rose-50/80 text-rose-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
               <span>

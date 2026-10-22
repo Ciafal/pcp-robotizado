@@ -1123,8 +1123,9 @@ export class RawMaterialInventoryService {
   /**
    * Calcula alertas automáticos conforme o Requisito 11
    */
-  static evaluateItemAlerts(item: MPInventoryItem): MPInventoryItemAlert[] {
+  static evaluateItemAlerts(item?: MPInventoryItem | null): MPInventoryItemAlert[] {
     const alerts: MPInventoryItemAlert[] = []
+    if (!item) return alerts
 
     // 1. Quantidade Insuficiente
     if (
@@ -1136,17 +1137,19 @@ export class RawMaterialInventoryService {
     ) {
       const missingPieces = Math.abs(item.pieces_divergence)
       const unitTon =
-        item.sap_pieces_count > 0 ? item.planned_requirement_tons / item.sap_pieces_count : 1.5
+        (item.sap_pieces_count || 0) > 0
+          ? (item.planned_requirement_tons || 0) / item.sap_pieces_count
+          : 1.5
       const missingTons = Number((missingPieces * unitTon).toFixed(2))
 
       alerts.push({
         type: 'INSUFFICIENT',
         title: 'ALERTA — Quantidade física insuficiente para atender a programação do enfornamento',
-        description: `Faltante: ${missingPieces} peças (~${missingTons} t). Ordem: ${item.production_order}, Bitola: ${item.produced_gauge_product}, Horário Previsto: ${item.expected_enfornamento_time}.`,
+        description: `Faltante: ${missingPieces} peças (~${missingTons} t). Ordem: ${item.production_order || '—'}, Bitola: ${item.produced_gauge_product || '—'}, Horário Previsto: ${item.expected_enfornamento_time || '—'}.`,
         severity: 'CRITICAL',
-        order: item.production_order,
-        material: item.raw_material_code,
-        heat: item.heat_number,
+        order: item.production_order || '',
+        material: item.raw_material_code || '',
+        heat: item.heat_number || '',
         piecesShort: missingPieces,
         tonsShort: missingTons,
         expectedTime: item.expected_enfornamento_time,
@@ -1154,15 +1157,15 @@ export class RawMaterialInventoryService {
     }
 
     // 2. Material Não Localizado
-    if (!item.is_material_located) {
+    if (item.is_material_located === false) {
       alerts.push({
         type: 'NOT_LOCATED',
         title: 'RISCO DE NÃO ATENDIMENTO DO ENFORNAMENTO — Material não localizado no galpão',
-        description: `Material ${item.raw_material_code} (Corrida ${item.heat_number}) não encontrado no WMS. Alerta preventivo gerado para a Coordenação do PCP.`,
+        description: `Material ${item.raw_material_code || '—'} (Corrida ${item.heat_number || '—'}) não encontrado no WMS. Alerta preventivo gerado para a Coordenação do PCP.`,
         severity: 'CRITICAL',
-        order: item.production_order,
-        material: item.raw_material_code,
-        heat: item.heat_number,
+        order: item.production_order || '',
+        material: item.raw_material_code || '',
+        heat: item.heat_number || '',
       })
     }
 
@@ -1171,11 +1174,11 @@ export class RawMaterialInventoryService {
       alerts.push({
         type: 'BLOCKED',
         title: 'MATERIAL BLOQUEADO — Restrição de Qualidade / WMS',
-        description: `Material ${item.raw_material_code} com bloqueio ativo. O estoque bloqueado NÃO conta como disponível para enfornamento.`,
+        description: `Material ${item.raw_material_code || '—'} com bloqueio ativo. O estoque bloqueado NÃO conta como disponível para enfornamento.`,
         severity: 'CRITICAL',
-        order: item.production_order,
-        material: item.raw_material_code,
-        heat: item.heat_number,
+        order: item.production_order || '',
+        material: item.raw_material_code || '',
+        heat: item.heat_number || '',
       })
     }
 
@@ -1183,16 +1186,18 @@ export class RawMaterialInventoryService {
     if (
       item.dp07_enfornamento_sequence !== null &&
       item.dp07_enfornamento_sequence !== undefined &&
+      item.pcp_planned_sequence !== null &&
+      item.pcp_planned_sequence !== undefined &&
       item.dp07_enfornamento_sequence !== item.pcp_planned_sequence
     ) {
       alerts.push({
         type: 'SEQUENCE_DIFF',
         title: 'SEQUÊNCIA FÍSICA DIVERGENTE DA PROGRAMAÇÃO PCP',
-        description: `Ordem ${item.production_order} movida da posição #${item.pcp_planned_sequence} (PCP) para #${item.dp07_enfornamento_sequence} (DP07). Alteração só modifica a programação oficial após aprovação do PCP.`,
+        description: `Ordem ${item.production_order || '—'} movida da posição #${item.pcp_planned_sequence} (PCP) para #${item.dp07_enfornamento_sequence} (DP07). Alteração só modifica a programação oficial após aprovação do PCP.`,
         severity: 'WARNING',
-        order: item.production_order,
-        material: item.raw_material_code,
-        heat: item.heat_number,
+        order: item.production_order || '',
+        material: item.raw_material_code || '',
+        heat: item.heat_number || '',
         previousSequence: item.pcp_planned_sequence,
         newSequence: item.dp07_enfornamento_sequence,
       })
@@ -1209,11 +1214,11 @@ export class RawMaterialInventoryService {
       alerts.push({
         type: 'DELAY_RISK',
         title: 'RISCO DE ATRASO NO ENFORNAMENTO — Preparação pendente próxima ao horário previsto',
-        description: `Ordem ${item.production_order} prevista para às ${item.expected_enfornamento_time}. Status atual: ${item.status}. Atraso de liberação impactará o enfornamento da L1.`,
+        description: `Ordem ${item.production_order || '—'} prevista para às ${item.expected_enfornamento_time}. Status atual: ${item.status || 'Pendente'}. Atraso de liberação impactará o enfornamento da L1.`,
         severity: 'WARNING',
-        order: item.production_order,
-        material: item.raw_material_code,
-        heat: item.heat_number,
+        order: item.production_order || '',
+        material: item.raw_material_code || '',
+        heat: item.heat_number || '',
         expectedTime: item.expected_enfornamento_time,
       })
     }
@@ -1225,10 +1230,11 @@ export class RawMaterialInventoryService {
    * Constrói a timeline operacional detalhada da ordem
    */
   static buildOrderTimeline(
-    item: MPInventoryItem,
-    events: MPInventoryHistoryEvent[],
+    item?: MPInventoryItem | null,
+    events: MPInventoryHistoryEvent[] = [],
   ): MPInventoryTimelineEntry[] {
     const timeline: MPInventoryTimelineEntry[] = []
+    if (!item) return timeline
 
     // 1. Confirmação PCP & Geração do Inventário
     timeline.push({
@@ -1238,7 +1244,7 @@ export class RawMaterialInventoryService {
         : '08:10',
       actor: 'PCP Robotizado',
       title: 'Programação confirmada pelo PCP',
-      description: `Programação confirmada na versão ${item.schedule_version}. Item de enfornamento FRIO identificado.`,
+      description: `Programação confirmada na versão ${item.schedule_version || 1}. Item de enfornamento FRIO identificado.`,
       type: 'INFO',
     })
 
@@ -1263,7 +1269,7 @@ export class RawMaterialInventoryService {
     })
 
     // Eventos do histórico específicos deste item
-    const itemEvents = events.filter((e) => e.inventory_item_id === item.id)
+    const itemEvents = (events || []).filter((e) => e && e.inventory_item_id === item.id)
     for (const evt of itemEvents) {
       const timeDisplay = new Date(evt.timestamp).toLocaleTimeString('pt-BR', {
         hour: '2-digit',

@@ -250,7 +250,7 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
       }
       if (
         filterOrder &&
-        (!(d.production_order ?? '').toLowerCase().includes(filterOrder.toLowerCase()))
+        !(d.production_order ?? '').toLowerCase().includes(filterOrder.toLowerCase())
       ) {
         return false
       }
