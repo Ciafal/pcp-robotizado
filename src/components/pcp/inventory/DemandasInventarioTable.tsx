@@ -242,31 +242,36 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
       }
 
       // 2. Filtros detalhados
-      if (filterControl && !d.control_number.toLowerCase().includes(filterControl.toLowerCase())) {
+      if (
+        filterControl &&
+        !(d.control_number ?? '').toLowerCase().includes(filterControl.toLowerCase())
+      ) {
         return false
       }
       if (
         filterOrder &&
-        (!d.production_order ||
-          !d.production_order.toLowerCase().includes(filterOrder.toLowerCase()))
+        (!(d.production_order ?? '').toLowerCase().includes(filterOrder.toLowerCase()))
       ) {
         return false
       }
-      if (filterCenter && !d.center.toLowerCase().includes(filterCenter.toLowerCase())) {
+      if (filterCenter && !(d.center ?? '').toLowerCase().includes(filterCenter.toLowerCase())) {
         return false
       }
-      if (filterDeposit && !d.storage_deposit.toLowerCase().includes(filterDeposit.toLowerCase())) {
+      if (
+        filterDeposit &&
+        !(d.storage_deposit ?? '').toLowerCase().includes(filterDeposit.toLowerCase())
+      ) {
         return false
       }
       if (filterMaterial) {
         const matTerm = filterMaterial.toLowerCase()
         const matchMain =
-          d.material_code.toLowerCase().includes(matTerm) ||
-          d.material_description?.toLowerCase().includes(matTerm)
+          (d.material_code ?? '').toLowerCase().includes(matTerm) ||
+          (d.material_description ?? '').toLowerCase().includes(matTerm)
         const matchItems = d.materials_summary?.some(
           (m) =>
-            m.material_code.toLowerCase().includes(matTerm) ||
-            m.material_description?.toLowerCase().includes(matTerm),
+            (m.material_code ?? '').toLowerCase().includes(matTerm) ||
+            (m.material_description ?? '').toLowerCase().includes(matTerm),
         )
         if (!matchMain && !matchItems) return false
       }

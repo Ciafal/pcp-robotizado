@@ -44,6 +44,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import pb from '@/lib/pocketbase/client'
 import {
   MPInventoryHeader,
@@ -154,7 +155,8 @@ export const RawMaterialInventoryPage: React.FC = () => {
   const [items, setItems] = useState<MPInventoryItem[]>([])
   const [occurrences, setOccurrences] = useState<MPInventoryOccurrence[]>([])
   const [historyEvents, setHistoryEvents] = useState<MPInventoryHistoryEvent[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [savingItemId, setSavingItemId] = useState<string | null>(null)
 
   // Filtro Rápido
@@ -308,11 +310,13 @@ export const RawMaterialInventoryPage: React.FC = () => {
   // Carrega Ordens de Inventário (sem selecionar headers[0] automaticamente quando não há seleção real)
   const loadHeaders = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const list = await rawMaterialInventoryService.listInventoryOrders()
       setHeaders(list)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao carregar cabeçalhos de inventário:', err)
+      setLoadError('Não foi possível carregar os dados do inventário. Tente novamente.')
       toast({
         variant: 'destructive',
         title: 'Erro de Conexão',
@@ -326,6 +330,7 @@ export const RawMaterialInventoryPage: React.FC = () => {
   // Carrega Itens da Ordem Selecionada
   const loadItems = useCallback(async (headerId: string) => {
     if (!headerId) return
+    setLoadError(null)
     try {
       const itms = await rawMaterialInventoryService.listInventoryItems(headerId, true)
       setItems(itms)
@@ -333,8 +338,9 @@ export const RawMaterialInventoryPage: React.FC = () => {
       setOccurrences(occs)
       const hist = await rawMaterialInventoryService.listHistoryEvents(headerId)
       setHistoryEvents(hist)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao carregar itens:', err)
+      setLoadError('Não foi possível carregar os dados do inventário. Tente novamente.')
     }
   }, [])
 
@@ -453,38 +459,51 @@ export const RawMaterialInventoryPage: React.FC = () => {
       if (quickFilter === 'PRONTOS' && it.status !== 'Pronto para Enfornamento') return false
 
       // 2. Filtros Avançados
-      if (filterCompany && !it.company.toLowerCase().includes(filterCompany.toLowerCase()))
+      if (
+        filterCompany &&
+        !(it.company ?? '').toLowerCase().includes(filterCompany.toLowerCase())
+      )
         return false
-      if (filterLine && !it.line.toLowerCase().includes(filterLine.toLowerCase())) return false
-      if (filterCenter && !it.center.toLowerCase().includes(filterCenter.toLowerCase()))
+      if (filterLine && !(it.line ?? '').toLowerCase().includes(filterLine.toLowerCase()))
+        return false
+      if (
+        filterCenter &&
+        !(it.center ?? '').toLowerCase().includes(filterCenter.toLowerCase())
+      )
         return false
       if (
         filterDeposit &&
-        !it.wms_physical_location?.toLowerCase().includes(filterDeposit.toLowerCase())
+        !(it.wms_physical_location ?? '').toLowerCase().includes(filterDeposit.toLowerCase())
       )
         return false
       if (filterDate && it.enfornamento_date !== filterDate) return false
-      if (filterOrder && !it.production_order.toLowerCase().includes(filterOrder.toLowerCase()))
+      if (
+        filterOrder &&
+        !(it.production_order ?? '').toLowerCase().includes(filterOrder.toLowerCase())
+      )
         return false
       if (
         filterMaterial &&
-        !it.raw_material_code.toLowerCase().includes(filterMaterial.toLowerCase()) &&
-        !it.raw_material_description.toLowerCase().includes(filterMaterial.toLowerCase())
+        !(it.raw_material_code ?? '').toLowerCase().includes(filterMaterial.toLowerCase()) &&
+        !(it.raw_material_description ?? '').toLowerCase().includes(filterMaterial.toLowerCase())
       )
         return false
-      if (filterHeat && !it.heat_number.toLowerCase().includes(filterHeat.toLowerCase()))
+      if (
+        filterHeat &&
+        !(it.heat_number ?? '').toLowerCase().includes(filterHeat.toLowerCase())
+      )
         return false
       if (filterEnfornamentoType !== 'TODOS' && it.enfornamento_type !== filterEnfornamentoType)
         return false
       if (filterStatus !== 'TODOS' && it.status !== filterStatus) return false
       if (
         filterResponsible &&
-        !it.responsible_user?.toLowerCase().includes(filterResponsible.toLowerCase())
+        !(it.responsible_user ?? '').toLowerCase().includes(filterResponsible.toLowerCase())
       )
         return false
       if (
         filterWmsLocation &&
-        !it.wms_physical_location.toLowerCase().includes(filterWmsLocation.toLowerCase())
+        !(it.wms_physical_location ?? '').toLowerCase().includes(filterWmsLocation.toLowerCase())
       )
         return false
       if (filterVersion !== 'TODOS' && String(it.schedule_version) !== String(filterVersion))
@@ -770,22 +789,45 @@ export const RawMaterialInventoryPage: React.FC = () => {
         onHistorico={() => handleOpenHistorico()}
       />
 
-      {/* 1.2 SEÇÃO "DEMANDAS DE INVENTÁRIO" NA MESMA PÁGINA (COM TABELA, FILTROS E AÇÕES) */}
+      {/* ESTADO DE ERRO CONTEXTUAL DE COMUNICAÇÃO DENTRO DA PÁGINA */}
+      {loadError && (
+        <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 text-xs text-rose-900 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{loadError}</span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              loadHeaders()
+              if (selectedHeaderId) loadItems(selectedHeaderId)
+            }}
+            className="h-7 text-xs border-rose-300 text-rose-700 hover:bg-rose-100"
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
+      {/* 1.2 SEÇÃO "DEMANDAS DE INVENTÁRIO" NA MESMA PÁGINA (COM ERRORBOUNDARY LOCAL) */}
       {showDemandasSection && (
-        <DemandasInventarioTable
-          demands={inventoryDemands}
-          loading={loadingDemands}
-          onVisualizar={(demanda) => {
-            // Visualização aberta internamente na tabela
-          }}
-          onLancar={(demanda) => handleOpenLancarInventario(demanda)}
-          onHistorico={(demanda) => handleOpenHistorico(demanda)}
-          onCancelar={handleCancelarDemanda}
-          onRefresh={loadDemands}
-          externalViewDemand={demandForDirectView}
-          onClearExternalViewDemand={() => setDemandForDirectView(null)}
-          lastCreatedDemand={createdDemandForSuccess}
-        />
+        <ErrorBoundary moduleName="Inventário de matéria-prima — Demandas">
+          <DemandasInventarioTable
+            demands={inventoryDemands}
+            loading={loadingDemands}
+            onVisualizar={(demanda) => {
+              // Visualização aberta internamente na tabela
+            }}
+            onLancar={(demanda) => handleOpenLancarInventario(demanda)}
+            onHistorico={(demanda) => handleOpenHistorico(demanda)}
+            onCancelar={handleCancelarDemanda}
+            onRefresh={loadDemands}
+            externalViewDemand={demandForDirectView}
+            onClearExternalViewDemand={() => setDemandForDirectView(null)}
+            lastCreatedDemand={createdDemandForSuccess}
+          />
+        </ErrorBoundary>
       )}
 
       {/* PAINEL DE INTEGRAÇÕES & GOVERNANÇA (ISOLADO DO DP07) */}
@@ -1058,194 +1100,206 @@ export const RawMaterialInventoryPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. TABELA OPERACIONAL COM AS 22 COLUNAS EXATAS E ORIGEM VISÍVEL */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
-        {/* Scroll horizontal estritamente interno à tabela */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse min-w-[2100px]">
-            <thead className="bg-slate-100/90 text-slate-700 text-[10px] uppercase font-black tracking-wider border-b border-slate-200 select-none">
-              <tr>
-                <th className="p-2.5 w-10 text-center">#</th>
-                {/* 1. Empresa (PCP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Empresa</span>
-                    <span className="text-[8px] font-normal text-slate-400">PCP</span>
-                  </div>
-                </th>
-                {/* 2. Linha (PCP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Linha</span>
-                    <span className="text-[8px] font-normal text-slate-400">PCP</span>
-                  </div>
-                </th>
-                {/* 3. Centro (PCP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Centro</span>
-                    <span className="text-[8px] font-normal text-slate-400">PCP</span>
-                  </div>
-                </th>
-                {/* 4. Data Enfornamento (PCP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Data Enfornamento</span>
-                    <span className="text-[8px] font-normal text-slate-400">PCP</span>
-                  </div>
-                </th>
-                {/* 5. Hora Prevista Enfornamento (PCP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Hora Prevista</span>
-                    <span className="text-[8px] font-normal text-slate-400">PCP</span>
-                  </div>
-                </th>
-                {/* 6. Ordem (PCP/SAP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Ordem</span>
-                    <span className="text-[8px] font-normal text-slate-400">PCP/SAP</span>
-                  </div>
-                </th>
-                {/* 7. Código Matéria-Prima (SAP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Cód. Matéria-Prima</span>
-                    <span className="text-[8px] font-normal text-slate-400">SAP</span>
-                  </div>
-                </th>
-                {/* 8. Descrição Matéria-Prima (SAP) */}
-                <th className="p-2.5 min-w-[200px]">
-                  <div className="flex flex-col">
-                    <span>Descrição Matéria-Prima</span>
-                    <span className="text-[8px] font-normal text-slate-400">SAP</span>
-                  </div>
-                </th>
-                {/* 9. Corrida/Lote (SAP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Corrida / Lote</span>
-                    <span className="text-[8px] font-normal text-slate-400">SAP</span>
-                  </div>
-                </th>
-                {/* 10. Bitola/Produto Produzido (PCP/SAP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Bitola / Produto</span>
-                    <span className="text-[8px] font-normal text-slate-400">PCP/SAP</span>
-                  </div>
-                </th>
-                {/* 11. Tipo de Enfornamento (PCP) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Tipo Enfornamento</span>
-                    <span className="text-[8px] font-normal text-slate-400">PCP</span>
-                  </div>
-                </th>
-                {/* 12. Estoque SAP (t) (SAP) */}
-                <th className="p-2.5 text-right">
-                  <div className="flex flex-col items-end">
-                    <span>Estoque SAP (t)</span>
-                    <span className="text-[8px] font-normal text-slate-400">SAP</span>
-                  </div>
-                </th>
-                {/* 13. Necessidade (t) (PCP) */}
-                <th className="p-2.5 text-right">
-                  <div className="flex flex-col items-end">
-                    <span>Necessidade (t)</span>
-                    <span className="text-[8px] font-normal text-slate-400">PCP</span>
-                  </div>
-                </th>
-                {/* 14. Nº Peças SAP (SAP) */}
-                <th className="p-2.5 text-right">
-                  <div className="flex flex-col items-end">
-                    <span>Nº Peças SAP</span>
-                    <span className="text-[8px] font-normal text-slate-400">SAP</span>
-                  </div>
-                </th>
-                {/* 15. Localização Física (WMS) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Localização Física</span>
-                    <span className="text-[8px] font-normal text-slate-400">WMS</span>
-                  </div>
-                </th>
-                {/* 16. Nº Peças Inventariadas (DP07 - EDITÁVEL) */}
-                <th className="p-2.5 w-32 bg-blue-50/60 text-[#004C97] border-l border-r border-blue-200">
-                  <div className="flex flex-col">
-                    <span className="font-black">Peças Inventariadas</span>
-                    <span className="text-[8px] font-bold text-blue-600">DP07 • EDITÁVEL</span>
-                  </div>
-                </th>
-                {/* 17. Divergência Peças (Sistema) */}
-                <th className="p-2.5 text-center">
-                  <div className="flex flex-col items-center">
-                    <span>Divergência Peças</span>
-                    <span className="text-[8px] font-normal text-slate-400">
-                      Sistema (DP07 - SAP)
-                    </span>
-                  </div>
-                </th>
-                {/* 18. Sequência de Enfornamento (DP07 - EDITÁVEL) */}
-                <th className="p-2.5 w-28 bg-blue-50/60 text-[#004C97] border-l border-r border-blue-200">
-                  <div className="flex flex-col">
-                    <span className="font-black">Seq. Enfornamento</span>
-                    <span className="text-[8px] font-bold text-blue-600">DP07 • EDITÁVEL</span>
-                  </div>
-                </th>
-                {/* 19. Status (Sistema) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Status</span>
-                    <span className="text-[8px] font-normal text-slate-400">Sistema</span>
-                  </div>
-                </th>
-                {/* 20. Observação (DP07 - EDITÁVEL) */}
-                <th className="p-2.5 min-w-[200px] bg-blue-50/60 text-[#004C97] border-l border-r border-blue-200">
-                  <div className="flex flex-col">
-                    <span className="font-black">Observação</span>
-                    <span className="text-[8px] font-bold text-blue-600">DP07 • EDITÁVEL</span>
-                  </div>
-                </th>
-                {/* 21. Responsável (Sistema) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Responsável</span>
-                    <span className="text-[8px] font-normal text-slate-400">Sistema</span>
-                  </div>
-                </th>
-                {/* 22. Data/Hora Atualização (Sistema) */}
-                <th className="p-2.5">
-                  <div className="flex flex-col">
-                    <span>Data/Hora Atualização</span>
-                    <span className="text-[8px] font-normal text-slate-400">Sistema</span>
-                  </div>
-                </th>
-                {/* Ações */}
-                <th className="p-2.5 text-center w-28 sticky right-0 bg-slate-100 z-10 border-l border-slate-200">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-sans text-xs">
-              {filteredItems.length === 0 ? (
+      {/* 4. TABELA OPERACIONAL COM AS 22 COLUNAS EXATAS E ORIGEM VISÍVEL (COM ERRORBOUNDARY LOCAL) */}
+      <ErrorBoundary moduleName="Inventário de matéria-prima — Grade Operacional DP07">
+        <div className="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+          {/* Scroll horizontal estritamente interno à tabela */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse min-w-[2100px]">
+              <thead className="bg-slate-100/90 text-slate-700 text-[10px] uppercase font-black tracking-wider border-b border-slate-200 select-none">
                 <tr>
-                  <td colSpan={24} className="p-8 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Boxes className="w-8 h-8 text-slate-300" />
-                      <p className="font-semibold">
-                        Nenhum item de inventário encontrado para os filtros selecionados.
-                      </p>
-                      <p className="text-[11px] text-slate-400">
-                        O inventário é gerado automaticamente na confirmação de programação com
-                        enfornamento FRIO para L1.
-                      </p>
+                  <th className="p-2.5 w-10 text-center">#</th>
+                  {/* 1. Empresa (PCP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Empresa</span>
+                      <span className="text-[8px] font-normal text-slate-400">PCP</span>
                     </div>
-                  </td>
+                  </th>
+                  {/* 2. Linha (PCP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Linha</span>
+                      <span className="text-[8px] font-normal text-slate-400">PCP</span>
+                    </div>
+                  </th>
+                  {/* 3. Centro (PCP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Centro</span>
+                      <span className="text-[8px] font-normal text-slate-400">PCP</span>
+                    </div>
+                  </th>
+                  {/* 4. Data Enfornamento (PCP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Data Enfornamento</span>
+                      <span className="text-[8px] font-normal text-slate-400">PCP</span>
+                    </div>
+                  </th>
+                  {/* 5. Hora Prevista Enfornamento (PCP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Hora Prevista</span>
+                      <span className="text-[8px] font-normal text-slate-400">PCP</span>
+                    </div>
+                  </th>
+                  {/* 6. Ordem (PCP/SAP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Ordem</span>
+                      <span className="text-[8px] font-normal text-slate-400">PCP/SAP</span>
+                    </div>
+                  </th>
+                  {/* 7. Código Matéria-Prima (SAP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Cód. Matéria-Prima</span>
+                      <span className="text-[8px] font-normal text-slate-400">SAP</span>
+                    </div>
+                  </th>
+                  {/* 8. Descrição Matéria-Prima (SAP) */}
+                  <th className="p-2.5 min-w-[200px]">
+                    <div className="flex flex-col">
+                      <span>Descrição Matéria-Prima</span>
+                      <span className="text-[8px] font-normal text-slate-400">SAP</span>
+                    </div>
+                  </th>
+                  {/* 9. Corrida/Lote (SAP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Corrida / Lote</span>
+                      <span className="text-[8px] font-normal text-slate-400">SAP</span>
+                    </div>
+                  </th>
+                  {/* 10. Bitola/Produto Produzido (PCP/SAP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Bitola / Produto</span>
+                      <span className="text-[8px] font-normal text-slate-400">PCP/SAP</span>
+                    </div>
+                  </th>
+                  {/* 11. Tipo de Enfornamento (PCP) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Tipo Enfornamento</span>
+                      <span className="text-[8px] font-normal text-slate-400">PCP</span>
+                    </div>
+                  </th>
+                  {/* 12. Estoque SAP (t) (SAP) */}
+                  <th className="p-2.5 text-right">
+                    <div className="flex flex-col items-end">
+                      <span>Estoque SAP (t)</span>
+                      <span className="text-[8px] font-normal text-slate-400">SAP</span>
+                    </div>
+                  </th>
+                  {/* 13. Necessidade (t) (PCP) */}
+                  <th className="p-2.5 text-right">
+                    <div className="flex flex-col items-end">
+                      <span>Necessidade (t)</span>
+                      <span className="text-[8px] font-normal text-slate-400">PCP</span>
+                    </div>
+                  </th>
+                  {/* 14. Nº Peças SAP (SAP) */}
+                  <th className="p-2.5 text-right">
+                    <div className="flex flex-col items-end">
+                      <span>Nº Peças SAP</span>
+                      <span className="text-[8px] font-normal text-slate-400">SAP</span>
+                    </div>
+                  </th>
+                  {/* 15. Localização Física (WMS) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Localização Física</span>
+                      <span className="text-[8px] font-normal text-slate-400">WMS</span>
+                    </div>
+                  </th>
+                  {/* 16. Nº Peças Inventariadas (DP07 - EDITÁVEL) */}
+                  <th className="p-2.5 w-32 bg-blue-50/60 text-[#004C97] border-l border-r border-blue-200">
+                    <div className="flex flex-col">
+                      <span className="font-black">Peças Inventariadas</span>
+                      <span className="text-[8px] font-bold text-blue-600">DP07 • EDITÁVEL</span>
+                    </div>
+                  </th>
+                  {/* 17. Divergência Peças (Sistema) */}
+                  <th className="p-2.5 text-center">
+                    <div className="flex flex-col items-center">
+                      <span>Divergência Peças</span>
+                      <span className="text-[8px] font-normal text-slate-400">
+                        Sistema (DP07 - SAP)
+                      </span>
+                    </div>
+                  </th>
+                  {/* 18. Sequência de Enfornamento (DP07 - EDITÁVEL) */}
+                  <th className="p-2.5 w-28 bg-blue-50/60 text-[#004C97] border-l border-r border-blue-200">
+                    <div className="flex flex-col">
+                      <span className="font-black">Seq. Enfornamento</span>
+                      <span className="text-[8px] font-bold text-blue-600">DP07 • EDITÁVEL</span>
+                    </div>
+                  </th>
+                  {/* 19. Status (Sistema) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Status</span>
+                      <span className="text-[8px] font-normal text-slate-400">Sistema</span>
+                    </div>
+                  </th>
+                  {/* 20. Observação (DP07 - EDITÁVEL) */}
+                  <th className="p-2.5 min-w-[200px] bg-blue-50/60 text-[#004C97] border-l border-r border-blue-200">
+                    <div className="flex flex-col">
+                      <span className="font-black">Observação</span>
+                      <span className="text-[8px] font-bold text-blue-600">DP07 • EDITÁVEL</span>
+                    </div>
+                  </th>
+                  {/* 21. Responsável (Sistema) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Responsável</span>
+                      <span className="text-[8px] font-normal text-slate-400">Sistema</span>
+                    </div>
+                  </th>
+                  {/* 22. Data/Hora Atualização (Sistema) */}
+                  <th className="p-2.5">
+                    <div className="flex flex-col">
+                      <span>Data/Hora Atualização</span>
+                      <span className="text-[8px] font-normal text-slate-400">Sistema</span>
+                    </div>
+                  </th>
+                  {/* Ações */}
+                  <th className="p-2.5 text-center w-28 sticky right-0 bg-slate-100 z-10 border-l border-slate-200">
+                    Ações
+                  </th>
                 </tr>
-              ) : (
-                filteredItems.map((item, index) => {
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-sans text-xs">
+                {loading ? (
+                  <tr>
+                    <td colSpan={24} className="p-8 text-center text-slate-500">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <RefreshCw className="w-8 h-8 text-[#004C97] animate-spin" />
+                        <p className="font-semibold text-slate-700">
+                          Carregando itens de inventário...
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={24} className="p-8 text-center text-slate-500">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Boxes className="w-8 h-8 text-slate-300" />
+                        <p className="font-semibold">
+                          Nenhum inventário de matéria-prima encontrado para os filtros selecionados.
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          O inventário é gerado automaticamente na confirmação de programação com
+                          enfornamento FRIO para L1.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredItems.map((item, index) => {
                   const edits = editedItems[item.id || '']
                   const currentPieces =
                     edits?.dp07_inventoried_pieces !== undefined
@@ -1550,7 +1604,7 @@ export const RawMaterialInventoryPage: React.FC = () => {
           </table>
         </div>
       </div>
-
+    </ErrorBoundary>
       {/* 5. PAINEL DE ALERTAS ATIVOS (REQUISITO 11) */}
       <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs space-y-2">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
