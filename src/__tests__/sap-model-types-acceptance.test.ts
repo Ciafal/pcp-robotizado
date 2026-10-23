@@ -51,7 +51,7 @@ describe('sapModelTypesService — Evolução Códigos Modelos Padrão (WERKS + 
         tipo_material: 'ZFER',
         status: 'Ativo',
       }),
-    ).rejects.toThrow(DUPLICATE_COMBINATION_ERROR_MSG)
+    ).rejects.toThrow('Já existe um Tipo de Código Modelo Padrão cadastrado para esta combinação.')
   })
 
   it('Permite cadastrar e vincular múltiplos códigos SAP ao mesmo Tipo de Código Modelo', async () => {

@@ -50,6 +50,7 @@ import {
   DUPLICATE_COMBINATION_ERROR_MSG,
 } from '@/services/sap-model-types-service'
 import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/hooks/use-toast'
 
 interface VinculadoDraft {
   tempId: string
@@ -66,6 +67,7 @@ interface VinculadoDraft {
 
 export const CodigosModelosPadraoTab: React.FC = () => {
   const { user: currentUser, can } = useAuth()
+  const { toast } = useToast()
 
   // Permissões com suporte a papéis e governança do PCP
   const canManage = can?.('pcp.sap_validation.models.manage') ?? true
@@ -380,19 +382,19 @@ export const CodigosModelosPadraoTab: React.FC = () => {
 
     // Validações obrigatórias
     if (!formData.tipo_codigo_modelo.trim()) {
-      setFormError('O campo "Tipo de Código Modelo" é obrigatório.')
+      setFormError('O campo "Nome" (Tipo de Código Modelo) é obrigatório.')
       return
     }
     if (!formData.centro.trim()) {
-      setFormError('O campo-chave "Centro" é obrigatório (ref. SAP WERKS).')
+      setFormError('O campo "Centro" é obrigatório.')
       return
     }
     if (!formData.centro_trabalho.trim()) {
-      setFormError('O campo-chave "Centro de Trabalho" é obrigatório (ref. SAP ARBPL).')
+      setFormError('O campo "Centro de Trabalho" é obrigatório.')
       return
     }
     if (!formData.tipo_material.trim()) {
-      setFormError('O campo-chave "Tipo de Material" é obrigatório (ref. SAP MARA-MTART).')
+      setFormError('O campo "Tipo de Material" é obrigatório.')
       return
     }
 
@@ -419,10 +421,15 @@ export const CodigosModelosPadraoTab: React.FC = () => {
           })),
         })
 
+        toast({
+          title: 'Tipo de Código Modelo cadastrado com sucesso.',
+          description: `Modelo "${created.tipo_codigo_modelo}" registrado na governança SAP.`,
+        })
         setFeedbackSuccess(
           `Tipo de Código Modelo '${created.tipo_codigo_modelo}' salvo com sucesso.`,
         )
         setModalOpen(false)
+        setIsDirty(false)
         await loadData()
       } else if (modalMode === 'edit' && editingId) {
         const updated = await sapModelTypesService.updateModelType(editingId, {
@@ -444,10 +451,15 @@ export const CodigosModelosPadraoTab: React.FC = () => {
           })),
         })
 
+        toast({
+          title: 'Tipo de Código Modelo cadastrado com sucesso.',
+          description: `Modelo "${updated.tipo_codigo_modelo}" atualizado com sucesso.`,
+        })
         setFeedbackSuccess(
           `Tipo de Código Modelo '${updated.tipo_codigo_modelo}' salvo com sucesso.`,
         )
         setModalOpen(false)
+        setIsDirty(false)
         await loadData()
       }
     } catch (err: any) {
@@ -456,7 +468,7 @@ export const CodigosModelosPadraoTab: React.FC = () => {
       setFormError(msg)
       if (err?.existingId || err?.data?.existingId) {
         setDuplicateExistingId(err.existingId || err.data.existingId)
-      } else if (msg.includes('Já existe um Tipo de Código Modelo cadastrado')) {
+      } else if (msg.includes('Já existe um Tipo de Código Modelo')) {
         // Tenta achar o id duplicado no estado
         const dup = modelTypes.find(
           (m) =>
@@ -680,6 +692,16 @@ export const CodigosModelosPadraoTab: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2.5 shrink-0">
+              {canManage && (
+                <Button
+                  onClick={handleOpenCreateModal}
+                  size="sm"
+                  className="bg-[#004C97] hover:bg-[#003870] text-white font-medium h-9 shadow-xs"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" />+ Cadastrar Modelo
+                </Button>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"
@@ -690,16 +712,6 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                 <RotateCw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
                 Atualizar
               </Button>
-
-              {canManage && (
-                <Button
-                  onClick={handleOpenCreateModal}
-                  size="sm"
-                  className="bg-[#004C97] hover:bg-[#003870] text-white font-medium h-9 shadow-xs"
-                >
-                  <Plus className="w-4 h-4 mr-1.5" />+ Novo Tipo de Código Modelo
-                </Button>
-              )}
             </div>
           </div>
 
@@ -997,7 +1009,7 @@ export const CodigosModelosPadraoTab: React.FC = () => {
               <div>
                 <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   {modalMode === 'create'
-                    ? 'Novo Tipo de Código Modelo'
+                    ? 'Cadastrar Tipo de Código Modelo Padrão'
                     : modalMode === 'edit'
                       ? `Editar Tipo de Código Modelo: ${formData.tipo_codigo_modelo}`
                       : `Visualizar Tipo de Código Modelo: ${formData.tipo_codigo_modelo}`}
@@ -1260,7 +1272,7 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                       onClick={handleAddVinculado}
                       className="w-full h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white"
                     >
-                      <Plus className="w-3.5 h-3.5 mr-1" />+ Adicionar Código Modelo
+                      <Plus className="w-3.5 h-3.5 mr-1" />+ Adicionar Código SAP
                     </Button>
                   </div>
                 </div>
@@ -1406,7 +1418,7 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                       Salvando...
                     </>
                   ) : (
-                    'Salvar'
+                    'Salvar Modelo'
                   )}
                 </Button>
               )}

@@ -112,7 +112,7 @@ export const SAP_MATERIAL_TYPES_CATALOG: SapMaterialTypeOption[] = [
 ]
 
 export const DUPLICATE_COMBINATION_ERROR_MSG =
-  'Já existe um Tipo de Código Modelo cadastrado para esta combinação de Centro, Centro de Trabalho e Tipo de Material.'
+  'Já existe um Tipo de Código Modelo Padrão cadastrado para esta combinação.'
 
 class SapModelTypesService {
   /**
@@ -514,6 +514,7 @@ class SapModelTypesService {
       centro_trabalho: centroTrabalho,
       tipo_material: tipoMaterial,
       usuario,
+      codigos: createdItems.map((c) => c.codigo_material),
       valores_novos: {
         tipo_codigo_modelo: dto.tipo_codigo_modelo,
         descricao: dto.descricao,
@@ -521,10 +522,13 @@ class SapModelTypesService {
         centro_trabalho: centroTrabalho,
         tipo_material: tipoMaterial,
         status,
+        codigos: createdItems.map((c) => c.codigo_material),
         codigos_vinculados: createdItems.map((c) => ({
           codigo_material: c.codigo_material,
           descricao: c.descricao,
+          status: c.status,
         })),
+        resultado: 'SUCESSO',
       },
     })
 
@@ -828,6 +832,7 @@ class SapModelTypesService {
     centro_trabalho: string
     tipo_material: string
     codigo_afetado?: string
+    codigos?: string[]
     usuario: string
     justificativa?: string
     valores_anteriores?: any
@@ -901,6 +906,8 @@ class SapModelTypesService {
           centro_trabalho: params.centro_trabalho,
           tipo_material: params.tipo_material,
           codigo_afetado: params.codigo_afetado,
+          codigos: params.codigos || [],
+          resultado: 'SUCESSO',
           valores_anteriores: params.valores_anteriores,
           valores_novos: params.valores_novos,
           timestamp,
