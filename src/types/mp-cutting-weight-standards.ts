@@ -57,6 +57,14 @@ export interface MPCuttingOptimizationFilters {
   // Seleção de Corrida e Múltiplos (quando Tipo de Corte = BLOCOS)
   selected_heat_number?: string // Corrida selecionada
   selected_multiple_numbers?: string[] // Números dos múltiplos selecionados (sem duplicados)
+  // Matéria-Prima e Lote selecionados (obrigatório para Tipo de Corte = MULTIPLOS)
+  selected_material_code?: string
+  selected_material_description?: string
+  selected_batch_number?: string
+  selected_batch_available_stock?: number
+  selected_batch_unit?: 't' | 'kg'
+  selected_center_code?: string
+  selected_storage_location?: string
 }
 
 export interface MPCuttingScenarioItem {
@@ -114,6 +122,17 @@ export interface MPCuttingScenarioItem {
     industrial_alerts: string[]
     technical_justification: string
   }
+  // Matéria-prima e Lote utilizados no cenário (Múltiplos / Planos de Corte)
+  raw_material_code?: string
+  raw_material_description?: string
+  batch_number?: string
+  batch_initial_stock?: number
+  batch_used_quantity?: number
+  batch_projected_balance?: number
+  batch_unit?: 't' | 'kg'
+  storage_location?: string
+  center_code?: string
+  raw_material_utilization_pct?: number
 }
 
 export interface MPCuttingSimulationResult {
@@ -136,4 +155,13 @@ export interface MPCuttingSimulationResult {
   created_by_user_name?: string
   created?: string
   technical_justification?: string
+  // Rastreabilidade de MP e Lote na simulação
+  raw_material_code?: string
+  raw_material_description?: string
+  batch_number?: string
+  batch_initial_stock?: number
+  batch_used_quantity?: number
+  batch_projected_balance?: number
+  storage_location?: string
+  batch_unit?: 't' | 'kg'
 }

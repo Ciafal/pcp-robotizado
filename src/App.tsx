@@ -1524,7 +1524,9 @@ export const App: React.FC = () => {
                       path="/pcp/gestao-materia-prima/planos-corte"
                       element={
                         <PermissionGuard permission="pcp.mp_opt.simulate">
-                          <MPCuttingPlansUnifiedPage />
+                          <ErrorBoundary moduleName="Planos de Corte (Otimização MP)">
+                            <MPCuttingPlansUnifiedPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />

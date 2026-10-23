@@ -222,7 +222,20 @@ class MPCuttingOptimizationEngineService {
       (filters.required_quantity || 0) * primaryStandard.target_weight_kg ||
       30000 // 30 toneladas padrão
 
-    const availableMpKg = Math.min(stockInfo.availableWeightKg, 50000)
+    // Se o tipo de corte for MÚLTIPLOS e houver um lote selecionado, o teto de estoque é rigorosamente o saldo do lote
+    const isMultiplesCutting = filters.cutting_type === 'MULTIPLOS'
+    let batchStockKg = 0
+    if (isMultiplesCutting && filters.selected_batch_available_stock != null) {
+      batchStockKg =
+        filters.selected_batch_unit === 'kg'
+          ? filters.selected_batch_available_stock
+          : filters.selected_batch_available_stock * 1000
+    }
+
+    const availableMpKg =
+      isMultiplesCutting && batchStockKg > 0
+        ? batchStockKg
+        : Math.min(stockInfo.availableWeightKg, 50000)
 
     // Configuração dos 6 Cenários Oficiais
     const scenarioTemplates = [
@@ -483,6 +496,19 @@ class MPCuttingOptimizationEngineService {
 
       const totalCutsCount = Math.round(piecesCount * tmpl.cutsMultiplier)
 
+      // Atributos de Matéria-Prima e Lote para Cenários
+      const batchUsedQtyTons = Number((usedWeightKg / 1000).toFixed(3))
+      const batchInitialStockTons =
+        isMultiplesCutting && filters.selected_batch_available_stock != null
+          ? filters.selected_batch_unit === 'kg'
+            ? Number((filters.selected_batch_available_stock / 1000).toFixed(3))
+            : Number(filters.selected_batch_available_stock.toFixed(3))
+          : Number((inputWeightKg / 1000).toFixed(3))
+
+      const batchProjectedBalanceTons = Number(
+        Math.max(0, batchInitialStockTons - batchUsedQtyTons).toFixed(3),
+      )
+
       scenarios.push({
         id: tmpl.id,
         name: tmpl.name,
@@ -505,6 +531,21 @@ class MPCuttingOptimizationEngineService {
         demand_fulfillment_pct: demandFulfillmentPct,
         status: isViable ? 'VIÁVEL' : 'INVIÁVEL',
         inviability_reason: inviabilityReason,
+        // Rastreabilidade vinculada de MP e Lote
+        raw_material_code: isMultiplesCutting
+          ? filters.selected_material_code || filters.material_code
+          : undefined,
+        raw_material_description: isMultiplesCutting
+          ? filters.selected_material_description || 'Tarugo de Laminação / MP de Corte'
+          : undefined,
+        batch_number: isMultiplesCutting ? filters.selected_batch_number : undefined,
+        batch_initial_stock: isMultiplesCutting ? batchInitialStockTons : undefined,
+        batch_used_quantity: isMultiplesCutting ? batchUsedQtyTons : undefined,
+        batch_projected_balance: isMultiplesCutting ? batchProjectedBalanceTons : undefined,
+        batch_unit: 't',
+        storage_location: isMultiplesCutting ? filters.selected_storage_location : undefined,
+        center_code: filters.center_code,
+        raw_material_utilization_pct: yieldPct,
         composition: {
           pieces_count: piecesCount,
           piece_nominal_weight_kg: calculatedUnitWeight,
@@ -598,6 +639,9 @@ class MPCuttingOptimizationEngineService {
 
     const simCode = `SIM-CUT-${Date.now().toString(36).toUpperCase()}`
 
+    // Se for Múltiplos, propagar os metadados de MP e lote na raiz do resultado da simulação
+    const bestScenItem = scenarios.find((s) => s.id === bestScenarioId) || scenarios[0]
+
     return {
       simulation_code: simCode,
       company_code: filters.company_code,
@@ -614,6 +658,20 @@ class MPCuttingOptimizationEngineService {
       selected_scenario_id: bestScenarioId,
       status: 'SIMULADO',
       technical_justification: technicalJustification,
+      raw_material_code: isMultiplesCutting
+        ? filters.selected_material_code || filters.material_code
+        : undefined,
+      raw_material_description: isMultiplesCutting
+        ? filters.selected_material_description || 'Tarugo de Laminação / MP de Corte'
+        : undefined,
+      batch_number: isMultiplesCutting ? filters.selected_batch_number : undefined,
+      batch_initial_stock: isMultiplesCutting ? bestScenItem.batch_initial_stock : undefined,
+      batch_used_quantity: isMultiplesCutting ? bestScenItem.batch_used_quantity : undefined,
+      batch_projected_balance: isMultiplesCutting
+        ? bestScenItem.batch_projected_balance
+        : undefined,
+      storage_location: isMultiplesCutting ? filters.selected_storage_location : undefined,
+      batch_unit: 't',
     }
   }
 }

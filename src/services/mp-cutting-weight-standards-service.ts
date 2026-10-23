@@ -709,6 +709,14 @@ class MPCuttingWeightStandardsService {
         approved_plan_code: simulation.approved_plan_code || '',
         created_by_user_name: currentUser,
         technical_justification: simulation.technical_justification || '',
+        raw_material_code: simulation.raw_material_code || null,
+        raw_material_description: simulation.raw_material_description || null,
+        batch_number: simulation.batch_number || null,
+        batch_initial_stock: simulation.batch_initial_stock ?? null,
+        batch_used_quantity: simulation.batch_used_quantity ?? null,
+        batch_projected_balance: simulation.batch_projected_balance ?? null,
+        storage_location: simulation.storage_location || null,
+        center_code: simulation.center_code || null,
       }
 
       const created = await pb.collection(this.COLLECTION_SIMULATIONS).create(payload)
@@ -782,6 +790,14 @@ class MPCuttingWeightStandardsService {
         created_by_user_name: r.created_by_user_name,
         created: r.created,
         technical_justification: r.technical_justification,
+        raw_material_code: r.raw_material_code,
+        raw_material_description: r.raw_material_description,
+        batch_number: r.batch_number,
+        batch_initial_stock: r.batch_initial_stock,
+        batch_used_quantity: r.batch_used_quantity,
+        batch_projected_balance: r.batch_projected_balance,
+        storage_location: r.storage_location,
+        batch_unit: r.batch_unit || 't',
       }))
     } catch (e) {
       console.warn('Erro ao consultar histórico de simulações:', e)
