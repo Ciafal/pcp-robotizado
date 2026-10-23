@@ -803,7 +803,7 @@ class MPCuttingOptimizationEngineService {
       30000 // 30 toneladas padrão
 
     // Se o tipo de corte for MÚLTIPLOS e houver um lote selecionado, o teto de estoque é rigorosamente o saldo do lote
-    const isMultiplesCutting = filters.cutting_type === 'MULTIPLOS'
+    const isMultiplesCutting = (filters.cutting_type as string) === 'MULTIPLOS'
     let batchStockKg = 0
     if (isMultiplesCutting && filters.selected_batch_available_stock != null) {
       batchStockKg =
@@ -845,7 +845,10 @@ class MPCuttingOptimizationEngineService {
         targetDeviationFactor: 0.001, // Praticamente 0 desvio
         yieldBoost: 0.8,
         cutsMultiplier: 1.25,
-        type: filters.cutting_type === 'MULTIPLOS' ? ('MULTIPLOS' as const) : ('BLOCOS' as const),
+        type:
+          (filters.cutting_type as string) === 'MULTIPLOS'
+            ? ('MULTIPLOS' as const)
+            : ('BLOCOS' as const),
         description:
           'Aproximação estrita ao peso ideal cadastrado no padrão, garantindo repetibilidade dimensional.',
       },
