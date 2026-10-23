@@ -294,16 +294,24 @@ class PcpInventoryDemandsService {
    */
   async listAuditEventsByDemand(demandId: string, controlNumber?: string): Promise<any[]> {
     try {
-      let filter = `demand_id = '${demandId}' || inventory_order_id = '${demandId}'`
-      if (controlNumber) {
-        filter += ` || control_number = '${controlNumber}'`
+      // Schema oficial de pcp_mp_inventory_history utiliza `inventory_id` e `control_number`
+      // demand_id / inventory_order_id NÃO existem na coleção e disparavam GET 400
+      const conditions: string[] = []
+      if (demandId) {
+        conditions.push(`inventory_id = "${demandId}"`)
       }
+      if (controlNumber) {
+        conditions.push(`control_number = "${controlNumber}"`)
+      }
+
+      const filter = conditions.length > 0 ? conditions.join(' || ') : undefined
       const records = await pb.collection('pcp_mp_inventory_history').getFullList({
         filter,
-        sort: '-created',
+        sort: '-timestamp,-created',
       })
       return records
-    } catch {
+    } catch (err) {
+      console.warn('[PCP-INVENTORY] Erro ao listar histórico de auditoria:', err)
       return []
     }
   }
@@ -684,23 +692,18 @@ class PcpInventoryDemandsService {
         divergence_pct: -100,
       })
 
-    // Registrar no histórico de auditoria
+    // Registrar no histórico de auditoria (enviando SOMENTE campos existentes no schema oficial)
     try {
       await pb.collection('pcp_mp_inventory_history').create({
-        demand_id: demand.id,
         inventory_id: demand.id,
-        inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'DEMANDA_REABERTA',
         user_name: userName,
         user_id: userId,
         user_role: userRole,
         description: `Inventário reaberto para novo lançamento — status anterior: Cancelado. Ciclo anterior: ${currentCycle} → Novo ciclo: ${newCycle}.`,
-        summary: `Inventário reaberto para novo lançamento — status anterior: Cancelado`,
         previous_value: previousStatus,
-        new_value: 'Aberto',
-        cycle_number: newCycle,
-        details: {
+        new_value: {
           previous_status: previousStatus,
           new_status: 'Aberto',
           previous_cycle: currentCycle,
@@ -848,24 +851,19 @@ class PcpInventoryDemandsService {
       )
     }
 
-    // 2. Registro do evento LANCAMENTO_ADICIONADO em pcp_mp_inventory_history
+    // 2. Registro do evento LANCAMENTO_ADICIONADO em pcp_mp_inventory_history (campos do schema)
     try {
       await pb.collection('pcp_mp_inventory_history').create({
-        demand_id: demand.id,
         inventory_id: demand.id,
-        inventory_item_id: createdItemRecord?.id || '',
-        inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'LANCAMENTO_ADICIONADO',
         user_name: userName,
         user_id: userId,
         user_role: userRole,
         description: `Contagem física de ${count} peças registrada na localização ${locationWmsTrim} (Corrida: ${runNumberTrim}) por ${userName}. Ciclo: ${currentDemandCycle}.`,
-        summary: `Contagem física de ${count} peças na localização ${locationWmsTrim} (Corrida: ${runNumberTrim}).`,
         previous_value: null,
-        cycle_number: currentDemandCycle,
         new_value: {
-          demand_id: demand.id,
+          inventory_id: demand.id,
           control_number: demand.control_number,
           inventory_item_id: createdItemRecord?.id,
           run_number: runNumberTrim,
@@ -984,19 +982,28 @@ class PcpInventoryDemandsService {
     const demand = await this.getDemandById(demandId)
     if (!demand) return
 
-    // Contagem de Inventariado/Divergências APENAS por ciclo vigente:
-    // contagens de ciclos anteriores (cycle_number < demand.cycle_count) não são somadas no novo ciclo
-    const entries = await this.listEntriesByDemand(demandId, true, true)
-    const totalInventoried = entries.reduce((acc, curr) => acc + (curr.pieces_count || 0), 0)
-    const required = demand.total_pieces_required || 0
-    const divergence = totalInventoried - required
-    const divergencePct = required > 0 ? (divergence / required) * 100 : 0
+    try {
+      // Contagem de Inventariado/Divergências APENAS por ciclo vigente:
+      // contagens de ciclos anteriores (cycle_number < demand.cycle_count) não são somadas no novo ciclo
+      const entries = await this.listEntriesByDemand(demandId, true, true)
+      const totalInventoried = entries.reduce(
+        (acc, curr) => acc + (Number(curr.pieces_count) || 0),
+        0,
+      )
+      const required = Number(demand.total_pieces_required) || 0
+      const divergence = totalInventoried - required
+      const divergencePct = required > 0 ? (divergence / required) * 100 : 0
 
-    await pb.collection('pcp_mp_inventory_demands').update(demandId, {
-      total_pieces_inventoried: totalInventoried,
-      divergence_pieces: divergence,
-      divergence_pct: Number(divergencePct.toFixed(2)),
-    })
+      // Atualiza somente campos existentes e válidos em pcp_mp_inventory_demands
+      await pb.collection('pcp_mp_inventory_demands').update(demandId, {
+        total_pieces_inventoried: totalInventoried,
+        divergence_pieces: divergence,
+        divergence_pct: Number(divergencePct.toFixed(2)),
+      })
+    } catch (err) {
+      console.warn('[PCP-INVENTORY] Erro ao recalcular totais da demanda:', err)
+      // Falha de recálculo NUNCA pode derrubar a página
+    }
   }
 
   /**
@@ -1030,22 +1037,19 @@ class PcpInventoryDemandsService {
 
     try {
       await pb.collection('pcp_mp_inventory_history').create({
-        demand_id: demand.id,
         inventory_id: demand.id,
-        inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'SALVAMENTO_PARCIAL',
         user_name: userName,
+        user_id: (authUser as any)?.id || '',
         user_role: (authUser as any)?.role || '',
         description: `Inventário salvo parcialmente — Status anterior: ${previousStatus} — Status novo: Parcial`,
-        summary: `Inventário salvo parcialmente — Status anterior: ${previousStatus} — Status novo: Parcial`,
         previous_value: previousStatus,
-        new_value: 'Parcial',
-        cycle_number: demand.cycle_count || 1,
-        details: {
+        new_value: {
           previous_status: previousStatus,
           new_status: 'Parcial',
           total_pieces_inventoried: updated.total_pieces_inventoried,
+          cycle_number: demand.cycle_count || 1,
         },
         timestamp: nowIso,
       })
@@ -1405,23 +1409,20 @@ class PcpInventoryDemandsService {
 
     try {
       await pb.collection('pcp_mp_inventory_history').create({
-        demand_id: demand.id,
         inventory_id: demand.id,
-        inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'DEMANDA_CANCELADA',
         user_name: userName,
+        user_id: (authUser as any)?.id || '',
         user_role: (authUser as any)?.role || '',
         description: `Demanda cancelada — Status anterior: ${previousStatus} — Status novo: Cancelado. Motivo: ${trimmedReason}`,
-        summary: `Demanda cancelada por ${userName}. Motivo: ${trimmedReason}`,
         previous_value: previousStatus,
-        new_value: 'Cancelado',
-        cycle_number: demand.cycle_count || 1,
-        details: {
+        new_value: {
           previous_status: previousStatus,
           new_status: 'Cancelado',
           reason: trimmedReason,
           cancellation_reason: trimmedReason,
+          cycle_number: demand.cycle_count || 1,
         },
         timestamp: nowIso,
       })

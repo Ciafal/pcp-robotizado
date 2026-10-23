@@ -81,6 +81,120 @@ const formatPtBrDate = (dateVal?: string): string => {
   }
 }
 
+// Interface segura para item de resumo de matéria-prima
+export interface SafeMaterialSummaryItem {
+  material_code: string
+  material_description: string
+  heat_number: string
+  quantity_tons: number | null
+  calculated_pieces: number
+  unit_weight_t?: number | null
+  unit_weight_kg?: number | null
+  weight_origin?: string
+}
+
+// Normalização defensiva de materials_summary (aceita null, string JSON, objeto ou array)
+export const normalizeMaterialsSummary = (raw: any): SafeMaterialSummaryItem[] => {
+  if (!raw) return []
+  let arr: any[] = []
+  if (Array.isArray(raw)) {
+    arr = raw
+  } else if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        arr = parsed
+      } else if (parsed && typeof parsed === 'object') {
+        arr = [parsed]
+      }
+    } catch {
+      return []
+    }
+  } else if (typeof raw === 'object') {
+    arr = [raw]
+  }
+
+  return arr
+    .filter((it): it is Record<string, any> => Boolean(it && typeof it === 'object'))
+    .map((m) => {
+      const code = String(m.material_code ?? m.code ?? '').trim()
+      const desc = String(m.material_description ?? m.description ?? '').trim()
+      const heat = String(m.heat_number ?? m.run_number ?? m.corrida ?? '').trim()
+      const qTons =
+        m.quantity_tons != null && !isNaN(Number(m.quantity_tons)) ? Number(m.quantity_tons) : null
+      const calcPieces =
+        m.calculated_pieces != null && !isNaN(Number(m.calculated_pieces))
+          ? Number(m.calculated_pieces)
+          : 0
+      const uWeightT =
+        m.unit_weight_t != null && !isNaN(Number(m.unit_weight_t)) ? Number(m.unit_weight_t) : null
+      const uWeightKg =
+        m.unit_weight_kg != null && !isNaN(Number(m.unit_weight_kg))
+          ? Number(m.unit_weight_kg)
+          : null
+
+      return {
+        material_code: code,
+        material_description: desc,
+        heat_number: heat,
+        quantity_tons: qTons,
+        calculated_pieces: calcPieces,
+        unit_weight_t: uWeightT,
+        unit_weight_kg: uWeightKg,
+        weight_origin: m.weight_origin || 'LOCAL_CADASTRO',
+      }
+    })
+}
+
+// Normalização defensiva de uma demanda de inventário para renderização segura
+export const normalizeDemand = (d: any): InventoryDemand => {
+  if (!d || typeof d !== 'object') {
+    return {
+      id: '',
+      control_number: '—',
+      company: '',
+      line: '',
+      center: '',
+      storage_deposit: '',
+      production_order: '',
+      material_code: '',
+      material_description: '',
+      unit_of_measure: 'pçs',
+      priority: 'Normal',
+      status: 'Aberto',
+      materials_summary: [],
+      total_pieces_required: 0,
+      total_pieces_inventoried: 0,
+      divergence_pieces: 0,
+      divergence_pct: 0,
+      cycle_count: 1,
+    } as unknown as InventoryDemand
+  }
+
+  const safeMaterials = normalizeMaterialsSummary(d.materials_summary)
+
+  return {
+    ...d,
+    id: d.id || '',
+    control_number: d.control_number || '—',
+    company: d.company || '',
+    line: d.line || '',
+    center: d.center || '',
+    storage_deposit: d.storage_deposit || '',
+    production_order: d.production_order || '',
+    material_code: d.material_code || safeMaterials[0]?.material_code || '',
+    material_description: d.material_description || safeMaterials[0]?.material_description || '',
+    priority: d.priority || 'Normal',
+    status: d.status || 'Aberto',
+    total_pieces_required: Number(d.total_pieces_required) || 0,
+    total_pieces_inventoried: Number(d.total_pieces_inventoried) || 0,
+    divergence_pieces: Number(d.divergence_pieces) || 0,
+    divergence_pct: Number(d.divergence_pct) || 0,
+    cycle_count: Number(d.cycle_count) || 1,
+    materials_summary: safeMaterials,
+  }
+}
+
 // Formatação com vírgula decimal
 const formatBrNumber = (num?: number | null, decimals = 3): string => {
   if (num == null || isNaN(num)) return '0,000'
@@ -90,9 +204,14 @@ const formatBrNumber = (num?: number | null, decimals = 3): string => {
   })
 }
 
-export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = ({
+interface DemandasInventarioTableExtendedProps extends DemandasInventarioTableProps {
+  error?: string | null
+}
+
+export const DemandasInventarioTable: React.FC<DemandasInventarioTableExtendedProps> = ({
   demands,
   loading,
+  error,
   onVisualizar,
   onLancar,
   onHistorico,
@@ -103,6 +222,15 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
   lastCreatedDemand,
 }) => {
   const { toast } = useToast()
+
+  // Normalização defensiva: cada linha é normalizada ANTES de qualquer acesso a propriedade.
+  // Registro com materials_summary null/string JSON/incompleto, peso null ou corrida vazia
+  // NUNCA pode derrubar a página (correção do crash PCP-D053D9C7).
+  const safeDemands = useMemo(
+    () => (Array.isArray(demands) ? demands.map((d) => normalizeDemand(d)) : []),
+    [demands],
+  )
+
   const [reopeningId, setReopeningId] = useState<string | null>(null)
   const [reopenModalDemand, setReopenModalDemand] = useState<InventoryDemand | null>(null)
 
@@ -160,19 +288,20 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
   }, [lastCreatedDemand])
 
   const openVisualizarFresh = useCallback(async (baseDemand: InventoryDemand) => {
-    setViewDemand(baseDemand)
+    const safeBase = normalizeDemand(baseDemand)
+    setViewDemand(safeBase)
     setLoadingViewData(true)
     try {
       // Reconsulta o backend por id/control_number para garantir a fonte única da verdade
       const [freshDemand, items] = await Promise.all([
-        baseDemand.id ? pcpInventoryDemandsService.getDemandById(baseDemand.id) : null,
-        pcpInventoryDemandsService.listItemsByDemand(baseDemand.id, baseDemand.control_number),
+        safeBase.id ? pcpInventoryDemandsService.getDemandById(safeBase.id) : null,
+        pcpInventoryDemandsService.listItemsByDemand(safeBase.id, safeBase.control_number),
       ])
 
       if (freshDemand) {
-        setViewDemand(freshDemand)
+        setViewDemand(normalizeDemand(freshDemand))
       }
-      setViewItems(items)
+      setViewItems(Array.isArray(items) ? items : [])
     } catch (err) {
       console.warn('Erro ao carregar dados frescos para visualização:', err)
       setViewItems([])
@@ -227,7 +356,7 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
     const todayYear = today.getFullYear()
     const todayStrPt = `${todayDay}/${todayMonth}/${todayYear}`
 
-    return demands.filter((d) => {
+    return safeDemands.filter((d) => {
       // 1. Filtros rápidos
       if (quickFilter === 'HOJE') {
         if (!d.generation_date_formatted?.startsWith(todayStrPt)) return false
@@ -268,10 +397,11 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
         const matchMain =
           (d.material_code ?? '').toLowerCase().includes(matTerm) ||
           (d.material_description ?? '').toLowerCase().includes(matTerm)
-        const matchItems = d.materials_summary?.some(
+        const materialsList = Array.isArray(d.materials_summary) ? d.materials_summary : []
+        const matchItems = materialsList.some(
           (m) =>
-            (m.material_code ?? '').toLowerCase().includes(matTerm) ||
-            (m.material_description ?? '').toLowerCase().includes(matTerm),
+            (m?.material_code ?? '').toLowerCase().includes(matTerm) ||
+            (m?.material_description ?? '').toLowerCase().includes(matTerm),
         )
         if (!matchMain && !matchItems) return false
       }
@@ -293,7 +423,7 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
       return true
     })
   }, [
-    demands,
+    safeDemands,
     quickFilter,
     filterControl,
     filterOrder,
@@ -307,15 +437,14 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
   // Checa se a demanda criada atende ou não aos filtros ativos
   const demandHiddenByFilter = useMemo(() => {
     if (!justCreatedDemand) return false
-    // Se a demanda recém-criada existe no array de demands mas NÃO está presente em filteredDemands:
-    const existsInAll = demands.some(
+    const existsInAll = safeDemands.some(
       (d) => d.id === justCreatedDemand.id || d.control_number === justCreatedDemand.control_number,
     )
     const existsInFiltered = filteredDemands.some(
       (d) => d.id === justCreatedDemand.id || d.control_number === justCreatedDemand.control_number,
     )
     return existsInAll && !existsInFiltered
-  }, [justCreatedDemand, demands, filteredDemands])
+  }, [justCreatedDemand, safeDemands, filteredDemands])
 
   const renderPriorityBadge = (priority: InventoryDemandPriority) => {
     switch (priority) {
@@ -618,22 +747,57 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
             {loading ? (
               <TableRow>
                 <TableCell colSpan={13} className="text-center py-8 text-xs text-slate-500">
-                  Carregando demandas de inventário...
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#004C97]" />
+                    <span>Carregando demandas de inventário...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : error ? (
+              <TableRow>
+                <TableCell
+                  colSpan={13}
+                  className="text-center py-8 text-xs text-rose-600 bg-rose-50/30"
+                >
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <AlertCircle className="w-4 h-4 text-rose-600" />
+                      <span>
+                        {error ||
+                          'Não foi possível carregar os dados do inventário. Tente novamente.'}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={onRefresh}
+                      className="h-7 text-xs border-rose-300 text-rose-700 hover:bg-rose-100"
+                    >
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                      Tentar novamente
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : filteredDemands.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={13} className="text-center py-8 text-xs text-slate-500">
-                  Nenhuma demanda de inventário encontrada com os filtros aplicados.
+                  Nenhum inventário de matéria-prima encontrado para os filtros selecionados.
                 </TableCell>
               </TableRow>
             ) : (
               filteredDemands.map((demand) => {
-                const multiCount = demand.materials_summary?.length || 1
+                const materialsList = Array.isArray(demand.materials_summary)
+                  ? demand.materials_summary
+                  : []
+                const multiCount = materialsList.length > 0 ? materialsList.length : 1
                 return (
-                  <TableRow key={demand.id} className="text-xs hover:bg-slate-50/70">
+                  <TableRow
+                    key={demand.id || demand.control_number}
+                    className="text-xs hover:bg-slate-50/70"
+                  >
                     <TableCell className="font-mono font-bold text-[#004C97] whitespace-nowrap">
-                      {demand.control_number}
+                      {demand.control_number || '—'}
                     </TableCell>
                     <TableCell className="font-mono font-semibold text-slate-800 whitespace-nowrap">
                       {demand.production_order ? (
@@ -682,31 +846,40 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                             {multiCount} MPs
                           </Badge>
                           <span className="font-mono text-[11px] text-slate-600 truncate max-w-[80px]">
-                            {demand.material_code}
+                            {demand.material_code || materialsList[0]?.material_code || '—'}
                           </span>
                         </div>
                       ) : (
                         <span className="font-mono font-semibold">
-                          {demand.material_code || '—'}
+                          {demand.material_code || materialsList[0]?.material_code || '—'}
                         </span>
                       )}
                     </TableCell>
                     <TableCell className="text-slate-700 max-w-[220px]">
-                      {demand.materials_summary && demand.materials_summary.length > 0 ? (
+                      {materialsList.length > 0 ? (
                         <div className="space-y-0.5 text-[11px]">
-                          {demand.materials_summary.map((m, idx) => (
-                            <div
-                              key={idx}
-                              className="truncate"
-                              title={`${m.material_code} - Corrida: ${m.heat_number} (${formatBrNumber(m.quantity_tons, 3)} t / ${m.calculated_pieces} pç)`}
-                            >
-                              <span className="font-mono font-semibold text-[#004C97]">
-                                {m.material_code}
-                              </span>
-                              : Corrida <span className="font-mono">{m.heat_number}</span> (
-                              {formatBrNumber(m.quantity_tons, 3)} t / {m.calculated_pieces} pç)
-                            </div>
-                          ))}
+                          {materialsList.map((m, idx) => {
+                            const heatDisplay =
+                              m.heat_number && m.heat_number.trim() ? m.heat_number : 'Sem corrida'
+                            const tonsDisplay =
+                              m.quantity_tons != null
+                                ? `${formatBrNumber(m.quantity_tons, 3)} t`
+                                : '— t'
+                            const pcsDisplay = `${Number(m.calculated_pieces) || 0} pç`
+                            return (
+                              <div
+                                key={idx}
+                                className="truncate"
+                                title={`${m.material_code || 'MP'} - Corrida: ${heatDisplay} (${tonsDisplay} / ${pcsDisplay})`}
+                              >
+                                <span className="font-mono font-semibold text-[#004C97]">
+                                  {m.material_code || 'MP'}
+                                </span>
+                                : Corrida <span className="font-mono">{heatDisplay}</span> (
+                                {tonsDisplay} / {pcsDisplay})
+                              </div>
+                            )
+                          })}
                         </div>
                       ) : (
                         <span className="truncate block" title={demand.material_description}>
@@ -994,14 +1167,14 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                         </TableRow>
                       </TableHeader>
                       <TableBody className="text-xs">
-                        {viewItems && viewItems.length > 0 ? (
+                        {Array.isArray(viewItems) && viewItems.length > 0 ? (
                           viewItems.map((item, i) => (
-                            <TableRow key={item.id || i}>
+                            <TableRow key={item?.id || i}>
                               <TableCell className="font-mono font-bold text-[#004C97]">
-                                {item.material_code || 'Dado não disponível'}
+                                {item?.material_code || 'Dado não disponível'}
                               </TableCell>
                               <TableCell className="text-slate-700">
-                                {item.material_description || 'Dado não disponível'}
+                                {item?.material_description || 'Dado não disponível'}
                               </TableCell>
                               <TableCell className="font-mono text-slate-700">
                                 {viewDemand.gauge || 'Não aplicável'}
@@ -1010,25 +1183,27 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                                 {viewDemand.application || 'Não aplicável'}
                               </TableCell>
                               <TableCell className="font-mono font-semibold">
-                                {item.heat_number ? item.heat_number : 'Sem corrida'}
+                                {item?.heat_number ? item.heat_number : 'Sem corrida'}
                               </TableCell>
                               <TableCell className="text-right font-mono">
-                                {formatPtBrNumber(item.quantity_tons, 3, 3)} t
+                                {item?.quantity_tons != null
+                                  ? `${formatPtBrNumber(item.quantity_tons, 3, 3)} t`
+                                  : '— t'}
                               </TableCell>
                               <TableCell className="text-right font-mono font-bold">
-                                {formatPtBrNumber(item.calculated_pieces, 0, 0)} pç
+                                {formatPtBrNumber(Number(item?.calculated_pieces) || 0, 0, 0)} pç
                               </TableCell>
                             </TableRow>
                           ))
-                        ) : viewDemand.materials_summary &&
+                        ) : Array.isArray(viewDemand.materials_summary) &&
                           viewDemand.materials_summary.length > 0 ? (
                           viewDemand.materials_summary.map((m, i) => (
                             <TableRow key={i}>
                               <TableCell className="font-mono font-bold text-[#004C97]">
-                                {m.material_code || 'Dado não disponível'}
+                                {m?.material_code || 'Dado não disponível'}
                               </TableCell>
                               <TableCell className="text-slate-700">
-                                {m.material_description || 'Dado não disponível'}
+                                {m?.material_description || 'Dado não disponível'}
                               </TableCell>
                               <TableCell className="font-mono text-slate-700">
                                 {viewDemand.gauge || 'Não aplicável'}
@@ -1037,13 +1212,15 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                                 {viewDemand.application || 'Não aplicável'}
                               </TableCell>
                               <TableCell className="font-mono font-semibold">
-                                {m.heat_number ? m.heat_number : 'Sem corrida'}
+                                {m?.heat_number ? m.heat_number : 'Sem corrida'}
                               </TableCell>
                               <TableCell className="text-right font-mono">
-                                {formatPtBrNumber(m.quantity_tons, 3, 3)} t
+                                {m?.quantity_tons != null
+                                  ? `${formatPtBrNumber(m.quantity_tons, 3, 3)} t`
+                                  : '— t'}
                               </TableCell>
                               <TableCell className="text-right font-mono font-bold">
-                                {formatPtBrNumber(m.calculated_pieces, 0, 0)} pç
+                                {formatPtBrNumber(Number(m?.calculated_pieces) || 0, 0, 0)} pç
                               </TableCell>
                             </TableRow>
                           ))
