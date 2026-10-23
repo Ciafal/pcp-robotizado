@@ -822,7 +822,9 @@ export const App: React.FC = () => {
                       path="/pcp/programacao/parada"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
-                          <ProgramacaoParadaPage />
+                          <ErrorBoundary moduleName="Programação de Parada">
+                            <ProgramacaoParadaPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
