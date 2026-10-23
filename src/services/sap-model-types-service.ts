@@ -587,39 +587,126 @@ class SapModelTypesService {
 
     const updatedRec = await pb.collection('sap_model_types').update(id, payload)
 
-    // Atualização de códigos vinculados se fornecidos
+    // Reconciliação inteligente de códigos vinculados
     let updatedItems: SapModelTypeItem[] = current.modelos_vinculados || []
     if (dto.codigos_vinculados) {
-      // Deleta itens antigos do parent
+      // 1. Busca itens existentes no banco para reconciliação precisa
+      let existingDbItems: SapModelTypeItem[] = []
       try {
-        const oldItems = await pb.collection('sap_model_type_items').getFullList({
+        existingDbItems = (await pb.collection('sap_model_type_items').getFullList({
           filter: `tipo_codigo_modelo_id = '${id}'`,
-        })
-        for (const oldIt of oldItems) {
-          await pb.collection('sap_model_type_items').delete(oldIt.id)
-        }
+        })) as unknown as SapModelTypeItem[]
       } catch {
-        /* intentionally ignored */
+        existingDbItems = current.modelos_vinculados || []
       }
 
-      // Insere novos
-      updatedItems = []
-      for (const item of dto.codigos_vinculados) {
-        const matnr = item.codigo_material.trim()
-        if (!matnr) continue
+      // Map por ID e por codigo_material
+      const existingById = new Map<string, SapModelTypeItem>()
+      const existingByCode = new Map<string, SapModelTypeItem>()
+      for (const it of existingDbItems) {
+        if (it.id) existingById.set(it.id, it)
+        if (it.codigo_material) existingByCode.set(it.codigo_material.trim().toUpperCase(), it)
+      }
 
-        const itemRec = await pb.collection('sap_model_type_items').create({
-          tipo_codigo_modelo_id: id,
-          codigo_material: matnr,
-          descricao: item.descricao?.trim() || '',
-          centro: item.centro || centro,
-          centro_trabalho: item.centro_trabalho || centroTrabalho,
-          tipo_material: item.tipo_material || tipoMaterial,
-          status: item.status || 'Ativo',
-          data_inclusao: new Date().toISOString(),
-          usuario_responsavel: usuario,
-        })
-        updatedItems.push(itemRec as unknown as SapModelTypeItem)
+      // Identificar quais devem ser mantidos/atualizados e quais novos inseridos
+      const keptIds = new Set<string>()
+      updatedItems = []
+
+      for (const itemDto of dto.codigos_vinculados) {
+        const matnr = itemDto.codigo_material.trim()
+        if (!matnr) continue
+        const matnrKey = matnr.toUpperCase()
+
+        const existingMatch =
+          (itemDto.id && existingById.get(itemDto.id)) || existingByCode.get(matnrKey)
+
+        if (existingMatch && existingMatch.id) {
+          // Manter e atualizar se houve mudanças
+          keptIds.add(existingMatch.id)
+          const itemUpdatePayload: any = {}
+          let hasDiff = false
+
+          if (itemDto.descricao !== undefined && itemDto.descricao !== existingMatch.descricao) {
+            itemUpdatePayload.descricao = itemDto.descricao.trim()
+            hasDiff = true
+          }
+          if (itemDto.status && itemDto.status !== existingMatch.status) {
+            itemUpdatePayload.status = itemDto.status
+            hasDiff = true
+          }
+          if (itemDto.centro && itemDto.centro !== existingMatch.centro) {
+            itemUpdatePayload.centro = itemDto.centro
+            hasDiff = true
+          } else if (centro !== existingMatch.centro) {
+            itemUpdatePayload.centro = centro
+            hasDiff = true
+          }
+          if (
+            itemDto.centro_trabalho &&
+            itemDto.centro_trabalho !== existingMatch.centro_trabalho
+          ) {
+            itemUpdatePayload.centro_trabalho = itemDto.centro_trabalho
+            hasDiff = true
+          } else if (centroTrabalho !== existingMatch.centro_trabalho) {
+            itemUpdatePayload.centro_trabalho = centroTrabalho
+            hasDiff = true
+          }
+          if (itemDto.tipo_material && itemDto.tipo_material !== existingMatch.tipo_material) {
+            itemUpdatePayload.tipo_material = itemDto.tipo_material
+            hasDiff = true
+          } else if (tipoMaterial !== existingMatch.tipo_material) {
+            itemUpdatePayload.tipo_material = tipoMaterial
+            hasDiff = true
+          }
+
+          if (hasDiff) {
+            itemUpdatePayload.usuario_responsavel = usuario
+            try {
+              const res = await pb
+                .collection('sap_model_type_items')
+                .update(existingMatch.id, itemUpdatePayload)
+              updatedItems.push(res as unknown as SapModelTypeItem)
+            } catch {
+              updatedItems.push({
+                ...existingMatch,
+                ...itemUpdatePayload,
+              })
+            }
+          } else {
+            updatedItems.push(existingMatch)
+          }
+        } else {
+          // Novo item para criar
+          try {
+            const itemRec = await pb.collection('sap_model_type_items').create({
+              tipo_codigo_modelo_id: id,
+              codigo_material: matnr,
+              descricao: itemDto.descricao?.trim() || '',
+              centro: itemDto.centro || centro,
+              centro_trabalho: itemDto.centro_trabalho || centroTrabalho,
+              tipo_material: itemDto.tipo_material || tipoMaterial,
+              status: itemDto.status || 'Ativo',
+              data_inclusao: new Date().toISOString(),
+              usuario_responsavel: usuario,
+            })
+            const createdItem = itemRec as unknown as SapModelTypeItem
+            updatedItems.push(createdItem)
+            if (createdItem.id) keptIds.add(createdItem.id)
+          } catch (err) {
+            console.warn('[sapModelTypesService] Falha ao criar novo código vinculado:', err)
+          }
+        }
+      }
+
+      // 2. Excluir itens que foram removidos pelo usuário
+      for (const oldIt of existingDbItems) {
+        if (oldIt.id && !keptIds.has(oldIt.id)) {
+          try {
+            await pb.collection('sap_model_type_items').delete(oldIt.id)
+          } catch (err) {
+            console.warn('[sapModelTypesService] Falha ao deletar código desvinculado:', err)
+          }
+        }
       }
     }
 
@@ -643,6 +730,7 @@ class SapModelTypesService {
         codigos_vinculados: (current.modelos_vinculados || []).map((c) => ({
           codigo_material: c.codigo_material,
           descricao: c.descricao,
+          status: c.status,
         })),
       },
       valores_novos: {
@@ -655,7 +743,9 @@ class SapModelTypesService {
         codigos_vinculados: updatedItems.map((c) => ({
           codigo_material: c.codigo_material,
           descricao: c.descricao,
+          status: c.status,
         })),
+        resultado: 'SUCESSO',
       },
     })
 

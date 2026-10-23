@@ -156,6 +156,155 @@ describe('sapModelTypesService — Evolução Códigos Modelos Padrão (WERKS + 
     expect(updated.id).toBe('type_to_edit')
   })
 
+  it('Edição permite adicionar novos códigos vinculados e remover existentes conciliando itens', async () => {
+    const existingType = {
+      id: 'type_to_edit_links',
+      tipo_codigo_modelo: 'Produto acabado L1',
+      descricao: 'Descrição original',
+      centro: '1001',
+      centro_trabalho: 'WC-DIV-L1',
+      tipo_material: 'ZFER',
+      status: 'Ativo' as const,
+      modelos_vinculados: [
+        {
+          id: 'item_keep',
+          tipo_codigo_modelo_id: 'type_to_edit_links',
+          codigo_material: '10004521',
+          descricao: 'Código Antigo Mantido',
+          status: 'Ativo' as const,
+        },
+        {
+          id: 'item_remove',
+          tipo_codigo_modelo_id: 'type_to_edit_links',
+          codigo_material: '10004522',
+          descricao: 'Código a Remover',
+          status: 'Ativo' as const,
+        },
+      ],
+    }
+
+    vi.spyOn(sapModelTypesService, 'getModelTypeById').mockResolvedValue(existingType as any)
+    vi.spyOn(sapModelTypesService, 'checkDuplicateActive').mockResolvedValue(null)
+
+    const mockUpdateType = vi.fn().mockResolvedValue({
+      ...existingType,
+      tipo_codigo_modelo: 'Produto acabado L1 Editado',
+    })
+    const mockDeleteItem = vi.fn().mockResolvedValue(true)
+    const mockCreateItem = vi
+      .fn()
+      .mockImplementation((data) => Promise.resolve({ id: 'item_new_10004523', ...data }))
+    const mockUpdateItem = vi
+      .fn()
+      .mockImplementation((id, data) => Promise.resolve({ id, ...data }))
+
+    vi.spyOn(pb, 'collection').mockImplementation((name: string) => {
+      if (name === 'sap_model_types') {
+        return { update: mockUpdateType } as any
+      }
+      if (name === 'sap_model_type_items') {
+        return {
+          getFullList: vi.fn().mockResolvedValue(existingType.modelos_vinculados),
+          create: mockCreateItem,
+          update: mockUpdateItem,
+          delete: mockDeleteItem,
+        } as any
+      }
+      return {
+        create: vi.fn().mockResolvedValue({ id: 'audit_ok' }),
+        getFullList: vi.fn().mockResolvedValue([]),
+      } as any
+    })
+
+    const updated = await sapModelTypesService.updateModelType('type_to_edit_links', {
+      tipo_codigo_modelo: 'Produto acabado L1 Editado',
+      codigos_vinculados: [
+        {
+          id: 'item_keep',
+          codigo_material: '10004521',
+          descricao: 'Código Antigo Mantido com Descrição Nova',
+          status: 'Ativo',
+        },
+        {
+          codigo_material: '10004523',
+          descricao: 'Código Recém Adicionado',
+          status: 'Ativo',
+        },
+      ],
+    })
+
+    // Deve deletar o item removido (item_remove)
+    expect(mockDeleteItem).toHaveBeenCalledWith('item_remove')
+    // Deve criar o novo código (10004523)
+    expect(mockCreateItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        codigo_material: '10004523',
+        tipo_codigo_modelo_id: 'type_to_edit_links',
+      }),
+    )
+    expect(updated.tipo_codigo_modelo).toBe('Produto acabado L1 Editado')
+  })
+
+  it('Edição revalida duplicidade excluindo o próprio registro (id != self)', async () => {
+    const existingType = {
+      id: 'type_self_100',
+      tipo_codigo_modelo: 'Produto acabado L1',
+      centro: '1001',
+      centro_trabalho: 'WC-DIV-L1',
+      tipo_material: 'ZFER',
+      status: 'Ativo' as const,
+    }
+
+    vi.spyOn(sapModelTypesService, 'getModelTypeById').mockResolvedValue(existingType as any)
+    const checkSpy = vi.spyOn(sapModelTypesService, 'checkDuplicateActive').mockResolvedValue(null)
+
+    const mockUpdate = vi.fn().mockResolvedValue(existingType)
+    vi.spyOn(pb, 'collection').mockImplementation((name: string) => {
+      if (name === 'sap_model_types') return { update: mockUpdate } as any
+      return {
+        create: vi.fn().mockResolvedValue({ id: 'audit_ok' }),
+        getFullList: vi.fn().mockResolvedValue([]),
+      } as any
+    })
+
+    await sapModelTypesService.updateModelType('type_self_100', {
+      descricao: 'Alterando apenas descrição mantendo mesma combinação',
+    })
+
+    // Garante que checkDuplicateActive recebeu 'type_self_100' como excludeId
+    expect(checkSpy).toHaveBeenCalledWith('1001', 'WC-DIV-L1', 'ZFER', 'type_self_100')
+  })
+
+  it('Edição bloqueia quando alteração de Centro/CT/MTART colide com outro registro ativo existente', async () => {
+    const existingType = {
+      id: 'type_self_100',
+      tipo_codigo_modelo: 'Modelo L1',
+      centro: '1001',
+      centro_trabalho: 'WC-DIV-L1',
+      tipo_material: 'ZFER',
+      status: 'Ativo' as const,
+    }
+
+    vi.spyOn(sapModelTypesService, 'getModelTypeById').mockResolvedValue(existingType as any)
+    // Simula que colidiu com outro registro existente diferente
+    vi.spyOn(sapModelTypesService, 'checkDuplicateActive').mockResolvedValue({
+      id: 'another_record_999',
+      tipo_codigo_modelo: 'Outro Modelo Existente',
+      centro: '1002',
+      centro_trabalho: 'LAML2',
+      tipo_material: 'ROH',
+      status: 'Ativo',
+    })
+
+    await expect(
+      sapModelTypesService.updateModelType('type_self_100', {
+        centro: '1002',
+        centro_trabalho: 'LAML2',
+        tipo_material: 'ROH',
+      }),
+    ).rejects.toThrow(DUPLICATE_COMBINATION_ERROR_MSG)
+  })
+
   it('Inativação lógica preserva dados e inativo NÃO é utilizado como referência futura', async () => {
     const activeItem = {
       id: 'type_active_99',

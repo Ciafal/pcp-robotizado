@@ -133,4 +133,79 @@ describe('CodigosModelosPadraoTab — Interface, Regras Visuais e Interação', 
       expect(screen.getByText('Descartar alterações?')).toBeInTheDocument()
     })
   })
+
+  it('4. Abre o modal em modo de edição "Editar Tipo de Código Modelo Padrão" preenchido com dados existentes', async () => {
+    render(<CodigosModelosPadraoTab />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Produto acabado L1')).toBeInTheDocument()
+    })
+
+    const btnEditar = screen.getByLabelText('Editar Produto acabado L1')
+    expect(btnEditar).toBeInTheDocument()
+    fireEvent.click(btnEditar)
+
+    await waitFor(() => {
+      expect(screen.getByText('Editar Tipo de Código Modelo Padrão')).toBeInTheDocument()
+      expect(screen.getByDisplayValue('Produto acabado L1')).toBeInTheDocument()
+      expect(screen.getByDisplayValue('Tubos e perfis acabados')).toBeInTheDocument()
+      expect(screen.getByText('10004521')).toBeInTheDocument()
+      expect(screen.getByText('TUBO RETANGULAR 50X30')).toBeInTheDocument()
+    })
+  })
+
+  it('5. Permite adicionar novo código vinculado no modo de edição e salvar chamando updateModelType', async () => {
+    const updateSpy = vi.spyOn(sapModelTypesService, 'updateModelType').mockResolvedValue({
+      id: 'type-1',
+      tipo_codigo_modelo: 'Produto acabado L1 - Atualizado',
+      descricao: 'Tubos e perfis acabados',
+      centro: '1001',
+      centro_trabalho: 'WC-DIV-L1',
+      tipo_material: 'ZFER',
+      status: 'Ativo',
+      modelos_vinculados: [],
+    } as any)
+
+    render(<CodigosModelosPadraoTab />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Produto acabado L1')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByLabelText('Editar Produto acabado L1'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Editar Tipo de Código Modelo Padrão')).toBeInTheDocument()
+    })
+
+    // Adiciona novo código vinculado
+    const codeInput = screen.getByPlaceholderText('Ex.: 10004521')
+    const descInput = screen.getByPlaceholderText('Ex.: TUBO RETANGULAR 50X30X2,00MM SAE 1020')
+    fireEvent.change(codeInput, { target: { value: '10009999' } })
+    fireEvent.change(descInput, { target: { value: 'NOVO TUBO TESTE' } })
+
+    const addBtn = screen.getByText('+ Adicionar Código SAP')
+    fireEvent.click(addBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText('10009999')).toBeInTheDocument()
+    })
+
+    // Clica em Salvar Modelo
+    const saveBtn = screen.getByText('Salvar Modelo')
+    fireEvent.click(saveBtn)
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledWith(
+        'type-1',
+        expect.objectContaining({
+          tipo_codigo_modelo: 'Produto acabado L1',
+          codigos_vinculados: expect.arrayContaining([
+            expect.objectContaining({ codigo_material: '10004521' }),
+            expect.objectContaining({ codigo_material: '10009999' }),
+          ]),
+        }),
+      )
+    })
+  })
 })

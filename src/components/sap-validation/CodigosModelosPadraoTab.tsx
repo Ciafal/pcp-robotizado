@@ -452,11 +452,11 @@ export const CodigosModelosPadraoTab: React.FC = () => {
         })
 
         toast({
-          title: 'Tipo de Código Modelo cadastrado com sucesso.',
-          description: `Modelo "${updated.tipo_codigo_modelo}" atualizado com sucesso.`,
+          title: 'Tipo de Código Modelo atualizado com sucesso.',
+          description: `Modelo "${updated.tipo_codigo_modelo}" atualizado na governança SAP.`,
         })
         setFeedbackSuccess(
-          `Tipo de Código Modelo '${updated.tipo_codigo_modelo}' salvo com sucesso.`,
+          `Tipo de Código Modelo '${updated.tipo_codigo_modelo}' atualizado com sucesso.`,
         )
         setModalOpen(false)
         setIsDirty(false)
@@ -954,6 +954,7 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                                 className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                                 onClick={() => handleOpenEditOrView(item, 'edit')}
                                 title="Editar Tipo de Código Modelo"
+                                aria-label={`Editar ${item.tipo_codigo_modelo}`}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>
@@ -1012,7 +1013,7 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                   {modalMode === 'create'
                     ? 'Cadastrar Tipo de Código Modelo Padrão'
                     : modalMode === 'edit'
-                      ? `Editar Tipo de Código Modelo: ${formData.tipo_codigo_modelo}`
+                      ? 'Editar Tipo de Código Modelo Padrão'
                       : `Visualizar Tipo de Código Modelo: ${formData.tipo_codigo_modelo}`}
                   {formData.status && (
                     <Badge
@@ -1028,8 +1029,9 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                   )}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-500 mt-1">
-                  Configure o identificador por Centro (WERKS) + Centro de Trabalho (ARBPL) + Tipo
-                  de Material (MARA-MTART) e vincule os códigos SAP de referência.
+                  {modalMode === 'edit'
+                    ? `Alteração dos dados cadastrais e vínculos de códigos SAP de referência para "${formData.tipo_codigo_modelo || 'Modelo'}".`
+                    : 'Configure o identificador por Centro (WERKS) + Centro de Trabalho (ARBPL) + Tipo de Material (MARA-MTART) e vincule os códigos SAP de referência.'}
                 </DialogDescription>
               </div>
             </div>
