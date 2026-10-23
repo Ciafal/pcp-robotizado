@@ -316,7 +316,14 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('/hierarquia') ||
     windowPath.includes('cadastros/hierarquia') ||
     windowPath.includes('/ficha-mestre') ||
-    windowPath.includes('cadastros/ficha-mestre'),
+    windowPath.includes('cadastros/ficha-mestre') ||
+    currentPathname === '/pcp/cadastros/validacao-sap' ||
+    currentPathname.startsWith('/pcp/cadastros/validacao-sap') ||
+    currentPathname === '/pcp/validacao-sap' ||
+    currentPathname.startsWith('/pcp/validacao-sap') ||
+    currentPathname.includes('validacao-sap') ||
+    currentHash.includes('validacao-sap') ||
+    windowPath.includes('validacao-sap'),
   )
 
   // Conjunto canônico unificado de rotas e permissões com bypass imediato e fallback de cold-start
