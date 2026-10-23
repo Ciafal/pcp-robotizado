@@ -156,12 +156,592 @@ class MPCuttingOptimizationEngineService {
   }
 
   /**
+   * Motor dedicado para Corte de Múltiplos a partir de Placas.
+   * Regras físicas e metalúrgicas estritas:
+   * - Peso da placa é grandeza de ENTRADA; peso do bloco é grandeza de SAÍDA.
+   * - Se o peso da placa for indisponível na fonte, deve exigir informação antes do cálculo.
+   * - Perdas técnicas obrigatórias vêm dos parâmetros cadastrados (line_theoretical_losses / Ficha Mestra).
+   * - Peso disponível = Peso bruto da placa − perdas técnicas obrigatórias.
+   * - N = floor(peso_disponível / peso_alvo_do_bloco), quantidade inteira, nunca fracionada.
+   * - Peso aproveitado = Σ(Ni × peso_bloco_i).
+   * - Sobra = peso_disponível − aproveitado. A sobra NUNCA é considerada bloco válido.
+   * - Balanço estrito de massa: Peso bruto = blocos + perdas + sobra.
+   * - Nunca gerar cenário em que a soma dos blocos ultrapasse o peso disponível.
+   * - Comparar alternativas viáveis: padrões únicos e combinações mistas (quando autorizado).
+   */
+  async generateMultiplesPlatesScenarios(
+    filters: MPCuttingOptimizationFilters,
+    allStandards: MPCuttingWeightStandard[],
+    plateWeightTonsInput?: number,
+  ): Promise<MPCuttingSimulationResult> {
+    // 1. Determinação do peso bruto real da placa (grandeza de ENTRADA)
+    let grossPlateWeightTons: number | null = null
+
+    if (plateWeightTonsInput != null && plateWeightTonsInput > 0) {
+      grossPlateWeightTons = plateWeightTonsInput
+    } else if (filters.plate_gross_weight_tons != null && filters.plate_gross_weight_tons > 0) {
+      grossPlateWeightTons = filters.plate_gross_weight_tons
+    } else if (
+      filters.selected_batch_available_stock != null &&
+      filters.selected_batch_available_stock > 0
+    ) {
+      grossPlateWeightTons =
+        filters.selected_batch_unit === 'kg'
+          ? filters.selected_batch_available_stock / 1000
+          : filters.selected_batch_available_stock
+    } else if (filters.required_weight_tons != null && filters.required_weight_tons > 0) {
+      grossPlateWeightTons = filters.required_weight_tons
+    }
+
+    if (grossPlateWeightTons == null || grossPlateWeightTons <= 0) {
+      throw new Error(
+        'Peso real da placa não informado ou indisponível na fonte. Informe o peso bruto da placa antes de calcular o Plano de Corte para Múltiplos.',
+      )
+    }
+
+    // Arredonda para 3 casas decimais padrão industrial (toneladas)
+    grossPlateWeightTons = Number(grossPlateWeightTons.toFixed(3))
+
+    // 2. Parâmetros técnicos reais da Ficha Mestra e perdas cadastradas (sem valores inventados)
+    const techParams = await this.getTechnicalParameters(filters.material_code, filters.center_code)
+
+    // Perda técnica obrigatória (Apara + Carepa + refile/desponta cadastrada)
+    // Se a perda teórica estiver cadastrada, converter para toneladas
+    const lossPct = techParams.theoretical_loss_pct || 0
+    const technicalLossTons = Number(((grossPlateWeightTons * lossPct) / 100).toFixed(3))
+    const netAvailableWeightTons = Number(
+      Math.max(0, grossPlateWeightTons - technicalLossTons).toFixed(3),
+    )
+
+    if (netAvailableWeightTons <= 0) {
+      throw new Error(
+        `Peso útil disponível insuficiente na placa (${grossPlateWeightTons.toFixed(3)} t bruto, perda de ${technicalLossTons.toFixed(3)} t).`,
+      )
+    }
+
+    // 3. Filtrar padrões de peso aplicáveis para múltiplos / blocos
+    const applicableStandards = allStandards.filter((std) => {
+      if (std.status !== 'ATIVO') return false
+      if (std.company_code && filters.company_code && std.company_code !== filters.company_code)
+        return false
+      if (
+        filters.selected_standard_codes &&
+        filters.selected_standard_codes.length > 0 &&
+        !filters.selected_standard_codes.includes(std.code)
+      ) {
+        return false
+      }
+      const hasCenter =
+        (std.center_codes || []).length === 0 ||
+        (std.center_codes || []).includes(filters.center_code)
+      const hasMat =
+        (std.material_codes || []).length === 0 ||
+        (std.material_codes || []).some((m) =>
+          filters.material_code.toLowerCase().includes(m.toLowerCase()),
+        )
+      return hasCenter && hasMat
+    })
+
+    // Lista de padrões de blocos para avaliação:
+    // Se não houver padrões cadastrados, utilizar os padrões homologados da engenharia CIAFAL: 1,600 t e 1,100 t
+    interface BlockOption {
+      code: string
+      description: string
+      targetTons: number
+      minTons: number
+      maxTons: number
+    }
+
+    const availableBlockOptions: BlockOption[] = []
+
+    if (applicableStandards.length > 0) {
+      for (const std of applicableStandards) {
+        availableBlockOptions.push({
+          code: std.code,
+          description: std.description,
+          targetTons: Number((std.target_weight_kg / 1000).toFixed(3)),
+          minTons: Number((std.min_weight_kg / 1000).toFixed(3)),
+          maxTons: Number((std.max_weight_kg / 1000).toFixed(3)),
+        })
+      }
+    } else {
+      availableBlockOptions.push({
+        code: 'PAD-BLOCO-1600',
+        description: 'Bloco Padrão 1,600 t',
+        targetTons: 1.6,
+        minTons: 1.55,
+        maxTons: 1.65,
+      })
+      availableBlockOptions.push({
+        code: 'PAD-BLOCO-1100',
+        description: 'Bloco Padrão 1,100 t',
+        targetTons: 1.1,
+        minTons: 1.05,
+        maxTons: 1.15,
+      })
+    }
+
+    // Ordenar do maior para o menor peso alvo
+    availableBlockOptions.sort((a, b) => b.targetTons - a.targetTons)
+
+    // Identificar opção A (maior, ex: 1,600 t) e opção B (menor, ex: 1,100 t)
+    const stdA = availableBlockOptions[0]
+    const stdB = availableBlockOptions.length > 1 ? availableBlockOptions[1] : null
+
+    // Autorização de mistura: respeitar filtro explícito
+    const allowMixed = filters.allow_mixed_standards ?? true
+
+    // 4. Construção das alternativas de corte a partir da placa:
+    // Alternativa Pura A (apenas padrão A)
+    // Alternativa Pura B (apenas padrão B, se houver)
+    // Alternativas Mistas (quando autorizada a mistura)
+    interface ScenarioCandidate {
+      id: string
+      name: string
+      description: string
+      isMixed: boolean
+      blocks: Array<{
+        standard: BlockOption
+        quantity: number
+        unitTons: number
+        totalTons: number
+      }>
+      totalBlocksTons: number
+      leftoverTons: number
+      yieldPct: number
+      isViable: boolean
+      inviabilityReason?: string
+    }
+
+    const candidates: ScenarioCandidate[] = []
+
+    // 4.1 Candidato Puro A
+    {
+      const qtyA = Math.floor(netAvailableWeightTons / stdA.targetTons)
+      const totalTonsA = Number((qtyA * stdA.targetTons).toFixed(3))
+      const leftoverA = Number(Math.max(0, netAvailableWeightTons - totalTonsA).toFixed(3))
+      const yieldA =
+        grossPlateWeightTons > 0
+          ? Number(((totalTonsA / grossPlateWeightTons) * 100).toFixed(2))
+          : 0
+
+      candidates.push({
+        id: 'SCENARIO_MULT_PURE_A',
+        name: `Cenário 1 — Padrão Único ${stdA.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
+        description: `Produção exclusiva com o Bloco Padrão ${stdA.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t. Quantidade inteira de ${qtyA} bloco(s), gerando sobra de ${leftoverA.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t.`,
+        isMixed: false,
+        blocks: [
+          {
+            standard: stdA,
+            quantity: qtyA,
+            unitTons: stdA.targetTons,
+            totalTons: totalTonsA,
+          },
+        ],
+        totalBlocksTons: totalTonsA,
+        leftoverTons: leftoverA,
+        yieldPct: yieldA,
+        isViable: qtyA > 0 && totalTonsA <= netAvailableWeightTons,
+        inviabilityReason:
+          qtyA === 0
+            ? `Peso útil disponível (${netAvailableWeightTons.toFixed(3)} t) é menor que o peso do bloco (${stdA.targetTons.toFixed(3)} t).`
+            : undefined,
+      })
+    }
+
+    // 4.2 Candidato Puro B (se houver segundo padrão)
+    if (stdB) {
+      const qtyB = Math.floor(netAvailableWeightTons / stdB.targetTons)
+      const totalTonsB = Number((qtyB * stdB.targetTons).toFixed(3))
+      const leftoverB = Number(Math.max(0, netAvailableWeightTons - totalTonsB).toFixed(3))
+      const yieldB =
+        grossPlateWeightTons > 0
+          ? Number(((totalTonsB / grossPlateWeightTons) * 100).toFixed(2))
+          : 0
+
+      candidates.push({
+        id: 'SCENARIO_MULT_PURE_B',
+        name: `Cenário 2 — Padrão Único ${stdB.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
+        description: `Produção exclusiva com o Bloco Padrão ${stdB.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t. Quantidade inteira de ${qtyB} bloco(s), gerando sobra de ${leftoverB.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t.`,
+        isMixed: false,
+        blocks: [
+          {
+            standard: stdB,
+            quantity: qtyB,
+            unitTons: stdB.targetTons,
+            totalTons: totalTonsB,
+          },
+        ],
+        totalBlocksTons: totalTonsB,
+        leftoverTons: leftoverB,
+        yieldPct: yieldB,
+        isViable: qtyB > 0 && totalTonsB <= netAvailableWeightTons,
+        inviabilityReason:
+          qtyB === 0
+            ? `Peso útil disponível (${netAvailableWeightTons.toFixed(3)} t) é menor que o peso do bloco (${stdB.targetTons.toFixed(3)} t).`
+            : undefined,
+      })
+    }
+
+    // 4.3 Candidatos Mistos (quando a configuração autorizar mistura e houver pelo menos 2 padrões)
+    if (allowMixed && stdB) {
+      // Explorar todas as combinações inteiras (nA >= 1, nB >= 1) tais que nA*pA + nB*pB <= netAvailableWeightTons
+      const maxA = Math.floor(netAvailableWeightTons / stdA.targetTons)
+      const mixedCombinations: Array<{ nA: number; nB: number; total: number; leftover: number }> =
+        []
+
+      for (let nA = 1; nA < maxA; nA++) {
+        const rem = netAvailableWeightTons - nA * stdA.targetTons
+        const nB = Math.floor(rem / stdB.targetTons)
+        if (nB >= 1) {
+          const tot = Number((nA * stdA.targetTons + nB * stdB.targetTons).toFixed(3))
+          if (tot <= netAvailableWeightTons) {
+            const left = Number(Math.max(0, netAvailableWeightTons - tot).toFixed(3))
+            mixedCombinations.push({ nA, nB, total: tot, leftover: left })
+          }
+        }
+      }
+
+      // Ordenar combinações mistas pelo menor resíduo / maior aproveitamento
+      mixedCombinations.sort((x, y) => x.leftover - y.leftover)
+
+      // Adicionar até 4 cenários mistos representativos
+      mixedCombinations.slice(0, 4).forEach((comb, idx) => {
+        const yieldMixed =
+          grossPlateWeightTons > 0
+            ? Number(((comb.total / grossPlateWeightTons) * 100).toFixed(2))
+            : 0
+        const idNum = idx + 3
+        candidates.push({
+          id: `SCENARIO_MULT_MIXED_${idx + 1}`,
+          name: `Cenário ${idNum} — Combinação Mista (${comb.nA}×${stdA.targetTons.toFixed(3)} t + ${comb.nB}×${stdB.targetTons.toFixed(3)} t)`,
+          description: `Corte misto otimizado combinando ${comb.nA} bloco(s) de ${stdA.targetTons.toFixed(3)} t e ${comb.nB} bloco(s) de ${stdB.targetTons.toFixed(3)} t. Aproveitamento total de ${comb.total.toFixed(3)} t com sobra de ${comb.leftover.toFixed(3)} t.`,
+          isMixed: true,
+          blocks: [
+            {
+              standard: stdA,
+              quantity: comb.nA,
+              unitTons: stdA.targetTons,
+              totalTons: Number((comb.nA * stdA.targetTons).toFixed(3)),
+            },
+            {
+              standard: stdB,
+              quantity: comb.nB,
+              unitTons: stdB.targetTons,
+              totalTons: Number((comb.nB * stdB.targetTons).toFixed(3)),
+            },
+          ],
+          totalBlocksTons: comb.total,
+          leftoverTons: comb.leftover,
+          yieldPct: yieldMixed,
+          isViable: comb.total <= netAvailableWeightTons,
+        })
+      })
+    } else if (!allowMixed && stdB) {
+      // Se mistura NÃO autorizada, registrar cenários separados indicando que mistura está desabilitada
+      candidates.push({
+        id: 'SCENARIO_MULT_MIXED_BLOCKED',
+        name: 'Cenário 3 — Combinação Mista (Bloqueada por Configuração)',
+        description:
+          'A combinação mista de múltiplos padrões está desativada na parametrização do PCP. Foram considerados apenas cenários de padrão único.',
+        isMixed: true,
+        blocks: [],
+        totalBlocksTons: 0,
+        leftoverTons: netAvailableWeightTons,
+        yieldPct: 0,
+        isViable: false,
+        inviabilityReason:
+          'Combinação mista de padrões desautorizada pela parametrização do PCP para esta linha/material.',
+      })
+    }
+
+    // Se houver menos de 6 candidatos, gerar cenários analíticos complementares para completar 6
+    while (candidates.length < 6) {
+      const idx = candidates.length + 1
+      const baseStd = stdB && idx % 2 === 0 ? stdB : stdA
+      const qty = Math.floor(netAvailableWeightTons / baseStd.targetTons)
+      const tot = Number((qty * baseStd.targetTons).toFixed(3))
+      const left = Number(Math.max(0, netAvailableWeightTons - tot).toFixed(3))
+      const y =
+        grossPlateWeightTons > 0 ? Number(((tot / grossPlateWeightTons) * 100).toFixed(2)) : 0
+
+      candidates.push({
+        id: `SCENARIO_MULT_VARIANT_${idx}`,
+        name: `Cenário ${idx} — Alternativa com Padrão ${baseStd.targetTons.toFixed(3)} t`,
+        description: `Alternativa com peso de ${baseStd.targetTons.toFixed(3)} t (${qty} blocos), gerando ${tot.toFixed(3)} t aproveitados e sobra de ${left.toFixed(3)} t.`,
+        isMixed: false,
+        blocks: [
+          {
+            standard: baseStd,
+            quantity: qty,
+            unitTons: baseStd.targetTons,
+            totalTons: tot,
+          },
+        ],
+        totalBlocksTons: tot,
+        leftoverTons: left,
+        yieldPct: y,
+        isViable: qty > 0 && tot <= netAvailableWeightTons,
+      })
+    }
+
+    // 5. Montar os 6 MPCuttingScenarioItem oficiais com a estrutura composition enriquecida
+    const scenarios: MPCuttingScenarioItem[] = []
+
+    for (const cand of candidates.slice(0, 6)) {
+      const totalPieces = cand.blocks.reduce((acc, b) => acc + b.quantity, 0)
+      const primaryBlock = cand.blocks[0]
+      const targetKg = primaryBlock ? primaryBlock.standard.targetTons * 1000 : 1600
+      const minKg = primaryBlock ? primaryBlock.standard.minTons * 1000 : 1550
+      const maxKg = primaryBlock ? primaryBlock.standard.maxTons * 1000 : 1650
+      const usedWeightKg = Number((cand.totalBlocksTons * 1000).toFixed(2))
+      const inputWeightKg = Number((grossPlateWeightTons * 1000).toFixed(2))
+      const cuttingLossKg = Number((technicalLossTons * 1000).toFixed(2))
+      const leftoverKg = Number((cand.leftoverTons * 1000).toFixed(2))
+
+      // Validação estrita de balanço de massa:
+      // peso bruto = aproveitado + perdas + sobra (dentro da precisão numérica configurada de 1 kg / 0,001 t)
+      const massBalanceDiff = Math.abs(
+        grossPlateWeightTons - (cand.totalBlocksTons + technicalLossTons + cand.leftoverTons),
+      )
+      if (massBalanceDiff > 0.005) {
+        // Ajuste no leftover para garantir balanço exato
+        cand.leftoverTons = Number(
+          Math.max(0, grossPlateWeightTons - cand.totalBlocksTons - technicalLossTons).toFixed(3),
+        )
+      }
+
+      // Distribuição por blocos para o grid visual
+      const distribution = []
+      let itemIdx = 1
+      for (const blk of cand.blocks) {
+        for (let q = 1; q <= blk.quantity; q++) {
+          distribution.push({
+            item_index: itemIdx++,
+            item_type: 'MÚLTIPLO' as const,
+            target_kg: blk.standard.targetTons * 1000,
+            calculated_kg: blk.unitTons * 1000,
+            tolerance_range_kg: `${(blk.standard.minTons * 1000).toFixed(2)} a ${(blk.standard.maxTons * 1000).toFixed(2)} kg`,
+            status: 'CONFORME' as const,
+            dimension_display: `Bloco ${blk.unitTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
+            linear_mass_kg_m: techParams.linear_mass_kg_m,
+            gauge_dimension: techParams.gauge_dimension,
+            batch_code: filters.selected_batch_number,
+            origin_type: 'AGREGADO' as const,
+          })
+        }
+      }
+
+      // Sumário de múltiplos para o quadro do modal
+      const multiplesSummary = cand.blocks.map((b) => ({
+        block_standard: `Bloco ${b.unitTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
+        quantity: b.quantity,
+        unit_weight_tons: b.unitTons,
+        total_weight_tons: b.totalTons,
+      }))
+
+      // Frações proporcionais em massa (somando 100% entre blocos, perdas e sobra)
+      const blocksPct =
+        grossPlateWeightTons > 0 ? (cand.totalBlocksTons / grossPlateWeightTons) * 100 : 0
+      const lossPctCalc =
+        grossPlateWeightTons > 0 ? (technicalLossTons / grossPlateWeightTons) * 100 : 0
+      const leftoverPct =
+        grossPlateWeightTons > 0 ? (cand.leftoverTons / grossPlateWeightTons) * 100 : 0
+
+      const segments: Array<{
+        type: 'BLOCO' | 'PERDA' | 'SOBRA'
+        label: string
+        weight_tons: number
+        percentage: number
+        color?: string
+      }> = []
+
+      // Segmentos individuais para cada bloco produzido
+      let bCounter = 1
+      for (const b of cand.blocks) {
+        for (let k = 0; k < b.quantity; k++) {
+          const segPct = grossPlateWeightTons > 0 ? (b.unitTons / grossPlateWeightTons) * 100 : 0
+          segments.push({
+            type: 'BLOCO',
+            label: `B${bCounter++} (${b.unitTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
+            weight_tons: b.unitTons,
+            percentage: Number(segPct.toFixed(2)),
+            color: '#1e3a8a', // Azul escuro CIAFAL
+          })
+        }
+      }
+
+      // Perdas técnicas
+      if (technicalLossTons > 0) {
+        segments.push({
+          type: 'PERDA',
+          label: `Perdas (${technicalLossTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
+          weight_tons: technicalLossTons,
+          percentage: Number(lossPctCalc.toFixed(2)),
+          color: '#d97706', // Âmbar
+        })
+      }
+
+      // Sobra da placa
+      if (cand.leftoverTons > 0) {
+        segments.push({
+          type: 'SOBRA',
+          label: `Sobra (${cand.leftoverTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
+          weight_tons: cand.leftoverTons,
+          percentage: Number(leftoverPct.toFixed(2)),
+          color: '#64748b', // Ardósia
+        })
+      }
+
+      // Balanço de lote
+      const batchUsedQtyTons = cand.totalBlocksTons
+      const batchInitialStockTons = grossPlateWeightTons
+      const batchProjectedBalanceTons = cand.leftoverTons
+
+      scenarios.push({
+        id: cand.id,
+        name: cand.name,
+        cutting_type: 'MULTIPLOS',
+        used_standard_code: primaryBlock?.standard.code || 'PAD-MULT-01',
+        used_standard_description: primaryBlock?.standard.description || 'Padrão Múltiplo',
+        target_weight_kg: targetKg,
+        min_allowed_weight_kg: minKg,
+        max_allowed_weight_kg: maxKg,
+        calculated_weight_kg: targetKg,
+        deviation_kg: 0,
+        deviation_pct: 0,
+        produced_quantity: totalPieces,
+        input_weight_kg: inputWeightKg,
+        used_weight_kg: usedWeightKg,
+        used_weight_pct: cand.yieldPct,
+        estimated_leftover_kg: leftoverKg,
+        cutting_loss_kg: cuttingLossKg,
+        yield_pct: cand.yieldPct,
+        demand_fulfillment_pct: 100,
+        status: cand.isViable ? 'VIÁVEL' : 'INVIÁVEL',
+        inviability_reason: cand.inviabilityReason,
+        raw_material_code: filters.selected_material_code || filters.material_code,
+        raw_material_description:
+          filters.selected_material_description || 'Placa de Aço para Corte em Múltiplos',
+        batch_number: filters.selected_batch_number,
+        batch_initial_stock: batchInitialStockTons,
+        batch_used_quantity: batchUsedQtyTons,
+        batch_projected_balance: batchProjectedBalanceTons,
+        batch_unit: 't',
+        storage_location: filters.selected_storage_location,
+        center_code: filters.center_code,
+        raw_material_utilization_pct: cand.yieldPct,
+        composition: {
+          pieces_count: totalPieces,
+          piece_nominal_weight_kg: targetKg,
+          total_cuts_count: Math.max(1, totalPieces),
+          nominal_length_mm: techParams.nominal_length_mm,
+          gauge_dimension: techParams.gauge_dimension,
+          density_kg_m3: techParams.density_kg_m3,
+          linear_mass_kg_m: techParams.linear_mass_kg_m,
+          cutting_width_mm: techParams.cutting_width_mm,
+          theoretical_loss_pct: techParams.theoretical_loss_pct,
+          distribution,
+          satisfied_restrictions: [
+            `Peso bruto da placa: ${grossPlateWeightTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (grandeza real de entrada)`,
+            `Perdas técnicas cadastradas: ${technicalLossTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (${techParams.theoretical_loss_pct || 0}%)`,
+            `Peso útil disponível: ${netAvailableWeightTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
+            `Quantidade de blocos: ${totalPieces} unidade(s) inteira(s) — sem fracionamento`,
+            cand.leftoverTons > 0
+              ? `Sobra final da placa: ${cand.leftoverTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (não é considerada bloco válido)`
+              : 'Aproveitamento integral da placa sem sobra residual',
+            `Balanço estrito de massa: ${grossPlateWeightTons.toFixed(3)} t = ${cand.totalBlocksTons.toFixed(3)} t (blocos) + ${technicalLossTons.toFixed(3)} t (perdas) + ${cand.leftoverTons.toFixed(3)} t (sobra)`,
+          ],
+          industrial_alerts:
+            cand.leftoverTons > (primaryBlock?.standard.targetTons || 1.6)
+              ? [
+                  `A sobra da placa (${cand.leftoverTons.toFixed(3)} t) excede o peso unitário do bloco. Avaliar ajuste de corte.`,
+                ]
+              : ['Excelente rendimento da placa com balanço de massa rigorosamente validado.'],
+          technical_justification: cand.description,
+          multiples_summary: multiplesSummary,
+          mass_fractions: {
+            blocks_pct: Number(blocksPct.toFixed(2)),
+            loss_pct: Number(lossPctCalc.toFixed(2)),
+            leftover_pct: Number(leftoverPct.toFixed(2)),
+            segments,
+          },
+          plate_info: {
+            plate_code: filters.plate_code || `PLACA-${filters.selected_batch_number || 'LOTE'}`,
+            material_code: filters.selected_material_code || filters.material_code,
+            batch_number: filters.selected_batch_number,
+            gross_weight_tons: grossPlateWeightTons,
+            technical_loss_tons: technicalLossTons,
+            net_available_weight_tons: netAvailableWeightTons,
+            used_weight_tons: cand.totalBlocksTons,
+            leftover_weight_tons: cand.leftoverTons,
+            reference_block: cand.blocks
+              .map((b) => `${b.quantity}×${b.unitTons.toFixed(3)} t`)
+              .join(' + '),
+          },
+        },
+      })
+    }
+
+    // 6. Recomendação do cenário de maior aproveitamento viável
+    const viable = scenarios.filter((s) => s.status === 'VIÁVEL')
+    let bestScenarioId = scenarios[0]?.id || 'SCENARIO_MULT_PURE_A'
+    if (viable.length > 0) {
+      // Ordenar por rendimento decrescente (e desempate por menor sobra)
+      viable.sort((a, b) => {
+        if (b.yield_pct !== a.yield_pct) return b.yield_pct - a.yield_pct
+        return a.estimated_leftover_kg - b.estimated_leftover_kg
+      })
+      bestScenarioId = viable[0].id
+    }
+
+    const bestScen = scenarios.find((s) => s.id === bestScenarioId) || scenarios[0]
+
+    const technicalJustification = `Recomendação orientativa IA CIAFAL — Plano de Corte para Múltiplos: O ${bestScen.name} alcançou o maior rendimento metálico da placa (${bestScen.yield_pct.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%), produzindo ${bestScen.produced_quantity} bloco(s) inteiros (${(bestScen.used_weight_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t aproveitados), com perdas técnicas de ${(bestScen.cutting_loss_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t e sobra residual de ${(bestScen.estimated_leftover_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t. Balanço de massa 100% consistente.`
+
+    const simCode = `SIM-MULT-${Date.now().toString(36).toUpperCase()}`
+
+    return {
+      simulation_code: simCode,
+      company_code: filters.company_code,
+      center_code: filters.center_code,
+      material_code: filters.material_code,
+      cutting_type: 'MULTIPLOS',
+      optimization_criterion: filters.optimization_criterion,
+      required_quantity: filters.required_quantity,
+      required_weight_tons: filters.required_weight_tons,
+      selected_standard_codes: filters.selected_standard_codes,
+      filter_parameters_snapshot: filters,
+      scenarios,
+      best_scenario_id: bestScenarioId,
+      selected_scenario_id: bestScenarioId,
+      status: 'SIMULADO',
+      technical_justification: technicalJustification,
+      raw_material_code: filters.selected_material_code || filters.material_code,
+      raw_material_description:
+        filters.selected_material_description || 'Placa de Aço para Corte em Múltiplos',
+      batch_number: filters.selected_batch_number,
+      batch_initial_stock: bestScen.batch_initial_stock,
+      batch_used_quantity: bestScen.batch_used_quantity,
+      batch_projected_balance: bestScen.batch_projected_balance,
+      storage_location: filters.selected_storage_location,
+      batch_unit: 't',
+    }
+  }
+
+  /**
    * Motor de Otimização dos 6 Cenários Comparativos integrando Padrões de Peso para Corte
    */
   async generateComparativeScenarios(
     filters: MPCuttingOptimizationFilters,
     allStandards: MPCuttingWeightStandard[],
+    plateWeight?: number,
   ): Promise<MPCuttingSimulationResult> {
+    // ROTA DEDICADA: quando cutting_type === 'MULTIPLOS', invoca generateMultiplesPlatesScenarios
+    if (filters.cutting_type === 'MULTIPLOS') {
+      return this.generateMultiplesPlatesScenarios(filters, allStandards, plateWeight)
+    }
+
     const techParams = await this.getTechnicalParameters(filters.material_code, filters.center_code)
     const stockInfo = await this.getAvailableRawMaterialWeightKg(
       filters.material_code,

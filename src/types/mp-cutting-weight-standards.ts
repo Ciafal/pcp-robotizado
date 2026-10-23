@@ -65,6 +65,10 @@ export interface MPCuttingOptimizationFilters {
   selected_batch_unit?: 't' | 'kg'
   selected_center_code?: string
   selected_storage_location?: string
+  // Parâmetros de Placa para Corte de Múltiplos
+  plate_gross_weight_tons?: number // Peso bruto da placa (entrada real)
+  plate_code?: string // Identificador da placa
+  allow_mixed_standards?: boolean // Permite combinação mista de padrões de blocos (ex: 1,600t + 1,100t)
 }
 
 export interface MPCuttingScenarioItem {
@@ -121,6 +125,36 @@ export interface MPCuttingScenarioItem {
     satisfied_restrictions: string[]
     industrial_alerts: string[]
     technical_justification: string
+    // Resumo e detalhamento estruturado para Corte de Múltiplos a partir de Placas
+    multiples_summary?: Array<{
+      block_standard: string
+      quantity: number
+      unit_weight_tons: number
+      total_weight_tons: number
+    }>
+    mass_fractions?: {
+      blocks_pct: number
+      loss_pct: number
+      leftover_pct: number
+      segments: Array<{
+        type: 'BLOCO' | 'PERDA' | 'SOBRA'
+        label: string
+        weight_tons: number
+        percentage: number
+        color?: string
+      }>
+    }
+    plate_info?: {
+      plate_code?: string
+      material_code?: string
+      batch_number?: string
+      gross_weight_tons: number
+      technical_loss_tons: number
+      net_available_weight_tons: number
+      used_weight_tons: number
+      leftover_weight_tons: number
+      reference_block?: string
+    }
   }
   // Matéria-prima e Lote utilizados no cenário (Múltiplos / Planos de Corte)
   raw_material_code?: string
