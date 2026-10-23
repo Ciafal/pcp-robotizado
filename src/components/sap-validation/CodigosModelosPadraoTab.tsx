@@ -698,7 +698,8 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                   size="sm"
                   className="bg-[#004C97] hover:bg-[#003870] text-white font-medium h-9 shadow-xs"
                 >
-                  <Plus className="w-4 h-4 mr-1.5" />+ Cadastrar Modelo
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Criar Modelo
                 </Button>
               )}
 

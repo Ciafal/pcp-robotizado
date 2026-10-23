@@ -81,8 +81,8 @@ describe('CodigosModelosPadraoTab — Interface, Regras Visuais e Interação', 
     expect(screen.getByText('Tipos Inativos')).toBeInTheDocument()
     expect(screen.getByText('Códigos Modelo Cadastrados')).toBeInTheDocument()
 
-    // Botão de novo tipo
-    expect(screen.getByText('+ Novo Tipo de Código Modelo')).toBeInTheDocument()
+    // Botão de novo tipo: "Criar Modelo"
+    expect(screen.getByText('Criar Modelo')).toBeInTheDocument()
 
     // Itens na tabela
     expect(screen.getByText('Produto acabado L1')).toBeInTheDocument()
@@ -93,18 +93,18 @@ describe('CodigosModelosPadraoTab — Interface, Regras Visuais e Interação', 
     expect(screen.getByText('ZFER')).toBeInTheDocument()
   })
 
-  it('2. Abre o modal "+ Novo Tipo de Código Modelo" com campos obrigatórios e seções', async () => {
+  it('2. Abre o modal "Cadastrar Tipo de Código Modelo Padrão" com campos obrigatórios e seções', async () => {
     render(<CodigosModelosPadraoTab />)
 
     await waitFor(() => {
-      expect(screen.getByText('+ Novo Tipo de Código Modelo')).toBeInTheDocument()
+      expect(screen.getByText('Criar Modelo')).toBeInTheDocument()
     })
 
-    const btnNovo = screen.getByText('+ Novo Tipo de Código Modelo')
+    const btnNovo = screen.getByText('Criar Modelo')
     fireEvent.click(btnNovo)
 
     await waitFor(() => {
-      expect(screen.getByText('Novo Tipo de Código Modelo')).toBeInTheDocument()
+      expect(screen.getByText('Cadastrar Tipo de Código Modelo Padrão')).toBeInTheDocument()
       expect(screen.getByText('Campos-chave para identificação do modelo')).toBeInTheDocument()
       expect(screen.getByText(/Códigos Modelo Vinculados/i)).toBeInTheDocument()
     })
@@ -114,10 +114,10 @@ describe('CodigosModelosPadraoTab — Interface, Regras Visuais e Interação', 
     render(<CodigosModelosPadraoTab />)
 
     await waitFor(() => {
-      expect(screen.getByText('+ Novo Tipo de Código Modelo')).toBeInTheDocument()
+      expect(screen.getByText('Criar Modelo')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByText('+ Novo Tipo de Código Modelo'))
+    fireEvent.click(screen.getByText('Criar Modelo'))
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/Ex.: Produto acabado L1/i)).toBeInTheDocument()
