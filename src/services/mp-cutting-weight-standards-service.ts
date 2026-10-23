@@ -716,7 +716,6 @@ class MPCuttingWeightStandardsService {
         batch_used_quantity: simulation.batch_used_quantity ?? null,
         batch_projected_balance: simulation.batch_projected_balance ?? null,
         storage_location: simulation.storage_location || null,
-        center_code: simulation.center_code || null,
       }
 
       const created = await pb.collection(this.COLLECTION_SIMULATIONS).create(payload)

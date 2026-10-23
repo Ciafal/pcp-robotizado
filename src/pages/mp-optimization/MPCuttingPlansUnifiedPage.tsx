@@ -23,6 +23,8 @@ import { MPCuttingScenarioDetailModal } from '@/components/mp-optimization/MPCut
 import { MPCuttingSimulationsHistoryModal } from '@/components/mp-optimization/MPCuttingSimulationsHistoryModal'
 import { mpCuttingWeightStandardsService } from '@/services/mp-cutting-weight-standards-service'
 import { mpCuttingOptimizationEngineService } from '@/services/mp-cutting-optimization-engine-service'
+import { MPCuttingBatchSelector } from '@/components/mp-optimization/MPCuttingBatchSelector'
+import { pcpCuttingBatchStockService } from '@/services/pcp-cutting-batch-stock-service'
 import type {
   MPCuttingWeightStandard,
   MPCuttingOptimizationFilters,
@@ -102,6 +104,7 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
   const [selectedComparativeScenarioId, setSelectedComparativeScenarioId] = useState<string>('')
   const [aiJustification, setAiJustification] = useState<string>('')
   const [activeSimulation, setActiveSimulation] = useState<MPCuttingSimulationResult | null>(null)
+  const [highlightBatchError, setHighlightBatchError] = useState(false)
 
   const loadWeightStandards = async () => {
     try {
@@ -149,6 +152,77 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
 
   // Geração dos 6 Cenários Comparativos pelo Motor Integrado aos Padrões de Peso
   const handleGenerateComparativeScenarios = async () => {
+    // REGRA OBRIGATÓRIA: Se Tipo de Corte = Múltiplos e não há material+lote selecionado
+    if (optimizationFilters.cutting_type === 'MULTIPLOS') {
+      const hasBatch = Boolean(
+        optimizationFilters.selected_batch_number &&
+        (optimizationFilters.selected_material_code || optimizationFilters.material_code),
+      )
+
+      if (!hasBatch) {
+        setHighlightBatchError(true)
+        toast({
+          variant: 'destructive',
+          title: 'Seleção Obrigatória',
+          description:
+            'Selecione o material e o lote da matéria-prima antes de gerar o Plano de Corte para Múltiplos.',
+        })
+
+        // Rola suavemente até o quadro
+        const element = document.getElementById('quadro-material-lote-multiplos')
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+        return
+      }
+
+      // Revalidar saldo do lote antes de gerar
+      const targetMaterial =
+        optimizationFilters.selected_material_code || optimizationFilters.material_code
+      const requiredTons = optimizationFilters.required_weight_tons || 30
+
+      try {
+        const reval = await pcpCuttingBatchStockService.revalidateBatchBalance(
+          targetMaterial,
+          optimizationFilters.selected_batch_number!,
+          requiredTons,
+          optimizationFilters.center_code,
+        )
+
+        if (!reval.isValid || !reval.isSufficient) {
+          setHighlightBatchError(true)
+          toast({
+            variant: 'destructive',
+            title: 'Saldo de Lote Insuficiente',
+            description:
+              reval.errorMessage ||
+              `O lote [${optimizationFilters.selected_batch_number}] não possui saldo suficiente para o cenário solicitado. Revise a seleção ou os parâmetros do Plano de Corte.`,
+          })
+          const element = document.getElementById('quadro-material-lote-multiplos')
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+          return
+        }
+
+        // Se o saldo mudou entre a seleção e a geração, atualizar os filtros
+        if (
+          reval.item &&
+          reval.item.available_stock !== optimizationFilters.selected_batch_available_stock
+        ) {
+          setOptimizationFilters((prev) => ({
+            ...prev,
+            selected_batch_available_stock: reval.item!.available_stock,
+            selected_batch_unit: reval.item!.unit,
+            selected_storage_location: reval.item!.storage_location,
+          }))
+        }
+      } catch (err: any) {
+        console.warn('Erro ao revalidar saldo do lote:', err)
+      }
+    }
+
+    setHighlightBatchError(false)
     setIsGenerating(true)
     try {
       const simResult = await mpCuttingOptimizationEngineService.generateComparativeScenarios(
@@ -182,9 +256,15 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
     }
   }
 
-  // Executa uma simulação inicial automática para preencher a tela quando carrega
+  // Executa uma simulação inicial automática para preencher a tela quando carrega (apenas se não for Múltiplos sem lote)
   useEffect(() => {
     if (comparativeScenarios.length === 0 && !isGenerating) {
+      if (
+        optimizationFilters.cutting_type === 'MULTIPLOS' &&
+        !optimizationFilters.selected_batch_number
+      ) {
+        return
+      }
       handleGenerateComparativeScenarios()
     }
   }, [weightStandards.length])
@@ -727,11 +807,51 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
           <MPCuttingOptimizationFilterBar
             filters={optimizationFilters}
             standards={weightStandards}
-            onFiltersChange={setOptimizationFilters}
+            onFiltersChange={(updated) => {
+              setOptimizationFilters(updated)
+              if (highlightBatchError && updated.selected_batch_number) {
+                setHighlightBatchError(false)
+              }
+            }}
             onGenerateScenarios={handleGenerateComparativeScenarios}
             onOpenStandardsModal={() => setIsStandardsModalOpen(true)}
             isGenerating={isGenerating}
           />
+
+          {/* NOVO QUADRO: MATERIAL E LOTE PARA O PLANO DE CORTE (Exclusivo para Tipo de Corte = MULTIPLOS) */}
+          {optimizationFilters.cutting_type === 'MULTIPLOS' && (
+            <MPCuttingBatchSelector
+              materialCode={optimizationFilters.material_code}
+              centerCode={optimizationFilters.center_code}
+              selectedBatchNumber={optimizationFilters.selected_batch_number}
+              highlightError={highlightBatchError}
+              onSelectBatch={(batchItem) => {
+                setHighlightBatchError(false)
+                setOptimizationFilters((prev) => ({
+                  ...prev,
+                  selected_material_code: batchItem.material_code,
+                  selected_material_description: batchItem.material_description,
+                  selected_batch_number: batchItem.batch_number,
+                  selected_batch_available_stock: batchItem.available_stock,
+                  selected_batch_unit: batchItem.unit,
+                  selected_center_code: batchItem.center_code,
+                  selected_storage_location: batchItem.storage_location,
+                }))
+              }}
+              onClearSelection={() => {
+                setOptimizationFilters((prev) => ({
+                  ...prev,
+                  selected_material_code: undefined,
+                  selected_material_description: undefined,
+                  selected_batch_number: undefined,
+                  selected_batch_available_stock: undefined,
+                  selected_batch_unit: undefined,
+                  selected_center_code: undefined,
+                  selected_storage_location: undefined,
+                }))
+              }}
+            />
+          )}
 
           {/* Botão de Histórico e Ações Auxiliares */}
           <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-lg border border-slate-200">

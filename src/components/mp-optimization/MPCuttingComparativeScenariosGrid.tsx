@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Percent,
   Check,
+  Boxes,
 } from 'lucide-react'
 import type { MPCuttingScenarioItem } from '@/types/mp-cutting-weight-standards'
 
@@ -91,6 +92,63 @@ export const MPCuttingComparativeScenariosGrid: React.FC<
           </CardHeader>
 
           <CardContent className="pt-4 pb-4 space-y-4">
+            {/* Bloco Matéria-Prima Utilizada (se informado no cenário) */}
+            {(bestScenario.batch_number || bestScenario.raw_material_code) && (
+              <div className="bg-blue-950/70 border border-blue-500/50 rounded-lg p-3 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-2">
+                  <Boxes className="w-4 h-4" />
+                  <span>Matéria-Prima Utilizada (Lote Selecionado)</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 text-[11px]">
+                  <div>
+                    <span className="text-blue-300 block">Cód. Material</span>
+                    <span className="font-mono font-bold text-white">
+                      {bestScenario.raw_material_code || '-'}
+                    </span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-blue-300 block">Descrição do Material</span>
+                    <span className="font-medium text-white truncate block">
+                      {bestScenario.raw_material_description || '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-blue-300 block">Lote</span>
+                    <Badge
+                      variant="outline"
+                      className="font-mono bg-blue-900 text-amber-200 border-blue-700 text-[10px]"
+                    >
+                      {bestScenario.batch_number || '-'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-blue-300 block">Estoque Inicial</span>
+                    <span className="font-mono font-bold text-white">
+                      {bestScenario.batch_initial_stock != null
+                        ? `${bestScenario.batch_initial_stock.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} ${bestScenario.batch_unit || 't'}`
+                        : '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-blue-300 block">Qtd. Utilizada</span>
+                    <span className="font-mono font-bold text-amber-300">
+                      {bestScenario.batch_used_quantity != null
+                        ? `${bestScenario.batch_used_quantity.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} ${bestScenario.batch_unit || 't'}`
+                        : `${(bestScenario.used_weight_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-blue-300 block">Saldo Projetado</span>
+                    <span className="font-mono font-bold text-emerald-300">
+                      {bestScenario.batch_projected_balance != null
+                        ? `${bestScenario.batch_projected_balance.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} ${bestScenario.batch_unit || 't'}`
+                        : '-'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Indicadores do Cenário Recomendado */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div className="bg-blue-900/60 border border-blue-700/50 rounded-lg p-2.5">
@@ -262,6 +320,35 @@ export const MPCuttingComparativeScenariosGrid: React.FC<
                 </CardHeader>
 
                 <CardContent className="p-4 pt-3 space-y-3 flex-1">
+                  {/* Identificação de Lote/MP do Cenário se Múltiplos */}
+                  {scen.batch_number && (
+                    <div className="p-2 bg-blue-50/60 rounded border border-blue-100 text-[11px] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Lote MP:</span>
+                        <Badge
+                          variant="outline"
+                          className="font-mono bg-white text-blue-950 font-bold border-blue-200 text-[10px]"
+                        >
+                          {scen.batch_number}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-600">
+                        <span>
+                          Uso:{' '}
+                          {scen.batch_used_quantity != null
+                            ? `${scen.batch_used_quantity.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`
+                            : `${(scen.used_weight_kg / 1000).toFixed(3)} t`}
+                        </span>
+                        <span className="text-emerald-700 font-bold">
+                          Saldo:{' '}
+                          {scen.batch_projected_balance != null
+                            ? `${scen.batch_projected_balance.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`
+                            : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Grid de 6 Métricas Principais */}
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-slate-50 p-2 rounded border border-slate-100">

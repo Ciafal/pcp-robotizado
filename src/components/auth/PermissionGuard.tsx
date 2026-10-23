@@ -115,6 +115,16 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('cadastros/hierarquia'),
   )
 
+  // Rota canônica de Planos de Corte (/pcp/gestao-materia-prima/planos-corte e aliases)
+  const isPlanosCorteRoute = Boolean(
+    currentPathname === '/pcp/gestao-materia-prima/planos-corte' ||
+    currentPathname.startsWith('/pcp/gestao-materia-prima/planos-corte') ||
+    currentPathname === '/pcp/otimizacao-mp/plano-corte' ||
+    currentPathname.includes('planos-corte') ||
+    currentHash.includes('planos-corte') ||
+    windowPath.includes('planos-corte'),
+  )
+
   // Rota canônica de Aproveitamento MP fora do padrão (/pcp/gestao-materia-prima/aproveitamento-mp-fora-do-padrao)
   const isAproveitamentoMpForaPadraoRoute = Boolean(
     currentPathname === '/pcp/gestao-materia-prima/aproveitamento-mp-fora-do-padrao' ||
@@ -126,6 +136,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // Rota canônica de Projeções de MP (/pcp/gestao-materia-prima/projecoes-mp e aliases de Gestão de MP)
   const isGestaoMpRoute = Boolean(
+    isPlanosCorteRoute ||
     isAproveitamentoMpForaPadraoRoute ||
     currentPathname === '/pcp/gestao-materia-prima/projecoes-mp' ||
     currentPathname.startsWith('/pcp/gestao-materia-prima/projecoes-mp') ||

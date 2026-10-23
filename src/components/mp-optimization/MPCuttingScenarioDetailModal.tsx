@@ -30,6 +30,7 @@ import {
   Flame,
   FileText,
   Info,
+  Boxes,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
@@ -117,6 +118,108 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                     'Disponibilidade de matéria-prima ou limites operacionais excedidos.'}
                 </AlertDescription>
               </Alert>
+            )}
+
+            {/* Bloco Obrigatório: Matéria-Prima Utilizada (se Múltiplos ou rastreado) */}
+            {(scenario.batch_number || scenario.raw_material_code) && (
+              <div className="bg-slate-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-blue-950 flex items-center gap-1.5">
+                    <Boxes className="w-4 h-4 text-blue-900" /> Matéria-Prima Utilizada
+                  </h4>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono bg-white text-blue-900 border-blue-300"
+                  >
+                    Lote Vinculado
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                      Código
+                    </span>
+                    <span className="font-mono font-bold text-blue-950 block mt-0.5">
+                      {scenario.raw_material_code || '-'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded border border-slate-200 sm:col-span-2">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                      Descrição do Material
+                    </span>
+                    <span
+                      className="font-medium text-slate-800 block mt-0.5 truncate"
+                      title={scenario.raw_material_description}
+                    >
+                      {scenario.raw_material_description || '-'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                      Lote
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="font-mono bg-blue-50 text-blue-900 border-blue-300 text-xs font-bold mt-0.5"
+                    >
+                      {scenario.batch_number || '-'}
+                    </Badge>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                      Estoque Inicial Disp.
+                    </span>
+                    <span className="font-mono font-bold text-slate-900 block mt-0.5">
+                      {scenario.batch_initial_stock != null
+                        ? `${scenario.batch_initial_stock.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} ${scenario.batch_unit || 't'}`
+                        : '-'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                      Qtd. Utilizada
+                    </span>
+                    <span className="font-mono font-bold text-blue-900 block mt-0.5">
+                      {scenario.batch_used_quantity != null
+                        ? `${scenario.batch_used_quantity.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} ${scenario.batch_unit || 't'}`
+                        : `${(scenario.used_weight_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded border border-slate-200">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                      Saldo Projetado
+                    </span>
+                    <span className="font-mono font-bold text-emerald-800 block mt-0.5">
+                      {scenario.batch_projected_balance != null
+                        ? `${scenario.batch_projected_balance.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} ${scenario.batch_unit || 't'}`
+                        : '-'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-200/60">
+                  <span>
+                    Aproveitamento da MP:{' '}
+                    <strong className="text-blue-950 font-bold">
+                      {scenario.yield_pct.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%
+                    </strong>
+                  </span>
+                  {scenario.storage_location && (
+                    <span>
+                      Depósito:{' '}
+                      <strong className="font-mono text-slate-800">
+                        {scenario.storage_location}
+                      </strong>
+                    </span>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* Resumo Executivo: Balanço de Massa e Rendimento */}
