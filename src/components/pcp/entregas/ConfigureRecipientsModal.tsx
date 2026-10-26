@@ -61,8 +61,14 @@ export const ConfigureRecipientsModal: React.FC<ConfigureRecipientsModalProps> =
   const [emailsList, setEmailsList] = useState<string[]>([])
   const [newEmailInput, setNewEmailInput] = useState('')
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
-  const [selectedGroups, setSelectedGroups] = useState<string[]>(['Diretoria', 'Gerência PCP', 'Supervisão Fabril'])
-  const [assuntoTemplate, setAssuntoTemplate] = useState('Resumo Mensal de Entregas PCP - {empresa} {linha} ({mes}/{ano})')
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([
+    'Diretoria',
+    'Gerência PCP',
+    'Supervisão Fabril',
+  ])
+  const [assuntoTemplate, setAssuntoTemplate] = useState(
+    'Resumo Mensal de Entregas PCP - {empresa} {linha} ({mes}/{ano})',
+  )
   const [corpoTemplate, setCorpoTemplate] = useState(
     'Prezados,\n\nSegue o Resumo de Entregas PCP consolidado da Linha {linha} referente a {mes}/{ano}.\n\nVersão: {versao}\nResponsável: {responsavel}\n\nFavor acusar recebimento e confirmar a leitura conforme governança corporativa CIAFAL.',
   )
@@ -104,7 +110,9 @@ export const ConfigureRecipientsModal: React.FC<ConfigureRecipientsModalProps> =
         setEmailsList(rec.emails_autorizados || [])
         setSelectedUserIds(rec.usuarios_ids || [])
         setSelectedGroups(rec.grupos || ['Diretoria', 'Gerência PCP'])
-        setAssuntoTemplate(rec.assunto_template || 'Resumo Mensal de Entregas PCP - {empresa} {linha} ({mes}/{ano})')
+        setAssuntoTemplate(
+          rec.assunto_template || 'Resumo Mensal de Entregas PCP - {empresa} {linha} ({mes}/{ano})',
+        )
         setCorpoTemplate(rec.corpo_template || '')
         setAnexarPdf(rec.anexar_pdf ?? true)
         setAnexarPdfExecutivo(rec.anexar_pdf_executivo ?? false)
@@ -316,7 +324,8 @@ export const ConfigureRecipientsModal: React.FC<ConfigureRecipientsModalProps> =
               <span>
                 Variáveis disponíveis: <code>{'{empresa}'}</code>, <code>{'{linha}'}</code>,{' '}
                 <code>{'{centro}'}</code>, <code>{'{mes}'}</code>, <code>{'{ano}'}</code>,{' '}
-                <code>{'{periodo}'}</code>, <code>{'{versao}'}</code>, <code>{'{responsavel}'}</code>.
+                <code>{'{periodo}'}</code>, <code>{'{versao}'}</code>,{' '}
+                <code>{'{responsavel}'}</code>.
               </span>
             </div>
 
@@ -335,7 +344,9 @@ export const ConfigureRecipientsModal: React.FC<ConfigureRecipientsModalProps> =
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-slate-700">Modelo do Corpo / Mensagem</Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Modelo do Corpo / Mensagem
+              </Label>
               <textarea
                 rows={4}
                 value={corpoTemplate}
@@ -370,10 +381,15 @@ export const ConfigureRecipientsModal: React.FC<ConfigureRecipientsModalProps> =
 
               <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
                 <div className="space-y-0.5">
-                  <div className="font-bold text-slate-800 text-xs">Aprovação Prévia Obrigatória</div>
+                  <div className="font-bold text-slate-800 text-xs">
+                    Aprovação Prévia Obrigatória
+                  </div>
                   <div className="text-[10px] text-slate-500">Bloqueia disparo sem aprovação</div>
                 </div>
-                <Switch checked={exigirAprovacaoPrevia} onCheckedChange={setExigirAprovacaoPrevia} />
+                <Switch
+                  checked={exigirAprovacaoPrevia}
+                  onCheckedChange={setExigirAprovacaoPrevia}
+                />
               </div>
 
               <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
@@ -417,15 +433,18 @@ export const ConfigureRecipientsModal: React.FC<ConfigureRecipientsModalProps> =
                 <Send className="w-3.5 h-3.5 text-amber-700" />
                 <span>Teste de Envio Operacional</span>
               </span>
-              <Badge variant="outline" className="bg-white text-amber-800 border-amber-400 text-[9px]">
+              <Badge
+                variant="outline"
+                className="bg-white text-amber-800 border-amber-400 text-[9px]"
+              >
                 Exige Confirmação Explícita
               </Badge>
             </div>
 
             <p className="text-[11px] text-amber-800 leading-relaxed">
               O teste executa a validação real das credenciais de envio e regras de bloqueio no
-              backend Skip Cloud. Nenhuma mensagem é disparada sem autorização explícita e
-              aprovação do PCP.
+              backend Skip Cloud. Nenhuma mensagem é disparada sem autorização explícita e aprovação
+              do PCP.
             </p>
 
             {showTestConfirmation ? (
@@ -435,8 +454,8 @@ export const ConfigureRecipientsModal: React.FC<ConfigureRecipientsModalProps> =
                   <span>Confirmação Explícita de Teste</span>
                 </div>
                 <p className="text-[10px] text-slate-600">
-                  Deseja disparar a rotina de teste de envio para a Linha <strong>{linhaCode}</strong>?
-                  O resultado e auditoria serão registrados no banco.
+                  Deseja disparar a rotina de teste de envio para a Linha{' '}
+                  <strong>{linhaCode}</strong>? O resultado e auditoria serão registrados no banco.
                 </p>
                 <div className="flex justify-end gap-2">
                   <Button

@@ -1,6 +1,8 @@
 import { pb } from '@/lib/pocketbase/client'
 import type { MonthlySummaryTemplate } from './pcp-monthly-summaries'
 
+export type { MonthlySummaryTemplate } from './pcp-monthly-summaries'
+
 export type LineSummaryConfigStatus = 'ATIVO' | 'INATIVO' | 'SUSPENSO'
 export type SummaryPeriodicity =
   | 'diaria'
@@ -253,7 +255,12 @@ export const lineSummaryAutomationService = {
       periodicidade: config.periodicidade || 'mensal',
       parametros_personalizados: config.parametros_personalizados || {},
       data_referencia_str: config.data_referencia_str || '',
-      proxima_execucao: config.proxima_execucao || this.calculateNextExecution(config.periodicidade || 'mensal', config.parametros_personalizados),
+      proxima_execucao:
+        config.proxima_execucao ||
+        this.calculateNextExecution(
+          config.periodicidade || 'mensal',
+          config.parametros_personalizados,
+        ),
       status: config.status || 'ATIVO',
       observacoes: config.observacoes || '',
       finalidade: config.finalidade || '',
@@ -284,7 +291,9 @@ export const lineSummaryAutomationService = {
     const updated = await pb.collection('pcp_line_summary_configs').update(id, {
       status: 'SUSPENSO',
     })
-    await this.logAudit('PCP_LINE_CONFIG_SUSPEND', `Configuração suspensa: ${id}`, { config_id: id })
+    await this.logAudit('PCP_LINE_CONFIG_SUSPEND', `Configuração suspensa: ${id}`, {
+      config_id: id,
+    })
     return this.mapConfigRecord(updated)
   },
 
@@ -293,12 +302,18 @@ export const lineSummaryAutomationService = {
    */
   async reactivateConfig(id: string): Promise<LineSummaryConfig> {
     const existing = await pb.collection('pcp_line_summary_configs').getOne(id)
-    const proxima = this.calculateNextExecution(existing.periodicidade, existing.parametros_personalizados)
+    const proxima = this.calculateNextExecution(
+      existing.periodicidade,
+      existing.parametros_personalizados,
+    )
     const updated = await pb.collection('pcp_line_summary_configs').update(id, {
       status: 'ATIVO',
       proxima_execucao: proxima,
     })
-    await this.logAudit('PCP_LINE_CONFIG_REACTIVATE', `Configuração reativada: ${id}`, { config_id: id, proxima_execucao: proxima })
+    await this.logAudit('PCP_LINE_CONFIG_REACTIVATE', `Configuração reativada: ${id}`, {
+      config_id: id,
+      proxima_execucao: proxima,
+    })
     return this.mapConfigRecord(updated)
   },
 
@@ -308,7 +323,9 @@ export const lineSummaryAutomationService = {
   async deleteConfig(id: string): Promise<boolean> {
     try {
       await pb.collection('pcp_line_summary_configs').delete(id)
-      await this.logAudit('PCP_LINE_CONFIG_DELETE', `Configuração removida: ${id}`, { config_id: id })
+      await this.logAudit('PCP_LINE_CONFIG_DELETE', `Configuração removida: ${id}`, {
+        config_id: id,
+      })
       return true
     } catch (err) {
       console.warn('Erro ao excluir config:', err)
@@ -367,7 +384,10 @@ export const lineSummaryAutomationService = {
   /**
    * Disparar envio de resumo aos destinatários configurados (bloqueado se aprovação pendente)
    */
-  async sendSummary(summaryId: string, summaryCode?: string): Promise<{ success: boolean; status: string; message: string; recipients_count?: number }> {
+  async sendSummary(
+    summaryId: string,
+    summaryCode?: string,
+  ): Promise<{ success: boolean; status: string; message: string; recipients_count?: number }> {
     const res = await pb.send('/backend/v1/pcp/line-summaries/send-summary', {
       method: 'POST',
       body: { summary_id: summaryId, summary_code: summaryCode },
@@ -378,7 +398,9 @@ export const lineSummaryAutomationService = {
   /**
    * Salvar destinatários
    */
-  async saveRecipients(recipient: Partial<SummaryRecipientsConfig>): Promise<SummaryRecipientsConfig> {
+  async saveRecipients(
+    recipient: Partial<SummaryRecipientsConfig>,
+  ): Promise<SummaryRecipientsConfig> {
     const payload: any = {
       config_id: recipient.config_id || '',
       linha_code: recipient.linha_code || '',
@@ -388,8 +410,11 @@ export const lineSummaryAutomationService = {
       grupos: recipient.grupos || [],
       setores: recipient.setores || [],
       emails_autorizados: recipient.emails_autorizados || [],
-      assunto_template: recipient.assunto_template || 'Resumo Mensal de Entregas PCP - {linha} ({periodo})',
-      corpo_template: recipient.corpo_template || 'Segue em anexo o resumo operacional e executivo da Linha {linha} referente a {mes}/{ano}. Versão: {versao}. Responsável: {responsavel}.',
+      assunto_template:
+        recipient.assunto_template || 'Resumo Mensal de Entregas PCP - {linha} ({periodo})',
+      corpo_template:
+        recipient.corpo_template ||
+        'Segue em anexo o resumo operacional e executivo da Linha {linha} referente a {mes}/{ano}. Versão: {versao}. Responsável: {responsavel}.',
       anexar_pdf: recipient.anexar_pdf ?? true,
       anexar_pdf_executivo: recipient.anexar_pdf_executivo ?? false,
       exigir_confirmacao_leitura: recipient.exigir_confirmacao_leitura ?? false,
@@ -420,7 +445,10 @@ export const lineSummaryAutomationService = {
   /**
    * Buscar destinatários configurados por linha ou config_id
    */
-  async getRecipients(linhaCode?: string, configId?: string): Promise<SummaryRecipientsConfig | null> {
+  async getRecipients(
+    linhaCode?: string,
+    configId?: string,
+  ): Promise<SummaryRecipientsConfig | null> {
     try {
       let filter = ''
       if (configId) filter = `config_id = '${configId}'`
@@ -467,7 +495,78 @@ export const lineSummaryAutomationService = {
   },
 
   /**
-   * Cálculo de próxima execução
+   * Resolver template respeitando hierarquia canônica:
+   * 1. Vínculo explícito da configuração da linha (template_id ou template_code)
+   * 2. Centro fabril da linha
+   * 3. Linha produtiva específica
+   * 4. Empresa (CIAFAL)
+   * 5. Geral institucional homologado
+   */
+  resolveTemplateForLine(
+    config: {
+      template_id?: string
+      template_code?: string
+      centro_code?: string
+      linha_code?: string
+      empresa_code?: string
+    },
+    templates: MonthlySummaryTemplate[],
+  ): MonthlySummaryTemplate | null {
+    if (!templates || templates.length === 0) return null
+
+    // 1. Vínculo explícito da configuração
+    if (config.template_id) {
+      const explicit = templates.find((t) => t.id === config.template_id && t.status === 'ATIVO')
+      if (explicit) return explicit
+    }
+    if (config.template_code) {
+      const explicitCode = templates.find(
+        (t) => t.template_code === config.template_code && t.status === 'ATIVO',
+      )
+      if (explicitCode) return explicitCode
+    }
+
+    // 2. Centro fabril da linha
+    if (config.centro_code && config.centro_code !== 'ALL') {
+      const centerTpl = templates.find(
+        (t) =>
+          t.status === 'ATIVO' && t.aplicacao === 'CENTRO' && t.centro_code === config.centro_code,
+      )
+      if (centerTpl) return centerTpl
+    }
+
+    // 3. Linha produtiva
+    if (config.linha_code && config.linha_code !== 'ALL') {
+      const lineTpl = templates.find(
+        (t) =>
+          t.status === 'ATIVO' && t.aplicacao === 'LINHA' && t.linha_code === config.linha_code,
+      )
+      if (lineTpl) return lineTpl
+    }
+
+    // 4. Empresa (CIAFAL)
+    if (config.empresa_code && config.empresa_code !== 'ALL') {
+      const companyTpl = templates.find(
+        (t) =>
+          t.status === 'ATIVO' &&
+          t.aplicacao === 'EMPRESA' &&
+          (t.empresa_code === config.empresa_code || t.empresa_code === 'CIAFAL'),
+      )
+      if (companyTpl) return companyTpl
+    }
+
+    // 5. Geral (default ou primeiro ativo)
+    const defaultGeral = templates.find((t) => t.status === 'ATIVO' && t.is_default)
+    if (defaultGeral) return defaultGeral
+
+    const firstActive = templates.find((t) => t.status === 'ATIVO')
+    return firstActive || null
+  },
+
+  /**
+   * Cálculo determinístico de próxima execução
+   * Fuso horário de referência: America/Sao_Paulo (-03:00)
+   * Suporta: diária, semanal, quinzenal, mensal (com dia_do_mes), trimestral e personalizada (dias_da_semana e intervalo_dias)
    */
   calculateNextExecution(
     periodicidade: SummaryPeriodicity,
@@ -478,24 +577,71 @@ export const lineSummaryAutomationService = {
 
     const d = fromDate ? new Date(fromDate) : new Date()
 
+    const horario = params?.horario || '08:00'
+    const [hStr, mStr] = horario.split(':')
+    const h = parseInt(hStr, 10)
+    const m = parseInt(mStr, 10)
+    const hour = isNaN(h) ? 8 : Math.min(23, Math.max(0, h))
+    const minute = isNaN(m) ? 0 : Math.min(59, Math.max(0, m))
+
     if (periodicidade === 'diaria') {
       d.setDate(d.getDate() + 1)
+      d.setHours(hour, minute, 0, 0)
     } else if (periodicidade === 'semanal') {
       d.setDate(d.getDate() + 7)
+      d.setHours(hour, minute, 0, 0)
     } else if (periodicidade === 'quinzenal') {
       d.setDate(d.getDate() + 15)
+      d.setHours(hour, minute, 0, 0)
     } else if (periodicidade === 'mensal') {
+      const targetDay =
+        params?.dia_do_mes && params.dia_do_mes >= 1 && params.dia_do_mes <= 31
+          ? params.dia_do_mes
+          : d.getDate()
       d.setMonth(d.getMonth() + 1)
+      const maxDaysInNextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+      d.setDate(Math.min(targetDay, maxDaysInNextMonth))
+      d.setHours(hour, minute, 0, 0)
     } else if (periodicidade === 'trimestral') {
+      const targetDay =
+        params?.dia_do_mes && params.dia_do_mes >= 1 && params.dia_do_mes <= 31
+          ? params.dia_do_mes
+          : d.getDate()
       d.setMonth(d.getMonth() + 3)
+      const maxDaysInNextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+      d.setDate(Math.min(targetDay, maxDaysInNextMonth))
+      d.setHours(hour, minute, 0, 0)
     } else if (periodicidade === 'personalizada') {
-      const interval = params?.intervalo_dias ? Number(params.intervalo_dias) : 1
-      d.setDate(d.getDate() + (interval > 0 ? interval : 1))
+      // Se tiver dias da semana especificados (1=segunda ... 7=domingo)
+      if (
+        params?.dias_da_semana &&
+        Array.isArray(params.dias_da_semana) &&
+        params.dias_da_semana.length > 0
+      ) {
+        // Encontrar o próximo dia da semana
+        let nextDayFound = false
+        for (let i = 1; i <= 7; i++) {
+          const testDate = new Date(d)
+          testDate.setDate(d.getDate() + i)
+          // Em JS: 0=domingo, 1=segunda ... 6=sábado. Mapear para 1=segunda..7=domingo
+          const jsDay = testDate.getDay()
+          const mappedDay = jsDay === 0 ? 7 : jsDay
+          if (params.dias_da_semana.includes(mappedDay)) {
+            d.setDate(d.getDate() + i)
+            nextDayFound = true
+            break
+          }
+        }
+        if (!nextDayFound) {
+          d.setDate(d.getDate() + 1)
+        }
+        d.setHours(hour, minute, 0, 0)
+      } else {
+        const interval = params?.intervalo_dias ? Number(params.intervalo_dias) : 1
+        d.setDate(d.getDate() + (interval > 0 ? interval : 1))
+        d.setHours(hour, minute, 0, 0)
+      }
     }
-
-    const horario = params?.horario || '08:00'
-    const [h, m] = horario.split(':').map((n) => parseInt(n, 10))
-    d.setHours(isNaN(h) ? 8 : h, isNaN(m) ? 0 : m, 0, 0)
 
     return d.toISOString()
   },

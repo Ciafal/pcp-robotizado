@@ -11,7 +11,9 @@ cronAdd('pcp_line_summary_scheduler', '0 * * * *', function () {
     // Buscar configurações ativas com geração automática ligada e proxima_execucao <= now
     var configs = $app.findRecordsByFilter(
       'pcp_line_summary_configs',
-      'status = "ATIVO" && geracao_automatica = true && proxima_execucao != "" && proxima_execucao <= "' + nowIso + '"',
+      'status = "ATIVO" && geracao_automatica = true && proxima_execucao != "" && proxima_execucao <= "' +
+        nowIso +
+        '"',
       'proxima_execucao',
       50,
       0,
@@ -38,7 +40,11 @@ cronAdd('pcp_line_summary_scheduler', '0 * * * *', function () {
         // Checar dedup
         var existingRun = null
         try {
-          existingRun = $app.findFirstRecordByData('pcp_summary_schedule_runs', 'config_dedup_key', dedupKey)
+          existingRun = $app.findFirstRecordByData(
+            'pcp_summary_schedule_runs',
+            'config_dedup_key',
+            dedupKey,
+          )
         } catch (_) {}
 
         if (existingRun && existingRun.getString('status') === 'SUCESSO') {
@@ -56,26 +62,46 @@ cronAdd('pcp_line_summary_scheduler', '0 * * * *', function () {
         }
         if (!appliedTemplate && centroCode && centroCode !== 'ALL') {
           try {
-            var ct = $app.findRecordsByFilter('pcp_monthly_summary_templates', 'status = "ATIVO" && aplicacao = "CENTRO" && centro_code = "' + centroCode + '"', '-is_default,-created', 1, 0)
+            var ct = $app.findRecordsByFilter(
+              'pcp_monthly_summary_templates',
+              'status = "ATIVO" && aplicacao = "CENTRO" && centro_code = "' + centroCode + '"',
+              '-is_default,-created',
+              1,
+              0,
+            )
             if (ct && ct.length > 0) appliedTemplate = ct[0]
           } catch (_) {}
         }
         if (!appliedTemplate && linhaCode && linhaCode !== 'ALL') {
           try {
-            var lt = $app.findRecordsByFilter('pcp_monthly_summary_templates', 'status = "ATIVO" && aplicacao = "LINHA" && linha_code = "' + linhaCode + '"', '-is_default,-created', 1, 0)
+            var lt = $app.findRecordsByFilter(
+              'pcp_monthly_summary_templates',
+              'status = "ATIVO" && aplicacao = "LINHA" && linha_code = "' + linhaCode + '"',
+              '-is_default,-created',
+              1,
+              0,
+            )
             if (lt && lt.length > 0) appliedTemplate = lt[0]
           } catch (_) {}
         }
         if (!appliedTemplate) {
           try {
-            var gt = $app.findRecordsByFilter('pcp_monthly_summary_templates', 'status = "ATIVO"', '-is_default,-created', 1, 0)
+            var gt = $app.findRecordsByFilter(
+              'pcp_monthly_summary_templates',
+              'status = "ATIVO"',
+              '-is_default,-created',
+              1,
+              0,
+            )
             if (gt && gt.length > 0) appliedTemplate = gt[0]
           } catch (_) {}
         }
 
         var tplId = appliedTemplate ? appliedTemplate.id : ''
-        var tplCode = appliedTemplate ? appliedTemplate.getString('template_code') : 'PADRAO_CANONICO'
-        var tplVersao = appliedTemplate ? (appliedTemplate.getString('versao_tag') || 'V1.0') : 'V1.0'
+        var tplCode = appliedTemplate
+          ? appliedTemplate.getString('template_code')
+          : 'PADRAO_CANONICO'
+        var tplVersao = appliedTemplate ? appliedTemplate.getString('versao_tag') || 'V1.0' : 'V1.0'
 
         var runsCol = $app.findCollectionByNameOrId('pcp_summary_schedule_runs')
         var runRecord = existingRun || new Record(runsCol)
@@ -98,7 +124,14 @@ cronAdd('pcp_line_summary_scheduler', '0 * * * *', function () {
         var ano = now.getFullYear()
         var mes = now.getMonth() + 1
         var mesAnoStr = (mes < 10 ? '0' + mes : '' + mes) + '/' + ano
-        var summaryCode = 'PMS-' + linhaCode.replace(/[^A-Za-z0-9]/g, '') + '-' + ano + (mes < 10 ? '0' + mes : '' + mes) + '-' + codeHash
+        var summaryCode =
+          'PMS-' +
+          linhaCode.replace(/[^A-Za-z0-9]/g, '') +
+          '-' +
+          ano +
+          (mes < 10 ? '0' + mes : '' + mes) +
+          '-' +
+          codeHash
 
         var sectionsConfig = appliedTemplate ? appliedTemplate.get('sections_config') : []
         var sectionsData = {}
@@ -107,7 +140,12 @@ cronAdd('pcp_line_summary_scheduler', '0 * * * *', function () {
             var key = sec.key || 'sec_' + sec.order
             sectionsData[key] = {
               title: sec.title || key,
-              conteudo: 'Rascunho gerado pela automação cron PCP Robotizado para a Linha ' + linhaCode + ' (Período: ' + mesAnoStr + ').',
+              conteudo:
+                'Rascunho gerado pela automação cron PCP Robotizado para a Linha ' +
+                linhaCode +
+                ' (Período: ' +
+                mesAnoStr +
+                ').',
               fonte_dados: sec.data_source || 'Cadastro PCP / SAP',
               status_preenchimento: 'Rascunho Gerado',
             }
@@ -115,7 +153,15 @@ cronAdd('pcp_line_summary_scheduler', '0 * * * *', function () {
         } else {
           sectionsData['identificacao'] = {
             title: 'Identificação Operacional',
-            conteudo: 'Linha: ' + linhaCode + ' | Centro: ' + centroCode + ' | Empresa: ' + empresaCode + ' | Período: ' + mesAnoStr,
+            conteudo:
+              'Linha: ' +
+              linhaCode +
+              ' | Centro: ' +
+              centroCode +
+              ' | Empresa: ' +
+              empresaCode +
+              ' | Período: ' +
+              mesAnoStr,
             fonte_dados: 'Cadastro PCP',
           }
         }
@@ -136,10 +182,13 @@ cronAdd('pcp_line_summary_scheduler', '0 * * * *', function () {
         summaryRec.set('version_tag', 'V01')
         summaryRec.set('status', initialStatus)
         summaryRec.set('responsavel_pcp_id', cfg.getString('responsavel_geracao_id') || '')
-        summaryRec.set('responsavel_pcp_nome', cfg.getString('responsavel_geracao_nome') || 'PCP Robotizado')
+        summaryRec.set(
+          'responsavel_pcp_nome',
+          cfg.getString('responsavel_geracao_nome') || 'PCP Robotizado',
+        )
         summaryRec.set('responsavel_pcp_email', 'cron@hub-ciafal.internal')
         summaryRec.set('data_entrega', new Date().toISOString())
-        summaryRec.set('dia_util', 'DU ' + (new Date().getDate()))
+        summaryRec.set('dia_util', 'DU ' + new Date().getDate())
         summaryRec.set('origem_programacao_ref', 'CRON_LINHA_' + linhaCode)
         summaryRec.set('sections_data', sectionsData)
         summaryRec.set('template_id', tplId)
@@ -216,7 +265,11 @@ routerAdd(
       var body = e.requestInfo().body || {}
       var configIds = body.config_ids || (body.config_id ? [body.config_id] : [])
       var lineCodes = body.line_codes || (body.line_code ? [body.line_code] : [])
-      var periodo = body.periodo || (new Date().getFullYear() + '-' + ((new Date().getMonth() + 1 < 10 ? '0' : '') + (new Date().getMonth() + 1)))
+      var periodo =
+        body.periodo ||
+        new Date().getFullYear() +
+          '-' +
+          ((new Date().getMonth() + 1 < 10 ? '0' : '') + (new Date().getMonth() + 1))
       var withAi = body.with_ai === true
 
       var targetConfigs = []
@@ -233,7 +286,13 @@ routerAdd(
           var lc = lineCodes[j]
           var found = null
           try {
-            var existing = $app.findRecordsByFilter('pcp_line_summary_configs', 'linha_code = "' + lc + '" && status = "ATIVO"', '-created', 1, 0)
+            var existing = $app.findRecordsByFilter(
+              'pcp_line_summary_configs',
+              'linha_code = "' + lc + '" && status = "ATIVO"',
+              '-created',
+              1,
+              0,
+            )
             if (existing && existing.length > 0) found = existing[0]
           } catch (_) {}
 
@@ -275,7 +334,11 @@ routerAdd(
 
         var existingRun = null
         try {
-          existingRun = $app.findFirstRecordByData('pcp_summary_schedule_runs', 'config_dedup_key', dedupKey)
+          existingRun = $app.findFirstRecordByData(
+            'pcp_summary_schedule_runs',
+            'config_dedup_key',
+            dedupKey,
+          )
         } catch (_) {}
 
         if (existingRun && existingRun.getString('status') === 'SUCESSO' && !body.force_recreate) {
@@ -303,26 +366,44 @@ routerAdd(
         }
         if (!appliedTpl && cenCode && cenCode !== 'ALL') {
           try {
-            var cT = $app.findRecordsByFilter('pcp_monthly_summary_templates', 'status = "ATIVO" && aplicacao = "CENTRO" && centro_code = "' + cenCode + '"', '-is_default,-created', 1, 0)
+            var cT = $app.findRecordsByFilter(
+              'pcp_monthly_summary_templates',
+              'status = "ATIVO" && aplicacao = "CENTRO" && centro_code = "' + cenCode + '"',
+              '-is_default,-created',
+              1,
+              0,
+            )
             if (cT && cT.length > 0) appliedTpl = cT[0]
           } catch (_) {}
         }
         if (!appliedTpl && lCode && lCode !== 'ALL') {
           try {
-            var lT = $app.findRecordsByFilter('pcp_monthly_summary_templates', 'status = "ATIVO" && aplicacao = "LINHA" && linha_code = "' + lCode + '"', '-is_default,-created', 1, 0)
+            var lT = $app.findRecordsByFilter(
+              'pcp_monthly_summary_templates',
+              'status = "ATIVO" && aplicacao = "LINHA" && linha_code = "' + lCode + '"',
+              '-is_default,-created',
+              1,
+              0,
+            )
             if (lT && lT.length > 0) appliedTpl = lT[0]
           } catch (_) {}
         }
         if (!appliedTpl) {
           try {
-            var gT = $app.findRecordsByFilter('pcp_monthly_summary_templates', 'status = "ATIVO"', '-is_default,-created', 1, 0)
+            var gT = $app.findRecordsByFilter(
+              'pcp_monthly_summary_templates',
+              'status = "ATIVO"',
+              '-is_default,-created',
+              1,
+              0,
+            )
             if (gT && gT.length > 0) appliedTpl = gT[0]
           } catch (_) {}
         }
 
         var tplId = appliedTpl ? appliedTpl.id : ''
         var tplCode = appliedTpl ? appliedTpl.getString('template_code') : 'PADRAO_CANONICO'
-        var tplVersao = appliedTpl ? (appliedTpl.getString('versao_tag') || 'V1.0') : 'V1.0'
+        var tplVersao = appliedTpl ? appliedTpl.getString('versao_tag') || 'V1.0' : 'V1.0'
 
         var rCol = $app.findCollectionByNameOrId('pcp_summary_schedule_runs')
         var runRec = existingRun || new Record(rCol)
@@ -353,7 +434,14 @@ routerAdd(
           var pMesAnoStr = (pMes < 10 ? '0' + pMes : '' + pMes) + '/' + pAno
 
           var randHash = Math.random().toString(36).substring(2, 6).toUpperCase()
-          var sCode = 'PMS-' + lCode.replace(/[^A-Za-z0-9]/g, '') + '-' + pAno + (pMes < 10 ? '0' + pMes : '' + pMes) + '-' + randHash
+          var sCode =
+            'PMS-' +
+            lCode.replace(/[^A-Za-z0-9]/g, '') +
+            '-' +
+            pAno +
+            (pMes < 10 ? '0' + pMes : '' + pMes) +
+            '-' +
+            randHash
 
           var sConfigs = appliedTpl ? appliedTpl.get('sections_config') : []
           var sData = {}
@@ -362,7 +450,13 @@ routerAdd(
               var key = sec.key || 'sec_' + sec.order
               sData[key] = {
                 title: sec.title || key,
-                conteudo: (withAi ? '[Elaborado com IA HUB CIAFAL] ' : '') + 'Rascunho operacional para a Linha ' + lCode + ' no período ' + pMesAnoStr + '. ' +
+                conteudo:
+                  (withAi ? '[Elaborado com IA HUB CIAFAL] ' : '') +
+                  'Rascunho operacional para a Linha ' +
+                  lCode +
+                  ' no período ' +
+                  pMesAnoStr +
+                  '. ' +
                   (sec.is_mandatory ? 'Informações obrigatórias validadas pelo PCP.' : ''),
                 fonte_dados: sec.data_source || 'Cadastro PCP / SAP',
                 status_preenchimento: 'Rascunho Gerado',
@@ -371,12 +465,24 @@ routerAdd(
           } else {
             sData['identificacao'] = {
               title: 'Identificação Operacional',
-              conteudo: 'Linha: ' + lCode + ' | Centro: ' + cenCode + ' | Empresa: ' + empCode + ' | Período: ' + pMesAnoStr,
+              conteudo:
+                'Linha: ' +
+                lCode +
+                ' | Centro: ' +
+                cenCode +
+                ' | Empresa: ' +
+                empCode +
+                ' | Período: ' +
+                pMesAnoStr,
               fonte_dados: 'Cadastro PCP',
             }
           }
 
-          var st = cfg.getBool('exigir_aprovacao') ? 'AGUARDANDO_APROVACAO' : (withAi ? 'RASCUNHO_IA' : 'EM_EDICAO_PCP')
+          var st = cfg.getBool('exigir_aprovacao')
+            ? 'AGUARDANDO_APROVACAO'
+            : withAi
+              ? 'RASCUNHO_IA'
+              : 'EM_EDICAO_PCP'
           var sCol = $app.findCollectionByNameOrId('pcp_monthly_summaries')
           var sRec = new Record(sCol)
           sRec.set('summary_code', sCode)
@@ -395,7 +501,7 @@ routerAdd(
           sRec.set('responsavel_pcp_nome', cfg.getString('responsavel_geracao_nome') || userName)
           sRec.set('responsavel_pcp_email', userEmail)
           sRec.set('data_entrega', new Date().toISOString())
-          sRec.set('dia_util', 'DU ' + (new Date().getDate()))
+          sRec.set('dia_util', 'DU ' + new Date().getDate())
           sRec.set('origem_programacao_ref', 'MANUAL_LINHA_' + lCode)
           sRec.set('sections_data', sData)
           sRec.set('template_id', tplId)
@@ -407,7 +513,12 @@ routerAdd(
               versao_tag: 'V01',
               criado_em: new Date().toISOString(),
               criado_por: userName,
-              motivo: 'Geração manual individual/lote com template ' + tplCode + ' ' + tplVersao + (withAi ? ' (com IA)' : ''),
+              motivo:
+                'Geração manual individual/lote com template ' +
+                tplCode +
+                ' ' +
+                tplVersao +
+                (withAi ? ' (com IA)' : ''),
             },
           ])
           $app.save(sRec)
@@ -552,7 +663,14 @@ routerAdd(
       var pMesAnoStr = (pMes < 10 ? '0' + pMes : '' + pMes) + '/' + pAno
 
       var randHash = Math.random().toString(36).substring(2, 6).toUpperCase()
-      var sCode = 'PMS-' + lCode.replace(/[^A-Za-z0-9]/g, '') + '-' + pAno + (pMes < 10 ? '0' + pMes : '' + pMes) + '-' + randHash
+      var sCode =
+        'PMS-' +
+        lCode.replace(/[^A-Za-z0-9]/g, '') +
+        '-' +
+        pAno +
+        (pMes < 10 ? '0' + pMes : '' + pMes) +
+        '-' +
+        randHash
 
       var sCol = $app.findCollectionByNameOrId('pcp_monthly_summaries')
       var sRec = new Record(sCol)
@@ -569,10 +687,13 @@ routerAdd(
       sRec.set('version_tag', 'V01')
       sRec.set('status', cfg.getBool('exigir_aprovacao') ? 'AGUARDANDO_APROVACAO' : 'RASCUNHO_IA')
       sRec.set('responsavel_pcp_id', cfg.getString('responsavel_geracao_id') || authRecord.id)
-      sRec.set('responsavel_pcp_nome', cfg.getString('responsavel_geracao_nome') || authRecord.getString('name'))
+      sRec.set(
+        'responsavel_pcp_nome',
+        cfg.getString('responsavel_geracao_nome') || authRecord.getString('name'),
+      )
       sRec.set('responsavel_pcp_email', authRecord.getString('email') || '')
       sRec.set('data_entrega', new Date().toISOString())
-      sRec.set('dia_util', 'DU ' + (new Date().getDate()))
+      sRec.set('dia_util', 'DU ' + new Date().getDate())
       sRec.set('origem_programacao_ref', 'REPROCESSAMENTO_LINHA_' + lCode)
       sRec.set('sections_data', {
         identificacao: {
@@ -648,9 +769,17 @@ routerAdd(
 
       var summaryRec = null
       if (summaryId) {
-        try { summaryRec = $app.findRecordById('pcp_monthly_summaries', summaryId) } catch (_) {}
+        try {
+          summaryRec = $app.findRecordById('pcp_monthly_summaries', summaryId)
+        } catch (_) {}
       } else if (summaryCode) {
-        try { summaryRec = $app.findFirstRecordByData('pcp_monthly_summaries', 'summary_code', summaryCode) } catch (_) {}
+        try {
+          summaryRec = $app.findFirstRecordByData(
+            'pcp_monthly_summaries',
+            'summary_code',
+            summaryCode,
+          )
+        } catch (_) {}
       }
 
       if (!summaryRec) {
@@ -659,9 +788,16 @@ routerAdd(
 
       var currentStatus = summaryRec.getString('status')
       // Regra obrigatória: Envio BLOQUEADO se aguardando aprovação ou rascunho
-      if (currentStatus === 'AGUARDANDO_APROVACAO' || currentStatus === 'RASCUNHO_IA' || currentStatus === 'EM_EDICAO_PCP') {
+      if (
+        currentStatus === 'AGUARDANDO_APROVACAO' ||
+        currentStatus === 'RASCUNHO_IA' ||
+        currentStatus === 'EM_EDICAO_PCP'
+      ) {
         return e.json(400, {
-          error: 'Envio bloqueado: O resumo está com status "' + currentStatus + '". É obrigatória a aprovação prévia do PCP antes do disparo aos destinatários.',
+          error:
+            'Envio bloqueado: O resumo está com status "' +
+            currentStatus +
+            '". É obrigatória a aprovação prévia do PCP antes do disparo aos destinatários.',
           status: currentStatus,
           can_send: false,
         })
@@ -719,7 +855,8 @@ routerAdd(
         return e.json(503, {
           success: false,
           status: 'falha: integração de e-mail não configurada',
-          message: 'Integração de e-mail corporativo não configurada no servidor (SMTP_HOST ausente). Tentativa registrada em pcp_audit_logs.',
+          message:
+            'Integração de e-mail corporativo não configurada no servidor (SMTP_HOST ausente). Tentativa registrada em pcp_audit_logs.',
           recipients_count: recipientsList.length,
           summary_code: summaryRec.getString('summary_code'),
         })

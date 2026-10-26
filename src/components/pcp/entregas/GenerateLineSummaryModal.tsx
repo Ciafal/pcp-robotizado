@@ -3,8 +3,8 @@ import {
   lineSummaryAutomationService,
   type RealProductionLine,
   type HubUser,
+  type MonthlySummaryTemplate,
 } from '@/services/pcp-line-summary-automation-service'
-import type { MonthlySummaryTemplate } from '@/services/pcp-monthly-summaries'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -185,7 +185,10 @@ export const GenerateLineSummaryModal: React.FC<GenerateLineSummaryModalProps> =
               <Sparkles className="w-4 h-4 text-amber-500" />
               <span>Gerar Resumo por Linha Produtiva</span>
             </span>
-            <Badge variant="outline" className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px]">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px]"
+            >
               Relatórios Independentes por Linha
             </Badge>
           </DialogTitle>
@@ -232,7 +235,10 @@ export const GenerateLineSummaryModal: React.FC<GenerateLineSummaryModalProps> =
                       {item.resumo_codigo || item.result?.resumo_codigo || 'Resumo'}
                     </span>
                     {item.already_executed && (
-                      <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[9px]">
+                      <Badge
+                        variant="outline"
+                        className="bg-amber-50 text-amber-800 border-amber-300 text-[9px]"
+                      >
                         Já Existia (Dedup)
                       </Badge>
                     )}
@@ -291,7 +297,9 @@ export const GenerateLineSummaryModal: React.FC<GenerateLineSummaryModalProps> =
 
             {/* Modo de Seleção de Linha */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-slate-700">Modo de Seleção de Linha</Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Modo de Seleção de Linha
+              </Label>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
@@ -332,7 +340,9 @@ export const GenerateLineSummaryModal: React.FC<GenerateLineSummaryModalProps> =
             {/* Visualização da seleção de linhas */}
             {selectionMode === 'single' && (
               <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">Linha de Produção Real *</Label>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Linha de Produção Real *
+                </Label>
                 <select
                   value={selectedSingleLine}
                   onChange={(e) => setSelectedSingleLine(e.target.value)}

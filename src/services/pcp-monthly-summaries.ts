@@ -291,6 +291,8 @@ export interface SummaryTemplateSectionConfig {
   is_mandatory: boolean
 }
 
+export type MonthlySummaryTemplate = PCPMonthlySummaryTemplateRecord
+
 export interface PCPMonthlySummaryTemplateRecord {
   id: string
   template_code: string

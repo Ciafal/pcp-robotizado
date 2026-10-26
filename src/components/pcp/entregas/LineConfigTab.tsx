@@ -8,7 +8,7 @@ import {
   PERIODICITY_LABELS,
   SUMMARY_TYPES,
 } from '@/services/pcp-line-summary-automation-service'
-import type { MonthlySummaryTemplate } from '@/services/pcp-monthly-summaries'
+import type { MonthlySummaryTemplate } from '@/services/pcp-line-summary-automation-service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -44,10 +44,7 @@ interface LineConfigTabProps {
   onNavigateToSchedules?: () => void
 }
 
-export const LineConfigTab: React.FC<LineConfigTabProps> = ({
-  templates,
-  canManage,
-}) => {
+export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canManage }) => {
   const [configs, setConfigs] = useState<LineSummaryConfig[]>([])
   const [realLines, setRealLines] = useState<RealProductionLine[]>([])
   const [hubUsers, setHubUsers] = useState<HubUser[]>([])
@@ -642,7 +639,9 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-700">Centro / Work Center</Label>
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Centro / Work Center
+                  </Label>
                   <Input
                     type="text"
                     value={formCentroCode}
@@ -679,9 +678,7 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({
                     onChange={(e) => setFormTemplateId(e.target.value)}
                     className="w-full h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 font-medium"
                   >
-                    <option value="">
-                      Fallback Automático (Centro → Linha → Empresa → Geral)
-                    </option>
+                    <option value="">Fallback Automático (Centro → Linha → Empresa → Geral)</option>
                     {templates.map((tpl) => (
                       <option key={tpl.id} value={tpl.id}>
                         {tpl.nome} ({tpl.template_code} - {tpl.versao_tag || 'V1.0'})
@@ -776,7 +773,9 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({
                 <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-bold text-slate-800">Geração Automática</Label>
-                    <div className="text-[10px] text-slate-500">Executado pelo cron persistente</div>
+                    <div className="text-[10px] text-slate-500">
+                      Executado pelo cron persistente
+                    </div>
                   </div>
                   <Switch checked={formGeracaoAuto} onCheckedChange={setFormGeracaoAuto} />
                 </div>
@@ -827,7 +826,9 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-700">Programador PCP Titular</Label>
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Programador PCP Titular
+                  </Label>
                   <select
                     value={formProgPcpId}
                     onChange={(e) => setFormProgPcpId(e.target.value)}
@@ -879,7 +880,9 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-slate-700">Observações Operacionais</Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Observações Operacionais
+              </Label>
               <Input
                 type="text"
                 value={formObservacoes}

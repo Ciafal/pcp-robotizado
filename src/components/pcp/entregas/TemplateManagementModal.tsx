@@ -39,7 +39,11 @@ import {
   Calendar,
   Lock,
   Search,
+  Clock,
+  Building,
 } from 'lucide-react'
+import { LineConfigTab } from './LineConfigTab'
+import { SchedulesAndRunsTab } from './SchedulesAndRunsTab'
 import {
   PCPMonthlySummaryTemplateRecord,
   SummaryTemplateSectionConfig,
@@ -100,7 +104,9 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
   const canManageTemplates = hasDbPermission || isFallbackAdminRole
 
   // Estados principais
-  const [activeTab, setActiveTab] = useState<'list' | 'line-configs' | 'schedules' | 'editor' | 'preview' | 'history'>('list')
+  const [activeTab, setActiveTab] = useState<
+    'list' | 'line-configs' | 'schedules' | 'editor' | 'preview' | 'history'
+  >('list')
   const [templates, setTemplates] = useState<PCPMonthlySummaryTemplateRecord[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<PCPMonthlySummaryTemplateRecord | null>(
     null,
@@ -606,10 +612,7 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
 
             {/* ABA: AGENDAMENTOS E ENVIOS */}
             {activeTab === 'schedules' && (
-              <SchedulesAndRunsTab
-                templates={templates}
-                canManage={canManageTemplates}
-              />
+              <SchedulesAndRunsTab templates={templates} canManage={canManageTemplates} />
             )}
 
             {/* ABA 1: LISTA DE TEMPLATES */}
