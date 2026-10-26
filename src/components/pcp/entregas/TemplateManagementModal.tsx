@@ -100,7 +100,7 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
   const canManageTemplates = hasDbPermission || isFallbackAdminRole
 
   // Estados principais
-  const [activeTab, setActiveTab] = useState<'list' | 'editor' | 'preview' | 'history'>('list')
+  const [activeTab, setActiveTab] = useState<'list' | 'line-configs' | 'schedules' | 'editor' | 'preview' | 'history'>('list')
   const [templates, setTemplates] = useState<PCPMonthlySummaryTemplateRecord[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<PCPMonthlySummaryTemplateRecord | null>(
     null,
@@ -525,6 +525,14 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
                   <Layers className="w-3.5 h-3.5" />
                   <span>Templates ({templates.length})</span>
                 </TabsTrigger>
+                <TabsTrigger value="line-configs" className="text-xs h-7 gap-1.5 px-3">
+                  <Building className="w-3.5 h-3.5" />
+                  <span>Configuração por Linha</span>
+                </TabsTrigger>
+                <TabsTrigger value="schedules" className="text-xs h-7 gap-1.5 px-3">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Agendamentos & Envios</span>
+                </TabsTrigger>
                 <TabsTrigger
                   value="editor"
                   disabled={!canManageTemplates}
@@ -585,6 +593,23 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
                 <AlertCircle className="w-4 h-4 text-rose-600" />
                 <AlertDescription className="text-xs font-medium ml-2">{errorMsg}</AlertDescription>
               </Alert>
+            )}
+
+            {/* ABA: CONFIGURAÇÃO POR LINHA */}
+            {activeTab === 'line-configs' && (
+              <LineConfigTab
+                templates={templates}
+                canManage={canManageTemplates}
+                onNavigateToSchedules={() => setActiveTab('schedules')}
+              />
+            )}
+
+            {/* ABA: AGENDAMENTOS E ENVIOS */}
+            {activeTab === 'schedules' && (
+              <SchedulesAndRunsTab
+                templates={templates}
+                canManage={canManageTemplates}
+              />
             )}
 
             {/* ABA 1: LISTA DE TEMPLATES */}
