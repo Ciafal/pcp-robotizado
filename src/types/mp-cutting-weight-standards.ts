@@ -110,7 +110,7 @@ export interface MPCuttingScenarioItem {
       target_kg: number
       calculated_kg: number
       tolerance_range_kg: string
-      status: 'CONFORME' | 'DESVIO'
+      status: 'CONFORME' | 'FORA DA TOLERÂNCIA' | 'REVISAR' | 'SEM DADO' | 'DESVIO'
       dimension_display?: string
       calculated_length_mm?: number
       width_mm?: number
@@ -121,6 +121,7 @@ export interface MPCuttingScenarioItem {
       multiple_number?: string // Número do múltiplo de origem (ou undefined / "—")
       batch_code?: string // Lote rastreável
       origin_type?: 'SAP' | 'HOMOLOGACAO' | 'AGREGADO'
+      application?: string
     }>
     satisfied_restrictions: string[]
     industrial_alerts: string[]

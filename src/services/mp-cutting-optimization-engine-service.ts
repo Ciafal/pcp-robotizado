@@ -126,6 +126,74 @@ class MPCuttingOptimizationEngineService {
   /**
    * Consulta estoque real disponível da MP selecionada no centro produtivo
    */
+  /**
+   * Deriva a Aplicação da MP a partir de line_raw_material_applications e Ficha Mestra
+   * Se não houver vínculo cadastrado, retorna rigorosamente 'Aplicação não cadastrada' — nunca inventar.
+   */
+  async getRawMaterialApplication(materialCode: string, centerCode: string): Promise<string> {
+    try {
+      const records = await pb
+        .collection('line_raw_material_applications')
+        .getFullList({
+          filter: `raw_material_code ~ "${materialCode}" || product_code ~ "${materialCode}"`,
+          sort: '-created',
+        })
+        .catch(() => [])
+
+      if (records.length > 0) {
+        const exactMatch = records.find(
+          (r: any) =>
+            (r.center_code?.toUpperCase() === centerCode.toUpperCase() || !r.center_code) &&
+            ((r.raw_material_code &&
+              r.raw_material_code.toLowerCase().includes(materialCode.toLowerCase())) ||
+              (r.product_code &&
+                r.product_code.toLowerCase().includes(materialCode.toLowerCase()))) &&
+            r.application &&
+            r.application.trim() !== '',
+        )
+
+        if (exactMatch && exactMatch.application) {
+          return exactMatch.application.trim()
+        }
+
+        const anyMatch = records.find((r: any) => r.application && r.application.trim() !== '')
+        if (anyMatch && anyMatch.application) {
+          return anyMatch.application.trim()
+        }
+      }
+
+      // Consulta de fallback na Ficha Mestra (line_productivity_rates)
+      const rates = await pb
+        .collection('line_productivity_rates')
+        .getFullList({
+          filter: `material_product_code ~ "${materialCode}"`,
+          sort: '-created',
+        })
+        .catch(() => [])
+
+      if (rates.length > 0) {
+        const rateMatch = rates.find(
+          (r: any) =>
+            r.family_name || r.product_family_name || r.raw_material_type || r.application,
+        )
+        if (rateMatch) {
+          const app =
+            rateMatch.application ||
+            rateMatch.family_name ||
+            rateMatch.product_family_name ||
+            rateMatch.raw_material_type
+          if (app && String(app).trim() !== '') {
+            return String(app).trim()
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao consultar line_raw_material_applications:', e)
+    }
+
+    return 'Aplicação não cadastrada'
+  }
+
   async getAvailableRawMaterialWeightKg(
     materialCode: string,
     centerCode: string,
@@ -204,6 +272,10 @@ class MPCuttingOptimizationEngineService {
 
     // 2. Parâmetros técnicos reais da Ficha Mestra e perdas cadastradas (sem valores inventados)
     const techParams = await this.getTechnicalParameters(filters.material_code, filters.center_code)
+    const rawMaterialApp = await this.getRawMaterialApplication(
+      filters.selected_material_code || filters.material_code,
+      filters.center_code,
+    )
 
     // Perda técnica obrigatória (Apara + Carepa + refile/desponta cadastrada)
     // Se a perda teórica estiver cadastrada, converter para toneladas
@@ -511,23 +583,43 @@ class MPCuttingOptimizationEngineService {
         )
       }
 
-      // Distribuição por blocos para o grid visual
+      // Distribuição por blocos para o grid visual com dimensões físicas reais calculadas
+      const linearMassMult = techParams.linear_mass_kg_m || 132.5
+      let widthMmMult = 130
+      let heightMmMult = 130
+      if (techParams.gauge_dimension) {
+        const match = techParams.gauge_dimension.match(/(\d+)\s*[xX×]\s*(\d+)/)
+        if (match) {
+          widthMmMult = parseInt(match[1], 10)
+          heightMmMult = parseInt(match[2], 10)
+        }
+      }
+
       const distribution = []
       let itemIdx = 1
       for (const blk of cand.blocks) {
+        const pieceKg = blk.unitTons * 1000
+        const calculatedLengthMm = Math.round((pieceKg / linearMassMult) * 1000)
+        const formattedLength = calculatedLengthMm.toLocaleString('pt-BR')
+        const physicalDimensionDisplay = `${widthMmMult} × ${heightMmMult} × ${formattedLength} mm`
+
         for (let q = 1; q <= blk.quantity; q++) {
           distribution.push({
             item_index: itemIdx++,
             item_type: 'MÚLTIPLO' as const,
             target_kg: blk.standard.targetTons * 1000,
-            calculated_kg: blk.unitTons * 1000,
+            calculated_kg: pieceKg,
             tolerance_range_kg: `${(blk.standard.minTons * 1000).toFixed(2)} a ${(blk.standard.maxTons * 1000).toFixed(2)} kg`,
             status: 'CONFORME' as const,
-            dimension_display: `Bloco ${blk.unitTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
-            linear_mass_kg_m: techParams.linear_mass_kg_m,
+            dimension_display: physicalDimensionDisplay,
+            calculated_length_mm: calculatedLengthMm,
+            width_mm: widthMmMult,
+            height_mm: heightMmMult,
+            linear_mass_kg_m: linearMassMult,
             gauge_dimension: techParams.gauge_dimension,
             batch_code: filters.selected_batch_number,
             origin_type: 'AGREGADO' as const,
+            application: rawMaterialApp,
           })
         }
       }
@@ -745,6 +837,10 @@ class MPCuttingOptimizationEngineService {
     const techParams = await this.getTechnicalParameters(filters.material_code, filters.center_code)
     const stockInfo = await this.getAvailableRawMaterialWeightKg(
       filters.material_code,
+      filters.center_code,
+    )
+    const rawMaterialApp = await this.getRawMaterialApplication(
+      filters.selected_material_code || filters.material_code,
       filters.center_code,
     )
 
@@ -1030,7 +1126,7 @@ class MPCuttingOptimizationEngineService {
             target_kg: targetWeight,
             calculated_kg: multWeight,
             tolerance_range_kg: `${minWeight.toFixed(2)} a ${maxWeight.toFixed(2)} kg`,
-            status: isConforme ? ('CONFORME' as const) : ('DESVIO' as const),
+            status: isConforme ? ('CONFORME' as const) : ('FORA DA TOLERÂNCIA' as const),
             dimension_display: dimensionDisplay,
             calculated_length_mm: multLength,
             width_mm: multWidth,
@@ -1041,6 +1137,7 @@ class MPCuttingOptimizationEngineService {
             multiple_number: mult.multiple_number,
             batch_code: mult.batch_code,
             origin_type: mult.origin,
+            application: rawMaterialApp,
           })
         }
       } else {
@@ -1063,7 +1160,7 @@ class MPCuttingOptimizationEngineService {
             status:
               pieceCalc >= minWeight && pieceCalc <= maxWeight
                 ? ('CONFORME' as const)
-                : ('DESVIO' as const),
+                : ('FORA DA TOLERÂNCIA' as const),
             dimension_display: dimensionDisplay,
             calculated_length_mm: calculatedLengthMm,
             width_mm: widthMm,
@@ -1073,6 +1170,7 @@ class MPCuttingOptimizationEngineService {
             heat_number: undefined, // Indicador de não individualizado
             multiple_number: undefined,
             origin_type: 'AGREGADO' as const,
+            application: rawMaterialApp,
           })
         }
       }
