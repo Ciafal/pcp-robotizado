@@ -154,56 +154,68 @@ describe('CodigosModelosPadraoTab — Interface, Regras Visuais e Interação', 
     })
   })
 
-  it('5. Permite adicionar novo código vinculado no modo de edição e salvar chamando updateModelType', async () => {
-    const updateSpy = vi.spyOn(sapModelTypesService, 'updateModelType').mockResolvedValue({
-      id: 'type-1',
-      tipo_codigo_modelo: 'Produto acabado L1 - Atualizado',
-      descricao: 'Tubos e perfis acabados',
+  it('5. Não exibe botão "+ Adicionar Código SAP" nem campos de entrada manual MATNR/Descrição no modal', async () => {
+    render(<CodigosModelosPadraoTab />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Criar Modelo')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Criar Modelo'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Cadastrar Tipo de Código Modelo Padrão')).toBeInTheDocument()
+    })
+
+    // Botão de adição e campos manuais NÃO devem existir
+    expect(screen.queryByText('+ Adicionar Código SAP')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Código do Material SAP/i)).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Ex.: 10004521')).not.toBeInTheDocument()
+    expect(
+      screen.queryByPlaceholderText(/Ex.: TUBO RETANGULAR 50X30X2,00MM/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('6. Salva modelo criado sem nenhum código vinculado (apenas campos-chave obrigatórios)', async () => {
+    const createSpy = vi.spyOn(sapModelTypesService, 'createModelType').mockResolvedValue({
+      id: 'type-created-new',
+      tipo_codigo_modelo: 'Novo Tipo Sem Codigos',
+      descricao: '',
       centro: '1001',
       centro_trabalho: 'WC-DIV-L1',
-      tipo_material: 'ZFER',
+      tipo_material: 'FERT',
       status: 'Ativo',
       modelos_vinculados: [],
+      modelos_count: 0,
     } as any)
 
     render(<CodigosModelosPadraoTab />)
 
     await waitFor(() => {
-      expect(screen.getByText('Produto acabado L1')).toBeInTheDocument()
+      expect(screen.getByText('Criar Modelo')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByLabelText('Editar Produto acabado L1'))
+    fireEvent.click(screen.getByText('Criar Modelo'))
 
     await waitFor(() => {
-      expect(screen.getByText('Editar Tipo de Código Modelo Padrão')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText(/Ex.: Produto acabado L1/i)).toBeInTheDocument()
     })
 
-    // Adiciona novo código vinculado
-    const codeInput = screen.getByPlaceholderText('Ex.: 10004521')
-    const descInput = screen.getByPlaceholderText('Ex.: TUBO RETANGULAR 50X30X2,00MM SAE 1020')
-    fireEvent.change(codeInput, { target: { value: '10009999' } })
-    fireEvent.change(descInput, { target: { value: 'NOVO TUBO TESTE' } })
-
-    const addBtn = screen.getByText('+ Adicionar Código SAP')
-    fireEvent.click(addBtn)
-
-    await waitFor(() => {
-      expect(screen.getByText('10009999')).toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText(/Ex.: Produto acabado L1/i), {
+      target: { value: 'Novo Tipo Sem Codigos' },
     })
 
-    // Clica em Salvar Modelo
     const saveBtn = screen.getByText('Salvar Modelo')
     fireEvent.click(saveBtn)
 
     await waitFor(() => {
-      expect(updateSpy).toHaveBeenCalledWith(
-        'type-1',
+      expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          tipo_codigo_modelo: 'Produto acabado L1',
-          codigos_vinculados: expect.arrayContaining([
-            expect.objectContaining({ codigo_material: '10004521' }),
-            expect.objectContaining({ codigo_material: '10009999' }),
-          ]),
+          tipo_codigo_modelo: 'Novo Tipo Sem Codigos',
+          centro: '1001',
+          centro_trabalho: 'WC-DIV-L1',
+          tipo_material: 'FERT',
+          codigos_vinculados: [],
         }),
       )
     })

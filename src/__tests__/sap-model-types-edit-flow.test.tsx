@@ -143,16 +143,16 @@ describe('Editar Tipo de Código Modelo Padrão — UI & Acceptance Requirements
     })
   })
 
-  it('4. Permite remover um código vinculado no modo de edição e salvar chamando updateModelType', async () => {
+  it('4. Tabela de códigos vinculados no modo de edição permanece em somente leitura e preserva vínculos existentes ao salvar', async () => {
     const updateSpy = vi.spyOn(sapModelTypesService, 'updateModelType').mockResolvedValue({
       id: 'type-finish-l1',
-      tipo_codigo_modelo: 'Produto acabado L1',
+      tipo_codigo_modelo: 'Produto acabado L1 Atualizado',
       descricao: 'Tubos e perfis acabados L1',
       centro: '1001',
       centro_trabalho: 'WC-DIV-L1',
       tipo_material: 'ZFER',
       status: 'Ativo',
-      modelos_vinculados: [mockTypes[0].modelos_vinculados[1]],
+      modelos_vinculados: mockTypes[0].modelos_vinculados,
     } as any)
 
     render(<CodigosModelosPadraoTab />)
@@ -165,26 +165,30 @@ describe('Editar Tipo de Código Modelo Padrão — UI & Acceptance Requirements
 
     await waitFor(() => {
       expect(screen.getByText('10004521')).toBeInTheDocument()
-    })
-
-    // Remove o primeiro item (10004521)
-    const trashButtons = screen.getAllByTitle('Remover Código')
-    expect(trashButtons.length).toBe(2)
-    fireEvent.click(trashButtons[0])
-
-    await waitFor(() => {
-      expect(screen.queryByText('10004521')).not.toBeInTheDocument()
       expect(screen.getByText('10004522')).toBeInTheDocument()
     })
 
-    // Salva o modelo
+    // Garante que NÃO há botões de remoção, adição ou edição manual de códigos
+    expect(screen.queryByTitle('Remover Código')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Alternar Status')).not.toBeInTheDocument()
+    expect(screen.queryByText('+ Adicionar Código SAP')).not.toBeInTheDocument()
+
+    // Altera nome do tipo de modelo
+    const nameInput = screen.getByDisplayValue('Produto acabado L1')
+    fireEvent.change(nameInput, { target: { value: 'Produto acabado L1 Atualizado' } })
+
+    // Salva o modelo mantendo os vínculos pré-carregados intactos
     fireEvent.click(screen.getByText('Salvar Modelo'))
 
     await waitFor(() => {
       expect(updateSpy).toHaveBeenCalledWith(
         'type-finish-l1',
         expect.objectContaining({
-          codigos_vinculados: [expect.objectContaining({ codigo_material: '10004522' })],
+          tipo_codigo_modelo: 'Produto acabado L1 Atualizado',
+          codigos_vinculados: expect.arrayContaining([
+            expect.objectContaining({ codigo_material: '10004521' }),
+            expect.objectContaining({ codigo_material: '10004522' }),
+          ]),
         }),
       )
     })

@@ -16,7 +16,6 @@ import {
   Layers,
   Boxes,
   Info,
-  Trash2,
   Calendar,
   ExternalLink,
 } from 'lucide-react'
@@ -114,10 +113,6 @@ export const CodigosModelosPadraoTab: React.FC = () => {
     status: 'Ativo' as 'Ativo' | 'Inativo',
   })
   const [vinculadosDraft, setVinculadosDraft] = useState<VinculadoDraft[]>([])
-
-  // Campos de adição de novo código vinculado
-  const [newSapCode, setNewSapCode] = useState('')
-  const [newSapDesc, setNewSapDesc] = useState('')
 
   // Modal de Histórico de Auditoria
   const [auditModalOpen, setAuditModalOpen] = useState(false)
@@ -285,8 +280,6 @@ export const CodigosModelosPadraoTab: React.FC = () => {
       status: 'Ativo',
     })
     setVinculadosDraft([])
-    setNewSapCode('')
-    setNewSapDesc('')
     setModalOpen(true)
   }
 
@@ -321,58 +314,7 @@ export const CodigosModelosPadraoTab: React.FC = () => {
     }))
 
     setVinculadosDraft(drafts)
-    setNewSapCode('')
-    setNewSapDesc('')
     setModalOpen(true)
-  }
-
-  // Adicionar código SAP ao rascunho de vinculados
-  const handleAddVinculado = () => {
-    const code = newSapCode.trim()
-    if (!code) return
-
-    // Evitar duplicidade interna de código na mesma lista
-    if (vinculadosDraft.some((v) => v.codigo_material.toLowerCase() === code.toLowerCase())) {
-      setFormError(`O código SAP ${code} já está adicionado na lista de modelos vinculados.`)
-      return
-    }
-
-    const newItem: VinculadoDraft = {
-      tempId: `draft-${Date.now()}-${Math.random()}`,
-      codigo_material: code,
-      descricao: newSapDesc.trim() || `Material Homologado SAP ${code}`,
-      centro: formData.centro,
-      centro_trabalho: formData.centro_trabalho,
-      tipo_material: formData.tipo_material,
-      status: 'Ativo',
-      data_inclusao: new Date().toISOString(),
-      usuario_responsavel: currentUser?.name || currentUser?.email || 'PCP Engenharia',
-    }
-
-    setVinculadosDraft([...vinculadosDraft, newItem])
-    setNewSapCode('')
-    setNewSapDesc('')
-    setFormError(null)
-    setIsDirty(true)
-  }
-
-  // Remover código SAP do rascunho
-  const handleRemoveVinculado = (tempId: string) => {
-    setVinculadosDraft(vinculadosDraft.filter((v) => v.tempId !== tempId))
-    setIsDirty(true)
-  }
-
-  // Alternar status de código vinculado no rascunho
-  const handleToggleVinculadoStatus = (tempId: string) => {
-    setVinculadosDraft(
-      vinculadosDraft.map((v) => {
-        if (v.tempId === tempId) {
-          return { ...v, status: v.status === 'Ativo' ? 'Inativo' : 'Ativo' }
-        }
-        return v
-      }),
-    )
-    setIsDirty(true)
   }
 
   // Salvar registro (Criar ou Editar)
@@ -1032,8 +974,8 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-500 mt-1">
                   {modalMode === 'edit'
-                    ? `Alteração dos dados cadastrais e vínculos de códigos SAP de referência para "${formData.tipo_codigo_modelo || 'Modelo'}".`
-                    : 'Configure o identificador por Centro (WERKS) + Centro de Trabalho (ARBPL) + Tipo de Material (MARA-MTART) e vincule os códigos SAP de referência.'}
+                    ? `Alteração dos dados cadastrais e consulta aos códigos SAP de referência vinculados a "${formData.tipo_codigo_modelo || 'Modelo'}".`
+                    : 'Configure o identificador por Centro (WERKS) + Centro de Trabalho (ARBPL) + Tipo de Material (MARA-MTART).'}
                 </DialogDescription>
               </div>
             </div>
@@ -1229,8 +1171,8 @@ export const CodigosModelosPadraoTab: React.FC = () => {
               </div>
             </div>
 
-            {/* SEÇÃO 3: CÓDIGOS MODELO VINCULADOS */}
-            <div className="space-y-4">
+            {/* SEÇÃO 3: CÓDIGOS MODELO VINCULADOS (SOMENTE LEITURA / HISTÓRICO) */}
+            <div className="space-y-3">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <div>
                   <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -1238,53 +1180,15 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                     Códigos Modelo Vinculados ({vinculadosDraft.length})
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Códigos SAP homologados a serem usados como modelo de referência para este Tipo.
+                    {modalMode === 'create'
+                      ? 'Listagem de consulta. A inclusão manual de códigos SAP pelo formulário foi desativada; os vínculos são gerenciados via homologação/sistema.'
+                      : 'Códigos SAP homologados vinculados a este registro (somente leitura).'}
                   </p>
                 </div>
               </div>
 
-              {/* Formulário de inclusão de código */}
-              {modalMode !== 'view' && (
-                <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-200 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                  <div className="sm:col-span-4 space-y-1">
-                    <Label className="text-[11px] font-semibold text-slate-700">
-                      Código do Material SAP (MATNR)
-                    </Label>
-                    <Input
-                      placeholder="Ex.: 10004521"
-                      value={newSapCode}
-                      onChange={(e) => setNewSapCode(e.target.value)}
-                      className="h-8 text-xs bg-white font-mono"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-5 space-y-1">
-                    <Label className="text-[11px] font-semibold text-slate-700">
-                      Descrição do Material
-                    </Label>
-                    <Input
-                      placeholder="Ex.: TUBO RETANGULAR 50X30X2,00MM SAE 1020"
-                      value={newSapDesc}
-                      onChange={(e) => setNewSapDesc(e.target.value)}
-                      className="h-8 text-xs bg-white"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-3">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleAddVinculado}
-                      className="w-full h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white"
-                    >
-                      <Plus className="w-3.5 h-3.5 mr-1" />+ Adicionar Código SAP
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Tabela de Códigos Vinculados */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              {/* Tabela de Códigos Vinculados (Somente Leitura - sem botões de inclusão, edição ou exclusão) */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                     <tr>
@@ -1296,17 +1200,13 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                       <th className="py-2.5 px-2 text-center">Status</th>
                       <th className="py-2.5 px-3">Data Inclusão</th>
                       <th className="py-2.5 px-3">Responsável</th>
-                      {modalMode !== 'view' && <th className="py-2.5 px-3 text-right">Ação</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {vinculadosDraft.length === 0 ? (
                       <tr>
-                        <td
-                          colSpan={modalMode !== 'view' ? 9 : 8}
-                          className="py-6 text-center text-slate-400"
-                        >
-                          Nenhum código SAP vinculado ainda. Adicione pelo formulário acima.
+                        <td colSpan={8} className="py-6 text-center text-slate-400">
+                          Nenhum código SAP vinculado a este modelo.
                         </td>
                       </tr>
                     ) : (
@@ -1344,32 +1244,6 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                           <td className="py-2.5 px-3 text-slate-500">
                             {item.usuario_responsavel || '—'}
                           </td>
-                          {modalMode !== 'view' && (
-                            <td className="py-2.5 px-3 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 text-slate-500 hover:text-slate-800"
-                                  onClick={() => handleToggleVinculadoStatus(item.tempId)}
-                                  title="Alternar Status"
-                                >
-                                  <Power className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                                  onClick={() => handleRemoveVinculado(item.tempId)}
-                                  title="Remover Código"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </div>
-                            </td>
-                          )}
                         </tr>
                       ))
                     )}
