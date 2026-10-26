@@ -249,6 +249,18 @@ export const CiafalStatus: React.FC<CiafalStatusProps> = ({
       defaultTooltip: 'Tendência de desvio identificada. Monitoramento intensivo recomendado.',
     }
   } else if (
+    norm.includes('SUCESSO') ||
+    norm.includes('PUBLICADO') ||
+    norm.includes('CONFIRMADO')
+  ) {
+    config = {
+      bg: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+      icon: CheckCircle2,
+      iconColor: 'text-emerald-600',
+      defaultLabel: 'Normal',
+      defaultTooltip: 'Operação concluída dentro dos padrões de conformidade.',
+    }
+  } else if (
     norm.includes('CRITIC') ||
     norm.includes('RUPTURA') ||
     norm.includes('ERRO') ||
@@ -352,19 +364,19 @@ export const CiafalKPICard: React.FC<CiafalKPICardProps> = ({
   const isPositive = typeof variationPct === 'number' && variationPct >= 0
 
   return (
-    <Card className="bg-white border-slate-200 shadow-2xs hover:shadow-xs transition-shadow p-3.5 sm:p-4 flex flex-col justify-between h-full min-h-[105px]">
-      {/* Topo do Card: Título + Tooltip/Ícone + Status */}
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          {Icon && <Icon className="w-4 h-4 text-[#004C97] shrink-0" />}
-          <span className="text-[11px] sm:text-xs font-semibold text-slate-700 tracking-tight uppercase truncate">
+    <Card className="bg-white border-slate-200 shadow-2xs hover:shadow-xs transition-shadow p-3 sm:p-3.5 flex flex-col justify-between h-full min-h-[125px] overflow-visible">
+      {/* Topo do Card: Título Completo sem reticências + Badge de Status */}
+      <div className="flex flex-col gap-1.5 mb-2">
+        <div className="flex items-start gap-1.5 min-w-0 w-full">
+          {Icon && <Icon className="w-4 h-4 text-[#004C97] shrink-0 mt-0.5" />}
+          <span className="text-xs sm:text-[13px] font-semibold text-slate-800 tracking-tight uppercase leading-snug whitespace-normal break-words overflow-visible flex-1">
             {title}
           </span>
           {infoTooltip && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <HelpCircle className="w-3.5 h-3.5 text-slate-400 cursor-help shrink-0" />
+                  <HelpCircle className="w-3.5 h-3.5 text-slate-400 cursor-help shrink-0 mt-0.5" />
                 </TooltipTrigger>
                 <TooltipContent className="bg-slate-900 text-white text-xs max-w-xs">
                   {infoTooltip}
@@ -373,12 +385,14 @@ export const CiafalKPICard: React.FC<CiafalKPICardProps> = ({
             </TooltipProvider>
           )}
         </div>
-        <CiafalStatus status={status} size="sm" />
+        <div className="self-start pt-0.5">
+          <CiafalStatus status={status} size="sm" />
+        </div>
       </div>
 
       {/* Meio: Valor de Destaque com Unidade Clara (24–28px font) */}
       <div className="flex items-baseline gap-1.5 my-1">
-        <span className="text-[24px] sm:text-[26px] font-bold text-slate-900 tracking-tight leading-none">
+        <span className="text-[22px] sm:text-[26px] font-bold text-slate-900 tracking-tight leading-none font-mono">
           {formattedVal}
         </span>
         {unit && <span className="text-xs font-semibold text-slate-500 font-mono">{unit}</span>}

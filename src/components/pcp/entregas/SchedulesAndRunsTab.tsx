@@ -367,42 +367,71 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
         </Alert>
       )}
 
-      {/* 6 Cards de Indicadores do Plano */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-500">Configurações Ativas</div>
-          <div className="text-xl font-bold text-[#004C97]">{totalConfigsAtivas}</div>
-          <div className="text-[9px] text-slate-400">Linhas produtivas</div>
+      {/* 6 Cards de Indicadores do Plano com grade responsiva legível */}
+      <div
+        className="grid gap-2.5"
+        style={{
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+        }}
+      >
+        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1 flex flex-col justify-between">
+          <div className="text-xs uppercase font-bold text-slate-600 whitespace-normal break-words leading-tight">
+            Configurações Ativas
+          </div>
+          <div className="text-xl sm:text-2xl font-bold text-[#004C97] font-mono">
+            {totalConfigsAtivas}
+          </div>
+          <div className="text-[10px] text-slate-400">Linhas produtivas</div>
         </div>
 
-        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-500">Programados</div>
-          <div className="text-xl font-bold text-blue-700">{totalProgramados}</div>
-          <div className="text-[9px] text-slate-400">Via cron persistente</div>
+        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1 flex flex-col justify-between">
+          <div className="text-xs uppercase font-bold text-slate-600 whitespace-normal break-words leading-tight">
+            Programados
+          </div>
+          <div className="text-xl sm:text-2xl font-bold text-blue-700 font-mono">
+            {totalProgramados}
+          </div>
+          <div className="text-[10px] text-slate-400">Via cron persistente</div>
         </div>
 
-        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-500">Gerados (Runs)</div>
-          <div className="text-xl font-bold text-emerald-700">{totalRunsSucesso}</div>
-          <div className="text-[9px] text-slate-400">Com sucesso</div>
+        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1 flex flex-col justify-between">
+          <div className="text-xs uppercase font-bold text-slate-600 whitespace-normal break-words leading-tight">
+            Gerados (Runs)
+          </div>
+          <div className="text-xl sm:text-2xl font-bold text-emerald-700 font-mono">
+            {totalRunsSucesso}
+          </div>
+          <div className="text-[10px] text-slate-400">Com sucesso</div>
         </div>
 
-        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-500">Aguard. Aprovação</div>
-          <div className="text-xl font-bold text-amber-700">{totalAguardandoAprovacao}</div>
-          <div className="text-[9px] text-slate-400">Trava de governança</div>
+        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1 flex flex-col justify-between">
+          <div className="text-xs uppercase font-bold text-slate-600 whitespace-normal break-words leading-tight">
+            Aguardando Aprovação
+          </div>
+          <div className="text-xl sm:text-2xl font-bold text-amber-700 font-mono">
+            {totalAguardandoAprovacao}
+          </div>
+          <div className="text-[10px] text-slate-400">Trava de governança</div>
         </div>
 
-        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-500">Enviados</div>
-          <div className="text-xl font-bold text-indigo-700">{totalEnviados}</div>
-          <div className="text-[9px] text-slate-400">Pós-aprovação</div>
+        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1 flex flex-col justify-between">
+          <div className="text-xs uppercase font-bold text-slate-600 whitespace-normal break-words leading-tight">
+            Enviados
+          </div>
+          <div className="text-xl sm:text-2xl font-bold text-indigo-700 font-mono">
+            {totalEnviados}
+          </div>
+          <div className="text-[10px] text-slate-400">Pós-aprovação</div>
         </div>
 
-        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
-          <div className="text-[10px] uppercase font-bold text-slate-500">Falhas / Erros</div>
-          <div className="text-xl font-bold text-rose-700">{totalRunsFalha}</div>
-          <div className="text-[9px] text-slate-400">Com reprocessamento</div>
+        <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1 flex flex-col justify-between">
+          <div className="text-xs uppercase font-bold text-slate-600 whitespace-normal break-words leading-tight">
+            Falhas / Erros
+          </div>
+          <div className="text-xl sm:text-2xl font-bold text-rose-700 font-mono">
+            {totalRunsFalha}
+          </div>
+          <div className="text-[10px] text-slate-400">Com reprocessamento</div>
         </div>
       </div>
 

@@ -418,8 +418,13 @@ export const ResumoMensalPage: React.FC = () => {
         }
       />
 
-      {/* Dashboard de KPIs do Resumo Mensal */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+      {/* Dashboard de KPIs do Resumo Mensal com grade responsiva sem compressão horizontal */}
+      <div
+        className="grid gap-3"
+        style={{
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        }}
+      >
         <CiafalKPICard title="Resumos" value={totalSummariesCount} status="NORMAL" />
         <CiafalKPICard title="Rascunhos" value={rascunhosCount} status="NORMAL" />
         <CiafalKPICard title="Em Edição" value={emEdicaoCount} status="NORMAL" />
@@ -433,7 +438,7 @@ export const ResumoMensalPage: React.FC = () => {
         <CiafalKPICard title="Leituras Confirmadas" value={leiturasConfirmadas} status="SUCESSO" />
         <CiafalKPICard
           title="Versão Atual"
-          value={selectedSummary?.version_tag || 'V1'}
+          value={selectedSummary?.version_tag || 'V01'}
           status="NORMAL"
         />
       </div>
@@ -674,41 +679,46 @@ export const ResumoMensalPage: React.FC = () => {
                 <span>1. Identificação Operacional</span>
                 <span className="text-[10px] text-slate-400 font-normal">Seção 1 de 18</span>
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
+              <div
+                className="grid gap-3 text-xs"
+                style={{
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                }}
+              >
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  <span className="text-slate-500 block text-[11px] uppercase font-bold whitespace-normal">
                     Empresa
                   </span>
-                  <span className="font-bold text-slate-800">
+                  <span className="font-bold text-slate-800 whitespace-normal break-words">
                     {activeSec.identificacao.empresa}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  <span className="text-slate-500 block text-[11px] uppercase font-bold whitespace-normal">
                     Centro Fabril
                   </span>
-                  <span className="font-bold text-slate-800">
+                  <span className="font-bold text-slate-800 whitespace-normal break-words">
                     {activeSec.identificacao.centroCode} - {activeSec.identificacao.centroNome}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  <span className="text-slate-500 block text-[11px] uppercase font-bold whitespace-normal">
                     Linha
                   </span>
-                  <span className="font-bold text-slate-800">
+                  <span className="font-bold text-slate-800 whitespace-normal break-words">
                     {activeSec.identificacao.linhaNome}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  <span className="text-slate-500 block text-[11px] uppercase font-bold whitespace-normal">
                     Mês / Ano
                   </span>
-                  <span className="font-bold text-slate-800 font-mono">
+                  <span className="font-bold text-slate-800 font-mono whitespace-normal">
                     {activeSec.identificacao.mesAno}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  <span className="text-slate-500 block text-[11px] uppercase font-bold whitespace-normal">
                     Versão
                   </span>
                   <Badge variant="outline" className="font-mono bg-white font-bold text-xs">
@@ -716,10 +726,10 @@ export const ResumoMensalPage: React.FC = () => {
                   </Badge>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  <span className="text-slate-500 block text-[11px] uppercase font-bold whitespace-normal">
                     Data de Entrega
                   </span>
-                  <span className="font-bold text-slate-800 font-mono">
+                  <span className="font-bold text-slate-800 font-mono whitespace-normal">
                     {activeSec.identificacao.dataEntrega}
                   </span>
                 </div>
@@ -784,9 +794,9 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 3. Análise de Carteira & Atendimento Comercial (SAP ZSD28C)
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-                <div className="p-2.5 rounded border bg-slate-50 text-center">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5">
+                <div className="p-2.5 rounded border bg-slate-50 text-center flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Total Carteira
                   </span>
                   <TraceableNumber
@@ -796,8 +806,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 rounded border bg-slate-50 text-center">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 rounded border bg-slate-50 text-center flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Carteira L1
                   </span>
                   <TraceableNumber
@@ -807,8 +817,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 rounded border bg-slate-50 text-center">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 rounded border bg-slate-50 text-center flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Carteira L2
                   </span>
                   <TraceableNumber
@@ -818,8 +828,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 rounded border bg-slate-50 text-center">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 rounded border bg-slate-50 text-center flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Carteira SDC
                   </span>
                   <TraceableNumber
@@ -829,8 +839,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 rounded border bg-slate-50 text-center">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 rounded border bg-slate-50 text-center flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Carteira MTO
                   </span>
                   <TraceableNumber
@@ -839,16 +849,16 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 rounded border bg-slate-50 text-center">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 rounded border bg-slate-50 text-center flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Cobertura
                   </span>
                   <span className="font-bold text-emerald-700 font-mono text-sm">
                     {activeSec.analiseCarteira.coberturaDias} dias
                   </span>
                 </div>
-                <div className="p-2.5 rounded border bg-slate-50 text-center">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 rounded border bg-slate-50 text-center flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Carteira Negativa
                   </span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
@@ -863,9 +873,9 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 4. Estoque de Produto Acabado (WMS & Expedição)
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-center">
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs text-center">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Estoque Físico
                   </span>
                   <TraceableNumber
@@ -874,8 +884,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Carteira Comprometida
                   </span>
                   <TraceableNumber
@@ -886,8 +896,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Saldo Livre
                   </span>
                   <TraceableNumber
@@ -896,8 +906,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-emerald-700 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Dias de Estoque Médio
                   </span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
@@ -912,9 +922,9 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 5. Matéria-Prima & Balanço de Pátio (DP07 / KS / Fornecedores)
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs text-center">
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs text-center">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Estoque Atual
                   </span>
                   <TraceableNumber
@@ -923,8 +933,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Necessidade Total
                   </span>
                   <TraceableNumber
@@ -933,8 +943,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Entradas Previstas
                   </span>
                   <TraceableNumber
@@ -943,8 +953,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Saldo Projetado
                   </span>
                   <TraceableNumber
@@ -953,8 +963,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Produção Prevista
                   </span>
                   <TraceableNumber
@@ -963,8 +973,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Risco de Ruptura
                   </span>
                   <span className="font-bold text-emerald-700 uppercase text-sm block">
@@ -1026,25 +1036,25 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 8. Restrições e Problemas Industriais
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-center">
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs text-center">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Paradas Programadas
                   </span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
                     {formatNumberPTBR(activeSec.restricoesProblemas.paradasProgramadasHoras, 1)} h
                   </span>
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Quebras / Falhas
                   </span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
                     {formatNumberPTBR(activeSec.restricoesProblemas.quebrasHoras, 1)} h
                   </span>
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Produtividade Realizada
                   </span>
                   <TraceableNumber
@@ -1055,8 +1065,8 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Setup Médio
                   </span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
@@ -1071,36 +1081,36 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 9. Campanhas de Laminação & Conformação
               </h3>
-              <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/60 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div>
-                  <span className="text-slate-500 text-[10px] uppercase font-bold block">
+              <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/60 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="flex flex-col justify-between">
+                  <span className="text-slate-600 text-[11px] uppercase font-bold block mb-0.5">
                     Família em Foco:
                   </span>
-                  <span className="font-bold text-slate-900">
+                  <span className="font-bold text-slate-900 whitespace-normal break-words">
                     {activeSec.campanhas.familiaAtiva}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500 text-[10px] uppercase font-bold block">
+                <div className="flex flex-col justify-between">
+                  <span className="text-slate-600 text-[11px] uppercase font-bold block mb-0.5">
                     Bitolas:
                   </span>
-                  <span className="font-bold text-slate-900">
+                  <span className="font-bold text-slate-900 whitespace-normal break-words">
                     {activeSec.campanhas.bitolasFoco}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500 text-[10px] uppercase font-bold block">
+                <div className="flex flex-col justify-between">
+                  <span className="text-slate-600 text-[11px] uppercase font-bold block mb-0.5">
                     Aços:
                   </span>
-                  <span className="font-bold text-slate-900">
+                  <span className="font-bold text-slate-900 whitespace-normal break-words">
                     {activeSec.campanhas.acosPlanejados.join(', ')}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500 text-[10px] uppercase font-bold block">
+                <div className="flex flex-col justify-between">
+                  <span className="text-slate-600 text-[11px] uppercase font-bold block mb-0.5">
                     Meta da Campanha:
                   </span>
-                  <span className="font-bold text-[#004C97] font-mono">
+                  <span className="font-bold text-[#004C97] font-mono text-sm">
                     {formatNumberPTBR(activeSec.campanhas.campanhaPlanejadaTons, 1)} t
                   </span>
                 </div>
@@ -1112,17 +1122,17 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 10. Programação do Mês (Ordens SAP)
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-center">
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs text-center">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Total de Ordens
                   </span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
                     {activeSec.programacaoDoMes.totalOrdens} OPs
                   </span>
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Volume Programado
                   </span>
                   <TraceableNumber
@@ -1131,16 +1141,16 @@ export const ResumoMensalPage: React.FC = () => {
                     className="font-bold text-slate-900 font-mono text-sm"
                   />
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Aderência à Grade
                   </span>
                   <span className="font-bold text-emerald-700 font-mono text-sm">
                     {formatNumberPTBR(activeSec.programacaoDoMes.aderenciaGradePct, 1)}%
                   </span>
                 </div>
-                <div className="p-2.5 border rounded bg-slate-50">
-                  <span className="text-[10px] text-slate-500 uppercase block font-bold">
+                <div className="p-2.5 border rounded bg-slate-50 flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-600 uppercase block font-bold whitespace-normal break-words leading-tight mb-1">
                     Turnos Trabalhados
                   </span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
@@ -1360,29 +1370,43 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 17. Trilha de Aprovações Departamentais
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div
+                className="grid gap-3 text-xs"
+                style={{
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                }}
+              >
                 {activeSec.aprovacoes.lista.map((ap) => (
-                  <div key={ap.area} className="p-3 border rounded-lg bg-slate-50/60 space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-slate-900">{ap.area}</span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                          ap.status === 'Aprovado'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {ap.status}
-                      </span>
-                    </div>
-                    <div className="text-slate-600">Responsável: {ap.responsavel}</div>
-                    {ap.dataHora && (
-                      <div className="text-[10px] text-slate-500 font-mono">
-                        Aprovado em: {ap.dataHora}
+                  <div
+                    key={ap.area}
+                    className="p-3 border rounded-lg bg-slate-50/60 space-y-1 flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex justify-between items-start gap-2 mb-1">
+                        <span className="font-bold text-slate-900 whitespace-normal break-words">
+                          {ap.area}
+                        </span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase shrink-0 ${
+                            ap.status === 'Aprovado'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {ap.status}
+                        </span>
                       </div>
-                    )}
+                      <div className="text-slate-600 whitespace-normal break-words">
+                        Responsável: {ap.responsavel}
+                      </div>
+                      {ap.dataHora && (
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          Aprovado em: {ap.dataHora}
+                        </div>
+                      )}
+                    </div>
                     {ap.comentario && (
-                      <div className="text-[11px] text-slate-700 italic pt-1">
+                      <div className="text-[11px] text-slate-700 italic pt-1 border-t border-slate-200/60 mt-1 whitespace-normal break-words">
                         "{ap.comentario}"
                       </div>
                     )}
