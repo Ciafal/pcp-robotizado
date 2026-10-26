@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/accordion'
 import { ChecklistFechamentoItem, ChecklistItemStatus } from '@/types/checklist-fechamento'
 import { AjusteOperacional } from '@/types/ajuste-operacional'
+import { derivarStatusOperacionalItem } from '@/services/checklist-fechamento-service'
 
 interface Props {
   itens: ChecklistFechamentoItem[]
@@ -123,30 +124,52 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
     return Array.from(mapa.entries())
   }, [itensFiltrados])
 
-  const renderStatusBadge = (status: ChecklistItemStatus) => {
-    switch (status) {
-      case 'OK':
-        return (
-          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 gap-1 text-[11px] font-semibold">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            OK
-          </Badge>
-        )
-      case 'ERRO':
-        return (
-          <Badge className="bg-rose-100 text-rose-800 border-rose-300 gap-1 text-[11px] font-semibold">
-            <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-            ERRO
-          </Badge>
-        )
-      default:
-        return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300 gap-1 text-[11px] font-semibold">
-            <Clock className="w-3.5 h-3.5 text-amber-600" />
-            PENDENTE
-          </Badge>
-        )
+  const renderStatusBadge = (item: ChecklistFechamentoItem) => {
+    // Derivação automática do status: Pendente / Vence hoje / Em atraso / Concluído
+    const derivado = derivarStatusOperacionalItem(item)
+
+    if (item.status === 'OK' || derivado.statusDerivado === 'Concluído') {
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 gap-1 text-[11px] font-semibold">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          Concluído
+        </Badge>
+      )
     }
+
+    if (item.status === 'ERRO') {
+      return (
+        <Badge className="bg-rose-100 text-rose-800 border-rose-300 gap-1 text-[11px] font-semibold">
+          <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+          ERRO
+        </Badge>
+      )
+    }
+
+    if (derivado.statusDerivado === 'Em atraso') {
+      return (
+        <Badge className="bg-rose-100 text-rose-800 border-rose-300 gap-1 text-[11px] font-bold shadow-xs">
+          <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+          Em atraso
+        </Badge>
+      )
+    }
+
+    if (derivado.statusDerivado === 'Vence hoje') {
+      return (
+        <Badge className="bg-amber-100 text-amber-900 border-amber-300 gap-1 text-[11px] font-bold shadow-xs">
+          <Clock className="w-3.5 h-3.5 text-amber-600" />
+          Vence hoje
+        </Badge>
+      )
+    }
+
+    return (
+      <Badge className="bg-amber-50 text-amber-800 border-amber-200 gap-1 text-[11px] font-semibold">
+        <Clock className="w-3.5 h-3.5 text-amber-600" />
+        Pendente
+      </Badge>
+    )
   }
 
   return (
@@ -252,15 +275,51 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
                       key={item.id}
                       className="p-3.5 sm:p-4 hover:bg-blue-50/30 transition-colors space-y-2.5"
                     >
-                      {/* Linha Principal da Atividade */}
+                      {/* Linha Principal da Atividade: Código, Atividade, Centro, Categoria, Regra de execução, Próxima execução, Status */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-start sm:items-center gap-2.5 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 flex-1">
+                          {/* Código */}
                           <span className="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200 shrink-0">
                             {item.codigo}
                           </span>
+
+                          {/* Atividade (Título) */}
                           <span className="font-semibold text-sm text-slate-900 leading-snug">
                             {item.titulo}
                           </span>
+
+                          {/* Centro */}
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-slate-50 text-slate-700 border-slate-200 shrink-0 font-mono"
+                          >
+                            {item.center_code || item.center_name || item.line_code || 'Geral'}
+                          </Badge>
+
+                          {/* Categoria */}
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] text-slate-600 bg-white border-slate-200 shrink-0"
+                          >
+                            {item.categoria || 'Geral'}
+                          </Badge>
+
+                          {/* Regra de execução */}
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#004C97] bg-blue-50/70 border border-blue-200/70 px-2 py-0.5 rounded shrink-0">
+                            <Tag className="w-3 h-3 text-[#004C97]" />
+                            {item.regra_execucao_texto ||
+                              item.prazo_relativo_fechamento ||
+                              '2º dia útil'}
+                          </span>
+
+                          {/* Próxima execução */}
+                          {(item.proxima_execucao_formatada || item.proxima_execucao) && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-700 bg-slate-100/80 border border-slate-200 px-2 py-0.5 rounded shrink-0">
+                              <Clock className="w-3 h-3 text-slate-500" />
+                              {item.proxima_execucao_formatada || item.proxima_execucao}
+                            </span>
+                          )}
+
                           {item.obrigatoria ? (
                             <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] shrink-0 font-medium">
                               Obrigatória
@@ -273,6 +332,7 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
                               Informativa
                             </Badge>
                           )}
+
                           {item.status_regra && item.status_regra !== 'Oficial' && (
                             <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] shrink-0 font-medium">
                               ⚠️ {item.status_regra}
@@ -292,7 +352,7 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
 
                         {/* Status e Ações Rápidas */}
                         <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                          {renderStatusBadge(item.status)}
+                          {renderStatusBadge(item)}
 
                           {canEdit && (
                             <div className="flex items-center gap-1 border-l border-slate-200 pl-2">

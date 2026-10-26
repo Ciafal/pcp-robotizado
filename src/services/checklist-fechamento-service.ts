@@ -69,6 +69,250 @@ export function calcularDiaUtil(
  * Utilitário de cálculo do 2º dia útil corporativo do mês subsequente
  * Regra: Segunda a Sexta, desconsiderando finais de semana e feriados cadastrados
  */
+/**
+ * Retorna o N-ésimo dia útil de um determinado mês/ano.
+ * Desconsidera sábados e domingos e feriados corporativos/nacionais se fornecidos.
+ */
+export function calcularNthDiaUtilDoMes(
+  ano: number,
+  mes: number, // 1-12
+  nDiaUtil: number, // 1, 2, 3...
+  feriadosList: string[] = [],
+): { dataIso: string; dataFormatada: string } {
+  const feriadosSet = new Set(feriadosList)
+  let uteisEncontrados = 0
+  let diaCorrente = 1
+  let dataResultado: Date | null = null
+  let ultimoDiaUtilValido: Date | null = null
+
+  while (diaCorrente <= 31) {
+    const d = new Date(Date.UTC(ano, mes - 1, diaCorrente))
+    if (d.getUTCMonth() !== mes - 1) break // Ultrapassou os dias do mês
+
+    const diaSemana = d.getUTCDay() // 0 = Dom, 6 = Sáb
+    const iso = `${ano}-${String(mes).padStart(2, '0')}-${String(diaCorrente).padStart(2, '0')}`
+    const isFimDeSemana = diaSemana === 0 || diaSemana === 6
+    const isFeriado = feriadosSet.has(iso)
+
+    if (!isFimDeSemana && !isFeriado) {
+      uteisEncontrados++
+      ultimoDiaUtilValido = d
+      if (uteisEncontrados === nDiaUtil) {
+        dataResultado = d
+        break
+      }
+    }
+    diaCorrente++
+  }
+
+  // Fallback: se o mês tiver menos dias úteis do que nDiaUtil, usa o último dia útil do mês
+  const finalDate = dataResultado || ultimoDiaUtilValido || new Date(Date.UTC(ano, mes - 1, 1))
+  const y = finalDate.getUTCFullYear()
+  const m = String(finalDate.getUTCMonth() + 1).padStart(2, '0')
+  const dia = String(finalDate.getUTCDate()).padStart(2, '0')
+
+  return {
+    dataIso: `${y}-${m}-${dia}`,
+    dataFormatada: `${dia}/${m}/${y}`,
+  }
+}
+
+/**
+ * Retorna uma data correspondente a um dia específico do mês (1 a 31).
+ * Se o mês não possuir o dia configurado (ex: dia 31 em abril ou dia 30 em fevereiro),
+ * usa o último dia válido daquele mês, sem erro.
+ */
+export function calcularDiaDoMes(
+  ano: number,
+  mes: number, // 1-12
+  diaDesejado: number, // 1 a 31
+): { dataIso: string; dataFormatada: string } {
+  // Quantidade de dias no mês: new Date(Date.UTC(ano, mes, 0)).getUTCDate()
+  const ultimoDiaDoMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
+  const diaEfetivo = Math.max(1, Math.min(diaDesejado, ultimoDiaDoMes))
+
+  const y = ano
+  const m = String(mes).padStart(2, '0')
+  const d = String(diaEfetivo).padStart(2, '0')
+
+  return {
+    dataIso: `${y}-${m}-${d}`,
+    dataFormatada: `${d}/${m}/${y}`,
+  }
+}
+
+/**
+ * Utilitário de cálculo da Próxima Execução com base no tipo de programação.
+ * Regras:
+ * - 'dia_util': Todo Nº dia útil do mês. Se a ocorrência do mês corrente/competência já passou, calcula para o próximo mês.
+ * - 'dia_mes': Todo dia N do mês. Se o dia do mês corrente já passou, calcula para o próximo mês.
+ * - 'data_especifica': Data fixa pontual.
+ */
+export function calcularProximaExecucao(params: {
+  tipo_programacao?: 'dia_util' | 'dia_mes' | 'data_especifica'
+  dia_util?: number
+  dia_mes?: number
+  data_especifica?: string
+  dataReferenciaIso?: string // YYYY-MM-DD (padrão: hoje)
+  feriadosList?: string[]
+}): {
+  regraTexto: string
+  proximaExecucaoIso: string
+  proximaExecucaoFormatada: string
+} {
+  const {
+    tipo_programacao = 'dia_util',
+    dia_util = 2,
+    dia_mes = 5,
+    data_especifica = '',
+    dataReferenciaIso = new Date().toISOString().split('T')[0],
+    feriadosList = [],
+  } = params
+
+  if (tipo_programacao === 'data_especifica') {
+    if (!data_especifica) {
+      return {
+        regraTexto: 'Data específica não informada',
+        proximaExecucaoIso: '',
+        proximaExecucaoFormatada: '—',
+      }
+    }
+    const parts = data_especifica.split('-')
+    let formatada = data_especifica
+    if (parts.length === 3) {
+      formatada = `${parts[2]}/${parts[1]}/${parts[0]}`
+    }
+    return {
+      regraTexto: `Execução: ${formatada}`,
+      proximaExecucaoIso: data_especifica,
+      proximaExecucaoFormatada: formatada,
+    }
+  }
+
+  const [refAnoStr, refMesStr, refDiaStr] = dataReferenciaIso.split('-')
+  let ano = parseInt(refAnoStr, 10) || new Date().getFullYear()
+  let mes = parseInt(refMesStr, 10) || new Date().getMonth() + 1
+  const diaRef = parseInt(refDiaStr, 10) || new Date().getDate()
+
+  if (tipo_programacao === 'dia_mes') {
+    const diaNum = Math.max(1, Math.min(31, Number(dia_mes) || 1))
+    const regraTexto = `Todo dia ${diaNum} do mês`
+
+    // Calcular no mês corrente
+    const calcAtual = calcularDiaDoMes(ano, mes, diaNum)
+    if (calcAtual.dataIso >= dataReferenciaIso) {
+      return {
+        regraTexto,
+        proximaExecucaoIso: calcAtual.dataIso,
+        proximaExecucaoFormatada: calcAtual.dataFormatada,
+      }
+    }
+
+    // Se já passou a data do mês corrente, calcula no próximo mês
+    let proxMes = mes + 1
+    let proxAno = ano
+    if (proxMes > 12) {
+      proxMes = 1
+      proxAno++
+    }
+
+    const calcProx = calcularDiaDoMes(proxAno, proxMes, diaNum)
+    return {
+      regraTexto,
+      proximaExecucaoIso: calcProx.dataIso,
+      proximaExecucaoFormatada: calcProx.dataFormatada,
+    }
+  }
+
+  // Padrão: dia_util
+  const nUtil = Math.max(1, Number(dia_util) || 1)
+  const regraTexto = `Todo ${nUtil}º dia útil do mês`
+
+  // Calcular no mês corrente
+  const calcAtual = calcularNthDiaUtilDoMes(ano, mes, nUtil, feriadosList)
+  if (calcAtual.dataIso >= dataReferenciaIso) {
+    return {
+      regraTexto,
+      proximaExecucaoIso: calcAtual.dataIso,
+      proximaExecucaoFormatada: calcAtual.dataFormatada,
+    }
+  }
+
+  // Se já passou a data do mês corrente, calcula no próximo mês
+  let proxMes = mes + 1
+  let proxAno = ano
+  if (proxMes > 12) {
+    proxMes = 1
+    proxAno++
+  }
+
+  const calcProx = calcularNthDiaUtilDoMes(proxAno, proxMes, nUtil, feriadosList)
+  return {
+    regraTexto,
+    proximaExecucaoIso: calcProx.dataIso,
+    proximaExecucaoFormatada: calcProx.dataFormatada,
+  }
+}
+
+/**
+ * Utilitário de derivação do status do item com base na data prevista vs data atual:
+ * - Pendente: dentro do prazo, não realizada.
+ * - Vence hoje: data prevista = data atual.
+ * - Em atraso: data prevista já passou e não concluída.
+ * - Concluído: realizada dentro do período correspondente (status === 'OK').
+ */
+export function derivarStatusOperacionalItem(
+  item: ChecklistFechamentoItem,
+  dataAtualIso: string = new Date().toISOString().split('T')[0],
+): {
+  statusDerivado: 'Concluído' | 'Vence hoje' | 'Em atraso' | 'Pendente'
+  classeCor: string
+  label: string
+} {
+  if (item.status === 'OK') {
+    return {
+      statusDerivado: 'Concluído',
+      classeCor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      label: 'Concluído',
+    }
+  }
+
+  const dataAlvoIso = item.data_prevista || item.proxima_execucao || ''
+  if (!dataAlvoIso) {
+    return {
+      statusDerivado: 'Pendente',
+      classeCor: 'bg-amber-100 text-amber-800 border-amber-300',
+      label: 'Pendente',
+    }
+  }
+
+  if (dataAlvoIso < dataAtualIso) {
+    return {
+      statusDerivado: 'Em atraso',
+      classeCor: 'bg-rose-100 text-rose-800 border-rose-300 ring-1 ring-rose-400',
+      label: 'Em atraso',
+    }
+  }
+
+  if (dataAlvoIso === dataAtualIso) {
+    return {
+      statusDerivado: 'Vence hoje',
+      classeCor: 'bg-amber-100 text-amber-900 border-amber-400 font-bold',
+      label: 'Vence hoje',
+    }
+  }
+
+  return {
+    statusDerivado: 'Pendente',
+    classeCor: 'bg-blue-50 text-[#004C97] border-blue-200',
+    label: 'Pendente',
+  }
+}
+
+/**
+ * Utilitário de cálculo do 2º dia útil corporativo do mês subsequente
+ * Regra: Segunda a Sexta, desconsiderando finais de semana e feriados cadastrados
+ */
 export function calcularSegundoDiaUtil(
   ano: number,
   mes: number, // 1-12 (mês da competência)
@@ -82,43 +326,10 @@ export function calcularSegundoDiaUtil(
     anoSeguinte++
   }
 
-  const feriadosSet = new Set(feriadosList)
-  let diasUteisEncontrados = 0
-  let diaCorrente = 1
-  let dataResultado: Date | null = null
-
-  while (diasUteisEncontrados < 2 && diaCorrente <= 31) {
-    const d = new Date(Date.UTC(anoSeguinte, mesSeguinte - 1, diaCorrente))
-    if (d.getUTCMonth() !== mesSeguinte - 1) break // ultrapassou o mês
-
-    const diaSemana = d.getUTCDay() // 0 = Domingo, 6 = Sábado
-    const isoDate = `${anoSeguinte}-${String(mesSeguinte).padStart(2, '0')}-${String(diaCorrente).padStart(2, '0')}`
-
-    const isFimDeSemana = diaSemana === 0 || diaSemana === 6
-    const isFeriado = feriadosSet.has(isoDate)
-
-    if (!isFimDeSemana && !isFeriado) {
-      diasUteisEncontrados++
-      if (diasUteisEncontrados === 2) {
-        dataResultado = d
-        break
-      }
-    }
-    diaCorrente++
-  }
-
-  if (!dataResultado) {
-    // Fallback defensivo: dia 3 do mês seguinte
-    dataResultado = new Date(Date.UTC(anoSeguinte, mesSeguinte - 1, 3))
-  }
-
-  const d = dataResultado
-  const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
-  const formatado = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
-
+  const res = calcularNthDiaUtilDoMes(anoSeguinte, mesSeguinte, 2, feriadosList)
   return {
-    segundoDiaUtilIso: iso,
-    segundoDiaUtilFormatado: formatado,
+    segundoDiaUtilIso: res.dataIso,
+    segundoDiaUtilFormatado: res.dataFormatada,
   }
 }
 
@@ -305,6 +516,50 @@ class ChecklistFechamentoService {
   }
 
   /**
+   * Obtém o próximo código sequencial único do servidor
+   */
+  async obterProximoCodigo(): Promise<{ nextCode: string; nextSequence: number }> {
+    try {
+      const res = await pb.send('/backend/v1/pcp/checklist/next-code', { method: 'GET' })
+      if (res && res.next_code) {
+        return {
+          nextCode: res.next_code,
+          nextSequence: res.next_sequence || 27,
+        }
+      }
+    } catch (err) {
+      console.warn(
+        '[checklistFechamentoService] Falha ao consultar next-code via endpoint, calculando via collection:',
+        err,
+      )
+    }
+
+    // Fallback cliente caso o endpoint falhe
+    try {
+      const records = await pb.collection('checklist_fechamento_modelos').getFullList({
+        sort: '-created',
+      })
+      let maxMinor = 26
+      for (const r of records) {
+        const cod = (r.codigo || '').trim()
+        const match = cod.match(/^1\.(\d+)/)
+        if (match) {
+          const m = parseInt(match[1], 10)
+          if (!isNaN(m) && m > maxMinor) {
+            maxMinor = m
+          }
+        }
+      }
+      return {
+        nextCode: `1.${maxMinor + 1}`,
+        nextSequence: maxMinor + 2,
+      }
+    } catch (_) {
+      return { nextCode: '1.27', nextSequence: 27 }
+    }
+  }
+
+  /**
    * Salva ou atualiza atividade mestre (SEM modificar checklists antigos)
    */
   async salvarModelo(modelo: Partial<ChecklistAtividadeModelo>): Promise<ChecklistAtividadeModelo> {
@@ -325,8 +580,26 @@ class ChecklistFechamentoService {
       payload.empresa = payload.werks
     }
 
+    // Calcular regra_execucao_texto e proxima_execucao se não definidos
+    const feriados = await this.listarFeriados()
+    const datasFeriados = feriados.map((f) => f.data)
+    const progInfo = calcularProximaExecucao({
+      tipo_programacao: payload.tipo_programacao,
+      dia_util: payload.dia_util,
+      dia_mes: payload.dia_mes,
+      data_especifica: payload.data_especifica,
+      feriadosList: datasFeriados,
+    })
+
+    payload.regra_execucao_texto = progInfo.regraTexto
+    payload.proxima_execucao = progInfo.proximaExecucaoIso
+    payload.proxima_execucao_formatada = progInfo.proximaExecucaoFormatada
+
     if (modelo.id) {
       const anterior: any = await pb.collection('checklist_fechamento_modelos').getOne(modelo.id)
+      // Garantir que o código nunca seja alterado na edição
+      payload.codigo = anterior.codigo
+
       const record = await pb.collection('checklist_fechamento_modelos').update(modelo.id, payload)
 
       // Identificar mudanças de Empresa / Linha / Centro para log explícito
@@ -551,6 +824,16 @@ class ChecklistFechamentoService {
         status_regra: m.status_regra,
         fonte_dados: m.fonte_dados,
         status: statusInicial,
+        // Programação e datas de execução
+        tipo_programacao: m.tipo_programacao || 'dia_util',
+        dia_util: m.dia_util,
+        dia_mes: m.dia_mes,
+        data_especifica: m.data_especifica,
+        regra_execucao_texto:
+          m.regra_execucao_texto || m.prazo_relativo_fechamento || '2º dia útil',
+        proxima_execucao: m.proxima_execucao || segundoDiaUtilIso,
+        proxima_execucao_formatada: m.proxima_execucao_formatada || segundoDiaUtilIso,
+        data_prevista: m.proxima_execucao || segundoDiaUtilIso,
         observacao: '',
         quantidade_divergencias: 0,
         ordem_material_lote: '',

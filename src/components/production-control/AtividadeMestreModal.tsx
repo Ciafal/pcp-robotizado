@@ -28,7 +28,12 @@ import {
   ChecklistAtividadeModelo,
   ChecklistFonteDados,
   ChecklistFrequencia,
+  ChecklistTipoProgramacao,
 } from '@/types/checklist-fechamento'
+import {
+  checklistFechamentoService,
+  calcularProximaExecucao,
+} from '@/services/checklist-fechamento-service'
 import {
   sapParametersMasterDataService,
   SapCompanyOption,
@@ -86,8 +91,15 @@ export const AtividadeMestreModal: React.FC<Props> = ({
   // Identificação da Atividade
   const [codigo, setCodigo] = useState('')
   const [sequencia, setSequencia] = useState<number>(1)
+  const [carregandoCodigo, setCarregandoCodigo] = useState(false)
   const [titulo, setTitulo] = useState('')
   const [categoria, setCategoria] = useState('Processamento SAP')
+
+  // Nova Seção: Programação do Check-list
+  const [tipoProgramacao, setTipoProgramacao] = useState<ChecklistTipoProgramacao>('dia_util')
+  const [diaUtil, setDiaUtil] = useState<number>(2) // Padrão: 2º dia útil
+  const [diaMes, setDiaMes] = useState<number>(5) // Padrão: dia 5
+  const [dataEspecificaPtBr, setDataEspecificaPtBr] = useState<string>('') // dd/mm/aaaa
 
   // Orientação
   const [descricao, setDescricao] = useState('')
@@ -297,6 +309,21 @@ export const AtividadeMestreModal: React.FC<Props> = ({
       setStatusRegra(modelo.status_regra || 'Oficial')
       setAtiva(modelo.ativa ?? true)
 
+      // Inicializa Programação
+      setTipoProgramacao(modelo.tipo_programacao || 'dia_util')
+      setDiaUtil(modelo.dia_util || 2)
+      setDiaMes(modelo.dia_mes || 5)
+      if (modelo.data_especifica) {
+        const parts = modelo.data_especifica.split('-')
+        if (parts.length === 3) {
+          setDataEspecificaPtBr(`${parts[2]}/${parts[1]}/${parts[0]}`)
+        } else {
+          setDataEspecificaPtBr(modelo.data_especifica)
+        }
+      } else {
+        setDataEspecificaPtBr('')
+      }
+
       // Carregar centros para a linha da edição
       if (modelo.line_id || modelo.line_code) {
         loadCentersForLine(modelo.line_id || '', modelo.line_code || '')
@@ -312,11 +339,29 @@ export const AtividadeMestreModal: React.FC<Props> = ({
       setCenterName('')
       setCenterOptions([])
 
-      setCodigo('')
-      setSequencia(27)
+      // Obter código gerado automaticamente do servidor
+      setCarregandoCodigo(true)
+      checklistFechamentoService
+        .obterProximoCodigo()
+        .then((res) => {
+          setCodigo(res.nextCode)
+          setSequencia(res.nextSequence)
+        })
+        .catch(() => {
+          setCodigo('1.27')
+          setSequencia(27)
+        })
+        .finally(() => {
+          setCarregandoCodigo(false)
+        })
+
       setTitulo('')
       setDescricao('')
       setCategoria('Processamento SAP')
+      setTipoProgramacao('dia_util')
+      setDiaUtil(2)
+      setDiaMes(5)
+      setDataEspecificaPtBr('')
       setTransacaoSap('')
       setDepositoSap('')
       setFrequencia('somente_fechamento')
@@ -417,7 +462,25 @@ export const AtividadeMestreModal: React.FC<Props> = ({
     })
   }
 
-  // Validação obrigatória dos 5 campos: WERKS + Linha + Centro + Código + Título
+  // Cálculo em tempo real da regra de execução legível e da próxima execução
+  const infoProgramacao = useMemo(() => {
+    let dataIsoEspecifica = ''
+    if (dataEspecificaPtBr.trim()) {
+      const parts = dataEspecificaPtBr.trim().split('/')
+      if (parts.length === 3) {
+        dataIsoEspecifica = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+      }
+    }
+
+    return calcularProximaExecucao({
+      tipo_programacao: tipoProgramacao,
+      dia_util: diaUtil,
+      dia_mes: diaMes,
+      data_especifica: dataIsoEspecifica,
+    })
+  }, [tipoProgramacao, diaUtil, diaMes, dataEspecificaPtBr])
+
+  // Validação obrigatória dos campos: WERKS + Linha + Centro + Código + Título + Programação
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {}
 
@@ -430,11 +493,43 @@ export const AtividadeMestreModal: React.FC<Props> = ({
     if (!centerCode.trim()) {
       errors.center = 'Selecione o Centro onde esta atividade será aplicada.'
     }
-    if (!codigo.trim()) {
-      errors.codigo = 'Informe o código identificador da atividade (ex: 1.27).'
+    if (!codigo.trim() && !isEditing) {
+      errors.codigo = 'Código da atividade não disponível.'
     }
     if (!titulo.trim()) {
       errors.titulo = 'Informe o título oficial da atividade.'
+    }
+
+    // Validações condicionais da Programação
+    if (tipoProgramacao === 'dia_util') {
+      if (!diaUtil || diaUtil < 1 || diaUtil > 31) {
+        errors.diaUtil = 'Selecione o dia útil para execução.'
+      }
+    } else if (tipoProgramacao === 'dia_mes') {
+      if (!diaMes || diaMes < 1 || diaMes > 31) {
+        errors.diaMes = 'Informe um dia do mês válido (1 a 31).'
+      }
+    } else if (tipoProgramacao === 'data_especifica') {
+      if (!dataEspecificaPtBr.trim()) {
+        errors.dataEspecifica = 'Informe a data prevista em dd/mm/aaaa.'
+      } else {
+        const parts = dataEspecificaPtBr.trim().split('/')
+        if (
+          parts.length !== 3 ||
+          parts[0].length !== 2 ||
+          parts[1].length !== 2 ||
+          parts[2].length !== 4
+        ) {
+          errors.dataEspecifica = 'Data inválida. Use o formato dd/mm/aaaa.'
+        } else {
+          const d = parseInt(parts[0], 10)
+          const m = parseInt(parts[1], 10)
+          const a = parseInt(parts[2], 10)
+          if (d < 1 || d > 31 || m < 1 || m > 12 || a < 2020 || a > 2099) {
+            errors.dataEspecifica = 'Data inválida no calendário brasileiro.'
+          }
+        }
+      }
     }
 
     setFieldErrors(errors)
@@ -461,9 +556,18 @@ export const AtividadeMestreModal: React.FC<Props> = ({
         .filter(Boolean)
         .join(' / ')
 
+      let dataIsoEspecifica = ''
+      if (tipoProgramacao === 'data_especifica' && dataEspecificaPtBr.trim()) {
+        const parts = dataEspecificaPtBr.trim().split('/')
+        if (parts.length === 3) {
+          dataIsoEspecifica = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+        }
+      }
+
       const payload: Partial<ChecklistAtividadeModelo> = {
         id: modelo?.id,
-        codigo: codigo.trim(),
+        // Na edição, o código original é mantido; na criação, usa o gerado automaticamente
+        codigo: isEditing && modelo?.codigo ? modelo.codigo : codigo.trim(),
         sequencia,
         titulo: titulo.trim(),
         descricao_detalhada: descricao.trim(),
@@ -471,7 +575,7 @@ export const AtividadeMestreModal: React.FC<Props> = ({
         // Preserva o campo legado linha_centro_relacionado para compatibilidade
         linha_centro_relacionado: derivedLinhaCentro || 'Geral',
         empresa: werks.trim(),
-        // Novos campos estruturados
+        // Campos estruturados
         werks: werks.trim(),
         line_id: lineId.trim(),
         line_code: lineCode.trim(),
@@ -479,13 +583,22 @@ export const AtividadeMestreModal: React.FC<Props> = ({
         center_id: centerId.trim(),
         center_code: centerCode.trim(),
         center_name: centerName.trim(),
+        // Programação do Check-list
+        tipo_programacao: tipoProgramacao,
+        dia_util: tipoProgramacao === 'dia_util' ? diaUtil : undefined,
+        dia_mes: tipoProgramacao === 'dia_mes' ? diaMes : undefined,
+        data_especifica: tipoProgramacao === 'data_especifica' ? dataIsoEspecifica : undefined,
+        regra_execucao_texto: infoProgramacao.regraTexto,
+        proxima_execucao: infoProgramacao.proximaExecucaoIso,
+        proxima_execucao_formatada: infoProgramacao.proximaExecucaoFormatada,
         transacao_sap: transacaoSap.trim() || 'N/A',
         deposito_sap: depositoSap.trim() || 'N/A',
         frequencia,
         obrigatoria,
         responsavel_padrao: responsavelPadrao.trim() || 'Controle de Produção',
         area_responsavel: areaResponsavel.trim() || 'Controle de Produção',
-        prazo_relativo_fechamento: prazoRelativo.trim() || '2º dia útil',
+        prazo_relativo_fechamento:
+          infoProgramacao.regraTexto || prazoRelativo.trim() || '2º dia útil',
         manual_documento_referencia:
           manualDoc.trim() || 'CHECK-LIST FECHAMENTO DO CONTROLE DE PRODUÇÃO',
         regra_validacao: regraValidacao.trim(),
@@ -498,11 +611,10 @@ export const AtividadeMestreModal: React.FC<Props> = ({
 
       await onSave(payload)
 
+      const codGravado = isEditing && modelo?.codigo ? modelo.codigo : codigo.trim()
       toast({
         title: isEditing ? 'Atividade atualizada' : 'Atividade cadastrada',
-        description: `Atividade ${codigo.trim()} — ${titulo.trim()} ${
-          isEditing ? 'atualizada' : 'cadastrada'
-        } com sucesso.`,
+        description: `Atividade código [${codGravado}] cadastrada com sucesso.`,
       })
 
       onClose()
@@ -721,28 +833,32 @@ export const AtividadeMestreModal: React.FC<Props> = ({
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              {/* Código */}
+              {/* Código (Read-only, gerado automaticamente no servidor) */}
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700">
-                  Código <span className="text-rose-500">*</span>
-                </label>
-                <Input
-                  type="text"
-                  placeholder="Ex: 1.26"
-                  value={codigo}
-                  disabled={saving}
-                  onChange={(e) => {
-                    setCodigo(e.target.value)
-                    setFieldErrors((prev) => {
-                      const next = { ...prev }
-                      delete next.codigo
-                      return next
-                    })
-                  }}
-                  className={`h-8 text-xs bg-white font-mono ${
-                    fieldErrors.codigo ? 'border-rose-500 bg-rose-50/40' : 'border-slate-200'
-                  }`}
-                />
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-700">Código</label>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {isEditing ? 'Fixo na edição' : 'Gerado automaticamente'}
+                  </span>
+                </div>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    readOnly
+                    value={
+                      carregandoCodigo
+                        ? 'Calculando próximo...'
+                        : codigo
+                          ? `Próximo código: ${codigo}`
+                          : 'Gerado automaticamente'
+                    }
+                    disabled={true}
+                    className="h-8 text-xs bg-slate-100/90 text-slate-700 font-mono font-semibold cursor-not-allowed border-slate-200 select-all"
+                  />
+                  {carregandoCodigo && (
+                    <Loader2 className="w-3 h-3 animate-spin absolute right-2.5 top-2.5 text-slate-400" />
+                  )}
+                </div>
                 {fieldErrors.codigo && (
                   <p className="text-[11px] text-rose-600 font-medium">{fieldErrors.codigo}</p>
                 )}
@@ -800,6 +916,179 @@ export const AtividadeMestreModal: React.FC<Props> = ({
               {fieldErrors.titulo && (
                 <p className="text-[11px] text-rose-600 font-medium">{fieldErrors.titulo}</p>
               )}
+            </div>
+          </div>
+
+          {/* PARTE 2: NOVA SEÇÃO "PROGRAMAÇÃO DO CHECK-LIST" */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                <FileText className="w-4 h-4 text-[#004C97]" />
+                Programação do Check-list
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Regra temporal e cálculo automático da próxima execução
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Tipo de Programação */}
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700">
+                  Tipo de programação <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={tipoProgramacao}
+                  disabled={saving}
+                  onChange={(e) => {
+                    setTipoProgramacao(e.target.value as ChecklistTipoProgramacao)
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.diaUtil
+                      delete next.diaMes
+                      delete next.dataEspecifica
+                      return next
+                    })
+                  }}
+                  className="w-full h-8 px-2.5 text-xs rounded-md border border-slate-200 bg-white text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#004C97]"
+                >
+                  <option value="dia_util">Dia útil do mês</option>
+                  <option value="dia_mes">Dia do mês</option>
+                  <option value="data_especifica">Data específica</option>
+                </select>
+              </div>
+
+              {/* Campo Condicional 1: Dia útil do mês */}
+              {tipoProgramacao === 'dia_util' && (
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">
+                    Dia útil <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={diaUtil}
+                    disabled={saving}
+                    onChange={(e) => setDiaUtil(parseInt(e.target.value, 10) || 1)}
+                    className={`w-full h-8 px-2.5 text-xs rounded-md border bg-white text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#004C97] ${
+                      fieldErrors.diaUtil ? 'border-rose-500 bg-rose-50/40' : 'border-slate-200'
+                    }`}
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 20, 22].map((n) => (
+                      <option key={n} value={n}>
+                        {n}º dia útil
+                      </option>
+                    ))}
+                  </select>
+                  {fieldErrors.diaUtil && (
+                    <p className="text-[11px] text-rose-600 font-medium">{fieldErrors.diaUtil}</p>
+                  )}
+                  <p className="text-[10px] text-slate-500">
+                    Sábados e domingos desconsiderados. Integrado aos feriados cadastrados.
+                  </p>
+                </div>
+              )}
+
+              {/* Campo Condicional 2: Dia do mês */}
+              {tipoProgramacao === 'dia_mes' && (
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">
+                    Dia do mês <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={diaMes}
+                    disabled={saving}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10)
+                      setDiaMes(isNaN(v) ? 1 : Math.max(1, Math.min(31, v)))
+                      setFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.diaMes
+                        return next
+                      })
+                    }}
+                    placeholder="1 a 31"
+                    className={`h-8 text-xs bg-white ${
+                      fieldErrors.diaMes ? 'border-rose-500 bg-rose-50/40' : 'border-slate-200'
+                    }`}
+                  />
+                  {fieldErrors.diaMes && (
+                    <p className="text-[11px] text-rose-600 font-medium">{fieldErrors.diaMes}</p>
+                  )}
+                  <p className="text-[10px] text-slate-500">
+                    Se o mês tiver menos dias (ex: dia 31 em abril), usa o último dia válido sem
+                    erro.
+                  </p>
+                </div>
+              )}
+
+              {/* Campo Condicional 3: Data específica pt-BR */}
+              {tipoProgramacao === 'data_especifica' && (
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">
+                    Data prevista <span className="text-rose-500">*</span> (dd/mm/aaaa)
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Ex: 10/11/2026"
+                    maxLength={10}
+                    value={dataEspecificaPtBr}
+                    disabled={saving}
+                    onChange={(e) => {
+                      let val = e.target.value.replace(/[^\d/]/g, '')
+                      if (
+                        val.length === 2 &&
+                        !val.includes('/') &&
+                        e.nativeEvent.inputType !== 'deleteContentBackward'
+                      ) {
+                        val = val + '/'
+                      } else if (
+                        val.length === 5 &&
+                        val.split('/').length === 2 &&
+                        e.nativeEvent.inputType !== 'deleteContentBackward'
+                      ) {
+                        val = val + '/'
+                      }
+                      setDataEspecificaPtBr(val)
+                      setFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.dataEspecifica
+                        return next
+                      })
+                    }}
+                    className={`h-8 text-xs bg-white font-mono ${
+                      fieldErrors.dataEspecifica
+                        ? 'border-rose-500 bg-rose-50/40'
+                        : 'border-slate-200'
+                    }`}
+                  />
+                  {fieldErrors.dataEspecifica && (
+                    <p className="text-[11px] text-rose-600 font-medium">
+                      {fieldErrors.dataEspecifica}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-slate-500">
+                    Formato pt-BR oficial: dia/mês/ano (ex: 10/11/2026).
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Informações Calculadas Legíveis de Recorrência e Próxima Execução */}
+            <div className="p-2.5 bg-blue-50/60 border border-blue-200/80 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-[#004C97]">Regra calculada:</span>
+                <span className="text-slate-800 font-medium bg-white px-2 py-0.5 rounded border border-blue-200">
+                  {infoProgramacao.regraTexto}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-600">Próxima execução:</span>
+                <span className="font-mono font-bold text-[#004C97] bg-white px-2 py-0.5 rounded border border-blue-200">
+                  {infoProgramacao.proximaExecucaoFormatada || '—'}
+                </span>
+              </div>
             </div>
           </div>
 

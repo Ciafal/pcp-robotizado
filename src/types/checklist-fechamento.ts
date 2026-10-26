@@ -21,6 +21,8 @@ export type ChecklistOcorrenciaTipo =
 
 export type ChecklistOcorrenciaStatus = 'Aberta' | 'Em tratamento' | 'Solucionada' | 'Cancelada'
 
+export type ChecklistTipoProgramacao = 'dia_util' | 'dia_mes' | 'data_especifica'
+
 export interface ChecklistAtividadeModelo {
   id: string
   codigo: string
@@ -54,6 +56,15 @@ export interface ChecklistAtividadeModelo {
   data_fim_vigencia?: string
   fonte_dados: ChecklistFonteDados
   status_regra: string // Ex: "Oficial", "Regra em validação", "Pendente de validação de processo"
+  // Programação do Check-list
+  tipo_programacao?: ChecklistTipoProgramacao
+  dia_util?: number
+  dia_mes?: number
+  data_especifica?: string
+  regra_execucao_texto?: string
+  proxima_execucao?: string
+  proxima_execucao_formatada?: string
+  competencia_vigente?: string
   metadata?: Record<string, any>
   created?: string
   updated?: string
@@ -180,6 +191,15 @@ export interface ChecklistFechamentoItem {
   status_regra: string
   fonte_dados: string
   status: ChecklistItemStatus
+  // Programação e Execução do Check-list
+  tipo_programacao?: ChecklistTipoProgramacao
+  dia_util?: number
+  dia_mes?: number
+  data_especifica?: string
+  regra_execucao_texto?: string
+  proxima_execucao?: string
+  proxima_execucao_formatada?: string
+  data_prevista?: string // YYYY-MM-DD para cálculo de status dinâmico
   observacao?: string
   quantidade_divergencias?: number
   ordem_material_lote?: string

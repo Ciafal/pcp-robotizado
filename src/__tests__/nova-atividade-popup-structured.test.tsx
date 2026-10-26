@@ -136,9 +136,6 @@ describe('AtividadeMestreModal — Popup + Nova Atividade', () => {
       expect(
         screen.getByText('Selecione o Centro onde esta atividade será aplicada.'),
       ).toBeInTheDocument()
-      expect(
-        screen.getByText('Informe o código identificador da atividade (ex: 1.27).'),
-      ).toBeInTheDocument()
       expect(screen.getByText('Informe o título oficial da atividade.')).toBeInTheDocument()
     })
 
