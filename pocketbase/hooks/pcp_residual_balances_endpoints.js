@@ -418,3 +418,370 @@ routerAdd(
   },
   $apis.requireAuth(),
 )
+
+// 4. Regularização de Saldos Residuais em Massa
+routerAdd(
+  'POST',
+  '/backend/v1/pcp/residual-balances/mass-regularize',
+  (e) => {
+    const authRecord = e.auth
+    if (!authRecord) {
+      return e.json(401, { success: false, error: 'Autenticação requerida.' })
+    }
+
+    const role = authRecord.getString('role') || ''
+    let canRegularize = role === 'PCP_ADMIN' || role === 'PCP_PROGRAMMER'
+    if (!canRegularize) {
+      try {
+        if ($app.hasTable && $app.hasTable('pcp_role_permissions')) {
+          const permRec = $app.findFirstRecordByFilter(
+            'pcp_permissions',
+            "key = 'pcp.residual_balances.regularize'",
+          )
+          if (permRec) {
+            const roleRec = $app.findFirstRecordByFilter('pcp_roles', `code = '${role}'`)
+            if (roleRec) {
+              const rolePerm = $app.findFirstRecordByFilter(
+                'pcp_role_permissions',
+                `role_id = '${roleRec.id}' && permission_id = '${permRec.id}'`,
+              )
+              if (rolePerm) canRegularize = true
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!canRegularize) {
+      return e.json(403, {
+        success: false,
+        error:
+          'Acesso negado: apenas Gestores PCP ou Administradores com permissão podem regularizar saldos residuais em massa.',
+      })
+    }
+
+    const body = e.requestInfo().body || {}
+    const items = Array.isArray(body.items) ? body.items : []
+    const acaoRealizada = (body.acao_realizada || '').trim()
+    const motivo = (body.motivo || '').trim()
+    const observacao = (body.observacao || '').trim()
+    const responsavel = (
+      body.responsavel ||
+      authRecord.getString('name') ||
+      'PCP / Programação'
+    ).trim()
+    const explicitBatchId = (body.batch_id || '').trim()
+
+    if (items.length === 0) {
+      return e.json(400, {
+        success: false,
+        error: 'Nenhum saldo residual selecionado para regularização em massa.',
+      })
+    }
+
+    if (!acaoRealizada) {
+      return e.json(400, {
+        success: false,
+        error: 'Campo obrigatório "Ação" não informado.',
+      })
+    }
+
+    if (!motivo) {
+      return e.json(400, {
+        success: false,
+        error: 'Campo obrigatório "Motivo / Justificativa" não informado.',
+      })
+    }
+
+    // Gerar Identificador Único da Execução em Massa (Formato: REG-SR-YYYYMMDD-XXXXX)
+    const today = new Date()
+    const yyyy = today.getFullYear()
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const dd = String(today.getDate()).padStart(2, '0')
+    const datePart = `${yyyy}${mm}${dd}`
+    const randomPart = String(Math.floor(10000 + Math.random() * 90000))
+    const batchId = explicitBatchId || `REG-SR-${datePart}-${randomPart}`
+
+    const userEmail = authRecord.getString('email') || ''
+    const userName = authRecord.getString('name') || userEmail || 'Usuário PCP'
+    const nowIso = today.toISOString()
+
+    const results = []
+    let successCount = 0
+    let skippedCount = 0
+
+    // Conectar collections necessárias
+    let saldosCol = null
+    let actionsCol = null
+    let auditCol = null
+
+    try {
+      if ($app.hasTable('pcp_residual_balances')) {
+        saldosCol = $app.findCollectionByNameOrId('pcp_residual_balances')
+      }
+      if ($app.hasTable('pcp_residual_balance_actions')) {
+        actionsCol = $app.findCollectionByNameOrId('pcp_residual_balance_actions')
+      }
+      if ($app.hasTable('pcp_audit_logs')) {
+        auditCol = $app.findCollectionByNameOrId('pcp_audit_logs')
+      }
+    } catch (_) {}
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]
+      const saldoId = (it.id || '').trim()
+      const deposito = (it.deposito || '').trim().toUpperCase()
+      const materialCodigo = (it.material_codigo || '').trim()
+      const materialDescricao = (it.material_descricao || '').trim()
+      const lote = (it.lote || '').trim()
+      const quantidadeResidual =
+        Number(it.quantidade_atual != null ? it.quantidade_atual : it.quantidade_residual) || 0
+      const unidadeMedida = (it.unidade_medida || 'kg').trim()
+      const expectedStatus = (it.status || '').trim()
+      const regraAplicada = (it.regra_aplicada_descricao || it.regra_aplicada || '').trim()
+
+      if (!deposito || !lote || !materialCodigo) {
+        skippedCount++
+        results.push({
+          id: saldoId,
+          material_codigo: materialCodigo || '-',
+          lote: lote || '-',
+          deposito: deposito || '-',
+          resultado: 'Não processado',
+          motivo:
+            'Registro com dados obrigatórios incompletos (depósito, material ou lote ausente).',
+          success: false,
+        })
+        continue
+      }
+
+      // 1. Idempotência por lote e batch_id: verificar se este saldo já foi registrado com este mesmo batchId
+      if (actionsCol) {
+        try {
+          const alreadyDone = $app.findFirstRecordByFilter(
+            'pcp_residual_balance_actions',
+            `deposito = '${deposito}' && lote = '${lote}' && observacao ~ '${batchId}'`,
+          )
+          if (alreadyDone) {
+            skippedCount++
+            results.push({
+              id: saldoId,
+              material_codigo: materialCodigo,
+              lote: lote,
+              deposito: deposito,
+              resultado: 'Não processado',
+              motivo: `Operação já executada anteriormente nesta mesma requisição em lote (${batchId}).`,
+              success: false,
+            })
+            continue
+          }
+        } catch (_) {}
+      }
+
+      // 2. Localizar registro persistido no banco
+      let saldoRec = null
+      if (saldoId) {
+        try {
+          saldoRec = $app.findRecordById('pcp_residual_balances', saldoId)
+        } catch (_) {
+          saldoRec = null
+        }
+      }
+
+      // Se não encontrou por ID, buscar por depósito + lote
+      if (!saldoRec && saldosCol) {
+        try {
+          saldoRec = $app.findFirstRecordByFilter(
+            'pcp_residual_balances',
+            `deposito = '${deposito}' && lote = '${lote}'`,
+          )
+        } catch (_) {
+          saldoRec = null
+        }
+      }
+
+      // 3. Validação individual: saldo já regularizado
+      if (saldoRec) {
+        const currentDbStatus = saldoRec.getString('status') || ''
+        if (currentDbStatus === 'REGULARIZADO' || currentDbStatus === 'REGULARIZADO_AUTOMATICO') {
+          skippedCount++
+          results.push({
+            id: saldoRec.id,
+            material_codigo: materialCodigo,
+            lote: lote,
+            deposito: deposito,
+            resultado: 'Não processado',
+            motivo: 'Saldo já regularizado anteriormente no sistema.',
+            success: false,
+          })
+          continue
+        }
+
+        // Validação de concorrência: status mudou desde a seleção
+        if (expectedStatus && currentDbStatus && currentDbStatus !== expectedStatus) {
+          skippedCount++
+          results.push({
+            id: saldoRec.id,
+            material_codigo: materialCodigo,
+            lote: lote,
+            deposito: deposito,
+            resultado: 'Não processado',
+            motivo: `Saldo foi alterado por outro usuário (status atual: ${currentDbStatus}).`,
+            success: false,
+          })
+          continue
+        }
+
+        // Validação de consistência do material e quantidade
+        const currentDbMat = saldoRec.getString('material_codigo') || ''
+        if (currentDbMat && currentDbMat.toUpperCase() !== materialCodigo.toUpperCase()) {
+          skippedCount++
+          results.push({
+            id: saldoRec.id,
+            material_codigo: materialCodigo,
+            lote: lote,
+            deposito: deposito,
+            resultado: 'Não processado',
+            motivo: 'Inconsistência cadastral: material no banco difere do selecionado.',
+            success: false,
+          })
+          continue
+        }
+      }
+
+      // 4. Executar a Regularização do registro
+      let previousStatus = expectedStatus || 'SALDO_RESIDUAL_IDENTIFICADO'
+      let finalSaldoId = saldoId
+
+      try {
+        if (saldoRec) {
+          previousStatus = saldoRec.getString('status') || previousStatus
+          saldoRec.set('status', 'REGULARIZADO')
+          saldoRec.set('responsavel_acao', responsavel)
+          saldoRec.set('ultima_atualizacao_origem', 'REGULARIZACAO_MASSA')
+          $app.save(saldoRec)
+          finalSaldoId = saldoRec.id
+        } else if (saldosCol) {
+          // Criar registro na coleção pcp_residual_balances caso ainda estivesse apenas na camada volátil
+          const newSaldo = new Record(saldosCol)
+          newSaldo.set('deposito', deposito)
+          newSaldo.set('deposito_nome', it.deposito_nome || '')
+          newSaldo.set('material_codigo', materialCodigo)
+          newSaldo.set('material_descricao', materialDescricao)
+          newSaldo.set('lote', lote)
+          newSaldo.set('quantidade_atual', quantidadeResidual)
+          newSaldo.set('unidade_medida', unidadeMedida)
+          newSaldo.set('data_identificacao', it.data_identificacao || nowIso)
+          newSaldo.set('status', 'REGULARIZADO')
+          newSaldo.set('regra_aplicada_descricao', regraAplicada)
+          newSaldo.set('acao_recomendada', acaoRealizada)
+          newSaldo.set('responsavel_acao', responsavel)
+          newSaldo.set('ultima_atualizacao_origem', 'REGULARIZACAO_MASSA')
+          $app.save(newSaldo)
+          finalSaldoId = newSaldo.id
+        }
+
+        // 5. Gravar histórico imutável na collection pcp_residual_balance_actions com batchId
+        const fullObs = observacao
+          ? `[Lote: ${batchId}] Justificativa: ${motivo} | Obs: ${observacao}`
+          : `[Lote: ${batchId}] Justificativa: ${motivo}`
+
+        if (actionsCol) {
+          const actionRec = new Record(actionsCol)
+          actionRec.set('saldo_id', finalSaldoId || '')
+          actionRec.set('deposito', deposito)
+          actionRec.set('material_codigo', materialCodigo)
+          actionRec.set('material_descricao', materialDescricao)
+          actionRec.set('lote', lote)
+          actionRec.set('quantidade_residual', quantidadeResidual)
+          actionRec.set('unidade_medida', unidadeMedida)
+          actionRec.set('regra_aplicada', regraAplicada)
+          actionRec.set('acao_prevista', it.acao_recomendada || '')
+          actionRec.set('acao_realizada', acaoRealizada)
+          actionRec.set('responsavel', responsavel)
+          actionRec.set('data_acao', nowIso)
+          actionRec.set('status_anterior', previousStatus)
+          actionRec.set('status_novo', 'REGULARIZADO')
+          actionRec.set('observacao', fullObs)
+          actionRec.set('usuario_id', authRecord.id)
+          actionRec.set('usuario_nome', userName)
+          actionRec.set('usuario_email', userEmail)
+          $app.save(actionRec)
+        }
+
+        // 6. Gravar na trilha de auditoria oficial (pcp_audit_logs)
+        if (auditCol) {
+          const log = new Record(auditCol)
+          log.set('module', 'Controle de Produção')
+          log.set('screen', 'Saldos Residuais')
+          log.set('action', 'SALDO_RESIDUAL_REGULARIZACAO_MASSA')
+          log.set('event_type', 'SCHEDULE_ACTION')
+          log.set('user_id', authRecord.id)
+          log.set('user_name', userName)
+          log.set('user_email', userEmail)
+          log.set('user_role', role)
+          log.set('resource', 'pcp_residual_balances')
+          log.set('record_id', finalSaldoId || lote)
+          log.set('outcome', 'SUCCESS')
+          log.set('correlation_id', batchId)
+          log.set('details', {
+            batch_id: batchId,
+            tela_origem: 'Saldos Residuais',
+            acao_executada: acaoRealizada,
+            deposito: deposito,
+            material_codigo: materialCodigo,
+            material_descricao: materialDescricao,
+            lote: lote,
+            quantidade_antes: quantidadeResidual,
+            quantidade_depois: quantidadeResidual,
+            unidade_medida: unidadeMedida,
+            status_anterior: previousStatus,
+            status_novo: 'REGULARIZADO',
+            motivo: motivo,
+            observacao: observacao,
+            total_selecionados: items.length,
+            responsavel: responsavel,
+            resultado: 'Sucesso',
+            timestamp: nowIso,
+          })
+          $app.save(log)
+        }
+
+        successCount++
+        results.push({
+          id: finalSaldoId,
+          material_codigo: materialCodigo,
+          lote: lote,
+          deposito: deposito,
+          resultado: 'Sucesso',
+          motivo: 'Regularizado',
+          success: true,
+        })
+      } catch (procErr) {
+        skippedCount++
+        results.push({
+          id: finalSaldoId,
+          material_codigo: materialCodigo,
+          lote: lote,
+          deposito: deposito,
+          resultado: 'Não processado',
+          motivo: `Erro ao persistir regularização: ${procErr.message || procErr}`,
+          success: false,
+        })
+      }
+    }
+
+    return e.json(200, {
+      success: true,
+      batch_id: batchId,
+      summary: {
+        total_processados: items.length,
+        regularizados: successCount,
+        nao_processados: skippedCount,
+      },
+      results: results,
+      timestamp: nowIso,
+    })
+  },
+  $apis.requireAuth(),
+)

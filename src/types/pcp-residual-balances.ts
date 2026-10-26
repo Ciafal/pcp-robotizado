@@ -141,3 +141,26 @@ export interface ResidualBalancesExecutiveCards {
   acoes_necessarias: number
   em_tratamento: number
 }
+
+export interface MassRegularizeItemResult {
+  id?: string
+  material_codigo: string
+  lote: string
+  deposito: string
+  resultado: 'Sucesso' | 'Não processado'
+  motivo: string
+  success: boolean
+}
+
+export interface MassRegularizeResponse {
+  success: boolean
+  batch_id: string
+  summary: {
+    total_processados: number
+    regularizados: number
+    nao_processados: number
+  }
+  results: MassRegularizeItemResult[]
+  timestamp: string
+  message?: string
+}

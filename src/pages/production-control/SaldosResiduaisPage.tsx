@@ -11,6 +11,7 @@ import { ResidualBalanceDetailModal } from '../../components/residual-balances/R
 import { ResidualBalanceActionModal } from '../../components/residual-balances/ResidualBalanceActionModal'
 import { ResidualBalanceHistoryModal } from '../../components/residual-balances/ResidualBalanceHistoryModal'
 import { ResidualBalanceParametersModal } from '../../components/residual-balances/ResidualBalanceParametersModal'
+import { ResidualBalanceMassActionModal } from '../../components/residual-balances/ResidualBalanceMassActionModal'
 import { ResidualBalancesService } from '../../services/pcp-residual-balances-service'
 import { getStorageDeposits, StorageDeposit } from '../../services/pcp-storage-deposits-service'
 import {
@@ -57,6 +58,8 @@ export const SaldosResiduaisPage: React.FC = () => {
   const [historyModalOpen, setHistoryModalOpen] = useState(false)
   const [parametersModalOpen, setParametersModalOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<ResidualBalanceItem | null>(null)
+  const [massModalOpen, setMassModalOpen] = useState(false)
+  const [selectedTableItems, setSelectedTableItems] = useState<ResidualBalanceItem[]>([])
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMessage({ text, type })
@@ -81,6 +84,23 @@ export const SaldosResiduaisPage: React.FC = () => {
       setItems(res.items)
       setSummaries(res.summaries)
       setCards(res.cards)
+
+      // Atualizar a seleção ativa para respeitar os filtros atuais e o estado mais recente
+      setSelectedTableItems((prev) => {
+        if (prev.length === 0) return []
+        const currentFilteredKeys = new Set(
+          res.items.map((it) => `${it.deposito}_${it.lote}_${it.material_codigo}`),
+        )
+        // Mantém apenas os itens que continuam visíveis sob os filtros ativos e atualiza seus dados
+        return res.items.filter((it) =>
+          prev.some(
+            (p) =>
+              p.deposito === it.deposito &&
+              p.lote === it.lote &&
+              p.material_codigo === it.material_codigo,
+          ),
+        )
+      })
     } catch (err: any) {
       showToast(err.message || 'Erro ao carregar dados de saldos residuais.', 'error')
     } finally {
@@ -102,6 +122,7 @@ export const SaldosResiduaisPage: React.FC = () => {
 
   const handleClearFilters = () => {
     setFilters(initialFilters)
+    setSelectedTableItems([])
   }
 
   const handleOpenDetail = (item: ResidualBalanceItem) => {
@@ -234,6 +255,9 @@ export const SaldosResiduaisPage: React.FC = () => {
       <ResidualBalancesTable
         items={items}
         loading={loading}
+        selectedItems={selectedTableItems}
+        onSelectionChange={setSelectedTableItems}
+        onOpenMassRegularize={() => setMassModalOpen(true)}
         onViewDetail={handleOpenDetail}
         onStartTreatment={handleStartTreatment}
         onRegisterAction={handleRegisterAction}
@@ -279,6 +303,32 @@ export const SaldosResiduaisPage: React.FC = () => {
         deposits={deposits}
         onSuccessNotification={(msg) => {
           showToast(msg, 'success')
+          loadData()
+        }}
+      />
+
+      <ResidualBalanceMassActionModal
+        open={massModalOpen}
+        onClose={() => setMassModalOpen(false)}
+        selectedItems={selectedTableItems}
+        onSuccess={(result) => {
+          setSelectedTableItems([])
+          if (result.summary.nao_processados === 0) {
+            showToast(
+              `${result.summary.regularizados} saldos regularizados com sucesso.`,
+              'success',
+            )
+          } else if (result.summary.regularizados > 0) {
+            showToast(
+              `${result.summary.regularizados} registros processados e ${result.summary.nao_processados} registros não puderam ser regularizados.`,
+              'error',
+            )
+          } else {
+            showToast(
+              'Não foi possível executar a regularização. Nenhum registro foi alterado.',
+              'error',
+            )
+          }
           loadData()
         }}
       />
