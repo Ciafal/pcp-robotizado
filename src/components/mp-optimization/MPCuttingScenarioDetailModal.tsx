@@ -861,6 +861,9 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                             <TableHead className="text-xs font-bold min-w-[180px]">
                               Dimensões do Bloco
                             </TableHead>
+                            <TableHead className="text-xs font-bold min-w-[140px] whitespace-nowrap">
+                              Aplicação
+                            </TableHead>
                             <TableHead className="text-xs font-bold whitespace-nowrap">
                               Peso Ideal (t)
                             </TableHead>
@@ -999,6 +1002,22 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                                       </div>
                                     </TooltipContent>
                                   </Tooltip>
+                                </TableCell>
+                                <TableCell className="min-w-[140px] whitespace-nowrap">
+                                  {d.application &&
+                                  d.application.trim() !== '' &&
+                                  d.application.trim() !== 'Aplicação não cadastrada' ? (
+                                    <span className="font-semibold text-slate-800">
+                                      {d.application.trim()}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="text-slate-400 italic text-[11px]"
+                                      title="Nenhuma aplicação vinculada no cadastro de MP ou Ficha Mestra"
+                                    >
+                                      Aplicação não cadastrada
+                                    </span>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   {(d.target_kg / 1000).toLocaleString('pt-BR', {
