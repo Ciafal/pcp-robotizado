@@ -2533,19 +2533,38 @@ class PcpMonthlySummaryService {
    * Converte a estrutura canônica atual das 18 seções em Template Padrão Inicial oficial no banco
    */
   async convertCurrentStructureToInitialTemplate(): Promise<PCPMonthlySummaryTemplateRecord> {
-    // Verifica se já existe um template padrão inicial cadastrado
+    // Verifica se já existe um template padrão institucional ou TPL-RES-001 cadastrado
     const existing = await this.listTemplates()
     const foundInitial = existing.find(
-      (t) => t.is_default && t.aplicacao === 'GERAL' && t.status === 'ATIVO',
+      (t) =>
+        t.template_code === 'TPL-RES-001' ||
+        (t.is_default && t.aplicacao === 'GERAL' && t.status === 'ATIVO') ||
+        t.nome.toLowerCase().includes('institucional') ||
+        t.nome.toLowerCase().includes('18 seções'),
     )
     if (foundInitial) {
+      // Reutiliza/atualiza o template existente assegurando as 18 seções canônicas e status ativo padrão
+      if (
+        !foundInitial.is_default ||
+        foundInitial.status !== 'ATIVO' ||
+        !foundInitial.sections_config ||
+        foundInitial.sections_config.length !== 18
+      ) {
+        return this.updateTemplate(foundInitial.id, {
+          is_default: true,
+          status: 'ATIVO',
+          aplicacao: 'GERAL',
+          sections_config: this.getDefault18SectionsConfig(),
+          motivo: 'Alinhamento institucional das 18 seções mínimas do Resumo Mensal',
+        })
+      }
       return foundInitial
     }
 
     return this.createTemplate({
-      nome: 'Template Padrão Institucional - 18 Seções Mínimas',
+      nome: 'Template Institucional PCP — CIAFAL',
       descricao:
-        'Estrutura canônica homologada com 18 seções mínimas para o Resumo Mensal de Entregas PCP HUB CIAFAL com regras de IA e rastreabilidade SAP.',
+        'Estrutura canônica institucional com as 18 seções operacionais homologadas do Resumo Mensal de Entregas PCP HUB CIAFAL com rastreabilidade e diretrizes de IA.',
       tipo: 'Resumo Mensal PCP',
       empresa_code: 'CIAFAL',
       linha_code: 'ALL',

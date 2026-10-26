@@ -83,16 +83,21 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
   centers,
   onTemplateSelected,
 }) => {
-  const { user } = useAuth()
-  // Permissão de gestão: admin, gestor, coordenador ou programador PCP
-  const role = (user as any)?.role || ''
-  const canManageTemplates =
+  const { user, hasPermission } = useAuth()
+  const role = String((user as any)?.role || '').toLowerCase()
+  const hasDbPermission = Boolean(hasPermission && hasPermission('pcp.templates.manage'))
+  const isFallbackAdminRole =
     role === 'admin' ||
     role === 'gestao' ||
     role === 'pcp' ||
     role === 'gerente_pcp' ||
     role === 'coordenador_pcp' ||
-    !user // Permite em modo dev/homologação caso role não esteja estrita
+    role === 'pcp_programmer' ||
+    role === 'pcp_admin' ||
+    role === 'supervisor_pcp' ||
+    role === 'aprovador_pcp' ||
+    !user
+  const canManageTemplates = hasDbPermission || isFallbackAdminRole
 
   // Estados principais
   const [activeTab, setActiveTab] = useState<'list' | 'editor' | 'preview' | 'history'>('list')
@@ -132,9 +137,14 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
     try {
       const list = await pcpMonthlySummaryService.listTemplates()
       setTemplates(list)
-      if (list.length > 0 && !selectedTemplate) {
-        setSelectedTemplate(list[0])
-      }
+      setSelectedTemplate((prev) => {
+        if (!prev && list.length > 0) return list[0]
+        if (prev) {
+          const updatedSelected = list.find((item) => item.id === prev.id)
+          return updatedSelected || (list.length > 0 ? list[0] : null)
+        }
+        return null
+      })
     } catch (err: any) {
       console.error('Erro ao carregar templates:', err)
       setErrorMsg('Falha ao carregar a lista de templates do Resumo Mensal.')
@@ -484,10 +494,10 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
                     onClick={handleConvertInitial}
                     disabled={isSaving}
                     className="h-8 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-1.5 shadow-xs"
-                    title="Converte as 18 seções mínimas em Template Padrão Oficial no banco de dados"
+                    title="Converte as 18 seções mínimas em Template Institucional Padrão Oficial no banco de dados"
                   >
                     <Star className="w-3.5 h-3.5" />
-                    <span>Gerar Template Padrão Inicial</span>
+                    <span>Converter Estrutura Atual em Template</span>
                   </Button>
 
                   <Button
@@ -533,8 +543,20 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
                 </TabsTrigger>
                 <TabsTrigger
                   value="history"
-                  disabled={!selectedTemplate}
+                  disabled={
+                    !selectedTemplate ||
+                    !selectedTemplate.revisions_history ||
+                    selectedTemplate.revisions_history.length === 0
+                  }
                   className="text-xs h-7 gap-1.5 px-3"
+                  title={
+                    !selectedTemplate
+                      ? 'Selecione um template para ver o histórico'
+                      : !selectedTemplate.revisions_history ||
+                          selectedTemplate.revisions_history.length === 0
+                        ? 'Nenhum histórico registrado para este template'
+                        : undefined
+                  }
                 >
                   <History className="w-3.5 h-3.5" />
                   <span>Histórico de Alterações</span>
@@ -616,7 +638,7 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
                           className="bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-1.5"
                         >
                           <Star className="w-3.5 h-3.5" />
-                          <span>Converter Estrutura em Template Padrão Oficial</span>
+                          <span>Converter Estrutura Atual em Template</span>
                         </Button>
                       </div>
                     )}
@@ -640,8 +662,9 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
                         {filteredTemplates.map((t) => (
                           <tr
                             key={t.id}
-                            className={`hover:bg-slate-50/80 transition-colors ${
-                              selectedTemplate?.id === t.id ? 'bg-blue-50/40' : ''
+                            onClick={() => setSelectedTemplate(t)}
+                            className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${
+                              selectedTemplate?.id === t.id ? 'bg-blue-50/70 font-medium' : ''
                             }`}
                           >
                             <td className="py-3 px-3 space-y-0.5">

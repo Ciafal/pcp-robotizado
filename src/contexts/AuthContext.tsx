@@ -24,6 +24,7 @@ export interface AuthContextType {
   activeScopeFilter: string | null // For UI filtering: null or 'ALL' = all allowed, or line ID
   setActiveScopeFilter: (scopeId: string | null) => void
   can: (permissionKey: string) => boolean
+  hasPermission: (permissionKey: string) => boolean
   canAny: (permissionKeys: string[]) => boolean
   canAll: (permissionKeys: string[]) => boolean
   hasLineScope: (lineId: string, lineCode?: string) => boolean
@@ -506,6 +507,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeScopeFilter,
       setActiveScopeFilter,
       can,
+      hasPermission: can,
       canAny,
       canAll,
       hasLineScope,

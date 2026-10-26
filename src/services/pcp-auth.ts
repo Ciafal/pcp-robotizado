@@ -157,6 +157,7 @@ export const authService = {
         'pcp.sap_validation.execute',
         'pcp.sap_validation.models.view',
         'pcp.sap_validation.models.manage',
+        'pcp.templates.manage',
       ]
     }
     if (roleUpper === 'AUDITOR' || roleUpper === 'COMPLIANCE') {
@@ -250,6 +251,7 @@ export const authService = {
         'pcp.sap_validation.execute',
         'pcp.sap_validation.models.view',
         'pcp.sap_validation.models.manage',
+        'pcp.templates.manage',
       ]
     }
     if (roleUpper === 'PCP_PLANNER') {
