@@ -6,6 +6,7 @@ import { isChunkLoadError, triggerChunkReloadOnce } from '@/lib/lazyWithRetry'
 interface Props {
   children: ReactNode
   moduleName?: string
+  componentName?: string
   fallback?: ReactNode
   variant?: 'full' | 'compact' | 'inline'
   onRetry?: () => void
@@ -77,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
               user_role: (currentUser as any)?.role || 'SYSTEM',
               event_type: 'RULE_ACTION',
               action: 'ERROR_BOUNDARY_CAPTURED',
-              resource: this.props.moduleName || 'UI_COMPONENT',
+              resource: this.props.moduleName || this.props.componentName || 'UI_COMPONENT',
               resource_id: this.occurrenceCode,
               record_id: this.occurrenceCode,
               permission_required: 'pcp.audit.view',
@@ -87,7 +88,7 @@ export class ErrorBoundary extends Component<Props, State> {
               status: 'FAILED',
               details: {
                 occurrence_code: this.occurrenceCode,
-                module_name: this.props.moduleName || 'UI_COMPONENT',
+                module_name: this.props.moduleName || this.props.componentName || 'UI_COMPONENT',
                 error_message: error?.message || 'Erro de renderização desconhecido',
                 error_stack: error?.stack || '',
                 component_stack: errorInfo?.componentStack || '',
@@ -151,7 +152,8 @@ export class ErrorBoundary extends Component<Props, State> {
         (this.props.moduleName &&
           this.props.moduleName !== 'Sistema' &&
           this.props.moduleName !== 'Central de Sequenciamento' &&
-          !isCentrosFichaMestre),
+          !isCentrosFichaMestre) ||
+        Boolean(this.props.componentName),
       )
 
       if (isSubmodule) {
@@ -162,7 +164,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <span>
                 {isCentrosFichaMestre
                   ? `Não foi possível carregar Centros e Ficha Mestre. Código da ocorrência: ${occurrenceCode}`
-                  : `Não foi possível carregar este componente${this.props.moduleName ? ` (${this.props.moduleName})` : ''}. Código da ocorrência: ${occurrenceCode}`}
+                  : `Não foi possível carregar este componente${this.props.moduleName ? ` (${this.props.moduleName})` : this.props.componentName ? ` (${this.props.componentName})` : ''}. Código da ocorrência: ${occurrenceCode}`}
               </span>
             </div>
             <Button

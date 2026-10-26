@@ -45,8 +45,11 @@ import {
   Building2,
   Clock,
   HelpCircle,
+  GitBranch,
 } from 'lucide-react'
 import { formatNumberPTBR, formatDatePTBR, formatDateTimePTBR } from '@/lib/formatters-ptbr'
+import { CreateNewVersionModal } from '@/components/pcp/entregas/CreateNewVersionModal'
+import { TemplateManagementModal } from '@/components/pcp/entregas/TemplateManagementModal'
 
 export const ResumoMensalPage: React.FC = () => {
   const { toast } = useToast()
@@ -85,6 +88,8 @@ export const ResumoMensalPage: React.FC = () => {
   const [isVerificationOpen, setIsVerificationOpen] = useState<boolean>(false)
   const [verificationIssues, setVerificationIssues] = useState<VerificationIssue[]>([])
   const [isReadingConfirmationsOpen, setIsReadingConfirmationsOpen] = useState<boolean>(false)
+  const [isCreateVersionOpen, setIsCreateVersionOpen] = useState<boolean>(false)
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState<boolean>(false)
 
   // Estado do Editor Estruturado
   const [isEditing, setIsEditing] = useState<boolean>(false)
@@ -244,28 +249,30 @@ export const ResumoMensalPage: React.FC = () => {
     )
   }
 
-  // Nova versão V2, V3...
-  const handleCreateNewVersion = async () => {
-    if (!selectedSummary) return
-    try {
-      const newVer = await pcpMonthlySummaryService.createNewVersion(
-        selectedSummary.id,
-        'Revisão periódica de dados de entrega e planejamento',
-        'Justificado por atualização de pedidos no SAP SD',
-      )
+  // Nova versão: abre modal estruturado com validações
+  const handleOpenCreateVersion = () => {
+    if (!selectedSummary) {
       toast({
-        title: `Nova Versão Gerada (${newVer.version_tag})`,
-        description: 'A versão anterior foi preservada imutável no histórico.',
-      })
-      loadInitialData()
-      setSelectedSummary(newVer)
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao gerar nova versão',
-        description: err.message,
+        title: 'Selecione um Resumo',
+        description: 'É necessário selecionar um resumo mensal ativo para gerar uma nova versão.',
         variant: 'destructive',
       })
+      return
     }
+    setIsCreateVersionOpen(true)
+  }
+
+  // Sucesso na criação da nova versão
+  const handleVersionCreated = (newSummary: PCPMonthlySummaryRecord) => {
+    toast({
+      title: `Nova Versão Gerada (${newSummary.version_tag})`,
+      description: `Código: ${newSummary.summary_code}. A versão anterior continua acessível no histórico.`,
+    })
+    // Atualização imediata do estado sem necessidade de reload de página
+    setSummaries((prev) => [newSummary, ...prev.filter((s) => s.id !== newSummary.id)])
+    setSelectedSummary(newSummary)
+    setEditableSections(JSON.parse(JSON.stringify(newSummary.sections_data)))
+    setIsEditing(false)
   }
 
   // Cálculos do Dashboard de Resumos
@@ -532,14 +539,24 @@ export const ResumoMensalPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
-            onClick={handleCreateNewVersion}
-            className="h-8 text-xs border-slate-300 bg-white text-slate-700 hover:bg-slate-50 gap-1"
+            onClick={() => setIsTemplateModalOpen(true)}
+            className="h-8 text-xs border-[#004C97]/40 text-[#004C97] bg-[#004C97]/5 hover:bg-[#004C97]/15 gap-1.5 font-bold shadow-2xs"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Layers className="w-3.5 h-3.5 text-[#004C97]" />
+            <span>Parametrização de Templates</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenCreateVersion}
+            className="h-8 text-xs border-slate-300 bg-white text-slate-700 hover:bg-slate-50 gap-1.5 font-semibold"
+          >
+            <GitBranch className="w-3.5 h-3.5 text-sky-700" />
             <span>Criar Nova Versão</span>
           </Button>
 
@@ -1491,6 +1508,27 @@ export const ResumoMensalPage: React.FC = () => {
           onConfirmCurrentReading={handleConfirmReading}
         />
       )}
+
+      {/* MODAL 6: Criar Nova Versão (com Motivo Obrigatório e Guarda Anti-Duplo Clique) */}
+      <CreateNewVersionModal
+        isOpen={isCreateVersionOpen}
+        onClose={() => setIsCreateVersionOpen(false)}
+        summary={selectedSummary}
+        onSuccess={handleVersionCreated}
+      />
+
+      {/* MODAL 7: Parametrização de Templates do Resumo Mensal */}
+      <TemplateManagementModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        centers={centers}
+        onTemplateSelected={(tmpl) => {
+          toast({
+            title: 'Template Selecionado',
+            description: `Template "${tmpl.nome}" (${tmpl.versao_tag}) pronto para aplicação no próximo resumo.`,
+          })
+        }}
+      />
     </div>
   )
 }

@@ -246,3 +246,26 @@ routerAdd(
   },
   $apis.requireAuth(),
 )
+
+/**
+ * Endpoint de governança para listar templates de resumo mensal
+ */
+routerAdd(
+  'GET',
+  '/backend/v1/pcp/summaries/templates',
+  (e) => {
+    try {
+      const records = $app.findRecordsByFilter(
+        'pcp_monthly_summary_templates',
+        '',
+        '-is_default,nome',
+        200,
+        0,
+      )
+      return e.json(200, { items: records })
+    } catch (err) {
+      return e.json(500, { error: err.message || 'Erro ao carregar templates' })
+    }
+  },
+  $apis.requireAuth(),
+)

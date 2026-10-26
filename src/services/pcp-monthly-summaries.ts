@@ -409,6 +409,268 @@ class PcpMonthlySummaryService {
   }
 
   /**
+   * Retorna as 18 seções canônicas de configuração para templates do Resumo Mensal
+   */
+  getDefault18SectionsConfig(): SummaryTemplateSectionConfig[] {
+    return [
+      {
+        order: 1,
+        number: '1',
+        key: 'identificacao',
+        title: 'Identificação Operacional',
+        description: 'Empresa, Linha Fabril, Centro, Mês/Ano, Versão e Data de Entrega',
+        ai_instruction:
+          'Preencher rigorosamente os dados de identificação cadastral conforme o contexto da linha selecionada. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Cadastros JÁ EXISTENTES do PCP / Ficha Mestra',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: false,
+        is_mandatory: true,
+      },
+      {
+        order: 2,
+        number: '2',
+        key: 'sumarioExecutivo',
+        title: 'Sumário Executivo',
+        description: '5 a 10 Bullets Estruturados resumindo a entrega operacional',
+        ai_instruction:
+          'Analise os dados consolidados e gere entre 5 e 10 bullets executivos objetivos com fatos, desvios e destaques. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Consolidação Executiva / IA',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 3,
+        number: '3',
+        key: 'analiseCarteira',
+        title: 'Análise de Carteira & Atendimento Comercial',
+        description: 'Total de carteira, pesos por linha, MTO, revenda, cobertura e rupturas',
+        ai_instruction:
+          'Analise a carteira referente à linha selecionada confrontando pedidos firmes SAP SD com capacidade. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Análise de Carteira / SAP ECC via RFC (ZSD28C)',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 4,
+        number: '4',
+        key: 'estoqueProdutoAcabado',
+        title: 'Estoque de Produto Acabado',
+        description: 'Estoque físico WMS, carteira comprometida, saldo livre e dias de giro',
+        ai_instruction:
+          'Avalie a posição física de estoque e o saldo disponível para faturamento imediato. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'WMS / SAP MM Expedição',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 5,
+        number: '5',
+        key: 'materiaPrima',
+        title: 'Matéria-Prima & Balanço de Pátio',
+        description:
+          'Estoque pátio DP07/KS, entradas previstas, necessidade MRP e risco de ruptura',
+        ai_instruction:
+          'Calcule o balanço de massa de matéria-prima e aponte riscos reais de desabastecimento. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Gestão de MP / SAP MM MRP Controller',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 6,
+        number: '6',
+        key: 'industrializados',
+        title: 'Industrializados & Terceirização',
+        description: 'Contratos vigentes TB-002, volume terceirizado e retornos em trânsito',
+        ai_instruction:
+          'Sintetize a situação das ordens de industrialização externa e cumprimento de prazos. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Gestão de Industrializador / SAP Subcontratação',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: false,
+      },
+      {
+        order: 7,
+        number: '7',
+        key: 'premissasDoMes',
+        title: 'Premissas Operacionais do Mês',
+        description: 'Turnos acordados, prioridades de atendimento e regras de acerto fabril',
+        ai_instruction:
+          'Liste as premissas industriais balizadoras da montagem da programação do período. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Informações editadas pelo Programador PCP / Ficha Mestra',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: false,
+        is_mandatory: true,
+      },
+      {
+        order: 8,
+        number: '8',
+        key: 'restricoesProblemas',
+        title: 'Restrições e Problemas Industriais',
+        description: 'Paradas programadas, quebras de equipamento, telemetria MES e gargalos',
+        ai_instruction:
+          'Documente os principais gargalos e desvios de produtividade ocorridos ou previstos. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Controle de Produção / MES 4.0 / Programação de Parada',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 9,
+        number: '9',
+        key: 'campanhas',
+        title: 'Campanhas de Laminação & Conformação',
+        description: 'Famílias ativas, bitolas foco, tipos de aço e sequenciamento de matriz',
+        ai_instruction:
+          'Detalhe as campanhas de produção e parâmetros metalúrgicos aplicados na linha. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Ficha Mestra / Montagem da Programação',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 10,
+        number: '10',
+        key: 'programacaoDoMes',
+        title: 'Programação do Mês',
+        description: 'Total de ordens SAP, volume programado e aderência à grade fabril',
+        ai_instruction:
+          'Resuma o pacote de ordens planejadas e o índice de cumprimento de grade. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Montagem da Programação / SAP PP',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 11,
+        number: '11',
+        key: 'producaoPrevista',
+        title: 'Produção Prevista',
+        description: 'Distribuição semanal e rateio por família de produtos acabados',
+        ai_instruction:
+          'Apresente o desdobramento semanal e por família da meta de produção aprovada. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Montagem da Programação / Ficha Mestra',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 12,
+        number: '12',
+        key: 'previstoVsRealizadoHistorico',
+        title: 'Previsto x Realizado Histórico',
+        description: 'Comparativo dos últimos 3 a 6 meses com assertividade de entrega',
+        ai_instruction:
+          'Compare o histórico recente de cumprimento do plano com cálculo de assertividade percentual. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Histórico de Programações / Entregas PCP',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 13,
+        number: '13',
+        key: 'historicoRevisoes',
+        title: 'Histórico de Revisões de Versão',
+        description: 'Rastreabilidade de revisões V01, V02... com responsáveis e motivos',
+        ai_instruction:
+          'Exiba a trilha imutável de revisões mantendo a integridade histórica dos motivos. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Revisões / Auditoria PCP',
+        is_visible: true,
+        allow_manual_edit: false,
+        allow_ai_completion: false,
+        is_mandatory: true,
+      },
+      {
+        order: 14,
+        number: '14',
+        key: 'riscos',
+        title: 'Matriz de Riscos de Entrega',
+        description: 'Riscos operacionais, comerciais ou logísticos com nível de severidade',
+        ai_instruction:
+          'Estruture os riscos identificados correlacionando com evidências transacionais do ERP. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Indicadores / Informações editadas pelo Programador PCP',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 15,
+        number: '15',
+        key: 'pontosAtencao',
+        title: 'Pontos de Atenção Críticos',
+        description: 'Alertas práticos para supervisores de turno e equipe de PCP (~10 máx)',
+        ai_instruction:
+          'Destaque pontos críticos que exigem vigilância estrita no chão de fábrica. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Informações editadas pelo Programador PCP',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+      {
+        order: 16,
+        number: '16',
+        key: 'pendenciasPorArea',
+        title: 'Pendências e Planos de Ação por Área',
+        description:
+          'Ações distribuídas com prazo e responsável de Manutenção, Suprimentos e Vendas',
+        ai_instruction:
+          'Compile os compromissos intersetoriais com responsável e prazo definido. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Documentos de referência / Informações editadas pelo Programador PCP',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: false,
+        is_mandatory: true,
+      },
+      {
+        order: 17,
+        number: '17',
+        key: 'aprovacoes',
+        title: 'Trilha de Aprovações Departamentais',
+        description: 'Assinaturas digitais de PCP, Gerência Industrial e Diretoria Comercial',
+        ai_instruction:
+          'Acompanhe as instâncias formais de validação e pareceres gerenciais. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Entregas PCP / Trilha de Governança',
+        is_visible: true,
+        allow_manual_edit: false,
+        allow_ai_completion: false,
+        is_mandatory: true,
+      },
+      {
+        order: 18,
+        number: '18',
+        key: 'conclusaoIA',
+        title: 'Conclusão & Parecer IA',
+        description: 'Análise de consistência holística gerada pelo Agente Nativo CIAFAL',
+        ai_instruction:
+          'Emita um parecer executivo conclusivo avaliando a coerência entre carteira, estoque e programação. Não invente informações. Quando não houver dados, informe explicitamente que não existem dados suficientes.',
+        data_source: 'Agente Nativo CIAFAL / Skip Cloud IA',
+        is_visible: true,
+        allow_manual_edit: true,
+        allow_ai_completion: true,
+        is_mandatory: true,
+      },
+    ]
+  }
+
+  /**
    * Constrói o template inicial padrão das 18 seções com dados consolidados das fontes reais
    */
   buildInitialSections(params: {
@@ -1975,6 +2237,381 @@ class PcpMonthlySummaryService {
         created: '2025-05-10T14:30:00Z',
       },
     ]
+  }
+
+  /**
+   * Lista todos os templates cadastrados em pcp_monthly_summary_templates
+   */
+  async listTemplates(): Promise<PCPMonthlySummaryTemplateRecord[]> {
+    try {
+      const records = await pb.collection('pcp_monthly_summary_templates').getFullList({
+        sort: '-is_default,nome',
+      })
+      if (records && records.length > 0) {
+        return records.map((r: any) => this.mapTemplateRecord(r))
+      }
+    } catch (err) {
+      console.warn('Erro ao listar templates de pcp_monthly_summary_templates:', err)
+    }
+    return []
+  }
+
+  /**
+   * Obtém template por ID
+   */
+  async getTemplateById(id: string): Promise<PCPMonthlySummaryTemplateRecord> {
+    const r = await pb.collection('pcp_monthly_summary_templates').getOne(id)
+    return this.mapTemplateRecord(r)
+  }
+
+  /**
+   * Cria um novo template com código gerado automaticamente server-side
+   */
+  async createTemplate(input: CreateTemplateInput): Promise<PCPMonthlySummaryTemplateRecord> {
+    const user = pb.authStore.record
+    const userName = user?.name || user?.email || 'Programador PCP'
+    const nowIso = new Date().toISOString()
+    const autoCode = `TMP-PMS-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+
+    // Se marcado como padrão, desmarcar outros da mesma combinação
+    if (input.is_default) {
+      await this.ensureSingleDefaultTemplate({
+        empresa: input.empresa_code,
+        linha: input.linha_code,
+        centro: input.centro_code,
+      })
+    }
+
+    const payload: any = {
+      template_code: autoCode,
+      nome: input.nome.trim(),
+      descricao: (input.descricao || '').trim(),
+      tipo: 'Resumo Mensal PCP',
+      empresa_code: input.empresa_code || 'CIAFAL',
+      linha_code: input.linha_code || 'ALL',
+      centro_code: input.centro_code || 'ALL',
+      aplicacao: input.aplicacao || 'GERAL',
+      status: input.status || 'ATIVO',
+      is_default: Boolean(input.is_default),
+      vigencia_inicio: input.vigencia_inicio || nowIso.slice(0, 10),
+      vigencia_fim: input.vigencia_fim || '',
+      versao: 1,
+      versao_tag: 'V1.0',
+      responsavel_criacao: userName,
+      ultima_atualizacao_por: userName,
+      sections_config: input.sections_config || this.getDefault18SectionsConfig(),
+      revisions_history: [
+        {
+          versao_tag: 'V1.0',
+          data_hora: nowIso,
+          usuario: userName,
+          motivo: 'Criação inicial do template de resumo mensal',
+        },
+      ],
+    }
+
+    const created = await pb.collection('pcp_monthly_summary_templates').create(payload)
+
+    // Auditoria com enum oficial SCHEDULE_ACTION
+    await pcpAuditService.recordLog({
+      action: `Criado template de resumo mensal: ${payload.nome} (${autoCode})`,
+      event_type: 'SCHEDULE_ACTION',
+      resource: 'PCP_MONTHLY_SUMMARY_TEMPLATE',
+      record_id: autoCode,
+      line: input.linha_code !== 'ALL' ? input.linha_code : '',
+      center: input.centro_code !== 'ALL' ? input.centro_code : '',
+      company: input.empresa_code || 'CIAFAL',
+      module: 'ENTREGAS_PCP',
+      screen: 'PARAMETRIZACAO_TEMPLATES',
+      status: 'Concluída',
+      outcome: 'SUCCESS',
+      source: 'Usuário',
+      details: {
+        template_code: autoCode,
+        nome: payload.nome,
+        aplicacao: payload.aplicacao,
+        is_default: payload.is_default,
+        sections_count: payload.sections_config?.length || 0,
+      },
+    })
+
+    return this.mapTemplateRecord(created)
+  }
+
+  /**
+   * Atualiza template existente
+   */
+  async updateTemplate(
+    id: string,
+    updates: Partial<CreateTemplateInput> & { motivo?: string },
+  ): Promise<PCPMonthlySummaryTemplateRecord> {
+    const user = pb.authStore.record
+    const userName = user?.name || user?.email || 'Programador PCP'
+    const nowIso = new Date().toISOString()
+
+    const current = await pb.collection('pcp_monthly_summary_templates').getOne(id)
+
+    if (updates.is_default) {
+      await this.ensureSingleDefaultTemplate({
+        empresa: updates.empresa_code || current.empresa_code,
+        linha: updates.linha_code || current.linha_code,
+        centro: updates.centro_code || current.centro_code,
+        excludeId: id,
+      })
+    }
+
+    const revHistory = current.revisions_history || []
+    revHistory.push({
+      versao_tag: current.versao_tag || 'V1.0',
+      data_hora: nowIso,
+      usuario: userName,
+      motivo: updates.motivo || 'Atualização dos parâmetros do template',
+    })
+
+    const payload: any = {
+      ...updates,
+      ultima_atualizacao_por: userName,
+      revisions_history: revHistory,
+    }
+    delete payload.motivo
+
+    const updated = await pb.collection('pcp_monthly_summary_templates').update(id, payload)
+
+    await pcpAuditService.recordLog({
+      action: `Atualizado template de resumo mensal: ${current.nome} (${current.template_code})`,
+      event_type: 'SCHEDULE_ACTION',
+      resource: 'PCP_MONTHLY_SUMMARY_TEMPLATE',
+      record_id: current.template_code,
+      module: 'ENTREGAS_PCP',
+      screen: 'PARAMETRIZACAO_TEMPLATES',
+      status: 'Concluída',
+      outcome: 'SUCCESS',
+      source: 'Usuário',
+      details: {
+        template_code: current.template_code,
+        updates,
+        motivo: updates.motivo,
+      },
+    })
+
+    return this.mapTemplateRecord(updated)
+  }
+
+  /**
+   * Alterna status Ativo/Inativo do template
+   */
+  async toggleTemplateStatus(
+    id: string,
+    motivo: string = 'Alteração de status do template',
+  ): Promise<PCPMonthlySummaryTemplateRecord> {
+    const current = await pb.collection('pcp_monthly_summary_templates').getOne(id)
+    const newStatus = current.status === 'ATIVO' ? 'INATIVO' : 'ATIVO'
+
+    return this.updateTemplate(id, {
+      status: newStatus,
+      motivo: `${motivo}: transição de ${current.status} para ${newStatus}`,
+    })
+  }
+
+  /**
+   * Define template como padrão exclusivo da sua combinação
+   */
+  async setTemplateAsDefault(id: string): Promise<PCPMonthlySummaryTemplateRecord> {
+    const current = await pb.collection('pcp_monthly_summary_templates').getOne(id)
+    await this.ensureSingleDefaultTemplate({
+      empresa: current.empresa_code,
+      linha: current.linha_code,
+      centro: current.centro_code,
+      excludeId: id,
+    })
+
+    return this.updateTemplate(id, {
+      is_default: true,
+      motivo: 'Definido como template padrão da categoria',
+    })
+  }
+
+  /**
+   * Cria uma nova versão do template (ex: V1.0 -> V2.0) preservando a anterior
+   */
+  async createNewTemplateVersion(
+    sourceId: string,
+    motivo: string,
+  ): Promise<PCPMonthlySummaryTemplateRecord> {
+    const user = pb.authStore.record
+    const userName = user?.name || user?.email || 'Programador PCP'
+    const nowIso = new Date().toISOString()
+
+    const source = await pb.collection('pcp_monthly_summary_templates').getOne(sourceId)
+    const nextVer = (Number(source.versao) || 1) + 1
+    const nextTag = `V${nextVer}.0`
+    const autoCode = `TMP-PMS-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+
+    const revHistory = [
+      ...(source.revisions_history || []),
+      {
+        versao_tag: nextTag,
+        data_hora: nowIso,
+        usuario: userName,
+        motivo:
+          motivo.trim() || `Nova versão incrementada a partir de ${source.versao_tag || 'V1.0'}`,
+        source_template_code: source.template_code,
+      },
+    ]
+
+    const payload: any = {
+      template_code: autoCode,
+      nome: `${source.nome} (${nextTag})`,
+      descricao: source.descricao,
+      tipo: 'Resumo Mensal PCP',
+      empresa_code: source.empresa_code,
+      linha_code: source.linha_code,
+      centro_code: source.centro_code,
+      aplicacao: source.aplicacao,
+      status: 'ATIVO',
+      is_default: false,
+      vigencia_inicio: nowIso.slice(0, 10),
+      vigencia_fim: '',
+      versao: nextVer,
+      versao_tag: nextTag,
+      responsavel_criacao: userName,
+      ultima_atualizacao_por: userName,
+      sections_config: source.sections_config,
+      revisions_history: revHistory,
+    }
+
+    const created = await pb.collection('pcp_monthly_summary_templates').create(payload)
+
+    await pcpAuditService.recordLog({
+      action: `Criada nova versão do template: ${payload.nome} (${nextTag})`,
+      event_type: 'SCHEDULE_ACTION',
+      resource: 'PCP_MONTHLY_SUMMARY_TEMPLATE',
+      record_id: autoCode,
+      module: 'ENTREGAS_PCP',
+      screen: 'PARAMETRIZACAO_TEMPLATES',
+      status: 'Concluída',
+      outcome: 'SUCCESS',
+      source: 'Usuário',
+      details: {
+        sourceCode: source.template_code,
+        nextCode: autoCode,
+        nextTag,
+        motivo,
+      },
+    })
+
+    return this.mapTemplateRecord(created)
+  }
+
+  /**
+   * Duplica um template existente
+   */
+  async duplicateTemplate(
+    sourceId: string,
+    novoNome?: string,
+  ): Promise<PCPMonthlySummaryTemplateRecord> {
+    const source = await pb.collection('pcp_monthly_summary_templates').getOne(sourceId)
+    const name = novoNome || `${source.nome} (Cópia)`
+    return this.createTemplate({
+      nome: name,
+      descricao: `Cópia do template ${source.template_code}: ${source.descricao || ''}`,
+      tipo: 'Resumo Mensal PCP',
+      empresa_code: source.empresa_code,
+      linha_code: source.linha_code,
+      centro_code: source.centro_code,
+      aplicacao: source.aplicacao,
+      status: 'ATIVO',
+      is_default: false,
+      vigencia_inicio: new Date().toISOString().slice(0, 10),
+      sections_config: JSON.parse(
+        JSON.stringify(source.sections_config || this.getDefault18SectionsConfig()),
+      ),
+    })
+  }
+
+  /**
+   * Converte a estrutura canônica atual das 18 seções em Template Padrão Inicial oficial no banco
+   */
+  async convertCurrentStructureToInitialTemplate(): Promise<PCPMonthlySummaryTemplateRecord> {
+    // Verifica se já existe um template padrão inicial cadastrado
+    const existing = await this.listTemplates()
+    const foundInitial = existing.find(
+      (t) => t.is_default && t.aplicacao === 'GERAL' && t.status === 'ATIVO',
+    )
+    if (foundInitial) {
+      return foundInitial
+    }
+
+    return this.createTemplate({
+      nome: 'Template Padrão Institucional - 18 Seções Mínimas',
+      descricao:
+        'Estrutura canônica homologada com 18 seções mínimas para o Resumo Mensal de Entregas PCP HUB CIAFAL com regras de IA e rastreabilidade SAP.',
+      tipo: 'Resumo Mensal PCP',
+      empresa_code: 'CIAFAL',
+      linha_code: 'ALL',
+      centro_code: 'ALL',
+      aplicacao: 'GERAL',
+      status: 'ATIVO',
+      is_default: true,
+      vigencia_inicio: '2025-01-01',
+      sections_config: this.getDefault18SectionsConfig(),
+    })
+  }
+
+  /**
+   * Garante que não haja múltiplos templates ativos marcados como padrão para a mesma combinação
+   */
+  private async ensureSingleDefaultTemplate(params: {
+    empresa?: string
+    linha?: string
+    centro?: string
+    excludeId?: string
+  }): Promise<void> {
+    try {
+      const all = await pb.collection('pcp_monthly_summary_templates').getFullList({
+        filter: 'is_default = true',
+      })
+      for (const t of all) {
+        if (params.excludeId && t.id === params.excludeId) continue
+        const sameEmpresa = (t.empresa_code || 'ALL') === (params.empresa || 'ALL')
+        const sameLinha = (t.linha_code || 'ALL') === (params.linha || 'ALL')
+        const sameCentro = (t.centro_code || 'ALL') === (params.centro || 'ALL')
+
+        if (sameEmpresa && sameLinha && sameCentro) {
+          await pb.collection('pcp_monthly_summary_templates').update(t.id, {
+            is_default: false,
+          })
+        }
+      }
+    } catch (err) {
+      console.warn('Falha na sanitização de templates padrão simultâneos:', err)
+    }
+  }
+
+  private mapTemplateRecord(r: any): PCPMonthlySummaryTemplateRecord {
+    return {
+      id: r.id,
+      template_code: r.template_code,
+      nome: r.nome,
+      descricao: r.descricao,
+      tipo: r.tipo || 'Resumo Mensal PCP',
+      empresa_code: r.empresa_code,
+      linha_code: r.linha_code,
+      centro_code: r.centro_code,
+      aplicacao: r.aplicacao || 'GERAL',
+      status: r.status || 'ATIVO',
+      is_default: Boolean(r.is_default),
+      vigencia_inicio: r.vigencia_inicio,
+      vigencia_fim: r.vigencia_fim,
+      versao: r.versao || 1,
+      versao_tag: r.versao_tag || 'V1.0',
+      responsavel_criacao: r.responsavel_criacao,
+      ultima_atualizacao_por: r.ultima_atualizacao_por,
+      sections_config: r.sections_config || [],
+      revisions_history: r.revisions_history || [],
+      created: r.created,
+      updated: r.updated,
+    }
   }
 
   private mapRecord(r: any): PCPMonthlySummaryRecord {
