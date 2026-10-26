@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T13:45:17.323Z",
+  "generatedAt": "2026-10-26T14:21:11.508Z",
   "collections": [
     {
       "name": "users",
@@ -22753,6 +22753,30 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "template_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "template_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "template_version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "template_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
