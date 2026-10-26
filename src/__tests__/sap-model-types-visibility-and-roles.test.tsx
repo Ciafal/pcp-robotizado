@@ -13,6 +13,7 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     user: { name: 'Programador PCP Teste', email: 'programador@ciafal.com.br', role: currentRole },
     can: (permissionKey: string) => userPermissions.includes(permissionKey),
+    hasPermission: (permissionKey: string) => userPermissions.includes(permissionKey),
     canAny: (keys: string[]) => keys.some((k) => userPermissions.includes(k)),
     canAll: (keys: string[]) => keys.every((k) => userPermissions.includes(k)),
     hasLineScope: () => true,

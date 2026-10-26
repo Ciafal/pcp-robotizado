@@ -25,6 +25,8 @@ vi.mock('@/contexts/AuthContext', () => ({
       name: 'Lucas Ferreira (PCP)',
       role: 'PCP_PROGRAMMER',
     },
+    hasPermission: () => true,
+    can: () => true,
   }),
 }))
 

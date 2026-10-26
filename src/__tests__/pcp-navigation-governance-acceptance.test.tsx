@@ -56,6 +56,21 @@ function renderSidebarWithAuth(
         'pcp.carteira.view',
       ].includes(perm)
     },
+    hasPermission: (perm: string) => {
+      const role = String(authOverrides?.user?.role || 'PCP_ADMIN')
+      if (role === 'PCP_ADMIN' || role === 'ADMIN' || role === 'ADMINISTRADOR') return true
+      if (authOverrides?.permissionKeys) {
+        return authOverrides.permissionKeys.has(perm) || authOverrides.permissionKeys.has('*')
+      }
+      return [
+        'pcp.schedule.view',
+        'pcp.audit.view',
+        'pcp.integrations.view',
+        'pcp.admin.manage',
+        'pcp.admin.access',
+        'pcp.carteira.view',
+      ].includes(perm)
+    },
     canAny: () => true,
     canAll: () => true,
     hasLineScope: () => true,

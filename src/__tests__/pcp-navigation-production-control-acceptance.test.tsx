@@ -59,6 +59,7 @@ function renderSidebarWithRole(initialRoute = '/pcp/cockpit', role: string = 'PC
     activeScopeFilter: 'ALL',
     setActiveScopeFilter: vi.fn(),
     can: (perm: string) => permSet.has(perm),
+    hasPermission: (perm: string) => permSet.has(perm),
     canAny: (permsArr: string[]) => permsArr.some((p) => permSet.has(p)),
     canAll: (permsArr: string[]) => permsArr.every((p) => permSet.has(p)),
     hasLineScope: () => true,

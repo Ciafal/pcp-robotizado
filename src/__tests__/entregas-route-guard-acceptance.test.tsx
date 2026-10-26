@@ -21,6 +21,7 @@ function makeMockAuth(overrides?: Partial<AuthContextType>): AuthContextType {
     activeScopeFilter: 'ALL',
     setActiveScopeFilter: vi.fn(),
     can: () => false,
+    hasPermission: () => false,
     canAny: () => false,
     canAll: () => false,
     hasLineScope: () => true,

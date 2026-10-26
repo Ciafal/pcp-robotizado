@@ -33,6 +33,7 @@ const mockAuthValue: AuthContextType = {
   authError: null,
   activeScopeFilter: null,
   can: (perm: string) => perm === 'pcp.masterdata.view' || perm === 'pcp.cockpit.view',
+  hasPermission: (perm: string) => perm === 'pcp.masterdata.view' || perm === 'pcp.cockpit.view',
   canAny: () => true,
   canAll: () => true,
   hasLineScope: () => true,

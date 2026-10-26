@@ -74,6 +74,8 @@ describe('Editar Tipo de Código Modelo Padrão — UI & Acceptance Requirements
       user: { name: 'Engenheiro PCP', email: 'engenharia@ciafal.com.br' },
       can: (perm: string) =>
         perm === 'pcp.sap_validation.models.manage' || perm === 'pcp.sap_validation.models.view',
+      hasPermission: (perm: string) =>
+        perm === 'pcp.sap_validation.models.manage' || perm === 'pcp.sap_validation.models.view',
       canAny: () => true,
       canAll: () => true,
       hasLineScope: () => true,
@@ -101,6 +103,7 @@ describe('Editar Tipo de Código Modelo Padrão — UI & Acceptance Requirements
     vi.spyOn(authContextModule, 'useAuth').mockReturnValue({
       user: { name: 'Visualizador Operacional', email: 'viewer@ciafal.com.br' },
       can: (perm: string) => perm === 'pcp.sap_validation.models.view', // sem canManage
+      hasPermission: (perm: string) => perm === 'pcp.sap_validation.models.view',
       canAny: () => false,
       canAll: () => false,
       hasLineScope: () => true,

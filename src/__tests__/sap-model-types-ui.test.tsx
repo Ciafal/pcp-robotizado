@@ -8,6 +8,7 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     user: { name: 'Engenheiro PCP', email: 'engenharia@ciafal.com.br' },
     can: () => true,
+    hasPermission: () => true,
     canAny: () => true,
     canAll: () => true,
     hasLineScope: () => true,

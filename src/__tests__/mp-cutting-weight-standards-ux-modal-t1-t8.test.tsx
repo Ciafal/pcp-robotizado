@@ -10,6 +10,8 @@ import type { MPCuttingWeightStandard } from '@/types/mp-cutting-weight-standard
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     user: { id: 'usr-1', name: 'Administrador PCP', email: 'pcp@ciafal.com.br' },
+    hasPermission: () => true,
+    can: () => true,
   }),
 }))
 
