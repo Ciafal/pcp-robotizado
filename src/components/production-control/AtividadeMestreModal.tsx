@@ -533,7 +533,17 @@ export const AtividadeMestreModal: React.FC<Props> = ({
     }
 
     setFieldErrors(errors)
-    return Object.keys(errors).length === 0
+    if (Object.keys(errors).length > 0) {
+      setTimeout(() => {
+        const firstErrorEl = document.querySelector<HTMLElement>('[data-field-error="true"]')
+        if (firstErrorEl) {
+          firstErrorEl.focus()
+          firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 50)
+      return false
+    }
+    return true
   }
 
   // Submissão do Formulário
@@ -718,6 +728,7 @@ export const AtividadeMestreModal: React.FC<Props> = ({
                   {loadingCompanies && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
                 </label>
                 <select
+                  data-field-error={Boolean(fieldErrors.werks)}
                   value={werks}
                   onChange={(e) => handleSelectWerks(e.target.value)}
                   disabled={saving || loadingCompanies}
@@ -749,6 +760,7 @@ export const AtividadeMestreModal: React.FC<Props> = ({
                   {loadingLines && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
                 </label>
                 <select
+                  data-field-error={Boolean(fieldErrors.line)}
                   value={lineId || lineCode}
                   onChange={(e) => {
                     const selVal = e.target.value
@@ -790,6 +802,7 @@ export const AtividadeMestreModal: React.FC<Props> = ({
                   {loadingCenters && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
                 </label>
                 <select
+                  data-field-error={Boolean(fieldErrors.center)}
                   value={centerCode}
                   onChange={(e) => {
                     const selVal = e.target.value
@@ -897,6 +910,7 @@ export const AtividadeMestreModal: React.FC<Props> = ({
                 Título da Atividade <span className="text-rose-500">*</span>
               </label>
               <Input
+                data-field-error={Boolean(fieldErrors.titulo)}
                 type="text"
                 placeholder="Ex: ZPP_99 — Validação de Sucata Especial"
                 value={titulo}
@@ -965,6 +979,7 @@ export const AtividadeMestreModal: React.FC<Props> = ({
                     Dia útil <span className="text-rose-500">*</span>
                   </label>
                   <select
+                    data-field-error={Boolean(fieldErrors.diaUtil)}
                     value={diaUtil}
                     disabled={saving}
                     onChange={(e) => setDiaUtil(parseInt(e.target.value, 10) || 1)}
@@ -994,6 +1009,7 @@ export const AtividadeMestreModal: React.FC<Props> = ({
                     Dia do mês <span className="text-rose-500">*</span>
                   </label>
                   <Input
+                    data-field-error={Boolean(fieldErrors.diaMes)}
                     type="number"
                     min={1}
                     max={31}
@@ -1030,6 +1046,7 @@ export const AtividadeMestreModal: React.FC<Props> = ({
                     Data prevista <span className="text-rose-500">*</span> (dd/mm/aaaa)
                   </label>
                   <Input
+                    data-field-error={Boolean(fieldErrors.dataEspecifica)}
                     type="text"
                     placeholder="Ex: 10/11/2026"
                     maxLength={10}
@@ -1037,17 +1054,11 @@ export const AtividadeMestreModal: React.FC<Props> = ({
                     disabled={saving}
                     onChange={(e) => {
                       let val = e.target.value.replace(/[^\d/]/g, '')
-                      if (
-                        val.length === 2 &&
-                        !val.includes('/') &&
-                        e.nativeEvent.inputType !== 'deleteContentBackward'
-                      ) {
+                      const isDelete =
+                        (e.nativeEvent as InputEvent).inputType === 'deleteContentBackward'
+                      if (val.length === 2 && !val.includes('/') && !isDelete) {
                         val = val + '/'
-                      } else if (
-                        val.length === 5 &&
-                        val.split('/').length === 2 &&
-                        e.nativeEvent.inputType !== 'deleteContentBackward'
-                      ) {
+                      } else if (val.length === 5 && val.split('/').length === 2 && !isDelete) {
                         val = val + '/'
                       }
                       setDataEspecificaPtBr(val)

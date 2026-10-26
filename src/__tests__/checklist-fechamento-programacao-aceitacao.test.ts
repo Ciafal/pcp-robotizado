@@ -5,8 +5,11 @@ import {
   calcularProximaExecucao,
   derivarStatusOperacionalItem,
   calcularSegundoDiaUtil,
+  calcularProximoCodigoMestre,
+  checklistFechamentoService,
 } from '@/services/checklist-fechamento-service'
 import { ChecklistFechamentoItem } from '@/types/checklist-fechamento'
+import { pb } from '@/lib/pocketbase/client'
 
 describe('Motor de Programação do Check-list Fechamento (PCP Robotizado)', () => {
   beforeEach(() => {
@@ -15,7 +18,6 @@ describe('Motor de Programação do Check-list Fechamento (PCP Robotizado)', () 
 
   describe('1. Cálculo de Dias Úteis (Desconsidera Sábados, Domingos e Feriados)', () => {
     it('1.1 Se o dia 01 for sábado e 02 for domingo, 1º dia útil = dia 03 e 2º dia útil = dia 04', () => {
-      // Novembro de 2026: 01/11/2026 é Domingo
       // Agosto de 2026: 01/08/2026 é Sábado, 02/08/2026 é Domingo
       const feriadosAgosto2026: string[] = [] // sem feriado
       const primeiroDia = calcularNthDiaUtilDoMes(2026, 8, 1, feriadosAgosto2026)
@@ -26,6 +28,12 @@ describe('Motor de Programação do Check-list Fechamento (PCP Robotizado)', () 
 
       expect(segundoDia.dataIso).toBe('2026-08-04')
       expect(segundoDia.dataFormatada).toBe('04/08/2026')
+
+      // Novembro de 2026: 01/11/2026 é Domingo. Se dia 02 for feriado (Finados):
+      const novComFinados = calcularNthDiaUtilDoMes(2026, 11, 1, ['2026-11-02'])
+      expect(novComFinados.dataIso).toBe('2026-11-03') // Terça-feira
+      const nov2ComFinados = calcularNthDiaUtilDoMes(2026, 11, 2, ['2026-11-02'])
+      expect(nov2ComFinados.dataIso).toBe('2026-11-04') // Quarta-feira
     })
 
     it('1.2 Pula feriado corporativo quando presente no calendário (ex: 07/09 segunda)', () => {
@@ -177,6 +185,108 @@ describe('Motor de Programação do Check-list Fechamento (PCP Robotizado)', () 
         '2026-09-10',
       )
       expect(derivado.statusDerivado).toBe('Pendente')
+    })
+  })
+
+  describe('5. Código Automático, Histórico e Não Reutilização de Código Inativado', () => {
+    it('5.1 Padrão histórico 1.24 / 1.25 / 1.26 gera próximo como 1.27', () => {
+      const codigos = ['1.1', '1.2', '1.24', '1.25', '1.26']
+      expect(calcularProximoCodigoMestre(codigos)).toBe('1.27')
+    })
+
+    it('5.2 NÃO reutiliza código de atividade inativada ou existente na base', () => {
+      // Suponha que 1.27 foi inativado/cadastrado anteriormente
+      const codigosComInativo = ['1.1', '1.24', '1.25', '1.26', '1.27']
+      expect(calcularProximoCodigoMestre(codigosComInativo)).toBe('1.28')
+    })
+
+    it('5.3 Não corrompe cálculo na presença de subníveis históricos (ex: 1.23.1)', () => {
+      const codigos = ['1.22', '1.23', '1.23.1', '1.24', '1.25', '1.26']
+      expect(calcularProximoCodigoMestre(codigos)).toBe('1.27')
+    })
+
+    it('5.4 Edição preserva estritamente o código original sem alterá-lo', async () => {
+      const getOneSpy = vi
+        .spyOn(pb.collection('checklist_fechamento_modelos'), 'getOne')
+        .mockResolvedValue({
+          id: 'mod-124',
+          codigo: '1.24',
+          titulo: 'Endireitadeira L1 Original',
+          werks: '1000',
+          line_code: 'L1',
+          center_code: 'WC-L1',
+        } as any)
+
+      const updateSpy = vi
+        .spyOn(pb.collection('checklist_fechamento_modelos'), 'update')
+        .mockResolvedValue({
+          id: 'mod-124',
+          codigo: '1.24',
+          titulo: 'Endireitadeira L1 Atualizada',
+          werks: '1000',
+          line_code: 'L1',
+          center_code: 'WC-L1',
+        } as any)
+
+      const auditSpy = vi.spyOn(pb.collection('pcp_audit_logs'), 'create').mockResolvedValue({
+        id: 'aud-edit-1',
+      } as any)
+
+      // Tentativa de alterar o código para '9.99' na edição
+      const resultado = await checklistFechamentoService.salvarModelo({
+        id: 'mod-124',
+        codigo: '9.99', // tentativa indevida
+        titulo: 'Endireitadeira L1 Atualizada',
+        tipo_programacao: 'dia_mes',
+        dia_mes: 15,
+      })
+
+      // O update deve ser chamado mantendo o código '1.24' original
+      expect(updateSpy).toHaveBeenCalledWith(
+        'mod-124',
+        expect.objectContaining({
+          codigo: '1.24',
+          titulo: 'Endireitadeira L1 Atualizada',
+        }),
+      )
+      expect(resultado.codigo).toBe('1.24')
+    })
+  })
+
+  describe('6. Auditoria de Criação, Edição e Mudança de Regra', () => {
+    it('6.1 Registra log com usuário, data/hora, código, valores anterior/novo e empresa/linha/centro', async () => {
+      const auditSpy = vi.spyOn(pb.collection('pcp_audit_logs'), 'create').mockResolvedValue({
+        id: 'aud-log-1',
+      } as any)
+
+      await checklistFechamentoService.logAuditoria({
+        acao: 'EDITAR_ATIVIDADE',
+        descricao: 'Atividade 1.24 alterada',
+        competencia: '09/2026',
+        valor_anterior: JSON.stringify({ tipo_programacao: 'dia_util', dia_util: 2 }),
+        valor_novo: JSON.stringify({ tipo_programacao: 'dia_mes', dia_mes: 10 }),
+        detalhes: {
+          codigo: '1.24',
+          werks: '1000',
+          line_code: 'L1',
+          center_code: 'WC-L1',
+        },
+      })
+
+      expect(auditSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'EDITAR_ATIVIDADE',
+          resource: 'CHECKLIST_FECHAMENTO',
+          screen: 'Check-list Fechamento',
+          company: 'CIAFAL',
+          details: expect.objectContaining({
+            codigo: '1.24',
+            werks: '1000',
+            line_code: 'L1',
+            center_code: 'WC-L1',
+          }),
+        }),
+      )
     })
   })
 })

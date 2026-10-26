@@ -308,7 +308,7 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
                           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#004C97] bg-blue-50/70 border border-blue-200/70 px-2 py-0.5 rounded shrink-0">
                             <Tag className="w-3 h-3 text-[#004C97]" />
                             {item.regra_execucao_texto ||
-                              item.prazo_relativo_fechamento ||
+                              (item as any).prazo_relativo_fechamento ||
                               '2º dia útil'}
                           </span>
 

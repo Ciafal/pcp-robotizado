@@ -193,4 +193,67 @@ describe('AtividadeMestreModal — Popup + Nova Atividade', () => {
 
     expect(resultado.id).toBe('novo-modelo-1')
   })
+
+  it('6. Campo Código é read-only exibindo "Gerado automaticamente" ou "Próximo código"', async () => {
+    vi.spyOn(checklistFechamentoService, 'obterProximoCodigo').mockResolvedValue({
+      nextCode: '1.27',
+      nextSequence: 27,
+    })
+
+    render(
+      <AtividadeMestreModal open={true} onClose={onCloseMock} modelo={null} onSave={onSaveMock} />,
+    )
+
+    await waitFor(() => {
+      const inputCodigo = screen.getByDisplayValue(/Próximo código: 1\.27|Gerado automaticamente/)
+      expect(inputCodigo).toBeInTheDocument()
+      expect(inputCodigo).toHaveAttribute('readonly')
+      expect(inputCodigo).toBeDisabled()
+    })
+  })
+
+  it('7. Em modo edição o código é estritamente read-only e preserva o código existente', async () => {
+    render(
+      <AtividadeMestreModal
+        open={true}
+        onClose={onCloseMock}
+        modelo={
+          {
+            id: 'mod-hist-1',
+            codigo: '1.24',
+            sequencia: 24,
+            titulo: 'Endireitadeira L1',
+            descricao_detalhada: 'Descrição 1.24',
+            categoria: 'Ordens & Encerramento',
+            linha_centro_relacionado: 'L1 / WC-L1',
+            empresa: '1000',
+            werks: '1000',
+            line_code: 'L1',
+            center_code: 'WC-L1',
+            transacao_sap: 'N/A',
+            deposito_sap: 'N/A',
+            frequencia: 'somente_fechamento',
+            obrigatoria: true,
+            responsavel_padrao: 'PCP',
+            area_responsavel: 'PCP',
+            prazo_relativo_fechamento: '2º dia útil',
+            manual_documento_referencia: 'IT-01',
+            regra_validacao: 'OK',
+            campo_observacao: '',
+            permite_evidencia: false,
+            data_inicio_vigencia: '2026-01-01',
+            fonte_dados: 'Manual',
+            status_regra: 'Oficial',
+            ativa: true,
+          } as any
+        }
+        onSave={onSaveMock}
+      />,
+    )
+
+    const inputCodigo = screen.getByDisplayValue('Próximo código: 1.24')
+    expect(inputCodigo).toBeInTheDocument()
+    expect(inputCodigo).toHaveAttribute('readonly')
+    expect(inputCodigo).toBeDisabled()
+  })
 })

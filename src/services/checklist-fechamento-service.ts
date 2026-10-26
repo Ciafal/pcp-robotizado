@@ -76,7 +76,7 @@ export function calcularDiaUtil(
 export function calcularNthDiaUtilDoMes(
   ano: number,
   mes: number, // 1-12
-  nDiaUtil: number, // 1, 2, 3...
+  nDiaUtil: number, // ex: 1, 2, 3...
   feriadosList: string[] = [],
 ): { dataIso: string; dataFormatada: string } {
   const feriadosSet = new Set(feriadosList)
@@ -117,6 +117,28 @@ export function calcularNthDiaUtilDoMes(
   }
 }
 
+/**
+ * Função pura exportada para calcular o próximo código no padrão histórico "1.X" (ex: 1.24/1.25/1.26 -> 1.27)
+ * considerando apenas sufixos numéricos diretos "1.<num>" ou "1.<num>.*", preservando códigos existentes,
+ * sem reutilizar códigos de itens inativados/excluídos quando passados na lista.
+ */
+export function calcularProximoCodigoMestre(
+  codigosExistentes: (string | null | undefined)[],
+): string {
+  let maxNum = 26
+  for (const c of codigosExistentes) {
+    if (!c) continue
+    const cod = String(c).trim()
+    const match = cod.match(/^1\.(\d+)/)
+    if (match) {
+      const num = parseInt(match[1], 10)
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num
+      }
+    }
+  }
+  return `1.${maxNum + 1}`
+}
 /**
  * Retorna uma data correspondente a um dia específico do mês (1 a 31).
  * Se o mês não possuir o dia configurado (ex: dia 31 em abril ou dia 30 em fevereiro),
@@ -534,25 +556,17 @@ class ChecklistFechamentoService {
       )
     }
 
-    // Fallback cliente caso o endpoint falhe
+    // Fallback cliente caso o endpoint falhe (inclui registros ativos E inativos)
     try {
       const records = await pb.collection('checklist_fechamento_modelos').getFullList({
         sort: '-created',
       })
-      let maxMinor = 26
-      for (const r of records) {
-        const cod = (r.codigo || '').trim()
-        const match = cod.match(/^1\.(\d+)/)
-        if (match) {
-          const m = parseInt(match[1], 10)
-          if (!isNaN(m) && m > maxMinor) {
-            maxMinor = m
-          }
-        }
-      }
+      const nextCode = calcularProximoCodigoMestre(records.map((r: any) => r.codigo))
+      const match = nextCode.match(/^1\.(\d+)/)
+      const num = match ? parseInt(match[1], 10) : 27
       return {
-        nextCode: `1.${maxMinor + 1}`,
-        nextSequence: maxMinor + 2,
+        nextCode,
+        nextSequence: num + 1,
       }
     } catch (_) {
       return { nextCode: '1.27', nextSequence: 27 }
