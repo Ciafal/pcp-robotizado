@@ -153,6 +153,10 @@ export const authService = {
         'pcp.production.view',
         'pcp.production.close',
         'pcp.production.admin',
+        'pcp.sap_validation.view',
+        'pcp.sap_validation.execute',
+        'pcp.sap_validation.models.view',
+        'pcp.sap_validation.models.manage',
       ]
     }
     if (roleUpper === 'AUDITOR' || roleUpper === 'COMPLIANCE') {
@@ -170,6 +174,8 @@ export const authService = {
         'pcp.carteira.view',
         'pcp.faca.view',
         'pcp.production.view',
+        'pcp.sap_validation.view',
+        'pcp.sap_validation.models.view',
       ]
     }
     if (roleUpper === 'EXECUTIVE_VIEWER' || roleUpper === 'EXECUTIVE') {
@@ -240,6 +246,10 @@ export const authService = {
         'pcp.faca.send',
         'pcp.production.view',
         'pcp.production.close',
+        'pcp.sap_validation.view',
+        'pcp.sap_validation.execute',
+        'pcp.sap_validation.models.view',
+        'pcp.sap_validation.models.manage',
       ]
     }
     if (roleUpper === 'PCP_PLANNER') {
@@ -267,6 +277,8 @@ export const authService = {
         'pcp.faca.view',
         'pcp.production.view',
         'pcp.production.close',
+        'pcp.sap_validation.view',
+        'pcp.sap_validation.models.view',
       ]
     }
     if (roleUpper === 'LINE_MANAGER') {

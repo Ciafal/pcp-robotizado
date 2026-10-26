@@ -17,6 +17,7 @@ onRecordAfterCreateSuccess(
         delete globalThis.__rbac_catalog_cache_expires_at
       }
     } catch (_) {}
+    return e.next()
   },
   'pcp_permissions',
   'pcp_roles',
@@ -37,6 +38,7 @@ onRecordAfterUpdateSuccess(
         delete globalThis.__rbac_catalog_cache_expires_at
       }
     } catch (_) {}
+    return e.next()
   },
   'pcp_permissions',
   'pcp_roles',
@@ -57,6 +59,7 @@ onRecordAfterDeleteSuccess(
         delete globalThis.__rbac_catalog_cache_expires_at
       }
     } catch (_) {}
+    return e.next()
   },
   'pcp_permissions',
   'pcp_roles',
@@ -249,6 +252,10 @@ routerAdd(
           'pcp.admin.access',
           'pcp.production.view',
           'pcp.production.close',
+          'pcp.sap_validation.view',
+          'pcp.sap_validation.execute',
+          'pcp.sap_validation.models.view',
+          'pcp.sap_validation.models.manage',
         ],
         PPC_PROGRAMMER: [
           'pcp.schedule.view',
@@ -269,6 +276,10 @@ routerAdd(
           'pcp.admin.access',
           'pcp.production.view',
           'pcp.production.close',
+          'pcp.sap_validation.view',
+          'pcp.sap_validation.execute',
+          'pcp.sap_validation.models.view',
+          'pcp.sap_validation.models.manage',
         ],
         PCP_PLANNER: [
           'pcp.schedule.view',

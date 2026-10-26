@@ -691,12 +691,13 @@ export const CodigosModelosPadraoTab: React.FC = () => {
               </CardDescription>
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
               {canManage && (
                 <Button
                   onClick={handleOpenCreateModal}
                   size="sm"
-                  className="bg-[#004C97] hover:bg-[#003870] text-white font-medium h-9 shadow-xs"
+                  className="bg-[#004C97] hover:bg-[#003870] text-white font-medium h-9 shadow-xs shrink-0"
+                  data-testid="btn-criar-modelo"
                 >
                   <Plus className="w-4 h-4 mr-1.5" />
                   Criar Modelo
@@ -708,7 +709,8 @@ export const CodigosModelosPadraoTab: React.FC = () => {
                 size="sm"
                 onClick={loadData}
                 disabled={loading}
-                className="text-slate-700 h-9"
+                className="text-slate-700 h-9 shrink-0"
+                data-testid="btn-atualizar-modelos"
               >
                 <RotateCw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
                 Atualizar
