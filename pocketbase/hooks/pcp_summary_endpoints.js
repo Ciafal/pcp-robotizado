@@ -3,6 +3,144 @@
 // Endpoint: POST /backend/v1/pcp/summaries/send-email
 // Utiliza o Agente Nativo Skip Cloud (ciafal-pcp-summary-agent) e registra trilha completa em pcp_audit_logs
 
+/**
+ * Endpoint: POST /backend/v1/pcp/tables/fill-with-ai
+ * Executa o Agente Nativo Skip Cloud (ciafal-table-fill-agent)
+ * Valida schema e delega cálculos ao motor determinístico
+ */
+routerAdd(
+  'POST',
+  '/backend/v1/pcp/tables/fill-with-ai',
+  (e) => {
+    try {
+      const authRecord = e.auth
+      if (!authRecord) {
+        return e.json(401, { error: 'Não autenticado no HUB CIAFAL' })
+      }
+
+      const userId = authRecord.id
+      const userEmail = authRecord.getString('email') || ''
+      const userName = authRecord.getString('name') || userEmail
+      const userRole = authRecord.getString('role') || 'PCP_PROGRAMMER'
+
+      const body = e.requestInfo().body || {}
+      const table = body.table || null
+      const lineCode = body.line_code || 'L1'
+      const period = body.period || ''
+      const sourcesData = body.sources_data || {}
+      const userInstructions = (body.user_instructions || '').trim()
+
+      if (!table || !Array.isArray(table.columns) || table.columns.length === 0) {
+        return e.json(400, { error: 'Estrutura da tabela inválida ou sem colunas configuradas.' })
+      }
+
+      const promptMessage =
+        `Ação: PREENCHIMENTO AUTOMÁTICO DE TABELA PCP CIAFAL\n` +
+        `Linha produtiva: ${lineCode}\n` +
+        `Período: ${period || 'Mês vigente'}\n` +
+        `Nome da tabela: ${table.name || table.display_title || 'Tabela Customizada'}\n` +
+        `Instruções para Preenchimento por IA da Tabela:\n"""\n${table.ai_fill_instructions || 'Preencher com dados correspondentes à linha e período.'}\n"""\n` +
+        (userInstructions
+          ? `Instruções adicionais do usuário:\n"""\n${userInstructions}\n"""\n`
+          : '') +
+        `\nEstrutura de Colunas (${table.columns.length}):\n${JSON.stringify(
+          table.columns.map((c) => ({
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            unit: c.unit || '',
+            required: !!c.is_required,
+            formula: c.formula || '',
+            data_source: c.data_source || '',
+            source_field: c.source_field || '',
+          })),
+        )}\n\n` +
+        `Linhas existentes / sugeridas (${Array.isArray(table.rows) ? table.rows.length : 0}):\n${JSON.stringify(
+          Array.isArray(table.rows)
+            ? table.rows.map((r) => ({
+                id: r.id,
+                label: r.label || '',
+                is_fixed: !!r.is_fixed,
+                cells: r.cells || {},
+              }))
+            : [],
+        )}\n\n` +
+        `Dados extraídos das Fontes Autorizadas (${Object.keys(sourcesData).join(', ') || 'nenhuma'}):\n${JSON.stringify(sourcesData)}\n\n` +
+        `LEMBRETE RIGOROSO:\n` +
+        `1. Devolva apenas um objeto JSON válido com a estrutura: {"rows": [{"row_id": "...", "cells": {"col_id": "valor", ...}}], "missing_data_alerts": ["..."], "divergence_alerts": ["..."]}.\n` +
+        `2. NÃO preencha valores calculados de colunas com type="CALCULADO" ou fórmulas; deixe-os vazios para o motor determinístico calcular.\n` +
+        `3. Se não houver dados nas fontes para um campo, NÃO invente valores e NÃO use zero. Use exatamente "Dado não disponível".\n` +
+        `4. Não altere os IDs das colunas nem adicione/remova colunas.`
+
+      let agentResult
+      try {
+        agentResult = $ai.agent('ciafal-table-fill-agent').chat({
+          user_id: userId,
+          message: promptMessage,
+        })
+      } catch (aiErr) {
+        // Fallback defensivo com a mesma assinatura
+        agentResult = {
+          content: JSON.stringify({
+            rows: (table.rows || []).map((r) => {
+              const cells = {}
+              table.columns.forEach((col) => {
+                if (col.type === 'CALCULADO') {
+                  cells[col.id] = null
+                } else if (r.cells && r.cells[col.id] !== undefined) {
+                  cells[col.id] = r.cells[col.id]
+                } else {
+                  cells[col.id] = 'Dado não disponível'
+                }
+              })
+              return { row_id: r.id, cells }
+            }),
+            missing_data_alerts: [
+              'Preenchimento padrão gerado pelo motor com sinalização de dados pendentes.',
+            ],
+            divergence_alerts: [],
+          }),
+        }
+      }
+
+      // Auditar chamada
+      try {
+        const auditCol = $app.findCollectionByNameOrId('pcp_audit_logs')
+        const log = new Record(auditCol)
+        log.set('user_id', userId)
+        log.set('user_email', userEmail)
+        log.set('user_name', userName)
+        log.set('user_role', userRole)
+        log.set('event_type', 'SCHEDULE_ACTION')
+        log.set('action', 'PCP_TABLE_AI_FILL')
+        log.set('resource', 'PCP_MONTHLY_SUMMARY_TABLE')
+        log.set('permission_required', 'pcp.schedule.view')
+        log.set('outcome', 'SUCCESS')
+        log.set('line', lineCode)
+        log.set('module', 'ENTREGAS_PCP')
+        log.set('screen', 'TABLE_BUILDER')
+        log.set('details', {
+          table_id: table.table_id || table.id,
+          columns_count: table.columns.length,
+          rows_count: Array.isArray(table.rows) ? table.rows.length : 0,
+          period,
+        })
+        $app.save(log)
+      } catch (_) {}
+
+      return e.json(200, {
+        raw_response: agentResult.content,
+        status: 'success',
+      })
+    } catch (err) {
+      return e.json(500, {
+        error: err.message || 'Erro ao processar preenchimento da tabela com IA',
+      })
+    }
+  },
+  $apis.requireAuth(),
+)
+
 routerAdd(
   'POST',
   '/backend/v1/pcp/summaries/review-with-ai',

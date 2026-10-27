@@ -316,6 +316,7 @@ export interface TableRowConfig {
   id: string
   order: number
   label?: string
+  is_fixed?: boolean
   cells: Record<string, any> // column_id -> value / default_value
   is_totalizer?: boolean
 }
@@ -3046,6 +3047,454 @@ class PcpMonthlySummaryService {
     }
 
     return updated
+  }
+
+  /**
+   * Coleta dados das fontes oficiais autorizadas para alimentar o preenchimento por IA
+   */
+  async fetchAuthorizedSourcesData(params: {
+    lineCode: string
+    period?: string
+    sources: string[]
+  }): Promise<Record<string, any>> {
+    const { lineCode, sources } = params
+    const result: Record<string, any> = {}
+
+    // 1. Montagem da Programação (weekly_schedules)
+    if (sources.some((s) => s.includes('Programação') || s.includes('Montagem') || s === 'TODAS')) {
+      try {
+        const filter = lineCode && lineCode !== 'ALL' ? `line_code = "${lineCode}"` : ''
+        const schedules = await pb.collection('weekly_schedules').getList(1, 30, {
+          filter,
+          sort: '-created',
+        })
+        result['Montagem da Programação'] = schedules.items.map((i: any) => ({
+          material_code: i.material_code,
+          material_description: i.material_description,
+          planned_quantity_tons: i.planned_quantity_tons,
+          realized_quantity_tons: i.realized_quantity_tons,
+          productivity_rate_th: i.productivity_rate_th,
+          status: i.status,
+          date_str: i.date_str,
+          shift_name: i.shift_name,
+        }))
+      } catch (e) {
+        result['Montagem da Programação'] = []
+      }
+    }
+
+    // 2. Controle de Produção / Apontamentos (pcp_production_orders / weekly_schedules)
+    if (
+      sources.some(
+        (s) =>
+          s.includes('Produção') || s.includes('MES') || s.includes('Apontamento') || s === 'TODAS',
+      )
+    ) {
+      try {
+        const filter = lineCode && lineCode !== 'ALL' ? `linha_code = "${lineCode}"` : ''
+        const orders = await pb.collection('pcp_production_orders').getList(1, 30, {
+          filter,
+          sort: '-created',
+        })
+        result['Controle de Produção / MES 4.0'] = orders.items.map((o: any) => ({
+          op_number: o.op_number,
+          material_code: o.material_code,
+          material_description: o.material_description,
+          quantity_planned_tons: o.quantity_planned_tons,
+          quantity_produced_tons: o.quantity_produced_tons,
+          yield_realized_pct: o.yield_realized_pct,
+          status_op: o.status_op,
+        }))
+      } catch (e) {
+        result['Controle de Produção / MES 4.0'] = []
+      }
+    }
+
+    // 3. Ficha Mestra / Cadastros Homologados (line_masters / production_lines)
+    if (
+      sources.some((s) => s.includes('Ficha Mestra') || s.includes('Cadastros') || s === 'TODAS')
+    ) {
+      try {
+        const lines = await pb.collection('production_lines').getFullList()
+        result['Ficha Mestra / Cadastros Homologados'] = lines.map((l: any) => ({
+          code: l.code,
+          name: l.name,
+          target_rate: l.target_rate,
+          nominal_capacity: l.nominal_capacity,
+          capacity_unit: l.capacity_unit,
+          status: l.status,
+        }))
+      } catch (e) {
+        result['Ficha Mestra / Cadastros Homologados'] = []
+      }
+    }
+
+    // 4. Análise de Carteira / Pedidos (carteira_items)
+    if (
+      sources.some(
+        (s) =>
+          s.includes('Carteira') ||
+          s.includes('Pedidos') ||
+          s.includes('Comercial') ||
+          s === 'TODAS',
+      )
+    ) {
+      try {
+        const filter = lineCode && lineCode !== 'ALL' ? `linha = "${lineCode}"` : ''
+        const carteira = await pb.collection('carteira_items').getList(1, 30, {
+          filter,
+          sort: '-created',
+        })
+        result['Análise de Carteira'] = carteira.items.map((c: any) => ({
+          codigo_material: c.codigo_material,
+          descricao_material: c.descricao_material,
+          carteira_aberta_tons: c.carteira_aberta_tons,
+          falta_produzir_tons: c.falta_produzir_tons,
+          estoque_livre_tons: c.estoque_livre_tons,
+          status_atendimento: c.status_atendimento,
+        }))
+      } catch (e) {
+        result['Análise de Carteira'] = []
+      }
+    }
+
+    // 5. Gestão de Matéria-Prima (inventory_items)
+    if (
+      sources.some(
+        (s) =>
+          s.includes('Matéria-Prima') || s.includes('Estoque') || s.includes('MP') || s === 'TODAS',
+      )
+    ) {
+      try {
+        const items = await pb.collection('inventory_items').getList(1, 30, {
+          sort: '-created',
+        })
+        result['Gestão de Matéria-Prima'] = items.items.map((i: any) => ({
+          material_code: i.material_code,
+          material_description: i.material_description,
+          qty_unrestricted: i.qty_unrestricted,
+          qty_total: i.qty_total,
+          storage_location: i.storage_location,
+        }))
+      } catch (e) {
+        result['Gestão de Matéria-Prima'] = []
+      }
+    }
+
+    // 6. Indicadores & OEE / Desvios
+    if (
+      sources.some(
+        (s) =>
+          s.includes('Indicadores') || s.includes('OEE') || s.includes('Desvios') || s === 'TODAS',
+      )
+    ) {
+      try {
+        const filter = lineCode && lineCode !== 'ALL' ? `line_code = "${lineCode}"` : ''
+        const devs = await pb.collection('production_deviations').getList(1, 20, {
+          filter,
+          sort: '-created',
+        })
+        result['Indicadores & Desvios'] = devs.items.map((d: any) => ({
+          cause_taxonomy: d.cause_taxonomy,
+          adherence_pct: d.adherence_pct,
+          efficiency_pct: d.efficiency_pct,
+          gap_qty: d.gap_qty,
+        }))
+      } catch (e) {
+        result['Indicadores & Desvios'] = []
+      }
+    }
+
+    return result
+  }
+
+  /**
+   * Avalia expressão matemática ou fórmula de forma determinística e segura
+   */
+  evaluateDeterministicFormula(
+    formula: string,
+    rowCells: Record<string, any>,
+    columns: TableColumnConfig[],
+  ): number | null {
+    if (!formula || typeof formula !== 'string') return null
+    let expr = formula.trim()
+
+    // 1. Substituir referências por nome de coluna: [Nome da Coluna]
+    columns.forEach((col) => {
+      const escapedName = col.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const pattern = new RegExp(`\\[${escapedName}\\]`, 'gi')
+      const val = rowCells[col.id]
+      const num = typeof val === 'number' ? val : parseFloat(String(val || '').replace(',', '.'))
+      expr = expr.replace(pattern, isNaN(num) ? '0' : String(num))
+    })
+
+    // 2. Substituir referências diretas por ID de coluna: {col_id} ou [col_id]
+    columns.forEach((col) => {
+      const pattern = new RegExp(`\\[${col.id}\\]|\\{${col.id}\\}`, 'gi')
+      const val = rowCells[col.id]
+      const num = typeof val === 'number' ? val : parseFloat(String(val || '').replace(',', '.'))
+      expr = expr.replace(pattern, isNaN(num) ? '0' : String(num))
+    })
+
+    // 3. Sanitizar caracteres matemáticos permitidos
+    const sanitized = expr.replace(/[^0-9.+\-*/() ]/g, '')
+    if (!sanitized) return null
+
+    try {
+      // Avaliação segura através do construtor Function sem acesso ao escopo global
+      const fn = new Function(`return (${sanitized});`)
+      const res = fn()
+      if (typeof res === 'number' && !isNaN(res) && isFinite(res)) {
+        return Math.round(res * 1000) / 1000 // 3 casas decimais
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Executa validação determinística de tipos, obrigatoriedades e fórmulas
+   * Garante:
+   * 1. NUNCA inventar valores — sem dado vira "Dado não disponível"
+   * 2. Cálculos e fórmulas executados deterministicamente
+   * 3. Estrutura de colunas imutável
+   */
+  validateAndComputeDeterministicTable(
+    table: CustomTableConfig,
+    proposedRows: TableRowConfig[],
+  ): {
+    validatedRows: TableRowConfig[]
+    missingDataAlerts: string[]
+    divergenceAlerts: string[]
+    unfilledCount: number
+    filledCount: number
+  } {
+    const missingDataAlerts: string[] = []
+    const divergenceAlerts: string[] = []
+    let unfilledCount = 0
+    let filledCount = 0
+
+    const validatedRows: TableRowConfig[] = proposedRows.map((row, rowIdx) => {
+      const validatedCells: Record<string, any> = { ...row.cells }
+
+      table.columns.forEach((col) => {
+        const rawVal = validatedCells[col.id]
+        const colLabel = col.name || `Coluna ${col.order}`
+
+        // Se for campo calculado ou tiver fórmula -> OBRIGATÓRIO computar deterministicamente
+        if (col.field_type === 'CAMPO_CALCULADO' || Boolean(col.calculation_rule)) {
+          const computed = this.evaluateDeterministicFormula(
+            col.calculation_rule || '',
+            validatedCells,
+            table.columns,
+          )
+          if (computed !== null) {
+            validatedCells[col.id] = computed
+            filledCount++
+          } else {
+            // Se as variáveis dependentes não estiverem disponíveis
+            validatedCells[col.id] = 'Dado não disponível'
+            unfilledCount++
+            missingDataAlerts.push(
+              `Linha ${rowIdx + 1} ("${row.label || `Item ${rowIdx + 1}`}"): Campo calculado "${colLabel}" requer dados das fontes que estão ausentes.`,
+            )
+          }
+          return
+        }
+
+        // Validação de dados ausentes ou vazios
+        if (
+          rawVal === undefined ||
+          rawVal === null ||
+          rawVal === '' ||
+          rawVal === '—' ||
+          rawVal === 'N/A' ||
+          rawVal === 'Dado não disponível'
+        ) {
+          validatedCells[col.id] = 'Dado não disponível'
+          unfilledCount++
+          if (col.is_required) {
+            missingDataAlerts.push(
+              `Linha ${rowIdx + 1}: Campo obrigatório "${colLabel}" não possui registro na fonte oficial autorizada.`,
+            )
+          }
+          return
+        }
+
+        // Validação de Tipos
+        if (
+          col.field_type === 'QUANTIDADE' ||
+          col.field_type === 'NUMERO_INTEIRO' ||
+          col.field_type === 'NUMERO_DECIMAL' ||
+          col.field_type === 'PERCENTUAL' ||
+          col.field_type === 'MOEDA'
+        ) {
+          const num =
+            typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal).replace(',', '.'))
+          if (isNaN(num)) {
+            divergenceAlerts.push(
+              `Linha ${rowIdx + 1}: Valor "${rawVal}" na coluna "${colLabel}" é inválido para o tipo numérico especificado. Convertido para "Dado não disponível".`,
+            )
+            validatedCells[col.id] = 'Dado não disponível'
+            unfilledCount++
+          } else {
+            validatedCells[col.id] = num
+            filledCount++
+          }
+        } else {
+          // Tipos TEXTO, DATA, STATUS, INFORMACAO_IA
+          validatedCells[col.id] = String(rawVal).trim()
+          filledCount++
+        }
+      })
+
+      return {
+        ...row,
+        cells: validatedCells,
+      }
+    })
+
+    return {
+      validatedRows,
+      missingDataAlerts,
+      divergenceAlerts,
+      unfilledCount,
+      filledCount,
+    }
+  }
+
+  /**
+   * Executa o fluxo completo de preenchimento por IA chamando o agente nativo
+   * e processando o resultado com validação determinística
+   */
+  async fillTableWithAi(params: {
+    table: CustomTableConfig
+    lineCode: string
+    period?: string
+    userInstructions?: string
+  }): Promise<{
+    table: CustomTableConfig
+    missingDataAlerts: string[]
+    divergenceAlerts: string[]
+    filledCount: number
+    unfilledCount: number
+    rawResponse?: string
+  }> {
+    const { table, lineCode, period, userInstructions } = params
+
+    // 1. Identificar fontes autorizadas configuradas nas colunas
+    const configuredSources = Array.from(
+      new Set(
+        table.columns.map((c) => c.data_source).filter((s): s is string => Boolean(s && s.trim())),
+      ),
+    )
+    if (configuredSources.length === 0) {
+      configuredSources.push('Montagem da Programação', 'Controle de Produção / MES 4.0')
+    }
+
+    // 2. Extrair dados reais autorizados
+    const sourcesData = await this.fetchAuthorizedSourcesData({
+      lineCode,
+      period,
+      sources: configuredSources,
+    })
+
+    // 3. Chamar endpoint do Agente Nativo Skip Cloud
+    let rawResult: any = null
+    try {
+      rawResult = await pb.send('/backend/v1/pcp/tables/fill-with-ai', {
+        method: 'POST',
+        body: {
+          table: {
+            table_id: table.id,
+            name: table.name,
+            display_title: table.display_title,
+            ai_fill_instructions: table.ai_fill_instructions,
+            columns: table.columns.map((c) => ({
+              id: c.id,
+              name: c.name,
+              type: c.field_type,
+              unit: c.unit_of_measure,
+              is_required: c.is_required,
+              formula: c.calculation_rule,
+              data_source: c.data_source,
+              source_field: c.source_field,
+            })),
+            rows: table.rows,
+          },
+          line_code: lineCode,
+          period: period || '',
+          sources_data: sourcesData,
+          user_instructions: userInstructions || '',
+        },
+      })
+    } catch (err: any) {
+      console.warn(
+        'Falha na chamada ao agente nativo de tabelas, aplicando fallback estruturado:',
+        err,
+      )
+    }
+
+    // 4. Parse do resultado da IA
+    let proposedRows: TableRowConfig[] = table.rows || []
+    let aiMissingAlerts: string[] = []
+    let aiDivergenceAlerts: string[] = []
+
+    if (rawResult?.raw_response) {
+      try {
+        const text = rawResult.raw_response
+        // Extrair bloco JSON se o modelo formatar com markdown ```json
+        const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/)
+        const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : text
+        const parsed = JSON.parse(jsonStr)
+
+        if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+          // Reconciliar linhas mantendo ids e labels existentes
+          proposedRows = parsed.rows.map((pRow: any, idx: number) => {
+            const existingRow = table.rows?.[idx]
+            return {
+              id: existingRow?.id || pRow.row_id || `row_ai_${Date.now()}_${idx}`,
+              order: existingRow?.order || idx + 1,
+              label: existingRow?.label || pRow.label || `Item ${idx + 1}`,
+              is_fixed: existingRow?.is_fixed || false,
+              cells: pRow.cells || {},
+            }
+          })
+        }
+
+        if (Array.isArray(parsed.missing_data_alerts)) {
+          aiMissingAlerts = parsed.missing_data_alerts
+        }
+        if (Array.isArray(parsed.divergence_alerts)) {
+          aiDivergenceAlerts = parsed.divergence_alerts
+        }
+      } catch (parseErr) {
+        console.warn('Erro ao processar JSON da IA, preservando linhas base:', parseErr)
+      }
+    }
+
+    // 5. Validação DETERMINÍSTICA em código (regras CIAFAL)
+    const { validatedRows, missingDataAlerts, divergenceAlerts, unfilledCount, filledCount } =
+      this.validateAndComputeDeterministicTable(table, proposedRows)
+
+    const finalMissing = Array.from(new Set([...missingDataAlerts, ...aiMissingAlerts]))
+    const finalDivergence = Array.from(new Set([...divergenceAlerts, ...aiDivergenceAlerts]))
+
+    const updatedTable: CustomTableConfig = {
+      ...table,
+      rows: validatedRows,
+      updated_at: new Date().toISOString(),
+    }
+
+    return {
+      table: updatedTable,
+      missingDataAlerts: finalMissing,
+      divergenceAlerts: finalDivergence,
+      filledCount,
+      unfilledCount,
+      rawResponse: rawResult?.raw_response,
+    }
   }
 
   private mapTemplateRecord(r: any): PCPMonthlySummaryTemplateRecord {

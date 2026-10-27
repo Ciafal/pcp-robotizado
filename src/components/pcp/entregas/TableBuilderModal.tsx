@@ -39,6 +39,9 @@ import {
   Type,
   Clock,
   Package,
+  Loader2,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react'
 import {
   CustomTableConfig,
@@ -202,6 +205,18 @@ export const TableBuilderModal: React.FC<TableBuilderModalProps> = ({
   // Coluna em foco para edição detalhada
   const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+
+  // Estado do Preenchimento Inteligente por IA
+  const [isAiFilling, setIsAiFilling] = useState<boolean>(false)
+  const [isAiReviewModalOpen, setIsAiReviewModalOpen] = useState<boolean>(false)
+  const [aiFillResult, setAiFillResult] = useState<{
+    proposedTable: CustomTableConfig
+    missingDataAlerts: string[]
+    divergenceAlerts: string[]
+    filledCount: number
+    unfilledCount: number
+  } | null>(null)
+  const [aiCustomInstructions, setAiCustomInstructions] = useState<string>('')
 
   // Inicialização quando o modal abre ou initialTable muda
   useEffect(() => {
@@ -498,6 +513,92 @@ export const TableBuilderModal: React.FC<TableBuilderModalProps> = ({
   }, [evaluatedRows, columns, totalizerEnabled, totalizerCols])
 
   // ==========================================
+  // PREENCHIMENTO POR IA COM AGENTE NATIVO
+  // ==========================================
+  const handleTriggerAiFill = async () => {
+    if (columns.length === 0) {
+      setValidationError('Adicione ao menos uma coluna antes de solicitar preenchimento por IA.')
+      return
+    }
+
+    // Montar objeto de tabela atual
+    const currentTableObj: CustomTableConfig = {
+      id: tableId || `tbl_${Date.now().toString(36)}`,
+      name: tableName.trim() || 'Tabela Customizada',
+      display_title: displayTitle.trim() || tableName.trim() || 'Tabela Customizada',
+      description: description.trim(),
+      data_source: dataSource,
+      show_title: showTitle,
+      allow_ai_completion: allowAiCompletion,
+      allow_manual_edit: allowManualEdit,
+      ai_fill_instructions:
+        aiFillInstructions.trim() ||
+        'Preencher os registros da tabela com base na fonte indicada. Não inventar valores numéricos. Sem dado na fonte, preencher com "Dado não disponível".',
+      is_dynamic: isDynamic,
+      columns,
+      rows,
+      initial_rows_count: rows.length,
+      initial_cols_count: columns.length,
+      totalizer: {
+        enabled: totalizerEnabled,
+        label: totalizerLabel.trim() || 'Total Geral',
+        columns_to_totalize: totalizerCols,
+        total_function: 'SUM',
+      },
+      updated_at: new Date().toISOString(),
+    }
+
+    setIsAiFilling(true)
+    setValidationError(null)
+
+    try {
+      const res = await pcpMonthlySummaryService.fillTableWithAi({
+        table: currentTableObj,
+        lineCode: 'L1',
+        period: '',
+        userInstructions: aiCustomInstructions,
+      })
+
+      // Regra de Integridade CIAFAL: verificar se a IA tentou alterar estrutura de colunas
+      const originalColIds = new Set(columns.map((c) => c.id))
+      const resColIds = new Set(res.table.columns.map((c) => c.id))
+      const hasStructureTampered =
+        originalColIds.size !== resColIds.size ||
+        [...originalColIds].some((id) => !resColIds.has(id))
+
+      if (hasStructureTampered) {
+        setValidationError(
+          'A resposta da IA tentou alterar a estrutura de colunas do template sem autorização. Operação rejeitada para preservar o schema homologado.',
+        )
+        setIsAiFilling(false)
+        return
+      }
+
+      setAiFillResult({
+        proposedTable: res.table,
+        missingDataAlerts: res.missingDataAlerts,
+        divergenceAlerts: res.divergenceAlerts,
+        filledCount: res.filledCount,
+        unfilledCount: res.unfilledCount,
+      })
+      setIsAiReviewModalOpen(true)
+    } catch (err: any) {
+      setValidationError(
+        `Erro ao executar preenchimento por IA: ${err.message || 'Falha de comunicação com o backend.'}`,
+      )
+    } finally {
+      setIsAiFilling(false)
+    }
+  }
+
+  const handleApplyAiReview = () => {
+    if (!aiFillResult) return
+    setRows(aiFillResult.proposedTable.rows)
+    setIsAiReviewModalOpen(false)
+    setAiFillResult(null)
+  }
+
+  // ==========================================
   // SALVAR TABELA
   // ==========================================
   const handleSave = () => {
@@ -660,6 +761,27 @@ export const TableBuilderModal: React.FC<TableBuilderModalProps> = ({
                     </Button>
 
                     <div className="h-4 w-px bg-slate-200 mx-1" />
+
+                    {/* BOTÃO PREENCHER COM IA */}
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleTriggerAiFill}
+                      disabled={isAiFilling}
+                      className="h-8 text-xs bg-linear-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white font-bold gap-1.5 shadow-xs"
+                    >
+                      {isAiFilling ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Preenchendo...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                          <span>Preencher com IA</span>
+                        </>
+                      )}
+                    </Button>
 
                     <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700">
                       {columns.length} Colunas &bull; {rows.length} Linhas
@@ -1509,6 +1631,161 @@ export const TableBuilderModal: React.FC<TableBuilderModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Modal / Diálogo de Revisão do Preenchimento Inteligente */}
+          {isAiReviewModalOpen && aiFillResult && (
+            <Dialog open={isAiReviewModalOpen} onOpenChange={setIsAiReviewModalOpen}>
+              <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 bg-white shadow-2xl border-indigo-200">
+                <DialogHeader className="p-4 bg-linear-to-r from-indigo-900 via-purple-900 to-[#004C97] text-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-yellow-300" />
+                      <div>
+                        <DialogTitle className="text-base font-bold text-white">
+                          Revisão do Preenchimento Inteligente (Agente Nativo CIAFAL)
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-indigo-200">
+                          Revise os dados preenchidos a partir das fontes autorizadas antes de
+                          aplicar à tabela
+                        </DialogDescription>
+                      </div>
+                    </div>
+                    <Badge className="bg-emerald-500 text-white text-xs">
+                      Validação Determinística Aplicada
+                    </Badge>
+                  </div>
+                </DialogHeader>
+
+                <div className="p-4 space-y-4 overflow-y-auto flex-1">
+                  {/* Resumo de Indicadores */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
+                      <div className="text-xs font-semibold text-emerald-800">
+                        Células Preenchidas
+                      </div>
+                      <div className="text-2xl font-black text-emerald-700 mt-0.5">
+                        {aiFillResult.filledCount}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                      <div className="text-xs font-semibold text-amber-800">
+                        Dados Ausentes na Fonte
+                      </div>
+                      <div className="text-2xl font-black text-amber-700 mt-0.5">
+                        {aiFillResult.unfilledCount}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                      <div className="text-xs font-semibold text-blue-800">Linhas Processadas</div>
+                      <div className="text-2xl font-black text-blue-700 mt-0.5">
+                        {aiFillResult.proposedTable.rows.length}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Alertas de Dados Ausentes */}
+                  {aiFillResult.missingDataAlerts.length > 0 && (
+                    <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-lg space-y-1.5">
+                      <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        <span>Sinalização de Dados Ausentes nas Fontes Autorizadas:</span>
+                      </div>
+                      <ul className="text-[11px] text-amber-800 space-y-1 list-disc pl-5">
+                        {aiFillResult.missingDataAlerts.map((alert, idx) => (
+                          <li key={idx}>{alert}</li>
+                        ))}
+                      </ul>
+                      <p className="text-[10px] text-amber-700 font-medium pt-1">
+                        * Conforme as diretrizes CIAFAL, células sem registro oficial foram mantidas
+                        como &quot;Dado não disponível&quot; (nunca zero).
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Alertas de Divergência */}
+                  {aiFillResult.divergenceAlerts.length > 0 && (
+                    <div className="p-3 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1.5">
+                      <div className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-rose-600" />
+                        <span>Divergências Identificadas & Reconciliadas:</span>
+                      </div>
+                      <ul className="text-[11px] text-rose-800 space-y-1 list-disc pl-5">
+                        {aiFillResult.divergenceAlerts.map((divAlert, idx) => (
+                          <li key={idx}>{divAlert}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Prévia da Tabela Preenchida */}
+                  <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                    <table className="w-full text-xs text-left min-w-[650px]">
+                      <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200 text-[11px]">
+                        <tr>
+                          <th className="py-2 px-3">Item</th>
+                          {columns.map((c) => (
+                            <th key={c.id} className="py-2 px-3">
+                              {c.name} {c.unit_of_measure ? `(${c.unit_of_measure})` : ''}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {aiFillResult.proposedTable.rows.map((row, rIdx) => (
+                          <tr key={row.id} className="hover:bg-slate-50">
+                            <td className="py-2 px-3 font-semibold text-slate-900">
+                              {row.label || `Item ${rIdx + 1}`}
+                            </td>
+                            {columns.map((c) => {
+                              const val = row.cells[c.id]
+                              const isMissing = val === 'Dado não disponível'
+                              return (
+                                <td key={c.id} className="py-2 px-3">
+                                  {isMissing ? (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-100 text-amber-800">
+                                      Dado não disponível
+                                    </span>
+                                  ) : (
+                                    <span className="font-medium text-slate-800">
+                                      {formatTableCellValue(val, c.field_type, c.unit_of_measure)}
+                                    </span>
+                                  )}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <DialogFooter className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsAiReviewModalOpen(false)
+                      setAiFillResult(null)
+                    }}
+                    className="text-xs"
+                  >
+                    Descartar Preenchimento
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleApplyAiReview}
+                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 px-4 shadow-xs"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Confirmar e Aplicar à Grade</span>
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
 
           {/* Rodapé Acessível com Botões Claros */}
           <DialogFooter className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
