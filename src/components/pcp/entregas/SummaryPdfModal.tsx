@@ -87,13 +87,28 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                   Divinópolis &bull; Contagem &bull; Filial Sidercentro
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">
-                  Template:{' '}
-                  <strong>
-                    {summary.template_code || summary.template_snapshot?.code || 'Padrão'}
-                  </strong>{' '}
-                  <span className="font-mono text-slate-600">
-                    ({summary.template_version || summary.template_snapshot?.version || 'V1.0'})
-                  </span>
+                  {(() => {
+                    const templateCode = summary.template_code || summary.template_snapshot?.code
+                    const templateVersion =
+                      summary.template_version || summary.template_snapshot?.version
+
+                    if (!templateCode && !templateVersion && !summary.template_snapshot) {
+                      return (
+                        <span className="italic text-slate-600">
+                          Template: Sem vínculo de template (anterior ao versionamento)
+                        </span>
+                      )
+                    }
+
+                    return (
+                      <>
+                        Template: <strong>{templateCode || 'Sem vínculo'}</strong>{' '}
+                        {templateVersion && (
+                          <span className="font-mono text-slate-600">({templateVersion})</span>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
 
@@ -108,7 +123,7 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                   Período: <strong>{summary.mes_ano}</strong>
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
-                  Entrega: {summary.data_entrega || '04/05/2025'}
+                  Entrega: {summary.data_entrega || 'Dado não disponível'}
                 </div>
               </div>
             </div>
@@ -136,7 +151,7 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                   Responsável PCP:
                 </span>
                 <span className="font-bold text-slate-800">
-                  {summary.responsavel_pcp_nome || 'Carlos Mendes'}
+                  {summary.responsavel_pcp_nome || 'Dado não disponível'}
                 </span>
               </div>
               <div>
@@ -152,11 +167,15 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
               <h3 className="text-xs font-black uppercase text-[#004C97] border-b border-slate-200 pb-1">
                 1. Sumário Executivo do Mês
               </h3>
-              <ul className="list-disc pl-4 space-y-1 text-slate-700 leading-relaxed">
-                {sec.sumarioExecutivo?.bullets?.map((b, idx) => (
-                  <li key={idx}>{b}</li>
-                ))}
-              </ul>
+              {sec.sumarioExecutivo?.bullets && sec.sumarioExecutivo.bullets.length > 0 ? (
+                <ul className="list-disc pl-4 space-y-1 text-slate-700 leading-relaxed">
+                  {sec.sumarioExecutivo.bullets.map((b, idx) => (
+                    <li key={idx}>{b}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-slate-500 italic text-xs">Dado não disponível</p>
+              )}
             </div>
 
             {/* 2. Análise de Carteira */}
@@ -168,25 +187,31 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                 <div className="p-2 border rounded bg-slate-50">
                   <span className="text-[10px] text-slate-500 block">Volume Total:</span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
-                    {sec.analiseCarteira?.totalTons?.formattedText || '3.420,50 t'}
+                    {sec.analiseCarteira?.totalTons?.formattedText || 'Dado não disponível'}
                   </span>
                 </div>
                 <div className="p-2 border rounded bg-slate-50">
                   <span className="text-[10px] text-slate-500 block">Ordens MTO:</span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
-                    {sec.analiseCarteira?.carteiraMTOTons?.formattedText || '840,20 t'}
+                    {sec.analiseCarteira?.carteiraMTOTons?.formattedText || 'Dado não disponível'}
                   </span>
                 </div>
                 <div className="p-2 border rounded bg-slate-50">
                   <span className="text-[10px] text-slate-500 block">Cobertura Média:</span>
                   <span className="font-bold text-emerald-700 font-mono text-sm">
-                    {sec.analiseCarteira?.coberturaDias || 22} dias
+                    {sec.analiseCarteira?.coberturaDias !== undefined &&
+                    sec.analiseCarteira?.coberturaDias !== null
+                      ? `${sec.analiseCarteira.coberturaDias} dias`
+                      : 'Dado não disponível'}
                   </span>
                 </div>
                 <div className="p-2 border rounded bg-slate-50">
                   <span className="text-[10px] text-slate-500 block">Rupturas:</span>
                   <span className="font-bold text-slate-900 font-mono text-sm">
-                    {sec.analiseCarteira?.rupturasIdentificadas || 0} itens
+                    {sec.analiseCarteira?.rupturasIdentificadas !== undefined &&
+                    sec.analiseCarteira?.rupturasIdentificadas !== null
+                      ? `${sec.analiseCarteira.rupturasIdentificadas} itens`
+                      : 'Dado não disponível'}
                   </span>
                 </div>
               </div>
@@ -201,19 +226,19 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                 <div className="p-2 border rounded bg-slate-50">
                   <span className="text-[10px] text-slate-500 block">Estoque Físico:</span>
                   <span className="font-bold text-slate-900 font-mono">
-                    {sec.materiaPrima?.estoqueAtualTons?.formattedText || '5.840,00 t'}
+                    {sec.materiaPrima?.estoqueAtualTons?.formattedText || 'Dado não disponível'}
                   </span>
                 </div>
                 <div className="p-2 border rounded bg-slate-50">
                   <span className="text-[10px] text-slate-500 block">Necessidade Prevista:</span>
                   <span className="font-bold text-slate-900 font-mono">
-                    {sec.materiaPrima?.necessidadeTotalTons?.formattedText || '3.820,00 t'}
+                    {sec.materiaPrima?.necessidadeTotalTons?.formattedText || 'Dado não disponível'}
                   </span>
                 </div>
                 <div className="p-2 border rounded bg-slate-50">
                   <span className="text-[10px] text-slate-500 block">Risco Global MP:</span>
                   <span className="font-bold text-emerald-700 uppercase">
-                    {sec.materiaPrima?.riscoRupturaNivel || 'BAIXO'}
+                    {sec.materiaPrima?.riscoRupturaNivel || 'Dado não disponível'}
                   </span>
                 </div>
               </div>
@@ -263,7 +288,24 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                 })
               }
 
-              if (allTables.length === 0) return null
+              if (allTables.length === 0) {
+                const hasSnapshot = Boolean(
+                  snapshot &&
+                  (snapshot.code ||
+                    snapshot.id ||
+                    (Array.isArray(snapshot.sections_config) &&
+                      snapshot.sections_config.length > 0)),
+                )
+                if (!hasSnapshot) {
+                  return (
+                    <div className="p-3 rounded bg-slate-50 border border-slate-200 text-slate-500 text-[11px] italic">
+                      Este resumo foi gerado antes do versionamento de templates — não possui
+                      tabelas parametrizadas vinculadas.
+                    </div>
+                  )
+                }
+                return null
+              }
 
               return (
                 <div className="space-y-4 border-t border-slate-200 pt-3">
@@ -295,19 +337,25 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                       <span className="text-[10px] text-slate-500 block">Produtividade Média:</span>
                       <span className="font-bold font-mono">
                         {sec.restricoesProblemas?.produtividadeRealizadaTph?.formattedText ||
-                          '14,8 t/h'}
+                          'Dado não disponível'}
                       </span>
                     </div>
                     <div className="p-2 border rounded">
                       <span className="text-[10px] text-slate-500 block">Tempo Setup Médio:</span>
                       <span className="font-bold font-mono">
-                        {sec.restricoesProblemas?.tempoSetupMedioMin || 42} min
+                        {sec.restricoesProblemas?.tempoSetupMedioMin !== undefined &&
+                        sec.restricoesProblemas?.tempoSetupMedioMin !== null
+                          ? `${sec.restricoesProblemas.tempoSetupMedioMin} min`
+                          : 'Dado não disponível'}
                       </span>
                     </div>
                     <div className="p-2 border rounded">
                       <span className="text-[10px] text-slate-500 block">Paradas Programadas:</span>
                       <span className="font-bold font-mono">
-                        {sec.restricoesProblemas?.paradasProgramadasHoras || 16} h
+                        {sec.restricoesProblemas?.paradasProgramadasHoras !== undefined &&
+                        sec.restricoesProblemas?.paradasProgramadasHoras !== null
+                          ? `${sec.restricoesProblemas.paradasProgramadasHoras} h`
+                          : 'Dado não disponível'}
                       </span>
                     </div>
                   </div>
@@ -318,28 +366,32 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                   <h3 className="text-xs font-black uppercase text-[#004C97] border-b border-slate-200 pb-1">
                     5. Pendências & Planos de Ação por Área
                   </h3>
-                  <table className="w-full text-[11px] border border-slate-200 text-left">
-                    <thead className="bg-slate-50 font-bold text-slate-700 border-b">
-                      <tr>
-                        <th className="p-1.5">Área</th>
-                        <th className="p-1.5">Ação Acordada</th>
-                        <th className="p-1.5">Responsável</th>
-                        <th className="p-1.5">Prazo</th>
-                        <th className="p-1.5">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {sec.pendenciasPorArea?.tabela?.map((p) => (
-                        <tr key={p.id}>
-                          <td className="p-1.5 font-bold text-slate-800">{p.area}</td>
-                          <td className="p-1.5 text-slate-700">{p.acao}</td>
-                          <td className="p-1.5 text-slate-600">{p.responsavel}</td>
-                          <td className="p-1.5 font-mono">{p.prazo}</td>
-                          <td className="p-1.5 font-semibold text-slate-800">{p.status}</td>
+                  {sec.pendenciasPorArea?.tabela && sec.pendenciasPorArea.tabela.length > 0 ? (
+                    <table className="w-full text-[11px] border border-slate-200 text-left">
+                      <thead className="bg-slate-50 font-bold text-slate-700 border-b">
+                        <tr>
+                          <th className="p-1.5">Área</th>
+                          <th className="p-1.5">Ação Acordada</th>
+                          <th className="p-1.5">Responsável</th>
+                          <th className="p-1.5">Prazo</th>
+                          <th className="p-1.5">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {sec.pendenciasPorArea.tabela.map((p) => (
+                          <tr key={p.id}>
+                            <td className="p-1.5 font-bold text-slate-800">{p.area}</td>
+                            <td className="p-1.5 text-slate-700">{p.acao}</td>
+                            <td className="p-1.5 text-slate-600">{p.responsavel}</td>
+                            <td className="p-1.5 font-mono">{p.prazo}</td>
+                            <td className="p-1.5 font-semibold text-slate-800">{p.status}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="text-slate-500 italic text-xs">Dado não disponível</p>
+                  )}
                 </div>
               </>
             )}
@@ -350,16 +402,15 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                 Parecer Técnico & Aprovação PCP
               </h3>
               <p className="text-slate-700 leading-relaxed italic bg-slate-50 p-2.5 rounded border border-slate-200">
-                "
-                {sec.conclusaoIA?.parecerGeral ||
-                  'Relatório mensal com consistência técnica plena, dados rastreáveis e conformidade com as diretrizes de governança CIAFAL.'}
-                "
+                {sec.conclusaoIA?.parecerGeral
+                  ? `"${sec.conclusaoIA.parecerGeral}"`
+                  : 'Dado não disponível'}
               </p>
 
               <div className="grid grid-cols-2 gap-4 pt-4 text-center">
                 <div className="border-t border-slate-400 pt-1">
                   <div className="font-bold text-slate-900">
-                    {summary.responsavel_pcp_nome || 'Carlos Mendes'}
+                    {summary.responsavel_pcp_nome || 'Dado não disponível'}
                   </div>
                   <div className="text-[10px] text-slate-500">Programador PCP / Homologador</div>
                 </div>
