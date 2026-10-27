@@ -132,11 +132,11 @@ export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
   const location = useLocation()
 
   return (
-    <div className="space-y-4 bg-slate-50">
+    <div className="w-full max-w-full min-w-0 box-border space-y-4 bg-slate-50">
       {/* Header Compacto da Gestão de MP (Linha 1: Título + Descrição Curta + Ações / Linha 2: Fluxo Horizontal / Linha 3: Cards) */}
-      <div className="bg-white border border-slate-200 rounded-lg p-3 sm:p-3.5 shadow-2xs space-y-2.5">
+      <div className="w-full max-w-full min-w-0 box-border bg-white border border-slate-200 rounded-lg p-3 sm:p-3.5 shadow-2xs space-y-2.5">
         {/* Linha 1: Título em linha única + tags + Ações alinhadas */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 min-w-0">
           <div className="flex items-center gap-2.5 min-w-0 flex-1 flex-wrap">
             <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight whitespace-nowrap">
               GESTÃO DE MATÉRIA-PRIMA
@@ -150,47 +150,49 @@ export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
           </div>
 
           {headerActions && (
-            <div className="flex items-center gap-1.5 flex-wrap shrink-0">{headerActions}</div>
+            <div className="flex items-center gap-1.5 flex-wrap shrink-0 max-w-full">
+              {headerActions}
+            </div>
           )}
         </div>
 
         {/* Linha 2: Fluxo horizontal compacto do ciclo de MP */}
-        <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[10px] text-slate-600 font-semibold">
+        <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 w-full max-w-full min-w-0 box-border text-[10px] text-slate-600 font-semibold">
           <span className="text-slate-400 uppercase text-[9px] font-bold shrink-0">
             Ciclo Operacional:
           </span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap shrink-0">
             1. Necessidade
           </span>
-          <span className="text-slate-400">&rarr;</span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+          <span className="text-slate-400 shrink-0">&rarr;</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap shrink-0">
             2. Compra (ME23N)
           </span>
-          <span className="text-slate-400">&rarr;</span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+          <span className="text-slate-400 shrink-0">&rarr;</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap shrink-0">
             3. Recebimento
           </span>
-          <span className="text-slate-400">&rarr;</span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+          <span className="text-slate-400 shrink-0">&rarr;</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap shrink-0">
             4. Estoque Dimensional
           </span>
-          <span className="text-slate-400">&rarr;</span>
-          <span className="bg-blue-50 text-[#004C97] border border-blue-200 px-2 py-0.5 rounded font-bold whitespace-nowrap">
+          <span className="text-slate-400 shrink-0">&rarr;</span>
+          <span className="bg-blue-50 text-[#004C97] border border-blue-200 px-2 py-0.5 rounded font-bold whitespace-nowrap shrink-0">
             5. Plano de Corte
           </span>
-          <span className="text-slate-400">&rarr;</span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+          <span className="text-slate-400 shrink-0">&rarr;</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap shrink-0">
             6. Aplicação (ZPP86)
           </span>
-          <span className="text-slate-400">&rarr;</span>
-          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold whitespace-nowrap">
+          <span className="text-slate-400 shrink-0">&rarr;</span>
+          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold whitespace-nowrap shrink-0">
             7. Reaplicação
           </span>
         </div>
       </div>
 
-      {/* Régua dos 3 Subtópicos Oficiais Obrigatórios + Visão Geral */}
-      <div className="bg-white border border-slate-200 rounded-xl p-1.5 shadow-xs overflow-x-auto no-scrollbar">
+      {/* Régua dos Subtópicos da Gestão de MP */}
+      <div className="w-full max-w-full min-w-0 box-border bg-white border border-slate-200 rounded-xl p-1.5 shadow-xs overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
         <div className="flex items-center gap-1.5 min-w-max">
           {mpMainTopics.map((topic) => {
             const TopicIcon = topic.icon
@@ -246,7 +248,7 @@ export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
       </div>
 
       {/* Conteúdo da Subpágina */}
-      <div className="space-y-4">{children}</div>
+      <div className="w-full max-w-full min-w-0 box-border space-y-4">{children}</div>
     </div>
   )
 }

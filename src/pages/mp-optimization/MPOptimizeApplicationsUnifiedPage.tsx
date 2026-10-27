@@ -114,64 +114,76 @@ export const MPOptimizeApplicationsUnifiedPage: React.FC = () => {
         </div>
       }
     >
-      {/* Régua das 7 Abas Secundárias de Otimizar Aplicações */}
+      {/* Régua das Abas Secundárias de Otimizar Aplicações com Rolagem Horizontal Interna Resiliente */}
       <Tabs
         value={activeSubTab}
         onValueChange={(v: any) => setActiveSubTab(v)}
-        className="w-full space-y-4"
+        className="w-full max-w-full min-w-0 box-border space-y-4"
       >
-        <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-3">
-          <TabsList className="bg-slate-100 p-1 rounded-lg">
-            <TabsTrigger
-              value="OPORTUNIDADES"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+        <div
+          data-testid="mp-optimize-tabs-bar"
+          className="w-full max-w-full min-w-0 box-border bg-white border border-slate-200 rounded-xl p-2 shadow-xs"
+        >
+          <div
+            data-testid="mp-optimize-tabs-scroll-container"
+            className="w-full max-w-full min-w-0 box-border overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 overscroll-x-contain"
+          >
+            <TabsList
+              data-testid="mp-optimize-tabs-list"
+              className="inline-flex w-max min-w-full h-auto p-1 bg-slate-100 rounded-lg gap-1 justify-start shrink-0 box-border"
             >
-              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-              OPORTUNIDADES ({opportunities.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="CORTES_EXISTENTES"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <Boxes className="w-3.5 h-3.5 mr-1.5" />
-              CORTES EXISTENTES (ZPP86)
-            </TabsTrigger>
-            <TabsTrigger
-              value="PECA_FORA_PADRAO"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
-              PEÇAS FORA DO PADRÃO (ZPP88)
-            </TabsTrigger>
-            <TabsTrigger
-              value="MATRIZ_REAPLICACAO"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <Microscope className="w-3.5 h-3.5 mr-1.5" />
-              MATRIZ DE REAPLICAÇÃO
-            </TabsTrigger>
-            <TabsTrigger
-              value="ANALISE_3D"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <Maximize2 className="w-3.5 h-3.5 mr-1.5" />
-              PROJEÇÃO & NUVEM 3D
-            </TabsTrigger>
-            <TabsTrigger
-              value="APROVACOES"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-              APROVAÇÕES ({approvals.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="HISTORICO"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <History className="w-3.5 h-3.5 mr-1.5" />
-              HISTÓRICO ZPPT058 ({history.length})
-            </TabsTrigger>
-          </TabsList>
+              <TabsTrigger
+                value="OPORTUNIDADES"
+                className="text-xs font-bold shrink-0 whitespace-nowrap data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                OPORTUNIDADES ({opportunities.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="CORTES_EXISTENTES"
+                className="text-xs font-bold shrink-0 whitespace-nowrap data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+              >
+                <Boxes className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                CORTES EXISTENTES (ZPP86)
+              </TabsTrigger>
+              <TabsTrigger
+                value="PECA_FORA_PADRAO"
+                className="text-xs font-bold shrink-0 whitespace-nowrap data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                PEÇAS FORA DO PADRÃO (ZPP88)
+              </TabsTrigger>
+              <TabsTrigger
+                value="MATRIZ_REAPLICACAO"
+                className="text-xs font-bold shrink-0 whitespace-nowrap data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+              >
+                <Microscope className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                MATRIZ DE REAPLICAÇÃO
+              </TabsTrigger>
+              <TabsTrigger
+                value="ANALISE_3D"
+                className="text-xs font-bold shrink-0 whitespace-nowrap data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+              >
+                <Maximize2 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                PROJEÇÃO & NUVEM 3D
+              </TabsTrigger>
+              <TabsTrigger
+                value="APROVACOES"
+                data-testid="tab-trigger-aprovacoes"
+                className="text-xs font-bold shrink-0 whitespace-nowrap data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                APROVAÇÕES ({approvals.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="HISTORICO"
+                className="text-xs font-bold shrink-0 whitespace-nowrap data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+              >
+                <History className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                HISTÓRICO ZPPT058 ({history.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
         </div>
 
         {/* ABA 1: OPORTUNIDADES DE REAPLICAÇÃO */}
