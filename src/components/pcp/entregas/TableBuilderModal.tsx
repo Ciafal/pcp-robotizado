@@ -835,10 +835,12 @@ export const TableBuilderModal: React.FC<TableBuilderModalProps> = ({
                                           col.unit_of_measure,
                                         )}
                                       </span>
-                                      <Calculator
-                                        className="w-3 h-3 text-indigo-400"
+                                      <span
                                         title={`Calculado: ${col.calculation_rule || 'Fórmula padrão'}`}
-                                      />
+                                        className="inline-flex items-center"
+                                      >
+                                        <Calculator className="w-3 h-3 text-indigo-400" />
+                                      </span>
                                     </div>
                                   ) : isAiField ? (
                                     <div className="relative">
