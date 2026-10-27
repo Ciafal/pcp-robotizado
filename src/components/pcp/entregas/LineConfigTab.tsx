@@ -2,10 +2,8 @@ import React, { useState, useEffect } from 'react'
 import {
   lineSummaryAutomationService,
   type LineSummaryConfig,
-  type SummaryPeriodicity,
   type RealProductionLine,
   type HubUser,
-  PERIODICITY_LABELS,
   SUMMARY_TYPES,
 } from '@/services/pcp-line-summary-automation-service'
 import type { MonthlySummaryTemplate } from '@/services/pcp-line-summary-automation-service'
@@ -13,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -30,13 +27,14 @@ import {
   PauseCircle,
   PlayCircle,
   Trash2,
-  Clock,
   Layers,
   User,
   AlertCircle,
   CheckCircle2,
   Loader2,
   Building,
+  CalendarClock,
+  ArrowRight,
 } from 'lucide-react'
 
 interface LineConfigTabProps {
@@ -45,7 +43,11 @@ interface LineConfigTabProps {
   onNavigateToSchedules?: () => void
 }
 
-export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canManage }) => {
+export const LineConfigTab: React.FC<LineConfigTabProps> = ({
+  templates,
+  canManage,
+  onNavigateToSchedules,
+}) => {
   const [configs, setConfigs] = useState<LineSummaryConfig[]>([])
   const [realLines, setRealLines] = useState<RealProductionLine[]>([])
   const [hubUsers, setHubUsers] = useState<HubUser[]>([])
@@ -63,22 +65,17 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
   const [editingConfig, setEditingConfig] = useState<Partial<LineSummaryConfig> | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  // Estados do formulário
+  // Estados do formulário contendo estritamente os campos homologados da Configuração por Linha:
+  // Empresa; Linha produtiva; Centro produtivo; Tipo de Resumo; Template vinculado; Finalidade/Descrição;
+  // Responsável pela geração; Programador PCP titular; Programador PCP substituto; Supervisor PCP; Observações operacionais; Status Ativo/Inativo.
   const [formEmpresa, setFormEmpresa] = useState('CIAFAL')
   const [formLinhaCode, setFormLinhaCode] = useState('L1')
   const [formLinhaNome, setFormLinhaNome] = useState('')
   const [formCentroCode, setFormCentroCode] = useState('SDPL')
   const [formCentroNome, setFormCentroNome] = useState('Sidercentro')
-  const [formTemplateId, setFormTemplateId] = useState('')
   const [formTipoResumo, setFormTipoResumo] = useState('Resumo Mensal PCP')
+  const [formTemplateId, setFormTemplateId] = useState('')
   const [formFinalidade, setFormFinalidade] = useState('')
-  const [formPeriodicidade, setFormPeriodicidade] = useState<SummaryPeriodicity>('mensal')
-  const [formIntervaloDias, setFormIntervaloDias] = useState(30)
-  const [formHorario, setFormHorario] = useState('08:00')
-  const [formDiaMes, setFormDiaMes] = useState(1)
-  const [formGeracaoAuto, setFormGeracaoAuto] = useState(true)
-  const [formExigirAprovacao, setFormExigirAprovacao] = useState(true)
-  const [formEnvioAuto, setFormEnvioAuto] = useState(false)
   const [formRespGeracaoId, setFormRespGeracaoId] = useState('')
   const [formProgPcpId, setFormProgPcpId] = useState('')
   const [formProgSubstitutoId, setFormProgSubstitutoId] = useState('')
@@ -119,16 +116,9 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
     setFormLinhaNome(defaultLine ? defaultLine.name : 'Linha L1')
     setFormCentroCode(defaultLine?.sap_work_center || 'SDPL')
     setFormCentroNome(defaultLine?.sap_work_center || 'Sidercentro')
-    setFormTemplateId('')
     setFormTipoResumo('Resumo Mensal PCP')
+    setFormTemplateId('')
     setFormFinalidade('Fechamento operacional e aderência do plano de entregas')
-    setFormPeriodicidade('mensal')
-    setFormIntervaloDias(30)
-    setFormHorario('08:00')
-    setFormDiaMes(1)
-    setFormGeracaoAuto(true)
-    setFormExigirAprovacao(true)
-    setFormEnvioAuto(false)
     setFormRespGeracaoId(defaultUser ? defaultUser.id : '')
     setFormProgPcpId(defaultUser ? defaultUser.id : '')
     setFormProgSubstitutoId('')
@@ -145,16 +135,9 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
     setFormLinhaNome(cfg.linha_nome || '')
     setFormCentroCode(cfg.centro_code || '')
     setFormCentroNome(cfg.centro_nome || '')
-    setFormTemplateId(cfg.template_id || '')
     setFormTipoResumo(cfg.tipo_resumo || 'Resumo Mensal PCP')
+    setFormTemplateId(cfg.template_id || '')
     setFormFinalidade(cfg.finalidade || '')
-    setFormPeriodicidade(cfg.periodicidade || 'mensal')
-    setFormIntervaloDias(cfg.parametros_personalizados?.intervalo_dias || 30)
-    setFormHorario(cfg.parametros_personalizados?.horario || '08:00')
-    setFormDiaMes(cfg.parametros_personalizados?.dia_do_mes || 1)
-    setFormGeracaoAuto(cfg.geracao_automatica)
-    setFormExigirAprovacao(cfg.exigir_aprovacao)
-    setFormEnvioAuto(cfg.envio_automatico_apos_aprovacao)
     setFormRespGeracaoId(cfg.responsavel_geracao_id || '')
     setFormProgPcpId(cfg.programador_pcp_id || '')
     setFormProgSubstitutoId(cfg.programador_substituto_id || '')
@@ -180,7 +163,7 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
     e.preventDefault()
     if (isSaving) return
 
-    // Validação preventiva dos campos obrigatórios antes do envio
+    // Validação preventiva dos campos obrigatórios da Configuração por Linha
     if (!formEmpresa?.trim()) {
       setErrorMsg('Não foi possível salvar: o campo "Empresa" é obrigatório.')
       return
@@ -191,10 +174,6 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
     }
     if (!formTipoResumo?.trim()) {
       setErrorMsg('Não foi possível salvar: selecione o "Tipo de Resumo".')
-      return
-    }
-    if (!formPeriodicidade?.trim()) {
-      setErrorMsg('Não foi possível salvar: selecione a "Periodicidade".')
       return
     }
     if (!formRespGeracaoId?.trim()) {
@@ -214,7 +193,10 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
       const supUser = hubUsers.find((u) => u.id === formSupervisorId)
       const tpl = templates.find((t) => t.id === formTemplateId)
 
-      // Payload estritamente alinhado ao schema de pcp_line_summary_configs
+      // Preservar valores de periodicidade já existentes no registro se for edição
+      const existingCfg = editingConfig?.id ? configs.find((c) => c.id === editingConfig.id) : null
+
+      // Payload contendo exclusivamente os campos de responsabilidade desta tela
       const payload: Partial<LineSummaryConfig> = {
         id: editingConfig?.id,
         empresa_code: formEmpresa.trim(),
@@ -235,19 +217,15 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
         programador_substituto_nome: subUser ? subUser.name : '',
         supervisor_pcp_id: formSupervisorId || '',
         supervisor_pcp_nome: supUser ? supUser.name : '',
-        geracao_automatica: Boolean(formGeracaoAuto),
-        exigir_aprovacao: Boolean(formExigirAprovacao),
-        envio_automatico_apos_aprovacao: Boolean(formEnvioAuto),
-        periodicidade: formPeriodicidade,
-        parametros_personalizados: {
-          intervalo_dias: formIntervaloDias,
-          horario: formHorario,
-          dia_do_mes: formDiaMes,
-        },
-        data_referencia_str: '',
         status: formStatus,
         observacoes: formObservacoes?.trim() || '',
         finalidade: formFinalidade?.trim() || '',
+        // Preservar periodicidade existente sem exibir no formulário desta tela
+        periodicidade: existingCfg?.periodicidade || 'mensal',
+        parametros_personalizados: existingCfg?.parametros_personalizados || {},
+        geracao_automatica: existingCfg?.geracao_automatica ?? true,
+        exigir_aprovacao: existingCfg?.exigir_aprovacao ?? true,
+        envio_automatico_apos_aprovacao: existingCfg?.envio_automatico_apos_aprovacao ?? false,
       }
 
       await lineSummaryAutomationService.saveLineConfig(payload)
@@ -258,7 +236,6 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
         description: successNotice,
       })
 
-      // Fechar modal apenas em sucesso e recarregar listagem
       setIsModalOpen(false)
       await loadData()
     } catch (err: any) {
@@ -272,7 +249,6 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
         description: friendlyMessage,
         variant: 'destructive',
       })
-      // Em falha: o modal permanece aberto e os campos preenchidos
     } finally {
       setIsSaving(false)
     }
@@ -320,24 +296,6 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
     return matchesSearch && matchesLine && matchesStatus
   })
 
-  const formatDateTime = (iso?: string) => {
-    if (!iso) return '—'
-    try {
-      const d = new Date(iso)
-      if (isNaN(d.getTime())) return iso
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'America/Sao_Paulo',
-      })
-    } catch (_) {
-      return iso
-    }
-  }
-
   return (
     <div className="space-y-4">
       {errorMsg && (
@@ -352,6 +310,29 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
           <AlertDescription className="text-xs font-medium ml-2">{successMsg}</AlertDescription>
         </Alert>
       )}
+
+      {/* Banner Informativo sobre Centralização */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between gap-3 text-xs text-blue-900">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="w-4 h-4 text-[#004C97] shrink-0" />
+          <span>
+            <strong>Gestão de Periodicidade & Execução Automática:</strong> A parametrização de
+            periodicidade, horários, dias de execução e aprovação foi centralizada exclusivamente na
+            aba <strong>Agendamentos & Envios</strong>.
+          </span>
+        </div>
+        {onNavigateToSchedules && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onNavigateToSchedules}
+            className="h-7 text-xs border-blue-300 text-blue-800 hover:bg-blue-100 font-bold gap-1 shrink-0"
+          >
+            <span>Ir para Agendamentos & Envios</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Button>
+        )}
+      </div>
 
       {/* Barra de Filtros e Ações */}
       <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
@@ -431,8 +412,8 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
           <div>
             <div className="font-bold text-slate-800 text-sm">Nenhuma configuração encontrada</div>
             <p className="text-slate-500 text-xs mt-1 max-w-md mx-auto">
-              Cada linha produtiva real (L1, L2, SDC, etc.) pode ter regras automatizadas
-              individuais com periodicidade, template vinculado e responsáveis.
+              Cada linha produtiva real (L1, L2, SDC, etc.) pode ter vinculação de template, centro
+              fabril e matriz de programadores e supervisores.
             </p>
           </div>
           {canManage && (
@@ -453,10 +434,11 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
               <tr>
                 <th className="py-2.5 px-3">Empresa / Linha</th>
                 <th className="py-2.5 px-3">Centro</th>
+                <th className="py-2.5 px-3">Tipo de Resumo</th>
                 <th className="py-2.5 px-3">Template Vinculado</th>
-                <th className="py-2.5 px-3">Periodicidade / Geração</th>
-                <th className="py-2.5 px-3">Próxima Geração</th>
-                <th className="py-2.5 px-3">Responsáveis</th>
+                <th className="py-2.5 px-3">Responsável Elaboração</th>
+                <th className="py-2.5 px-3">Programadores PCP</th>
+                <th className="py-2.5 px-3">Supervisor</th>
                 <th className="py-2.5 px-3 text-center">Status</th>
                 <th className="py-2.5 px-3 text-right">Ações</th>
               </tr>
@@ -474,7 +456,7 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
                         <span>{cfg.linha_nome || cfg.linha_code}</span>
                       </div>
                       <div className="text-[10px] text-slate-500 font-mono">
-                        Empresa: {cfg.empresa_code} &bull; {cfg.tipo_resumo}
+                        Empresa: {cfg.empresa_code}
                       </div>
                       {cfg.finalidade && (
                         <div className="text-[10px] text-slate-600 line-clamp-1 italic">
@@ -490,6 +472,10 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
                       {cfg.centro_nome && cfg.centro_nome !== cfg.centro_code && (
                         <div className="text-[10px] text-slate-500">{cfg.centro_nome}</div>
                       )}
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <div className="font-medium text-slate-800">{cfg.tipo_resumo}</div>
                     </td>
 
                     <td className="py-3 px-3 space-y-0.5">
@@ -512,57 +498,26 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
                     </td>
 
                     <td className="py-3 px-3 space-y-0.5">
-                      <div className="font-bold text-slate-800">
-                        {PERIODICITY_LABELS[cfg.periodicidade] || cfg.periodicidade}
-                      </div>
-                      <div className="text-[10px] text-slate-600 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span>{cfg.parametros_personalizados?.horario || '08:00'}</span>
-                        {cfg.geracao_automatica ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-emerald-50 text-emerald-700 text-[9px] py-0 px-1 border-emerald-300 font-bold ml-1"
-                          >
-                            Auto
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="bg-slate-100 text-slate-600 text-[9px] py-0 px-1 border-slate-300 font-medium ml-1"
-                          >
-                            Manual
-                          </Badge>
-                        )}
-                        {cfg.exigir_aprovacao && (
-                          <Badge
-                            variant="outline"
-                            className="bg-amber-50 text-amber-800 text-[9px] py-0 px-1 border-amber-300 font-medium"
-                          >
-                            Exige Aprov.
-                          </Badge>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-3 font-mono text-[11px] text-slate-700">
-                      <div>{formatDateTime(cfg.proxima_execucao)}</div>
-                      {cfg.data_ultima_geracao && (
-                        <div className="text-[9px] text-slate-400">
-                          Última: {formatDateTime(cfg.data_ultima_geracao)}
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="py-3 px-3 space-y-0.5">
                       <div className="text-slate-800 font-medium flex items-center gap-1">
                         <User className="w-3 h-3 text-slate-400" />
                         <span>{cfg.responsavel_geracao_nome || 'PCP Responsável'}</span>
                       </div>
-                      {cfg.supervisor_pcp_nome && (
-                        <div className="text-[10px] text-slate-500">
-                          Sup: {cfg.supervisor_pcp_nome}
+                    </td>
+
+                    <td className="py-3 px-3 space-y-0.5 text-[11px]">
+                      <div className="text-slate-800">
+                        <span className="text-slate-400 text-[10px]">Titular: </span>
+                        <strong>{cfg.programador_pcp_nome || '—'}</strong>
+                      </div>
+                      {cfg.programador_substituto_nome && (
+                        <div className="text-slate-500 text-[10px]">
+                          Subst: {cfg.programador_substituto_nome}
                         </div>
                       )}
+                    </td>
+
+                    <td className="py-3 px-3 text-[11px] text-slate-800">
+                      {cfg.supervisor_pcp_nome || '—'}
                     </td>
 
                     <td className="py-3 px-3 text-center">
@@ -594,8 +549,8 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
                               }`}
                               title={
                                 cfg.status === 'ATIVO'
-                                  ? 'Suspender Agendamento'
-                                  : 'Reativar Agendamento'
+                                  ? 'Suspender Configuração'
+                                  : 'Reativar Configuração'
                               }
                             >
                               {cfg.status === 'ATIVO' ? (
@@ -636,9 +591,9 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE CONFIGURAÇÃO POR LINHA */}
+      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE CONFIGURAÇÃO POR LINHA (SEM CAMPOS DE PERIODICIDADE) */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto text-xs">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto text-xs">
           <DialogHeader className="border-b border-slate-200 pb-3">
             <DialogTitle className="text-sm font-bold text-[#004C97] flex items-center gap-2">
               <Building className="w-4 h-4" />
@@ -649,6 +604,7 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
           </DialogHeader>
 
           <form onSubmit={handleSave} className="space-y-4 py-2">
+            {/* Bloco 1: Contexto Fabril & Linha Real */}
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
               <div className="font-bold text-xs uppercase text-[#004C97] tracking-wider">
                 1. Contexto Fabril & Linha Real
@@ -750,107 +706,10 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
               </div>
             </div>
 
+            {/* Bloco 2: Matriz de Responsáveis (HUB CIAFAL) */}
             <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
               <div className="font-bold text-xs uppercase text-[#004C97] tracking-wider">
-                2. Periodicidade & Regras de Disparo
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-700">Periodicidade *</Label>
-                  <select
-                    value={formPeriodicidade}
-                    onChange={(e) => setFormPeriodicidade(e.target.value as SummaryPeriodicity)}
-                    className="w-full h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 font-bold"
-                    required
-                  >
-                    <option value="diaria">Diária</option>
-                    <option value="semanal">Semanal</option>
-                    <option value="quinzenal">Quinzenal</option>
-                    <option value="mensal">Mensal</option>
-                    <option value="trimestral">Trimestral</option>
-                    <option value="sob_demanda">Sob Demanda (Sem Agendamento Automático)</option>
-                    <option value="personalizada">Personalizada</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-700">
-                    Horário da Execução (HH:mm)
-                  </Label>
-                  <Input
-                    type="time"
-                    value={formHorario}
-                    onChange={(e) => setFormHorario(e.target.value)}
-                    className="h-8 text-xs bg-white"
-                  />
-                </div>
-
-                {formPeriodicidade === 'mensal' && (
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-slate-700">Dia do Mês</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={31}
-                      value={formDiaMes}
-                      onChange={(e) => setFormDiaMes(parseInt(e.target.value, 10) || 1)}
-                      className="h-8 text-xs bg-white"
-                    />
-                  </div>
-                )}
-
-                {formPeriodicidade === 'personalizada' && (
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-slate-700">
-                      Intervalo em Dias
-                    </Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={365}
-                      value={formIntervaloDias}
-                      onChange={(e) => setFormIntervaloDias(parseInt(e.target.value, 10) || 1)}
-                      className="h-8 text-xs bg-white"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200">
-                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-bold text-slate-800">Geração Automática</Label>
-                    <div className="text-[10px] text-slate-500">
-                      Executado pelo cron persistente
-                    </div>
-                  </div>
-                  <Switch checked={formGeracaoAuto} onCheckedChange={setFormGeracaoAuto} />
-                </div>
-
-                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-bold text-slate-800">Exigir Aprovação</Label>
-                    <div className="text-[10px] text-slate-500">Trava status para revisão PCP</div>
-                  </div>
-                  <Switch checked={formExigirAprovacao} onCheckedChange={setFormExigirAprovacao} />
-                </div>
-
-                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-bold text-slate-800">Envio Pós-Aprovação</Label>
-                    <div className="text-[10px] text-slate-500">
-                      Disparo aos destinatários autorizados
-                    </div>
-                  </div>
-                  <Switch checked={formEnvioAuto} onCheckedChange={setFormEnvioAuto} />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
-              <div className="font-bold text-xs uppercase text-[#004C97] tracking-wider">
-                3. Matriz de Responsáveis (HUB CIAFAL)
+                2. Matriz de Responsáveis (HUB CIAFAL)
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -927,17 +786,33 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-slate-700">
-                Observações Operacionais
-              </Label>
-              <Input
-                type="text"
-                value={formObservacoes}
-                onChange={(e) => setFormObservacoes(e.target.value)}
-                placeholder="Diretrizes específicas de auditoria, prazos de corte SAP..."
-                className="h-8 text-xs bg-white"
-              />
+            {/* Bloco 3: Observações e Status */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 space-y-1">
+                <Label className="text-xs font-semibold text-slate-700">
+                  Observações Operacionais
+                </Label>
+                <Input
+                  type="text"
+                  value={formObservacoes}
+                  onChange={(e) => setFormObservacoes(e.target.value)}
+                  placeholder="Diretrizes específicas de auditoria, prazos de corte SAP..."
+                  className="h-8 text-xs bg-white"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-700">Status Operacional *</Label>
+                <select
+                  value={formStatus}
+                  onChange={(e) => setFormStatus(e.target.value as any)}
+                  className="w-full h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 font-bold"
+                >
+                  <option value="ATIVO">ATIVO</option>
+                  <option value="SUSPENSO">SUSPENSO</option>
+                  <option value="INATIVO">INATIVO</option>
+                </select>
+              </div>
             </div>
 
             <DialogFooter className="pt-2 border-t border-slate-200">

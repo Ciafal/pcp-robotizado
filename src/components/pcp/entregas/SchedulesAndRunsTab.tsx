@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   lineSummaryAutomationService,
   type LineSummaryConfig,
   type SummaryScheduleRun,
   type RealProductionLine,
+  type SummaryPeriodicity,
   PERIODICITY_LABELS,
 } from '@/services/pcp-line-summary-automation-service'
 import type { MonthlySummaryTemplate } from '@/services/pcp-monthly-summaries'
@@ -14,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
   DialogContent,
@@ -34,15 +36,15 @@ import {
   AlertCircle,
   Loader2,
   Search,
-  Filter,
   Eye,
-  Send,
-  Layers,
+  Plus,
   Sparkles,
-  ArrowRight,
   Edit,
   ShieldAlert,
   CalendarCheck,
+  Building,
+  Layers,
+  Send,
 } from 'lucide-react'
 
 interface SchedulesAndRunsTabProps {
@@ -58,7 +60,6 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
   canManage,
   onOpenGenerateModal,
   onOpenSummaryDetail,
-  onEditConfig,
 }) => {
   const [configs, setConfigs] = useState<LineSummaryConfig[]>([])
   const [runs, setRuns] = useState<SummaryScheduleRun[]>([])
@@ -66,6 +67,8 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
   const [isLoading, setIsLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+
+  const { toast } = useToast()
 
   // Filtros
   const [searchFilter, setSearchFilter] = useState('')
@@ -94,21 +97,25 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
   const [viewConfigModalOpen, setViewConfigModalOpen] = useState(false)
   const [viewingConfig, setViewingConfig] = useState<LineSummaryConfig | null>(null)
 
-  // Modal de Edição Direta da Configuração
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [editingConfig, setEditingConfig] = useState<LineSummaryConfig | null>(null)
-  const [editFormData, setEditFormData] = useState({
-    periodicidade: 'mensal',
-    horario: '08:00',
-    dia_do_mes: 1,
-    intervalo_dias: 1,
-    geracao_automatica: true,
-    exigir_aprovacao: true,
-    envio_automatico_apos_aprovacao: true,
-    template_id: '',
-    status: 'ATIVO',
-  })
-  const [isSavingEdit, setIsSavingEdit] = useState(false)
+  // Modal Unificado de Criação & Edição de Agendamento (Centralizado)
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false)
+  const [editingConfigId, setEditingConfigId] = useState<string | null>(null)
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false)
+
+  // Estado do formulário de Agendamento
+  const [selectedConfigId, setSelectedConfigId] = useState<string>('')
+  const [schedPeriodicidade, setSchedPeriodicidade] = useState<SummaryPeriodicity>('mensal')
+  const [schedHorario, setSchedHorario] = useState('08:00')
+  const [schedDiaMes, setSchedDiaMes] = useState(1)
+  const [schedIntervaloDias, setSchedIntervaloDias] = useState(30)
+  const [schedDataInicio, setSchedDataInicio] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  )
+  const [schedDataFim, setSchedDataFim] = useState('')
+  const [schedGeracaoAuto, setSchedGeracaoAuto] = useState(true)
+  const [schedExigirAprovacao, setSchedExigirAprovacao] = useState(true)
+  const [schedEnvioAuto, setSchedEnvioAuto] = useState(false)
+  const [schedStatus, setSchedStatus] = useState<'ATIVO' | 'INATIVO' | 'SUSPENSO'>('ATIVO')
 
   useEffect(() => {
     loadData()
@@ -133,6 +140,42 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
     }
   }
 
+  // Configuração selecionada no formulário de agendamento (para herança do template em modo somente leitura)
+  const currentSelectedConfig = useMemo(() => {
+    return configs.find((c) => c.id === selectedConfigId) || null
+  }, [configs, selectedConfigId])
+
+  // Template resolvido / herdado pela configuração por linha selecionada (Leitura)
+  const currentInheritedTemplate = useMemo(() => {
+    if (!currentSelectedConfig) return null
+    return lineSummaryAutomationService.resolveTemplateForLine(
+      currentSelectedConfig,
+      templates as any,
+    )
+  }, [currentSelectedConfig, templates])
+
+  // Próxima execução estimada com base nos valores informados
+  const calculatedNextExecutionPreview = useMemo(() => {
+    try {
+      return lineSummaryAutomationService.calculateNextExecution(schedPeriodicidade, {
+        horario: schedHorario,
+        dia_do_mes: schedDiaMes,
+        intervalo_dias: schedIntervaloDias,
+        data_inicio: schedDataInicio,
+        data_fim: schedDataFim,
+      })
+    } catch (_) {
+      return ''
+    }
+  }, [
+    schedPeriodicidade,
+    schedHorario,
+    schedDiaMes,
+    schedIntervaloDias,
+    schedDataInicio,
+    schedDataFim,
+  ])
+
   // Cards de Indicadores
   const totalConfigsAtivas = configs.filter((c) => c.status === 'ATIVO').length
   const totalProgramados = configs.filter(
@@ -145,77 +188,141 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
   const totalRunsFalha = runs.filter((r) => r.status === 'FALHA').length
   const totalEnviados = runs.filter((r) => r.status === 'SUCESSO' && !r.erro).length
 
-  // Ação: Visualizar Configuração
-  const handleViewConfig = (cfg: LineSummaryConfig) => {
-    setViewingConfig(cfg)
-    setViewConfigModalOpen(true)
+  // Ação: Abrir modal para NOVO Agendamento vinculado a uma linha existente
+  const handleOpenNewScheduleModal = () => {
+    const firstActive = configs.find((c) => c.status === 'ATIVO') || configs[0]
+    setEditingConfigId(null)
+    setSelectedConfigId(firstActive ? firstActive.id : '')
+    setSchedPeriodicidade('mensal')
+    setSchedHorario('08:00')
+    setSchedDiaMes(1)
+    setSchedIntervaloDias(30)
+    setSchedDataInicio(new Date().toISOString().slice(0, 10))
+    setSchedDataFim('')
+    setSchedGeracaoAuto(true)
+    setSchedExigirAprovacao(true)
+    setSchedEnvioAuto(false)
+    setSchedStatus('ATIVO')
+    setIsScheduleModalOpen(true)
   }
 
-  // Ação: Iniciar Edição de Configuração
-  const handleStartEditConfig = (cfg: LineSummaryConfig) => {
-    if (onEditConfig) {
-      onEditConfig(cfg)
+  // Ação: Abrir modal para EDITAR Agendamento existente
+  const handleOpenEditScheduleModal = (cfg: LineSummaryConfig) => {
+    setEditingConfigId(cfg.id)
+    setSelectedConfigId(cfg.id)
+    setSchedPeriodicidade(cfg.periodicidade || 'mensal')
+    setSchedHorario(cfg.parametros_personalizados?.horario || '08:00')
+    setSchedDiaMes(cfg.parametros_personalizados?.dia_do_mes || 1)
+    setSchedIntervaloDias(cfg.parametros_personalizados?.intervalo_dias || 30)
+    setSchedDataInicio(
+      cfg.parametros_personalizados?.data_inicio || new Date().toISOString().slice(0, 10),
+    )
+    setSchedDataFim(cfg.parametros_personalizados?.data_fim || '')
+    setSchedGeracaoAuto(cfg.geracao_automatica ?? true)
+    setSchedExigirAprovacao(cfg.exigir_aprovacao ?? true)
+    setSchedEnvioAuto(cfg.envio_automatico_apos_aprovacao ?? false)
+    setSchedStatus(cfg.status || 'ATIVO')
+    setIsScheduleModalOpen(true)
+  }
+
+  // Ação: Salvar Agendamento & Periodicidade (Centralizado)
+  const handleSaveSchedule = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (isSavingSchedule) return
+
+    if (!selectedConfigId) {
+      setErrorMsg('Não foi possível salvar: selecione uma Configuração por Linha para vincular.')
       return
     }
-    setEditingConfig(cfg)
-    setEditFormData({
-      periodicidade: cfg.periodicidade || 'mensal',
-      horario: cfg.parametros_personalizados?.horario || '08:00',
-      dia_do_mes: cfg.parametros_personalizados?.dia_do_mes || 1,
-      intervalo_dias: cfg.parametros_personalizados?.intervalo_dias || 1,
-      geracao_automatica: cfg.geracao_automatica ?? true,
-      exigir_aprovacao: cfg.exigir_aprovacao ?? true,
-      envio_automatico_apos_aprovacao: cfg.envio_automatico_apos_aprovacao ?? true,
-      template_id: cfg.template_id || '',
-      status: cfg.status || 'ATIVO',
-    })
-    setEditModalOpen(true)
-  }
 
-  // Ação: Salvar Edição Direta
-  const handleSaveEditConfig = async () => {
-    if (!editingConfig) return
-    setIsSavingEdit(true)
+    const targetConfig = configs.find((c) => c.id === selectedConfigId)
+    if (!targetConfig) {
+      setErrorMsg('A configuração por linha selecionada não foi encontrada.')
+      return
+    }
+
+    setIsSavingSchedule(true)
     setErrorMsg('')
     setSuccessMsg('')
+
     try {
-      const proxima = lineSummaryAutomationService.calculateNextExecution(
-        editFormData.periodicidade as any,
+      const proximaCalculada = lineSummaryAutomationService.calculateNextExecution(
+        schedPeriodicidade,
         {
-          horario: editFormData.horario,
-          dia_do_mes: editFormData.dia_do_mes,
-          intervalo_dias: editFormData.intervalo_dias,
+          horario: schedHorario,
+          dia_do_mes: schedDiaMes,
+          intervalo_dias: schedIntervaloDias,
+          data_inicio: schedDataInicio,
+          data_fim: schedDataFim,
         },
       )
 
       await lineSummaryAutomationService.saveLineConfig({
-        id: editingConfig.id,
-        linha_code: editingConfig.linha_code,
-        linha_nome: editingConfig.linha_nome,
-        centro_code: editingConfig.centro_code,
-        empresa_code: editingConfig.empresa_code,
-        template_id: editFormData.template_id || undefined,
-        periodicidade: editFormData.periodicidade as any,
+        id: targetConfig.id,
+        empresa_code: targetConfig.empresa_code,
+        linha_code: targetConfig.linha_code,
+        linha_nome: targetConfig.linha_nome,
+        centro_code: targetConfig.centro_code,
+        centro_nome: targetConfig.centro_nome,
+        template_id: targetConfig.template_id,
+        template_code: targetConfig.template_code,
+        template_nome: targetConfig.template_nome,
+        tipo_resumo: targetConfig.tipo_resumo,
+        responsavel_geracao_id: targetConfig.responsavel_geracao_id,
+        responsavel_geracao_nome: targetConfig.responsavel_geracao_nome,
+        programador_pcp_id: targetConfig.programador_pcp_id,
+        programador_pcp_nome: targetConfig.programador_pcp_nome,
+        programador_substituto_id: targetConfig.programador_substituto_id,
+        programador_substituto_nome: targetConfig.programador_substituto_nome,
+        supervisor_pcp_id: targetConfig.supervisor_pcp_id,
+        supervisor_pcp_nome: targetConfig.supervisor_pcp_nome,
+        observacoes: targetConfig.observacoes,
+        finalidade: targetConfig.finalidade,
+        // Parametrização exclusiva gerenciada aqui:
+        periodicidade: schedPeriodicidade,
         parametros_personalizados: {
-          horario: editFormData.horario,
-          dia_do_mes: Number(editFormData.dia_do_mes),
-          intervalo_dias: Number(editFormData.intervalo_dias),
+          horario: schedHorario,
+          dia_do_mes: Number(schedDiaMes),
+          intervalo_dias: Number(schedIntervaloDias),
+          data_inicio: schedDataInicio,
+          data_fim: schedDataFim,
         },
-        geracao_automatica: editFormData.geracao_automatica,
-        exigir_aprovacao: editFormData.exigir_aprovacao,
-        envio_automatico_apos_aprovacao: editFormData.envio_automatico_apos_aprovacao,
-        status: editFormData.status as any,
-        proxima_execucao: proxima,
+        geracao_automatica: schedGeracaoAuto,
+        exigir_aprovacao: schedExigirAprovacao,
+        envio_automatico_apos_aprovacao: schedEnvioAuto,
+        proxima_execucao: proximaCalculada,
+        status: schedStatus,
       })
 
-      setSuccessMsg(`Configuração da Linha ${editingConfig.linha_code} atualizada com sucesso.`)
-      setEditModalOpen(false)
+      const successNotice = `Agendamento da Linha ${targetConfig.linha_code} salvo com sucesso.`
+      setSuccessMsg(successNotice)
+      toast({
+        title: 'Sucesso',
+        description: successNotice,
+      })
+
+      setIsScheduleModalOpen(false)
       await loadData()
     } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao salvar configuração da linha')
+      console.error('[SchedulesAndRunsTab] Erro ao salvar agendamento:', err)
+      const friendlyMessage =
+        err?.message ||
+        'Não foi possível salvar os parâmetros do agendamento. Verifique os dados e tente novamente.'
+      setErrorMsg(friendlyMessage)
+      toast({
+        title: 'Erro ao salvar agendamento',
+        description: friendlyMessage,
+        variant: 'destructive',
+      })
     } finally {
-      setIsSavingEdit(false)
+      setIsSavingSchedule(false)
     }
+  }
+
+  // Ação: Visualizar Configuração
+  const handleViewConfig = (cfg: LineSummaryConfig) => {
+    setViewingConfig(cfg)
+    setViewConfigModalOpen(true)
   }
 
   // Ação: Gerar Agora (respeita período selecionado, dedup e desabilita durante execução)
@@ -283,10 +390,10 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
     try {
       if (cfg.status === 'ATIVO') {
         await lineSummaryAutomationService.suspendConfig(cfg.id)
-        setSuccessMsg(`Configuração da Linha ${cfg.linha_code} suspensa.`)
+        setSuccessMsg(`Agendamento da Linha ${cfg.linha_code} suspenso.`)
       } else {
         await lineSummaryAutomationService.reactivateConfig(cfg.id)
-        setSuccessMsg(`Configuração da Linha ${cfg.linha_code} reativada.`)
+        setSuccessMsg(`Agendamento da Linha ${cfg.linha_code} reativado.`)
       }
       await loadData()
     } catch (err: any) {
@@ -335,7 +442,6 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
     return matchesSearch && matchesLine && matchesStatus
   })
 
-  // Estado de interface: sem permissão administrativa
   if (!canManage && configs.length === 0 && !isLoading) {
     return (
       <div className="p-8 text-center bg-white border border-amber-200 rounded-lg space-y-2">
@@ -367,7 +473,7 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
         </Alert>
       )}
 
-      {/* 6 Cards de Indicadores do Plano com grade responsiva legível */}
+      {/* 6 Cards de Indicadores do Plano */}
       <div
         className="grid gap-2.5"
         style={{
@@ -406,7 +512,7 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
 
         <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1 flex flex-col justify-between">
           <div className="text-xs uppercase font-bold text-slate-600 whitespace-normal break-words leading-tight">
-            Aguardando Aprovação
+            Aguard. Aprovação
           </div>
           <div className="text-xl sm:text-2xl font-bold text-amber-700 font-mono">
             {totalAguardandoAprovacao}
@@ -435,7 +541,7 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
         </div>
       </div>
 
-      {/* Barra de Filtro e Ação Principal */}
+      {/* Barra de Filtro e Ações */}
       <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
           <div className="relative flex-1 min-w-[180px]">
@@ -449,7 +555,6 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
             />
           </div>
 
-          {/* Seletor de Período para Execução Operacional */}
           <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-2 h-8">
             <CalendarCheck className="w-3.5 h-3.5 text-slate-500" />
             <span className="text-[10px] text-slate-500 font-medium">Período Alvo:</span>
@@ -487,16 +592,36 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
           </select>
         </div>
 
-        {onOpenGenerateModal && (
-          <Button
-            size="sm"
-            onClick={onOpenGenerateModal}
-            className="bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-1.5 h-8 text-xs"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>Gerar Resumo por Linha</span>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canManage && (
+            <Button
+              size="sm"
+              onClick={handleOpenNewScheduleModal}
+              disabled={configs.length === 0}
+              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-1.5 h-8 text-xs"
+              title={
+                configs.length === 0
+                  ? 'Cadastre primeiro uma Configuração por Linha para parametrizar o agendamento'
+                  : 'Criar / Configurar novo agendamento vinculado a uma linha'
+              }
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Novo Agendamento</span>
+            </Button>
+          )}
+
+          {onOpenGenerateModal && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onOpenGenerateModal}
+              className="border-blue-300 text-blue-700 hover:bg-blue-50 font-bold gap-1.5 h-8 text-xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>Gerar Resumo por Linha</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tabela de Agendamentos e Envios */}
@@ -539,7 +664,6 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
                 )
                 const hasFailedRun = lastRun?.status === 'FALHA'
 
-                // Data prevista de envio (calculada com base na próxima geração ou última aprovação)
                 const dataPrevistaEnvio = cfg.envio_automatico_apos_aprovacao
                   ? cfg.proxima_execucao
                     ? formatDateTime(cfg.proxima_execucao)
@@ -568,8 +692,12 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
                       <div className="font-bold text-slate-800">
                         {PERIODICITY_LABELS[cfg.periodicidade] || cfg.periodicidade}
                       </div>
-                      <div className="text-[10px] text-slate-500">
-                        Horário: {cfg.parametros_personalizados?.horario || '08:00'}
+                      <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span>Horário: {cfg.parametros_personalizados?.horario || '08:00'}</span>
+                        {cfg.parametros_personalizados?.dia_do_mes && (
+                          <span>&bull; Dia {cfg.parametros_personalizados.dia_do_mes}</span>
+                        )}
                       </div>
                     </td>
 
@@ -672,14 +800,14 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
                           <Eye className="w-3.5 h-3.5" />
                         </Button>
 
-                        {/* 2. Editar Configuração */}
+                        {/* 2. Parametrizar / Editar Agendamento (Centralizado) */}
                         {canManage && (
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleStartEditConfig(cfg)}
+                            onClick={() => handleOpenEditScheduleModal(cfg)}
                             className="h-7 w-7 p-0 text-slate-600 hover:text-amber-700 hover:bg-amber-50"
-                            title="Editar Configuração da Linha"
+                            title="Editar Periodicidade e Agendamento"
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </Button>
@@ -732,7 +860,7 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
                           </Button>
                         )}
 
-                        {/* 5. Reprocessar Falha (quando a última execução da linha falhou) */}
+                        {/* 5. Reprocessar Falha */}
                         {hasFailedRun && canManage && (
                           <Button
                             size="sm"
@@ -876,6 +1004,288 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
         )}
       </div>
 
+      {/* MODAL CENTRALIZADO DE CRIAÇÃO & EDIÇÃO DE AGENDAMENTOS & ENVIOS */}
+      <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto text-xs">
+          <DialogHeader className="border-b border-slate-200 pb-3">
+            <DialogTitle className="text-sm font-bold text-[#004C97] flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              <span>
+                {editingConfigId
+                  ? 'Parametrizar Agendamento & Disparo'
+                  : 'Novo Agendamento & Disparo'}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveSchedule} className="space-y-4 py-2">
+            {/* Bloco 1: Vinculação Obrigatória à Configuração por Linha */}
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+              <div className="font-bold text-xs uppercase text-[#004C97] tracking-wider flex items-center gap-1.5">
+                <Building className="w-3.5 h-3.5" />
+                <span>1. Configuração por Linha Vinculada</span>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-700">
+                  Configuração por Linha *
+                </Label>
+                <select
+                  value={selectedConfigId}
+                  onChange={(e) => setSelectedConfigId(e.target.value)}
+                  disabled={Boolean(editingConfigId)}
+                  className="w-full h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 font-bold disabled:bg-slate-100"
+                  required
+                >
+                  <option value="">Selecione uma configuração cadastrada...</option>
+                  {configs.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      Linha {c.linha_code} — {c.linha_nome || c.linha_code} ({c.empresa_code} /{' '}
+                      {c.centro_code || 'Geral'}) &bull; {c.tipo_resumo}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-500">
+                  O agendamento herda o contexto fabril e a matriz de responsáveis da linha.
+                </p>
+              </div>
+
+              {/* Template Herdado — Modo Leitura */}
+              <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded text-[11px] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-blue-900 font-semibold flex items-center gap-1">
+                    <Layers className="w-3.5 h-3.5 text-blue-600" />
+                    Template Herdado da Linha (Somente Leitura):
+                  </span>
+                  <Badge className="bg-blue-100 text-blue-800 text-[9px] border-blue-300">
+                    Herança Automática
+                  </Badge>
+                </div>
+                <div className="font-bold text-slate-900 text-xs">
+                  {currentInheritedTemplate?.nome ||
+                    currentSelectedConfig?.template_nome ||
+                    'Template Padrão Institucional (18 Seções Mínimas)'}
+                </div>
+                <div className="text-[10px] text-slate-600 font-mono">
+                  Código:{' '}
+                  {currentInheritedTemplate?.template_code ||
+                    currentSelectedConfig?.template_code ||
+                    'TMP-CANONICO'}{' '}
+                  &bull; Versão: {currentInheritedTemplate?.versao_tag || 'V1.0'} &bull; Nível:{' '}
+                  {currentInheritedTemplate?.aplicacao || 'GERAL'}
+                </div>
+              </div>
+            </div>
+
+            {/* Bloco 2: Periodicidade & Cronograma de Disparo */}
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+              <div className="font-bold text-xs uppercase text-[#004C97] tracking-wider flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                <span>2. Periodicidade, Horário & Vigência</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700">Periodicidade *</Label>
+                  <select
+                    value={schedPeriodicidade}
+                    onChange={(e) => setSchedPeriodicidade(e.target.value as SummaryPeriodicity)}
+                    className="w-full h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 font-bold"
+                    required
+                  >
+                    <option value="diaria">Diária</option>
+                    <option value="semanal">Semanal</option>
+                    <option value="quinzenal">Quinzenal</option>
+                    <option value="mensal">Mensal</option>
+                    <option value="trimestral">Trimestral</option>
+                    <option value="sob_demanda">Sob Demanda (Sem Agendamento Automático)</option>
+                    <option value="personalizada">Personalizada</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Horário da Execução (HH:mm) *
+                  </Label>
+                  <Input
+                    type="time"
+                    value={schedHorario}
+                    onChange={(e) => setSchedHorario(e.target.value)}
+                    className="h-8 text-xs bg-white font-mono"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {schedPeriodicidade === 'mensal' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-slate-700">
+                      Dia do Mês de Execução (1 a 31) *
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={schedDiaMes}
+                      onChange={(e) => setSchedDiaMes(parseInt(e.target.value, 10) || 1)}
+                      className="h-8 text-xs bg-white"
+                      required
+                    />
+                  </div>
+                )}
+
+                {schedPeriodicidade === 'personalizada' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-slate-700">
+                      Intervalo em Dias *
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={schedIntervaloDias}
+                      onChange={(e) => setSchedIntervaloDias(parseInt(e.target.value, 10) || 1)}
+                      className="h-8 text-xs bg-white"
+                      required
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Data de Início da Automação *
+                  </Label>
+                  <Input
+                    type="date"
+                    value={schedDataInicio}
+                    onChange={(e) => setSchedDataInicio(e.target.value)}
+                    className="h-8 text-xs bg-white"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Data de Fim (Opcional)
+                  </Label>
+                  <Input
+                    type="date"
+                    value={schedDataFim}
+                    onChange={(e) => setSchedDataFim(e.target.value)}
+                    className="h-8 text-xs bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Cálculo Visível de Próxima Execução */}
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded text-[11px] flex items-center justify-between">
+                <div>
+                  <span className="text-emerald-900 font-bold block">
+                    Próxima Execução Calculada:
+                  </span>
+                  <span className="text-slate-600 text-[10px]">
+                    Estimada pelo fuso horário de Brasília (UTC-03:00)
+                  </span>
+                </div>
+                <div className="font-mono font-bold text-emerald-800 text-xs">
+                  {formatDateTime(calculatedNextExecutionPreview) || 'Sob Demanda'}
+                </div>
+              </div>
+            </div>
+
+            {/* Bloco 3: Governança, Aprovação e Disparo Automático */}
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+              <div className="font-bold text-xs uppercase text-[#004C97] tracking-wider">
+                3. Governança & Regras de Distribuição
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-slate-800">Geração Automática</Label>
+                    <div className="text-[10px] text-slate-500">
+                      Disparada pontualmente pelo cron persistente de backend
+                    </div>
+                  </div>
+                  <Switch checked={schedGeracaoAuto} onCheckedChange={setSchedGeracaoAuto} />
+                </div>
+
+                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-slate-800">
+                      Exigir Aprovação Prévia (Trava de Governança)
+                    </Label>
+                    <div className="text-[10px] text-slate-500">
+                      Bloqueia envio até validação do Supervisor PCP
+                    </div>
+                  </div>
+                  <Switch
+                    checked={schedExigirAprovacao}
+                    onCheckedChange={setSchedExigirAprovacao}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-slate-800">
+                      Envio Automático Pós-Aprovação
+                    </Label>
+                    <div className="text-[10px] text-slate-500">
+                      Distribui imediatamente aos destinatários autorizados quando aprovado
+                    </div>
+                  </div>
+                  <Switch checked={schedEnvioAuto} onCheckedChange={setSchedEnvioAuto} />
+                </div>
+              </div>
+
+              <div className="space-y-1 pt-1">
+                <Label className="text-xs font-semibold text-slate-700">
+                  Status do Agendamento *
+                </Label>
+                <select
+                  value={schedStatus}
+                  onChange={(e) => setSchedStatus(e.target.value as any)}
+                  className="w-full h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 font-bold"
+                >
+                  <option value="ATIVO">ATIVO (Em Operação)</option>
+                  <option value="SUSPENSO">SUSPENSO (Pausado temporariamente)</option>
+                  <option value="INATIVO">INATIVO</option>
+                </select>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2 border-t border-slate-200 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsScheduleModalOpen(false)}
+                className="h-8 text-xs"
+                disabled={isSavingSchedule}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSavingSchedule}
+                className="bg-[#004C97] hover:bg-[#003870] text-white h-8 text-xs font-bold gap-1.5"
+              >
+                {isSavingSchedule ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Salvando Agendamento...</span>
+                  </>
+                ) : (
+                  <span>Salvar Agendamento</span>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de Destinatários */}
       <ConfigureRecipientsModal
         isOpen={recipientModalOpen}
@@ -983,194 +1393,6 @@ export const SchedulesAndRunsTab: React.FC<SchedulesAndRunsTabProps> = ({
                 className="h-7 text-xs"
               >
                 Fechar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Modal de Edição Rápida da Configuração */}
-      {editingConfig && (
-        <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-          <DialogContent className="max-w-lg text-xs">
-            <DialogHeader className="border-b border-slate-200 pb-2">
-              <DialogTitle className="text-sm font-bold text-[#004C97] flex items-center gap-2">
-                <Edit className="w-4 h-4" />
-                <span>Editar Configuração — Linha {editingConfig.linha_code}</span>
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-3 py-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-semibold text-slate-700">Periodicidade</Label>
-                  <select
-                    value={editFormData.periodicidade}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, periodicidade: e.target.value as any })
-                    }
-                    className="w-full h-8 text-xs border border-slate-200 rounded px-2 bg-slate-50"
-                  >
-                    <option value="diaria">Diária</option>
-                    <option value="semanal">Semanal</option>
-                    <option value="quinzenal">Quinzenal</option>
-                    <option value="mensal">Mensal</option>
-                    <option value="trimestral">Trimestral</option>
-                    <option value="sob_demanda">Sob Demanda</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-semibold text-slate-700">
-                    Horário Previsto (HH:mm)
-                  </Label>
-                  <Input
-                    type="time"
-                    value={editFormData.horario}
-                    onChange={(e) => setEditFormData({ ...editFormData, horario: e.target.value })}
-                    className="h-8 text-xs bg-slate-50"
-                  />
-                </div>
-              </div>
-
-              {editFormData.periodicidade === 'mensal' && (
-                <div className="space-y-1">
-                  <Label className="text-[11px] font-semibold text-slate-700">
-                    Dia do Mês de Execução (1 a 31)
-                  </Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={editFormData.dia_do_mes}
-                    onChange={(e) =>
-                      setEditFormData({
-                        ...editFormData,
-                        dia_do_mes: parseInt(e.target.value, 10) || 1,
-                      })
-                    }
-                    className="h-8 text-xs bg-slate-50"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-1">
-                <Label className="text-[11px] font-semibold text-slate-700">
-                  Template Vinculado
-                </Label>
-                <select
-                  value={editFormData.template_id}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, template_id: e.target.value })
-                  }
-                  className="w-full h-8 text-xs border border-slate-200 rounded px-2 bg-slate-50"
-                >
-                  <option value="">Padrão Canônico / Herança Automática</option>
-                  {templates
-                    .filter((t) => t.status === 'ATIVO')
-                    .map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.nome} ({t.versao_tag}) &bull; {t.aplicacao}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px] font-semibold text-slate-700">
-                  Status Operacional
-                </Label>
-                <select
-                  value={editFormData.status}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, status: e.target.value as any })
-                  }
-                  className="w-full h-8 text-xs border border-slate-200 rounded px-2 bg-slate-50"
-                >
-                  <option value="ATIVO">Ativo</option>
-                  <option value="SUSPENSO">Suspenso</option>
-                  <option value="INATIVO">Inativo</option>
-                </select>
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-xs font-medium text-slate-800">Geração Automática</Label>
-                    <p className="text-[10px] text-slate-500">
-                      Disparo agendado via cron de backend
-                    </p>
-                  </div>
-                  <Switch
-                    checked={editFormData.geracao_automatica}
-                    onCheckedChange={(v) =>
-                      setEditFormData({ ...editFormData, geracao_automatica: v })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-xs font-medium text-slate-800">
-                      Exigir Aprovação Prévia
-                    </Label>
-                    <p className="text-[10px] text-slate-500">
-                      Bloqueia distribuição externa até revisão
-                    </p>
-                  </div>
-                  <Switch
-                    checked={editFormData.exigir_aprovacao}
-                    onCheckedChange={(v) =>
-                      setEditFormData({ ...editFormData, exigir_aprovacao: v })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-xs font-medium text-slate-800">
-                      Envio Automático Pós-Aprovação
-                    </Label>
-                    <p className="text-[10px] text-slate-500">
-                      Dispara e-mail/notificação imediatamente após aprovação
-                    </p>
-                  </div>
-                  <Switch
-                    checked={editFormData.envio_automatico_apos_aprovacao}
-                    onCheckedChange={(v) =>
-                      setEditFormData({ ...editFormData, envio_automatico_apos_aprovacao: v })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter className="pt-2 border-t border-slate-200 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setEditModalOpen(false)}
-                className="h-8 text-xs"
-                disabled={isSavingEdit}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleSaveEditConfig}
-                disabled={isSavingEdit}
-                className="bg-[#004C97] hover:bg-[#003870] text-white h-8 text-xs font-bold gap-1.5"
-              >
-                {isSavingEdit ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Salvando...</span>
-                  </>
-                ) : (
-                  <span>Salvar Alterações</span>
-                )}
               </Button>
             </DialogFooter>
           </DialogContent>
