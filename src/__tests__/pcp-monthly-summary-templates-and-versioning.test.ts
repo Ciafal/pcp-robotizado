@@ -404,4 +404,118 @@ describe('PCP Monthly Summary - Templates & Versioning Engine Acceptance Tests',
       })
     })
   })
+
+  describe('5. Construtor de Tabelas (Table Builder) e Formatação pt-BR', () => {
+    it('deve gerar modelo padrão de tabela com as 5 colunas homologadas (Produto, Qtd Prog, Qtd Real, Atendimento %, Justificativa)', () => {
+      const defaultTable = pcpMonthlySummaryService.createDefaultCustomTable({
+        name: 'Tabela de Homologação',
+      })
+
+      expect(defaultTable).toBeDefined()
+      expect(defaultTable.name).toBe('Tabela de Homologação')
+      expect(defaultTable.columns.length).toBe(5)
+      expect(defaultTable.rows.length).toBeGreaterThanOrEqual(3)
+
+      const colNames = defaultTable.columns.map((c) => c.name)
+      expect(colNames).toContain('Produto / Bitola')
+      expect(colNames).toContain('Quantidade Programada')
+      expect(colNames).toContain('Quantidade Realizada')
+      expect(colNames).toContain('Atendimento %')
+      expect(colNames).toContain('Justificativa Operacional')
+
+      const calculatedCol = defaultTable.columns.find((c) => c.field_type === 'CAMPO_CALCULADO')
+      expect(calculatedCol).toBeDefined()
+      expect(calculatedCol?.calculation_rule).toContain('[Quantidade Realizada]')
+
+      const aiCol = defaultTable.columns.find((c) => c.field_type === 'INFORMACAO_IA')
+      expect(aiCol).toBeDefined()
+      expect(aiCol?.ai_field_instruction).toBeDefined()
+
+      expect(defaultTable.ai_fill_instructions).toBeDefined()
+      expect(defaultTable.ai_fill_instructions.length).toBeGreaterThan(10)
+      expect(defaultTable.totalizer?.enabled).toBe(true)
+    })
+
+    it('deve salvar tabela customizada vinculada a uma seção do template e atualizar pcp_monthly_summary_tables', async () => {
+      const sampleTemplate: PCPMonthlySummaryTemplateRecord = {
+        id: 'tpl-tbl-1',
+        template_code: 'TMP-L1-2025',
+        nome: 'Template de Laminação 1',
+        tipo: 'Resumo Mensal PCP',
+        empresa_code: 'CIAFAL',
+        linha_code: 'L1',
+        centro_code: 'ALL',
+        aplicacao: 'LINHA',
+        status: 'ATIVO',
+        is_default: true,
+        vigencia_inicio: '2025-01-01',
+        versao: 1,
+        versao_tag: 'V1.0',
+        responsavel_criacao: 'Programador PCP',
+        ultima_atualizacao_por: 'Programador PCP',
+        sections_config: pcpMonthlySummaryService.getDefault18SectionsConfig(),
+        revisions_history: [],
+        created: '2025-01-01',
+        updated: '2025-01-01',
+      }
+
+      const tableToSave = pcpMonthlySummaryService.createDefaultCustomTable({
+        id: 'tbl_teste_123',
+        name: 'Tabela de Desvios Operacionais',
+      })
+
+      // Mocks do PocketBase
+      let updatePayload: any = null
+      let tableCreatedPayload: any = null
+
+      vi.spyOn(pb, 'collection').mockImplementation((colName: string) => {
+        if (colName === 'pcp_monthly_summary_templates') {
+          return {
+            getOne: vi.fn().mockResolvedValue(sampleTemplate),
+            update: vi.fn().mockImplementation((id, data) => {
+              updatePayload = data
+              return Promise.resolve({
+                ...sampleTemplate,
+                ...data,
+                updated: '2025-05-15',
+              })
+            }),
+          } as any
+        }
+        if (colName === 'pcp_monthly_summary_tables') {
+          return {
+            getFirstListItem: vi.fn().mockRejectedValue(new Error('not found')),
+            create: vi.fn().mockImplementation((data) => {
+              tableCreatedPayload = data
+              return Promise.resolve({ id: 'rec-tbl-1', ...data })
+            }),
+            update: vi.fn().mockResolvedValue({ id: 'rec-tbl-1' }),
+          } as any
+        }
+        return {} as any
+      })
+
+      const res = await pcpMonthlySummaryService.saveTemplateCustomTable({
+        templateId: 'tpl-tbl-1',
+        sectionIndexOrKey: 0,
+        table: tableToSave,
+        motivo: 'Inclusão da tabela de desvios operacionais na Seção 1',
+      })
+
+      expect(res.table.id).toBe('tbl_teste_123')
+      expect(updatePayload).not.toBeNull()
+      const savedSection0 = updatePayload.sections_config[0]
+      expect(savedSection0.custom_tables).toBeDefined()
+      expect(savedSection0.custom_tables.some((t: any) => t.id === 'tbl_teste_123')).toBe(true)
+      expect(
+        savedSection0.components.some(
+          (c: any) => c.type === 'TABLE' && c.tableConfig?.id === 'tbl_teste_123',
+        ),
+      ).toBe(true)
+
+      expect(tableCreatedPayload).not.toBeNull()
+      expect(tableCreatedPayload.table_id).toBe('tbl_teste_123')
+      expect(tableCreatedPayload.name).toBe('Tabela de Desvios Operacionais')
+    })
+  })
 })

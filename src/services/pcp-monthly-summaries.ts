@@ -2709,6 +2709,345 @@ class PcpMonthlySummaryService {
     }
   }
 
+  /**
+   * Constrói modelo inicial padrão de tabela customizada para o Construtor de Tabelas
+   */
+  createDefaultCustomTable(overrides?: Partial<CustomTableConfig>): CustomTableConfig {
+    const tableId = `tbl_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`
+    const defaultCols: TableColumnConfig[] = [
+      {
+        id: `col_prod_${Date.now().toString(36)}_1`,
+        name: 'Produto / Bitola',
+        order: 1,
+        field_type: 'TEXTO',
+        data_source: 'Ficha Mestra / Cadastros Homologados',
+        source_field: 'material_descricao',
+        is_required: true,
+        width_px: 220,
+      },
+      {
+        id: `col_prog_${Date.now().toString(36)}_2`,
+        name: 'Quantidade Programada',
+        order: 2,
+        field_type: 'QUANTIDADE',
+        data_source: 'Montagem da Programação',
+        source_field: 'quantidade_programada_t',
+        unit_of_measure: 't',
+        is_required: true,
+        width_px: 150,
+      },
+      {
+        id: `col_real_${Date.now().toString(36)}_3`,
+        name: 'Quantidade Realizada',
+        order: 3,
+        field_type: 'QUANTIDADE',
+        data_source: 'Controle de Produção / MES 4.0',
+        source_field: 'quantidade_realizada_t',
+        unit_of_measure: 't',
+        is_required: true,
+        width_px: 150,
+      },
+      {
+        id: `col_atend_${Date.now().toString(36)}_4`,
+        name: 'Atendimento %',
+        order: 4,
+        field_type: 'CAMPO_CALCULADO',
+        unit_of_measure: '%',
+        is_required: false,
+        calculation_rule: '[Quantidade Realizada] / [Quantidade Programada] * 100',
+        width_px: 130,
+      },
+      {
+        id: `col_just_${Date.now().toString(36)}_5`,
+        name: 'Justificativa Operacional',
+        order: 5,
+        field_type: 'INFORMACAO_IA',
+        is_required: false,
+        ai_field_instruction:
+          'Justificar eventuais desvios de atendimento percentual com base nas paradas e gargalos do período. Não inventar justificativas.',
+        width_px: 240,
+      },
+    ]
+
+    const col1Id = defaultCols[0].id
+    const col2Id = defaultCols[1].id
+    const col3Id = defaultCols[2].id
+    const col4Id = defaultCols[3].id
+    const col5Id = defaultCols[4].id
+
+    const defaultRows: TableRowConfig[] = [
+      {
+        id: `row_${Date.now().toString(36)}_1`,
+        order: 1,
+        label: 'Item 1',
+        cells: {
+          [col1Id]: 'Tubo Industrial 50x50 SAE 1012',
+          [col2Id]: 350.0,
+          [col3Id]: 335.5,
+          [col4Id]: 95.8,
+          [col5Id]: 'Atendimento dentro da tolerância de campanha com troca de matriz no prazo.',
+        },
+      },
+      {
+        id: `row_${Date.now().toString(36)}_2`,
+        order: 2,
+        label: 'Item 2',
+        cells: {
+          [col1Id]: 'Perfil Leve U 3 Polegadas',
+          [col2Id]: 280.0,
+          [col3Id]: 272.0,
+          [col4Id]: 97.1,
+          [col5Id]: 'Campanha concluída sem quebras mecânicas.',
+        },
+      },
+      {
+        id: `row_${Date.now().toString(36)}_3`,
+        order: 3,
+        label: 'Item 3',
+        cells: {
+          [col1Id]: 'Barra Chata 2 x 1/4 SAE 1020',
+          [col2Id]: 420.0,
+          [col3Id]: 385.0,
+          [col4Id]: 91.7,
+          [col5Id]: 'Desvio decorrente de manutenção preventiva programada no forno.',
+        },
+      },
+    ]
+
+    const base: CustomTableConfig = {
+      id: tableId,
+      name: 'Análise de Atendimento da Programação',
+      display_title: 'Análise de Atendimento da Programação (Previsto x Realizado)',
+      description:
+        'Acompanhamento analítico de cumprimento das metas de programação por produto e tonelagem.',
+      data_source: 'Montagem da Programação',
+      show_title: true,
+      allow_ai_completion: true,
+      allow_manual_edit: true,
+      ai_fill_instructions:
+        'Preencher rigorosamente a tabela com os registros consolidados de programação e apontamentos do MES. Para linhas sem dados suficientes, indicar "Dado não disponível". Não inventar toneladas.',
+      is_dynamic: false,
+      columns: defaultCols,
+      rows: defaultRows,
+      initial_cols_count: defaultCols.length,
+      initial_rows_count: defaultRows.length,
+      totalizer: {
+        enabled: true,
+        label: 'Total Consolidado',
+        columns_to_totalize: [col2Id, col3Id],
+        total_function: 'SUM',
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    return {
+      ...base,
+      ...overrides,
+    }
+  }
+
+  /**
+   * Persiste uma tabela customizada associada a um template (no JSON de seções e na collection pcp_monthly_summary_tables quando acessível)
+   */
+  async saveTemplateCustomTable(params: {
+    templateId: string
+    sectionIndexOrKey: number | string
+    table: CustomTableConfig
+    motivo?: string
+  }): Promise<{ template: PCPMonthlySummaryTemplateRecord; table: CustomTableConfig }> {
+    const { templateId, sectionIndexOrKey, table, motivo } = params
+    const user = pb.authStore.record
+    const userName = user?.name || user?.email || 'Programador PCP'
+    const nowIso = new Date().toISOString()
+
+    const currentTemplate = await pb.collection('pcp_monthly_summary_templates').getOne(templateId)
+    const sections: SummaryTemplateSectionConfig[] = JSON.parse(
+      JSON.stringify(currentTemplate.sections_config || this.getDefault18SectionsConfig()),
+    )
+
+    let targetIdx = -1
+    if (typeof sectionIndexOrKey === 'number') {
+      targetIdx = sectionIndexOrKey
+    } else {
+      targetIdx = sections.findIndex(
+        (s) => s.key === sectionIndexOrKey || s.number === String(sectionIndexOrKey),
+      )
+    }
+
+    if (targetIdx < 0 || targetIdx >= sections.length) {
+      throw new Error(`Seção ${sectionIndexOrKey} não localizada no template ${templateId}.`)
+    }
+
+    const sec = sections[targetIdx]
+    const updatedTable: CustomTableConfig = {
+      ...table,
+      updated_at: nowIso,
+      created_at: table.created_at || nowIso,
+    }
+
+    // 1. Atualizar custom_tables na seção
+    const existingTables = sec.custom_tables || []
+    const existingTableIdx = existingTables.findIndex((t) => t.id === updatedTable.id)
+    if (existingTableIdx >= 0) {
+      existingTables[existingTableIdx] = updatedTable
+    } else {
+      existingTables.push(updatedTable)
+    }
+    sec.custom_tables = existingTables
+
+    // 2. Atualizar também nos components da seção
+    const existingComponents = sec.components || []
+    const compIdx = existingComponents.findIndex(
+      (c) => c.type === 'TABLE' && c.tableConfig?.id === updatedTable.id,
+    )
+    if (compIdx >= 0) {
+      existingComponents[compIdx] = {
+        ...existingComponents[compIdx],
+        title: updatedTable.display_title || updatedTable.name,
+        tableConfig: updatedTable,
+      }
+    } else {
+      existingComponents.push({
+        id: `comp_table_${updatedTable.id}`,
+        type: 'TABLE',
+        order: existingComponents.length + 1,
+        title: updatedTable.display_title || updatedTable.name,
+        is_visible: true,
+        tableConfig: updatedTable,
+      })
+    }
+    sec.components = existingComponents
+    sections[targetIdx] = sec
+
+    // 3. Atualizar template no PocketBase
+    const updatedTemplate = await this.updateTemplate(templateId, {
+      sections_config: sections,
+      motivo:
+        motivo ||
+        `Tabela "${updatedTable.name}" salva/atualizada na Seção #${sec.number || targetIdx + 1} (${sec.title})`,
+    })
+
+    // 4. Salvar paralelamente na collection pcp_monthly_summary_tables de forma resiliente
+    try {
+      const payloadTable = {
+        table_id: updatedTable.id,
+        template_id: currentTemplate.id,
+        template_code: currentTemplate.template_code,
+        section_key: sec.key,
+        name: updatedTable.name,
+        display_title: updatedTable.display_title,
+        description: updatedTable.description || '',
+        data_source: updatedTable.data_source,
+        show_title: Boolean(updatedTable.show_title),
+        allow_ai_completion: Boolean(updatedTable.allow_ai_completion),
+        allow_manual_edit: Boolean(updatedTable.allow_manual_edit),
+        ai_fill_instructions: updatedTable.ai_fill_instructions || '',
+        is_dynamic: Boolean(updatedTable.is_dynamic),
+        columns: updatedTable.columns,
+        rows: updatedTable.rows,
+        totalizer: updatedTable.totalizer,
+        initial_rows_count: updatedTable.initial_rows_count || updatedTable.rows.length,
+        initial_cols_count: updatedTable.initial_cols_count || updatedTable.columns.length,
+      }
+
+      const existingRecord = await pb
+        .collection('pcp_monthly_summary_tables')
+        .getFirstListItem(`table_id = "${updatedTable.id}"`)
+        .catch(() => null)
+
+      if (existingRecord) {
+        await pb.collection('pcp_monthly_summary_tables').update(existingRecord.id, payloadTable)
+      } else {
+        await pb.collection('pcp_monthly_summary_tables').create(payloadTable)
+      }
+    } catch (tblErr) {
+      console.warn(
+        'Persistência em pcp_monthly_summary_tables opcional/offline — preservado no template:',
+        tblErr,
+      )
+    }
+
+    // 5. Auditoria de salvamento da tabela
+    await pcpAuditService.recordLog({
+      action: `Tabela customizada salva: ${updatedTable.name} no template ${currentTemplate.template_code}`,
+      event_type: 'SCHEDULE_ACTION',
+      resource: 'PCP_MONTHLY_SUMMARY_TABLE',
+      record_id: updatedTable.id,
+      module: 'ENTREGAS_PCP',
+      screen: 'TABLE_BUILDER',
+      status: 'Concluída',
+      outcome: 'SUCCESS',
+      source: 'Usuário',
+      details: {
+        template_code: currentTemplate.template_code,
+        section_key: sec.key,
+        table_name: updatedTable.name,
+        cols_count: updatedTable.columns.length,
+        rows_count: updatedTable.rows.length,
+        user: userName,
+      },
+    })
+
+    return {
+      template: updatedTemplate,
+      table: updatedTable,
+    }
+  }
+
+  /**
+   * Remove tabela customizada de uma seção de template
+   */
+  async deleteTemplateCustomTable(params: {
+    templateId: string
+    sectionIndexOrKey: number | string
+    tableId: string
+    motivo?: string
+  }): Promise<PCPMonthlySummaryTemplateRecord> {
+    const { templateId, sectionIndexOrKey, tableId, motivo } = params
+    const currentTemplate = await pb.collection('pcp_monthly_summary_templates').getOne(templateId)
+    const sections: SummaryTemplateSectionConfig[] = JSON.parse(
+      JSON.stringify(currentTemplate.sections_config || this.getDefault18SectionsConfig()),
+    )
+
+    let targetIdx = -1
+    if (typeof sectionIndexOrKey === 'number') {
+      targetIdx = sectionIndexOrKey
+    } else {
+      targetIdx = sections.findIndex(
+        (s) => s.key === sectionIndexOrKey || s.number === String(sectionIndexOrKey),
+      )
+    }
+
+    if (targetIdx >= 0 && targetIdx < sections.length) {
+      const sec = sections[targetIdx]
+      sec.custom_tables = (sec.custom_tables || []).filter((t) => t.id !== tableId)
+      sec.components = (sec.components || []).filter(
+        (c) => !(c.type === 'TABLE' && c.tableConfig?.id === tableId),
+      )
+      sections[targetIdx] = sec
+    }
+
+    const updated = await this.updateTemplate(templateId, {
+      sections_config: sections,
+      motivo: motivo || `Tabela ${tableId} removida da Seção ${sectionIndexOrKey}`,
+    })
+
+    try {
+      const existingRecord = await pb
+        .collection('pcp_monthly_summary_tables')
+        .getFirstListItem(`table_id = "${tableId}"`)
+        .catch(() => null)
+      if (existingRecord) {
+        await pb.collection('pcp_monthly_summary_tables').delete(existingRecord.id)
+      }
+    } catch {
+      /* fallback silencioso */
+    }
+
+    return updated
+  }
+
   private mapTemplateRecord(r: any): PCPMonthlySummaryTemplateRecord {
     return {
       id: r.id,

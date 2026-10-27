@@ -44,9 +44,12 @@ import {
 } from 'lucide-react'
 import { LineConfigTab } from './LineConfigTab'
 import { SchedulesAndRunsTab } from './SchedulesAndRunsTab'
+import { TableBuilderModal } from './TableBuilderModal'
 import {
   PCPMonthlySummaryTemplateRecord,
   SummaryTemplateSectionConfig,
+  SectionContentComponent,
+  CustomTableConfig,
   RealCenterOption,
   pcpMonthlySummaryService,
 } from '@/services/pcp-monthly-summaries'
@@ -135,6 +138,13 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
   const [formVigenciaFim, setFormVigenciaFim] = useState<string>('')
   const [formSections, setFormSections] = useState<SummaryTemplateSectionConfig[]>([])
   const [formMotivo, setFormMotivo] = useState<string>('')
+
+  // Estados do TableBuilderModal (Editor Visual de Tabelas)
+  const [isTableBuilderOpen, setIsTableBuilderOpen] = useState<boolean>(false)
+  const [activeTableBuilderSectionIdx, setActiveTableBuilderSectionIdx] = useState<number | null>(
+    null,
+  )
+  const [editingCustomTable, setEditingCustomTable] = useState<CustomTableConfig | null>(null)
 
   // Carregar templates ao abrir
   const loadTemplates = async () => {
@@ -391,6 +401,175 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
         number: String(idx + 1),
       }))
     setFormSections(updated)
+  }
+
+  // ============================================================
+  // GESTÃO DE COMPONENTES E TABELAS DENTRO DE CADA SEÇÃO
+  // ============================================================
+  const handleOpenAddTableModal = (sectionIdx: number) => {
+    setActiveTableBuilderSectionIdx(sectionIdx)
+    setEditingCustomTable(null)
+    setIsTableBuilderOpen(true)
+  }
+
+  const handleOpenEditTableModal = (sectionIdx: number, table: CustomTableConfig) => {
+    setActiveTableBuilderSectionIdx(sectionIdx)
+    setEditingCustomTable(table)
+    setIsTableBuilderOpen(true)
+  }
+
+  const handleSaveTableFromBuilder = async (savedTable: CustomTableConfig) => {
+    if (activeTableBuilderSectionIdx === null) return
+    const sIdx = activeTableBuilderSectionIdx
+    const updatedSections = [...formSections]
+    const targetSec = { ...updatedSections[sIdx] }
+
+    // Atualiza custom_tables da seção
+    const tablesList = [...(targetSec.custom_tables || [])]
+    const existingIdx = tablesList.findIndex((t) => t.id === savedTable.id)
+    if (existingIdx >= 0) {
+      tablesList[existingIdx] = savedTable
+    } else {
+      tablesList.push(savedTable)
+    }
+    targetSec.custom_tables = tablesList
+
+    // Atualiza components da seção (tipo TABLE)
+    const componentsList: SectionContentComponent[] = [...(targetSec.components || [])]
+    const compIdx = componentsList.findIndex(
+      (c) => c.type === 'TABLE' && c.tableConfig?.id === savedTable.id,
+    )
+    if (compIdx >= 0) {
+      componentsList[compIdx] = {
+        ...componentsList[compIdx],
+        title: savedTable.display_title || savedTable.name,
+        tableConfig: savedTable,
+      }
+    } else {
+      componentsList.push({
+        id: `comp_tbl_${savedTable.id}`,
+        type: 'TABLE',
+        order: componentsList.length + 1,
+        title: savedTable.display_title || savedTable.name,
+        is_visible: true,
+        tableConfig: savedTable,
+      })
+    }
+    targetSec.components = componentsList
+    updatedSections[sIdx] = targetSec
+    setFormSections(updatedSections)
+    setIsTableBuilderOpen(false)
+    setEditingCustomTable(null)
+  }
+
+  const handleRemoveCustomTable = (sectionIdx: number, tableId: string) => {
+    if (!window.confirm('Deseja realmente remover esta tabela da seção?')) return
+    const updatedSections = [...formSections]
+    const targetSec = { ...updatedSections[sectionIdx] }
+    targetSec.custom_tables = (targetSec.custom_tables || []).filter((t) => t.id !== tableId)
+    targetSec.components = (targetSec.components || []).filter(
+      (c) => !(c.type === 'TABLE' && c.tableConfig?.id === tableId),
+    )
+    updatedSections[sectionIdx] = targetSec
+    setFormSections(updatedSections)
+  }
+
+  // Adicionar outros tipos de componentes na seção (Texto, Indicadores, Gráficos, IA)
+  const handleAddComponentToSection = (
+    sectionIdx: number,
+    type: 'TEXT' | 'INDICATORS' | 'CHARTS' | 'AI_ANALYSIS',
+  ) => {
+    const updatedSections = [...formSections]
+    const targetSec = { ...updatedSections[sectionIdx] }
+    const componentsList: SectionContentComponent[] = [...(targetSec.components || [])]
+    const newOrder = componentsList.length + 1
+
+    let newComp: SectionContentComponent
+    if (type === 'TEXT') {
+      newComp = {
+        id: `comp_txt_${Date.now().toString(36)}`,
+        type: 'TEXT',
+        order: newOrder,
+        title: 'Bloco de Texto Operacional',
+        is_visible: true,
+        textContent: {
+          text: '',
+          placeholder: 'Insira observações, notas operacionais ou orientações...',
+        },
+      }
+    } else if (type === 'INDICATORS') {
+      newComp = {
+        id: `comp_ind_${Date.now().toString(36)}`,
+        type: 'INDICATORS',
+        order: newOrder,
+        title: 'Painel de Indicadores Chave',
+        is_visible: true,
+        indicatorsConfig: {
+          metricIds: ['aderencia_programacao', 'volume_produzido', 'horas_paradas'],
+          layout: 'cards',
+        },
+      }
+    } else if (type === 'CHARTS') {
+      newComp = {
+        id: `comp_cht_${Date.now().toString(36)}`,
+        type: 'CHARTS',
+        order: newOrder,
+        title: 'Gráfico Comparativo',
+        is_visible: true,
+        chartsConfig: {
+          chartType: 'bar',
+          dataSource: targetSec.data_source || 'Montagem da Programação',
+        },
+      }
+    } else {
+      newComp = {
+        id: `comp_ai_${Date.now().toString(36)}`,
+        type: 'AI_ANALYSIS',
+        order: newOrder,
+        title: 'Análise Aprofundada por IA',
+        is_visible: true,
+        aiAnalysisConfig: {
+          promptInstructions: targetSec.ai_instruction || 'Análise de consistência holística...',
+          mode: 'detailed',
+        },
+      }
+    }
+
+    componentsList.push(newComp)
+    targetSec.components = componentsList
+    updatedSections[sectionIdx] = targetSec
+    setFormSections(updatedSections)
+  }
+
+  // Reordenação de componentes dentro da seção
+  const handleMoveComponent = (sectionIdx: number, compIdx: number, direction: 'up' | 'down') => {
+    const updatedSections = [...formSections]
+    const targetSec = { ...updatedSections[sectionIdx] }
+    const componentsList = [...(targetSec.components || [])]
+    const targetIndex = direction === 'up' ? compIdx - 1 : compIdx + 1
+    if (targetIndex < 0 || targetIndex >= componentsList.length) return
+
+    const item = componentsList.splice(compIdx, 1)[0]
+    componentsList.splice(targetIndex, 0, item)
+    targetSec.components = componentsList.map((c, i) => ({ ...c, order: i + 1 }))
+    updatedSections[sectionIdx] = targetSec
+    setFormSections(updatedSections)
+  }
+
+  const handleRemoveComponent = (sectionIdx: number, compIdx: number) => {
+    const updatedSections = [...formSections]
+    const targetSec = { ...updatedSections[sectionIdx] }
+    const compToRemove = targetSec.components?.[compIdx]
+    if (compToRemove?.type === 'TABLE' && compToRemove.tableConfig?.id) {
+      targetSec.custom_tables = (targetSec.custom_tables || []).filter(
+        (t) => t.id !== compToRemove.tableConfig?.id,
+      )
+    }
+    targetSec.components = (targetSec.components || [])
+      .filter((_, i) => i !== compIdx)
+      .map((c, i) => ({ ...c, order: i + 1 }))
+    updatedSections[sectionIdx] = targetSec
+    setFormSections(updatedSections)
   }
 
   // Salvar formulário do editor
@@ -1275,6 +1454,237 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
                             <span>Permitir Complementação por IA</span>
                           </label>
                         </div>
+
+                        {/* BLOCO NOVO: COMPONENTES DA SEÇÃO (TABELAS, TEXTO, INDICADORES, GRÁFICOS, IA) */}
+                        <div className="mt-3 pt-3 border-t border-slate-200/90 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-3.5 h-3.5 text-[#004C97]" />
+                              <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                                Componentes da Seção (
+                                {sec.components?.length || sec.custom_tables?.length || 0})
+                              </span>
+                            </div>
+
+                            {/* Botões de Inserção de Componentes na Seção */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => handleOpenAddTableModal(idx)}
+                                className="h-6 text-[11px] bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-1 px-2 shadow-2xs"
+                                title="Adicionar tabela customizada à seção"
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>Adicionar Tabela</span>
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddComponentToSection(idx, 'TEXT')}
+                                className="h-6 text-[11px] border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold gap-1 px-2"
+                                title="Adicionar bloco de texto livre"
+                              >
+                                <Plus className="w-3 h-3 text-slate-500" />
+                                <span>Texto</span>
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddComponentToSection(idx, 'INDICATORS')}
+                                className="h-6 text-[11px] border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold gap-1 px-2"
+                                title="Adicionar painel de indicadores"
+                              >
+                                <Plus className="w-3 h-3 text-slate-500" />
+                                <span>Indicadores</span>
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddComponentToSection(idx, 'CHARTS')}
+                                className="h-6 text-[11px] border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold gap-1 px-2"
+                                title="Adicionar gráfico de acompanhamento"
+                              >
+                                <Plus className="w-3 h-3 text-slate-500" />
+                                <span>Gráficos</span>
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddComponentToSection(idx, 'AI_ANALYSIS')}
+                                className="h-6 text-[11px] border-purple-200 text-purple-800 bg-purple-50/50 hover:bg-purple-100 font-semibold gap-1 px-2"
+                                title="Adicionar parecer gerado por IA"
+                              >
+                                <Sparkles className="w-3 h-3 text-purple-600" />
+                                <span>Análise de IA</span>
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Lista dos componentes inseridos na Seção com reordenação */}
+                          {(sec.components && sec.components.length > 0) ||
+                          (sec.custom_tables && sec.custom_tables.length > 0) ? (
+                            <div className="space-y-1.5 pt-1">
+                              {/* Renderiza via components configurados */}
+                              {(sec.components || []).map((comp, cIdx) => (
+                                <div
+                                  key={comp.id || cIdx}
+                                  className="p-2 bg-white rounded border border-slate-200 shadow-2xs flex items-center justify-between gap-2"
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <Badge className="bg-slate-200 text-slate-800 font-mono text-[10px] px-1 py-0">
+                                      #{cIdx + 1}
+                                    </Badge>
+
+                                    {comp.type === 'TABLE' ? (
+                                      <Badge className="bg-blue-100 text-[#004C97] border-blue-200 text-[10px] uppercase font-bold">
+                                        Tabela
+                                      </Badge>
+                                    ) : comp.type === 'TEXT' ? (
+                                      <Badge className="bg-amber-100 text-amber-900 border-amber-200 text-[10px] uppercase font-bold">
+                                        Texto
+                                      </Badge>
+                                    ) : comp.type === 'INDICATORS' ? (
+                                      <Badge className="bg-emerald-100 text-emerald-900 border-emerald-200 text-[10px] uppercase font-bold">
+                                        Indicadores
+                                      </Badge>
+                                    ) : comp.type === 'CHARTS' ? (
+                                      <Badge className="bg-sky-100 text-sky-900 border-sky-200 text-[10px] uppercase font-bold">
+                                        Gráfico
+                                      </Badge>
+                                    ) : (
+                                      <Badge className="bg-purple-100 text-purple-900 border-purple-200 text-[10px] uppercase font-bold">
+                                        Análise IA
+                                      </Badge>
+                                    )}
+
+                                    <span className="text-xs font-semibold text-slate-800 truncate">
+                                      {comp.title || (comp.tableConfig?.name ?? 'Componente')}
+                                    </span>
+
+                                    {comp.type === 'TABLE' && comp.tableConfig && (
+                                      <span className="text-[10px] text-slate-400 font-mono truncate hidden sm:inline">
+                                        ({comp.tableConfig.columns?.length || 0} colunas &bull;{' '}
+                                        {comp.tableConfig.rows?.length || 0} linhas)
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {comp.type === 'TABLE' && comp.tableConfig && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleOpenEditTableModal(idx, comp.tableConfig!)
+                                        }
+                                        className="h-6 text-[11px] text-[#004C97] hover:bg-blue-50 px-2 font-bold gap-1"
+                                        title="Editar estrutura da tabela"
+                                      >
+                                        <Edit2 className="w-3 h-3" />
+                                        <span>Editar</span>
+                                      </Button>
+                                    )}
+
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={cIdx === 0}
+                                      onClick={() => handleMoveComponent(idx, cIdx, 'up')}
+                                      className="h-6 w-6 p-0 text-slate-400 hover:text-slate-700"
+                                      title="Subir componente"
+                                    >
+                                      <ArrowUp className="w-3 h-3" />
+                                    </Button>
+
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={cIdx === (sec.components?.length || 1) - 1}
+                                      onClick={() => handleMoveComponent(idx, cIdx, 'down')}
+                                      className="h-6 w-6 p-0 text-slate-400 hover:text-slate-700"
+                                      title="Descer componente"
+                                    >
+                                      <ArrowDown className="w-3 h-3" />
+                                    </Button>
+
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRemoveComponent(idx, cIdx)}
+                                      className="h-6 w-6 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                                      title="Remover componente"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {/* Fallback para tabelas registradas em custom_tables mas sem comp vinculado */}
+                              {(!sec.components || sec.components.length === 0) &&
+                                (sec.custom_tables || []).map((tbl) => (
+                                  <div
+                                    key={tbl.id}
+                                    className="p-2 bg-white rounded border border-blue-200 shadow-2xs flex items-center justify-between gap-2"
+                                  >
+                                    <div className="flex items-center gap-2 truncate">
+                                      <Badge className="bg-blue-100 text-[#004C97] border-blue-200 text-[10px] uppercase font-bold">
+                                        Tabela
+                                      </Badge>
+                                      <span className="text-xs font-semibold text-slate-800 truncate">
+                                        {tbl.display_title || tbl.name}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 font-mono truncate hidden sm:inline">
+                                        ({tbl.columns?.length || 0} cols &bull;{' '}
+                                        {tbl.rows?.length || 0} rows)
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleOpenEditTableModal(idx, tbl)}
+                                        className="h-6 text-[11px] text-[#004C97] hover:bg-blue-50 px-2 font-bold gap-1"
+                                      >
+                                        <Edit2 className="w-3 h-3" />
+                                        <span>Editar</span>
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleRemoveCustomTable(idx, tbl.id)}
+                                        className="h-6 w-6 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          ) : (
+                            <div className="py-2 px-3 bg-white/70 border border-dashed border-slate-200 rounded text-center text-[11px] text-slate-400">
+                              Nenhum componente adicionado nesta seção. Clique em{' '}
+                              <strong className="text-slate-600">"Adicionar Tabela"</strong> ou nos
+                              demais botões para personalizar a estrutura.
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1512,6 +1922,24 @@ export const TemplateManagementModal: React.FC<TemplateManagementModalProps> = (
           </DialogFooter>
         </ErrorBoundary>
       </DialogContent>
+
+      {/* Modal Construtor de Tabelas (TableBuilderModal) */}
+      {isTableBuilderOpen && activeTableBuilderSectionIdx !== null && (
+        <TableBuilderModal
+          isOpen={isTableBuilderOpen}
+          onClose={() => {
+            setIsTableBuilderOpen(false)
+            setEditingCustomTable(null)
+          }}
+          sectionTitle={formSections[activeTableBuilderSectionIdx]?.title || 'Seção'}
+          sectionNumber={
+            formSections[activeTableBuilderSectionIdx]?.number ||
+            String(activeTableBuilderSectionIdx + 1)
+          }
+          initialTable={editingCustomTable}
+          onSaveTable={handleSaveTableFromBuilder}
+        />
+      )}
     </Dialog>
   )
 }
