@@ -232,6 +232,20 @@ cronAdd('pcp_line_summary_scheduler', '0 * * * *', function () {
           log.set('line', linhaCode)
           log.set('module', 'ENTREGAS_PCP')
           log.set('screen', 'RESUMO_MENSAL')
+          log.set('details', {
+            summary_code: summaryCode,
+            template_id: tplId,
+            template_code: tplCode,
+            template_version: tplVersao,
+            periodo: periodoAtual,
+            origem: 'cron_scheduler',
+          })
+          log.set('technical_details', {
+            config_id: configId,
+            template_id: tplId,
+            template_code: tplCode,
+            template_version: tplVersao,
+          })
           $app.save(log)
         } catch (_) {}
       } catch (err) {
@@ -581,12 +595,23 @@ routerAdd(
             alog.set('line', lCode)
             alog.set('module', 'ENTREGAS_PCP')
             alog.set('screen', 'RESUMO_MENSAL')
+            alog.set('details', {
+              summary_code: sCode,
+              template_id: tplId,
+              template_code: tplCode,
+              template_version: tplVersao,
+              periodo: periodo,
+              has_snapshot: Boolean(tplSnapshot),
+            })
             alog.set('technical_details', {
               config_id: cfgId,
               periodo: periodo,
+              template_id: tplId,
               template_code: tplCode,
+              template_version: tplVersao,
               template_versao: tplVersao,
               with_ai: withAi,
+              has_snapshot: Boolean(tplSnapshot),
             })
             $app.save(alog)
           } catch (_) {}

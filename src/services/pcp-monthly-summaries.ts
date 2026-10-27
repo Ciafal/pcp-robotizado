@@ -1225,6 +1225,158 @@ class PcpMonthlySummaryService {
   }
 
   /**
+   * Cria rascunho de resumo mensal vinculando o template ativo e registrando auditoria
+   */
+  async createMonthlySummaryDraft(params: {
+    linhaCode: string
+    centroCode: string
+    empresaCode?: string
+    ano: number
+    mes: number
+    linhaNome?: string
+    centroNome?: string
+    programacaoVersionCode?: string
+    responsavelId?: string
+    responsavelNome?: string
+    responsavelEmail?: string
+    templateId?: string
+  }): Promise<PCPMonthlySummaryRecord> {
+    const empresaCode = params.empresaCode || 'CIAFAL'
+    const responsavelNome = params.responsavelNome || 'Programador PCP'
+    const responsavelEmail = params.responsavelEmail || 'pcp@ciafal.com.br'
+    const programacaoVersionCode =
+      params.programacaoVersionCode || `PROG-${params.linhaCode}-${params.ano}-${params.mes}`
+
+    const summaryCode = `RES-${params.linhaCode}-${params.ano}-${String(params.mes).padStart(2, '0')}-V01`
+    const mesAno = `${String(params.mes).padStart(2, '0')}/${params.ano}`
+
+    // Resolver template aplicável (ou buscar diretamente por id se fornecido)
+    let template: PCPMonthlySummaryTemplateRecord | null = null
+    if (params.templateId) {
+      try {
+        template = await this.getTemplateById(params.templateId)
+      } catch {
+        /* fallback para resolve */
+      }
+    }
+    if (!template) {
+      try {
+        template = await this.resolveApplicableTemplate({
+          empresa: empresaCode,
+          linha: params.linhaCode,
+          centro: params.centroCode,
+        })
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
+    const templateSnapshot = template
+      ? {
+          id: template.id,
+          template_id: template.id,
+          template_code: template.template_code,
+          code: template.template_code,
+          nome: template.nome,
+          name: template.nome,
+          versao: template.versao,
+          versao_tag: template.versao_tag,
+          version: template.versao_tag,
+          sections_config: template.sections_config || [],
+          sections_count: template.sections_config?.length || 18,
+          captured_at: new Date().toISOString(),
+        }
+      : null
+
+    const sections = this.buildInitialSections({
+      empresa: empresaCode,
+      centroCode: params.centroCode,
+      centroNome: params.centroNome || `${params.centroCode} - Planta Fabril`,
+      linhaCode: params.linhaCode,
+      linhaNome: params.linhaNome || `Linha ${params.linhaCode}`,
+      mes: params.mes,
+      ano: params.ano,
+      versao: 'V1',
+      responsavelNome,
+      responsavelEmail,
+      dataEntrega: formatDatePTBR(new Date()),
+      diaUtil: '22º dia útil',
+    })
+
+    const payload: any = {
+      summary_code: summaryCode,
+      empresa_code: empresaCode,
+      centro_code: params.centroCode,
+      centro_nome: params.centroNome || `${params.centroCode} - Planta Fabril`,
+      linha_code: params.linhaCode,
+      linha_nome: params.linhaNome || `Linha ${params.linhaCode}`,
+      ano: params.ano,
+      mes: params.mes,
+      mes_ano: mesAno,
+      version_number: 1,
+      version_tag: 'V1',
+      status: 'RASCUNHO_IA',
+      responsavel_pcp_id: params.responsavelId || undefined,
+      responsavel_pcp_nome: responsavelNome,
+      responsavel_pcp_email: responsavelEmail,
+      data_entrega: formatDatePTBR(new Date()),
+      dia_util: '22º dia útil',
+      origem_programacao_ref: programacaoVersionCode,
+      sections_data: sections,
+      template_id: template?.id || '',
+      template_code: template?.template_code || '',
+      template_version: template?.versao_tag || '',
+      template_snapshot: templateSnapshot,
+      revisions_history: [
+        {
+          version: 'V1',
+          user: responsavelNome,
+          timestamp: new Date().toISOString(),
+          reason: 'Criação de rascunho de resumo mensal com snapshot do template',
+        },
+      ],
+      read_count: 0,
+      total_recipients_count: 8,
+    }
+
+    try {
+      const created = await pb.collection('pcp_monthly_summaries').create(payload)
+
+      // Registrar auditoria vinculando explicitamente versão do template e snapshot
+      await pcpAuditService.recordLog({
+        action: 'PCP_SUMMARY_DRAFT_CREATED',
+        event_type: 'SCHEDULE_ACTION',
+        resource: 'PCP_MONTHLY_SUMMARY',
+        record_id: summaryCode,
+        line: params.linhaCode,
+        center: params.centroCode,
+        company: empresaCode,
+        module: 'ENTREGAS_PCP',
+        screen: 'RESUMO_MENSAL',
+        status: 'Concluída',
+        outcome: 'SUCCESS',
+        source: 'PCP Robotizado',
+        details: {
+          summaryCode,
+          mesAno,
+          template_id: template?.id || '',
+          template_code: template?.template_code || '',
+          template_version: template?.versao_tag || '',
+          has_snapshot: Boolean(template),
+        },
+      })
+
+      return this.mapRecord(created)
+    } catch (err: any) {
+      console.warn('Fallback local ao criar rascunho de resumo:', err)
+      return {
+        id: `local-${Date.now()}`,
+        ...payload,
+      } as PCPMonthlySummaryRecord
+    }
+  }
+
+  /**
    * Dispara criação automática de rascunho de resumo quando uma programação mensal/semanal for marcada como ENTREGUE
    */
   async triggerDraftFromDelivery(params: {
@@ -1270,6 +1422,35 @@ class PcpMonthlySummaryService {
       diaUtil: '22º dia útil',
     })
 
+    // Resolver template aplicável para herança da versão e snapshot
+    let template: PCPMonthlySummaryTemplateRecord | null = null
+    try {
+      template = await this.resolveApplicableTemplate({
+        empresa: params.empresaCode,
+        linha: params.linhaCode,
+        centro: params.centroCode,
+      })
+    } catch {
+      /* intentionally ignored */
+    }
+
+    const templateSnapshot = template
+      ? {
+          id: template.id,
+          template_id: template.id,
+          template_code: template.template_code,
+          code: template.template_code,
+          nome: template.nome,
+          name: template.nome,
+          versao: template.versao,
+          versao_tag: template.versao_tag,
+          version: template.versao_tag,
+          sections_config: template.sections_config || [],
+          sections_count: template.sections_config?.length || 18,
+          captured_at: new Date().toISOString(),
+        }
+      : null
+
     const payload: any = {
       summary_code: summaryCode,
       empresa_code: params.empresaCode,
@@ -1290,6 +1471,10 @@ class PcpMonthlySummaryService {
       diaUtil: '22º dia útil',
       origem_programacao_ref: params.programacaoVersionCode,
       sections_data: sections,
+      template_id: template?.id || '',
+      template_code: template?.template_code || '',
+      template_version: template?.versao_tag || '',
+      template_snapshot: templateSnapshot,
       revisions_history: [
         {
           version: 'V1',
@@ -1773,11 +1958,21 @@ class PcpMonthlySummaryService {
             current.version_tag || `V${String(current.version_number || 1).padStart(2, '0')}`,
           nextVersion: nextVersionTag,
           summary_code: newSummaryCode,
+          template_id: template?.id || '',
           template_code: template?.template_code || '',
           template_version: template?.versao_tag || '',
+          has_snapshot: Boolean(template),
           reprocessWithAI,
           reason,
           justification,
+        },
+        technical_details: {
+          template_id: template?.id || '',
+          template_code: template?.template_code || '',
+          template_version: template?.versao_tag || '',
+          previous_version:
+            current.version_tag || `V${String(current.version_number || 1).padStart(2, '0')}`,
+          reprocess_with_ai: reprocessWithAI,
         },
       })
 

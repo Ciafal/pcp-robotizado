@@ -89,7 +89,6 @@ export function formatCellValuePtBr(value: any, column: TableColumnConfig): stri
     }
 
     case 'INFORMACAO_IA':
-    case 'STATUS':
     case 'TEXTO':
     default:
       return String(value)
@@ -103,7 +102,7 @@ export function calculateColumnTotal(
   colId: string,
   rows: TableRowConfig[],
   column: TableColumnConfig,
-  totalFunction: 'SUM' | 'AVERAGE' | 'COUNT' = 'SUM',
+  totalFunction: 'SUM' | 'AVERAGE' | 'COUNT' | 'CUSTOM' = 'SUM',
 ): string {
   const values: number[] = []
   rows.forEach((r) => {
@@ -117,12 +116,13 @@ export function calculateColumnTotal(
   if (values.length === 0) return '—'
 
   let res = 0
-  if (totalFunction === 'SUM') {
-    res = values.reduce((a, b) => a + b, 0)
-  } else if (totalFunction === 'AVERAGE') {
+  if (totalFunction === 'AVERAGE') {
     res = values.reduce((a, b) => a + b, 0) / values.length
   } else if (totalFunction === 'COUNT') {
     return `${values.length}`
+  } else {
+    // 'SUM' ou 'CUSTOM' como soma default
+    res = values.reduce((a, b) => a + b, 0)
   }
 
   return formatCellValuePtBr(res, column)

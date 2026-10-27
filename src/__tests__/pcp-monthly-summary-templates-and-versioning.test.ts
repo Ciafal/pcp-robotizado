@@ -561,7 +561,7 @@ describe('PCP Monthly Summary - Templates & Versioning Engine Acceptance Tests',
       expect(updated.versao_tag).toBe('V2.0')
     })
 
-    it('vincula snapshot imutável do template e versão utilizada ao criar rascunho de resumo', async () => {
+    it('vincula snapshot imutável do template e versão utilizada ao criar rascunho de resumo e registra auditoria', async () => {
       const templateMock = {
         id: 'tpl-snapshot-test',
         template_code: 'TPL-MOCK-SNAP',
@@ -574,6 +574,8 @@ describe('PCP Monthly Summary - Templates & Versioning Engine Acceptance Tests',
       }
 
       let summaryCreatedPayload: any = null
+      let auditCreatedPayload: any = null
+
       vi.spyOn(pb, 'collection').mockImplementation((colName: string) => {
         if (colName === 'pcp_monthly_summary_templates') {
           return {
@@ -586,6 +588,14 @@ describe('PCP Monthly Summary - Templates & Versioning Engine Acceptance Tests',
             create: vi.fn().mockImplementation((data) => {
               summaryCreatedPayload = data
               return Promise.resolve({ id: 'rec-sum-snap', ...data })
+            }),
+          } as any
+        }
+        if (colName === 'pcp_audit_logs') {
+          return {
+            create: vi.fn().mockImplementation((data) => {
+              auditCreatedPayload = data
+              return Promise.resolve({ id: 'audit-snap-1', ...data })
             }),
           } as any
         }
@@ -608,6 +618,15 @@ describe('PCP Monthly Summary - Templates & Versioning Engine Acceptance Tests',
       expect(summaryCreatedPayload.template_snapshot.template_code).toBe('TPL-MOCK-SNAP')
       expect(summaryCreatedPayload.template_snapshot.versao_tag).toBe('V3.0')
       expect(summaryCreatedPayload.template_snapshot.sections_config.length).toBe(18)
+      expect(summary.template_version).toBe('V3.0')
+
+      // Auditoria com template_version / snapshot
+      expect(auditCreatedPayload).not.toBeNull()
+      expect(auditCreatedPayload.event_type).toBe('SCHEDULE_ACTION')
+      expect(auditCreatedPayload.resource).toBe('PCP_MONTHLY_SUMMARY')
+      expect(auditCreatedPayload.details.template_version).toBe('V3.0')
+      expect(auditCreatedPayload.details.template_code).toBe('TPL-MOCK-SNAP')
+      expect(auditCreatedPayload.details.has_snapshot).toBe(true)
     })
   })
 })

@@ -13,6 +13,7 @@ describe('SummaryTableRenderer & formatCellValuePtBr', () => {
       field_type: 'QUANTIDADE',
       unit_of_measure: 't',
       order: 1,
+      is_required: false,
     }
 
     expect(formatCellValuePtBr(1234.56, col)).toBe('1.234,56 t')
@@ -26,6 +27,7 @@ describe('SummaryTableRenderer & formatCellValuePtBr', () => {
       name: 'Receita',
       field_type: 'MOEDA',
       order: 2,
+      is_required: false,
     }
 
     expect(formatCellValuePtBr(null, col)).toBe('Dado não disponível')
@@ -41,6 +43,7 @@ describe('SummaryTableRenderer & formatCellValuePtBr', () => {
       name: 'Aderência',
       field_type: 'PERCENTUAL',
       order: 3,
+      is_required: false,
     }
 
     expect(formatCellValuePtBr(91.0, col)).toBe('91,0%')
@@ -53,6 +56,7 @@ describe('SummaryTableRenderer & formatCellValuePtBr', () => {
       name: 'Custo',
       field_type: 'MOEDA',
       order: 4,
+      is_required: false,
     }
 
     const res = formatCellValuePtBr(1234.56, col)
@@ -66,6 +70,7 @@ describe('SummaryTableRenderer & formatCellValuePtBr', () => {
       name: 'Data Planejada',
       field_type: 'DATA',
       order: 5,
+      is_required: false,
     }
 
     expect(formatCellValuePtBr('2025-05-18', col)).toBe('18/05/2025')
@@ -79,6 +84,7 @@ describe('SummaryTableRenderer & formatCellValuePtBr', () => {
       field_type: 'QUANTIDADE',
       unit_of_measure: 't',
       order: 1,
+      is_required: false,
     }
 
     const rows: TableRowConfig[] = [
