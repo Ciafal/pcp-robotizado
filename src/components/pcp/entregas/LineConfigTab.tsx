@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,8 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+
+  const { toast } = useToast()
 
   // Modal de Edição / Criação
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -175,56 +178,101 @@ export const LineConfigTab: React.FC<LineConfigTabProps> = ({ templates, canMana
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSaving) return
+
+    // Validação preventiva dos campos obrigatórios antes do envio
+    if (!formEmpresa?.trim()) {
+      setErrorMsg('Não foi possível salvar: o campo "Empresa" é obrigatório.')
+      return
+    }
+    if (!formLinhaCode?.trim()) {
+      setErrorMsg('Não foi possível salvar: selecione uma "Linha Produtiva".')
+      return
+    }
+    if (!formTipoResumo?.trim()) {
+      setErrorMsg('Não foi possível salvar: selecione o "Tipo de Resumo".')
+      return
+    }
+    if (!formPeriodicidade?.trim()) {
+      setErrorMsg('Não foi possível salvar: selecione a "Periodicidade".')
+      return
+    }
+    if (!formRespGeracaoId?.trim()) {
+      setErrorMsg('Não foi possível salvar: selecione o "Responsável pela Geração / Elaboração".')
+      return
+    }
+
     setIsSaving(true)
     setErrorMsg('')
     setSuccessMsg('')
 
     try {
+      const selectedLine = realLines.find((l) => l.code === formLinhaCode)
       const respUser = hubUsers.find((u) => u.id === formRespGeracaoId)
       const progUser = hubUsers.find((u) => u.id === formProgPcpId)
       const subUser = hubUsers.find((u) => u.id === formProgSubstitutoId)
       const supUser = hubUsers.find((u) => u.id === formSupervisorId)
       const tpl = templates.find((t) => t.id === formTemplateId)
 
+      // Payload estritamente alinhado ao schema de pcp_line_summary_configs
       const payload: Partial<LineSummaryConfig> = {
         id: editingConfig?.id,
-        empresa_code: formEmpresa,
-        linha_code: formLinhaCode,
-        linha_nome: formLinhaNome || formLinhaCode,
-        centro_code: formCentroCode,
-        centro_nome: formCentroNome,
-        template_id: formTemplateId,
+        empresa_code: formEmpresa.trim(),
+        linha_id: selectedLine?.id || '',
+        linha_code: formLinhaCode.trim(),
+        linha_nome: formLinhaNome || selectedLine?.name || formLinhaCode,
+        centro_code: formCentroCode?.trim() || '',
+        centro_nome: formCentroNome?.trim() || formCentroCode?.trim() || '',
+        template_id: formTemplateId || '',
         template_code: tpl ? tpl.template_code : '',
         template_nome: tpl ? tpl.nome : '',
         tipo_resumo: formTipoResumo,
-        finalidade: formFinalidade,
+        responsavel_geracao_id: formRespGeracaoId,
+        responsavel_geracao_nome: respUser ? respUser.name : '',
+        programador_pcp_id: formProgPcpId || '',
+        programador_pcp_nome: progUser ? progUser.name : '',
+        programador_substituto_id: formProgSubstitutoId || '',
+        programador_substituto_nome: subUser ? subUser.name : '',
+        supervisor_pcp_id: formSupervisorId || '',
+        supervisor_pcp_nome: supUser ? supUser.name : '',
+        geracao_automatica: Boolean(formGeracaoAuto),
+        exigir_aprovacao: Boolean(formExigirAprovacao),
+        envio_automatico_apos_aprovacao: Boolean(formEnvioAuto),
         periodicidade: formPeriodicidade,
         parametros_personalizados: {
           intervalo_dias: formIntervaloDias,
           horario: formHorario,
           dia_do_mes: formDiaMes,
         },
-        geracao_automatica: formGeracaoAuto,
-        exigir_aprovacao: formExigirAprovacao,
-        envio_automatico_apos_aprovacao: formEnvioAuto,
-        responsavel_geracao_id: formRespGeracaoId,
-        responsavel_geracao_nome: respUser ? respUser.name : '',
-        programador_pcp_id: formProgPcpId,
-        programador_pcp_nome: progUser ? progUser.name : '',
-        programador_substituto_id: formProgSubstitutoId,
-        programador_substituto_nome: subUser ? subUser.name : '',
-        supervisor_pcp_id: formSupervisorId,
-        supervisor_pcp_nome: supUser ? supUser.name : '',
-        observacoes: formObservacoes,
+        data_referencia_str: '',
         status: formStatus,
+        observacoes: formObservacoes?.trim() || '',
+        finalidade: formFinalidade?.trim() || '',
       }
 
       await lineSummaryAutomationService.saveLineConfig(payload)
-      setSuccessMsg(`Configuração da Linha ${formLinhaCode} salva com sucesso.`)
+      const successNotice = `Configuração da Linha ${formLinhaCode} salva com sucesso.`
+      setSuccessMsg(successNotice)
+      toast({
+        title: 'Sucesso',
+        description: successNotice,
+      })
+
+      // Fechar modal apenas em sucesso e recarregar listagem
       setIsModalOpen(false)
       await loadData()
     } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao salvar configuração')
+      console.error('[LineConfigTab] Falha ao salvar configuração:', err)
+      const friendlyMessage =
+        err?.message ||
+        'Não foi possível salvar a configuração. Verifique os dados e tente novamente.'
+      setErrorMsg(friendlyMessage)
+      toast({
+        title: 'Erro ao salvar',
+        description: friendlyMessage,
+        variant: 'destructive',
+      })
+      // Em falha: o modal permanece aberto e os campos preenchidos
     } finally {
       setIsSaving(false)
     }

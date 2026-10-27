@@ -267,19 +267,65 @@ export const lineSummaryAutomationService = {
     }
 
     let record: any
-    if (config.id) {
-      record = await pb.collection('pcp_line_summary_configs').update(config.id, payload)
-    } else {
-      record = await pb.collection('pcp_line_summary_configs').create(payload)
+    try {
+      if (config.id) {
+        record = await pb.collection('pcp_line_summary_configs').update(config.id, payload)
+      } else {
+        record = await pb.collection('pcp_line_summary_configs').create(payload)
+      }
+    } catch (err: any) {
+      // Capturar detalhes técnicos do PocketBase
+      const responseData = err?.response?.data || err?.data
+      console.error(
+        '[pcp-line-summary-automation-service] Erro ao gravar pcp_line_summary_configs:',
+        {
+          status: err?.status,
+          message: err?.message,
+          url: err?.url,
+          data: responseData,
+          payloadSent: payload,
+        },
+      )
+
+      // Formatar mensagem amigável em português sem expor dados sensíveis
+      if (
+        responseData &&
+        typeof responseData === 'object' &&
+        Object.keys(responseData).length > 0
+      ) {
+        const fieldDetails = Object.entries(responseData)
+          .map(([field, detail]: [string, any]) => {
+            const msg = detail?.message || detail || 'inválido'
+            return `Campo "${field}": ${msg}`
+          })
+          .join('; ')
+        throw new Error(`Não foi possível salvar a configuração: ${fieldDetails}`)
+      }
+
+      if (err?.status === 403) {
+        throw new Error(
+          'Acesso negado: seu perfil não possui permissão para cadastrar ou editar configurações de resumo.',
+        )
+      }
+      if (err?.status === 400) {
+        throw new Error(
+          `Dados inválidos ao salvar configuração: ${err.message || 'Verifique os campos obrigatórios.'}`,
+        )
+      }
+      throw new Error(err?.message || 'Erro ao comunicar com o servidor ao salvar configuração.')
     }
 
-    // Registrar auditoria
-    await this.logAudit(
-      config.id ? 'PCP_LINE_CONFIG_UPDATE' : 'PCP_LINE_CONFIG_CREATE',
-      `Configuração por linha ${payload.linha_code} (${payload.tipo_resumo})`,
-      { config_id: record.id, linha: payload.linha_code, periodicidade: payload.periodicidade },
-      payload.linha_code,
-    )
+    // Registrar auditoria (não bloqueia retorno em caso de falha de log)
+    try {
+      await this.logAudit(
+        config.id ? 'PCP_LINE_CONFIG_UPDATE' : 'PCP_LINE_CONFIG_CREATE',
+        `Configuração por linha ${payload.linha_code} (${payload.tipo_resumo})`,
+        { config_id: record.id, linha: payload.linha_code, periodicidade: payload.periodicidade },
+        payload.linha_code,
+      )
+    } catch (auditErr) {
+      console.warn('Falha silenciosa ao registrar auditoria de configuração de linha:', auditErr)
+    }
 
     return this.mapConfigRecord(record)
   },
