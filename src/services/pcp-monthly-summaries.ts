@@ -276,6 +276,103 @@ export interface RealCenterOption {
   isPlant: boolean
 }
 
+export type SectionComponentType = 'TEXT' | 'TABLE' | 'INDICATORS' | 'CHARTS' | 'AI_ANALYSIS'
+
+export type TableColumnFieldType =
+  | 'TEXTO'
+  | 'NUMERO_INTEIRO'
+  | 'NUMERO_DECIMAL'
+  | 'PERCENTUAL'
+  | 'MOEDA'
+  | 'DATA'
+  | 'HORA'
+  | 'QUANTIDADE'
+  | 'CAMPO_CALCULADO'
+  | 'INFORMACAO_IA'
+
+export interface TableColumnConfig {
+  id: string
+  name: string
+  order: number
+  field_type: TableColumnFieldType
+  data_source?: string
+  source_field?: string
+  unit_of_measure?: string
+  is_required: boolean
+  calculation_rule?: string // ex: [col_realizado] / [col_programado] * 100
+  ai_field_instruction?: string
+  default_value?: any
+  width_px?: number
+}
+
+export interface TableRowCellConfig {
+  column_id: string
+  default_value?: any
+  formula?: string
+  value?: any
+}
+
+export interface TableRowConfig {
+  id: string
+  order: number
+  label?: string
+  cells: Record<string, any> // column_id -> value / default_value
+  is_totalizer?: boolean
+}
+
+export interface TableTotalizerConfig {
+  enabled: boolean
+  label?: string
+  columns_to_totalize?: string[] // IDs das colunas calculadas/somadas
+  total_function?: 'SUM' | 'AVERAGE' | 'COUNT' | 'CUSTOM'
+}
+
+export interface CustomTableConfig {
+  id: string
+  name: string
+  display_title: string
+  description?: string
+  data_source: string
+  show_title: boolean
+  allow_ai_completion: boolean
+  allow_manual_edit: boolean
+  ai_fill_instructions?: string
+  is_dynamic: boolean // Linhas dinâmicas pela fonte vs Linhas fixas
+  columns: TableColumnConfig[]
+  rows: TableRowConfig[] // Linhas fixas ou linhas padrão
+  totalizer?: TableTotalizerConfig
+  initial_rows_count?: number
+  initial_cols_count?: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface SectionContentComponent {
+  id: string
+  type: SectionComponentType
+  order: number
+  title?: string
+  is_visible: boolean
+  // Dados específicos por tipo
+  textContent?: {
+    text: string
+    placeholder?: string
+  }
+  tableConfig?: CustomTableConfig
+  indicatorsConfig?: {
+    metricIds: string[]
+    layout?: 'cards' | 'grid'
+  }
+  chartsConfig?: {
+    chartType: 'bar' | 'line' | 'pie' | 'pareto'
+    dataSource: string
+  }
+  aiAnalysisConfig?: {
+    promptInstructions: string
+    mode: 'executive' | 'detailed' | 'risk_assessment'
+  }
+}
+
 export interface SummaryTemplateSectionConfig {
   order: number
   number: string
@@ -289,6 +386,9 @@ export interface SummaryTemplateSectionConfig {
   allow_manual_edit: boolean
   allow_ai_completion: boolean
   is_mandatory: boolean
+  // Extensões de múltiplos componentes e construtor de tabelas
+  components?: SectionContentComponent[]
+  custom_tables?: CustomTableConfig[]
 }
 
 export type MonthlySummaryTemplate = PCPMonthlySummaryTemplateRecord
