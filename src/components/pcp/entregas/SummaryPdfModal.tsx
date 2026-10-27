@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Printer, Download, FileText, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { PCPMonthlySummaryRecord } from '@/services/pcp-monthly-summaries'
 import { formatNumberPTBR } from '@/lib/formatters-ptbr'
+import { SummaryTableRenderer } from './SummaryTableRenderer'
 
 interface SummaryPdfModalProps {
   isOpen: boolean
@@ -84,6 +85,15 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono mt-0.5">
                   Divinópolis &bull; Contagem &bull; Filial Sidercentro
+                </div>
+                <div className="text-[10px] text-slate-500 mt-1">
+                  Template:{' '}
+                  <strong>
+                    {summary.template_code || summary.template_snapshot?.code || 'Padrão'}
+                  </strong>{' '}
+                  <span className="font-mono text-slate-600">
+                    ({summary.template_version || summary.template_snapshot?.version || 'V1.0'})
+                  </span>
                 </div>
               </div>
 
@@ -208,6 +218,69 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Tabelas Parametrizadas do Template Snapshot no Relatório PDF */}
+            {(() => {
+              const snapshot = summary.template_snapshot
+              const allTables: { title: string; table: any }[] = []
+
+              if (snapshot?.sections_config && Array.isArray(snapshot.sections_config)) {
+                snapshot.sections_config.forEach((s: any) => {
+                  if (Array.isArray(s.custom_tables)) {
+                    s.custom_tables.forEach((t: any) => {
+                      allTables.push({
+                        title: s.title || `Seção ${s.order || s.number || ''}`,
+                        table: t,
+                      })
+                    })
+                  }
+                  if (Array.isArray(s.components)) {
+                    s.components.forEach((c: any) => {
+                      if (c.type === 'TABLE' && c.tableConfig) {
+                        allTables.push({
+                          title: s.title || `Seção ${s.order || s.number || ''}`,
+                          table: c.tableConfig,
+                        })
+                      }
+                    })
+                  }
+                })
+              }
+
+              // Checar se há tabelas em sections_data também
+              if (summary.sections_data) {
+                Object.entries(summary.sections_data).forEach(([key, val]: [string, any]) => {
+                  if (val?.custom_tables && Array.isArray(val.custom_tables)) {
+                    val.custom_tables.forEach((t: any) => {
+                      if (!allTables.some((item) => item.table.id === t.id)) {
+                        allTables.push({
+                          title: val.title || key,
+                          table: t,
+                        })
+                      }
+                    })
+                  }
+                })
+              }
+
+              if (allTables.length === 0) return null
+
+              return (
+                <div className="space-y-4 border-t border-slate-200 pt-3">
+                  <h3 className="text-xs font-black uppercase text-[#004C97] border-b border-slate-200 pb-1">
+                    Tabelas Parametrizadas da Estrutura Operacional
+                  </h3>
+                  {allTables.map((item, idx) => (
+                    <div key={item.table.id || `pdf_tbl_${idx}`} className="space-y-1">
+                      <div className="text-[10px] font-bold text-slate-600 uppercase">
+                        {item.title}
+                      </div>
+                      <SummaryTableRenderer table={item.table} />
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
 
             {/* Seções complementares (quando relatório completo) */}
             {!isExecutiveMode && (

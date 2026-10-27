@@ -517,5 +517,97 @@ describe('PCP Monthly Summary - Templates & Versioning Engine Acceptance Tests',
       expect(tableCreatedPayload.table_id).toBe('tbl_teste_123')
       expect(tableCreatedPayload.name).toBe('Tabela de Desvios Operacionais')
     })
+
+    it('incrementa versão do template (V1.0 -> V2.0) a cada edição e registra histórico de revisões', async () => {
+      const initialTpl = {
+        id: 'tpl-ver-test',
+        template_code: 'TPL-INC-VER',
+        nome: 'Template com Versionamento Incremental',
+        versao: 1,
+        versao_tag: 'V1.0',
+        sections_config: pcpMonthlySummaryService.getDefault18SectionsConfig(),
+        revisions_history: [],
+      }
+
+      let capturedPayload: any = null
+      vi.spyOn(pb, 'collection').mockImplementation((colName: string) => {
+        if (colName === 'pcp_monthly_summary_templates') {
+          return {
+            getOne: vi.fn().mockResolvedValue(initialTpl),
+            update: vi.fn().mockImplementation((id, data) => {
+              capturedPayload = data
+              return Promise.resolve({
+                ...initialTpl,
+                ...data,
+              })
+            }),
+          } as any
+        }
+        return {} as any
+      })
+
+      const updated = await pcpMonthlySummaryService.updateTemplate('tpl-ver-test', {
+        nome: 'Template com Versionamento Incremental Atualizado',
+        motivo: 'Revisão periódica de parâmetros operacionais',
+      })
+
+      expect(capturedPayload).not.toBeNull()
+      expect(capturedPayload.versao).toBe(2)
+      expect(capturedPayload.versao_tag).toBe('V2.0')
+      expect(capturedPayload.revisions_history.length).toBe(1)
+      expect(capturedPayload.revisions_history[0].versao_anterior).toBe('V1.0')
+      expect(capturedPayload.revisions_history[0].versao_tag).toBe('V2.0')
+      expect(updated.versao).toBe(2)
+      expect(updated.versao_tag).toBe('V2.0')
+    })
+
+    it('vincula snapshot imutável do template e versão utilizada ao criar rascunho de resumo', async () => {
+      const templateMock = {
+        id: 'tpl-snapshot-test',
+        template_code: 'TPL-MOCK-SNAP',
+        nome: 'Template Snapshot Test',
+        versao: 3,
+        versao_tag: 'V3.0',
+        sections_config: pcpMonthlySummaryService.getDefault18SectionsConfig(),
+        is_default: true,
+        status: 'ATIVO',
+      }
+
+      let summaryCreatedPayload: any = null
+      vi.spyOn(pb, 'collection').mockImplementation((colName: string) => {
+        if (colName === 'pcp_monthly_summary_templates') {
+          return {
+            getFullList: vi.fn().mockResolvedValue([templateMock]),
+            getOne: vi.fn().mockResolvedValue(templateMock),
+          } as any
+        }
+        if (colName === 'pcp_monthly_summaries') {
+          return {
+            create: vi.fn().mockImplementation((data) => {
+              summaryCreatedPayload = data
+              return Promise.resolve({ id: 'rec-sum-snap', ...data })
+            }),
+          } as any
+        }
+        return {} as any
+      })
+
+      const summary = await pcpMonthlySummaryService.createMonthlySummaryDraft({
+        linhaCode: 'L1',
+        centroCode: '1000',
+        empresaCode: 'CIAFAL',
+        mes: 5,
+        ano: 2025,
+      })
+
+      expect(summaryCreatedPayload).not.toBeNull()
+      expect(summaryCreatedPayload.template_id).toBe('tpl-snapshot-test')
+      expect(summaryCreatedPayload.template_code).toBe('TPL-MOCK-SNAP')
+      expect(summaryCreatedPayload.template_version).toBe('V3.0')
+      expect(summaryCreatedPayload.template_snapshot).not.toBeNull()
+      expect(summaryCreatedPayload.template_snapshot.template_code).toBe('TPL-MOCK-SNAP')
+      expect(summaryCreatedPayload.template_snapshot.versao_tag).toBe('V3.0')
+      expect(summaryCreatedPayload.template_snapshot.sections_config.length).toBe(18)
+    })
   })
 })

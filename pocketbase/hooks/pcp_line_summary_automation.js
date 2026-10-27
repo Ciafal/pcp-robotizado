@@ -460,6 +460,7 @@ routerAdd(
                   (sec.is_mandatory ? 'Informações obrigatórias validadas pelo PCP.' : ''),
                 fonte_dados: sec.data_source || 'Cadastro PCP / SAP',
                 status_preenchimento: 'Rascunho Gerado',
+                custom_tables: sec.custom_tables || [],
               }
             })
           } else {
@@ -477,6 +478,24 @@ routerAdd(
               fonte_dados: 'Cadastro PCP',
             }
           }
+
+          // Snapshot completo e imutável da estrutura do template e suas tabelas
+          var tplSnapshot = appliedTpl
+            ? {
+                id: appliedTpl.id,
+                template_id: appliedTpl.id,
+                template_code: tplCode,
+                code: tplCode,
+                nome: appliedTpl.getString('nome') || tplCode,
+                name: appliedTpl.getString('nome') || tplCode,
+                versao: appliedTpl.getInt('versao') || 1,
+                versao_tag: tplVersao,
+                version: tplVersao,
+                sections_config: sConfigs,
+                sections_count: Array.isArray(sConfigs) ? sConfigs.length : 18,
+                captured_at: new Date().toISOString(),
+              }
+            : null
 
           var st = cfg.getBool('exigir_aprovacao')
             ? 'AGUARDANDO_APROVACAO'
@@ -507,6 +526,9 @@ routerAdd(
           sRec.set('template_id', tplId)
           sRec.set('template_code', tplCode)
           sRec.set('template_version', tplVersao)
+          if (tplSnapshot) {
+            sRec.set('template_snapshot', tplSnapshot)
+          }
           sRec.set('revisions_history', [
             {
               versao_numero: 1,

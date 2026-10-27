@@ -50,6 +50,7 @@ import {
 import { formatNumberPTBR, formatDatePTBR, formatDateTimePTBR } from '@/lib/formatters-ptbr'
 import { CreateNewVersionModal } from '@/components/pcp/entregas/CreateNewVersionModal'
 import { TemplateManagementModal } from '@/components/pcp/entregas/TemplateManagementModal'
+import { SummaryTableRenderer } from '@/components/pcp/entregas/SummaryTableRenderer'
 
 export const ResumoMensalPage: React.FC = () => {
   const { toast } = useToast()
@@ -334,6 +335,59 @@ export const ResumoMensalPage: React.FC = () => {
   }
 
   const activeSec = editableSections || selectedSummary?.sections_data
+
+  // Resolução de tabelas por seção baseadas no Snapshot Imutável ou nas seções do resumo
+  const getSectionTables = (sectionKeyOrIndex: string | number) => {
+    if (!selectedSummary) return []
+    const snapshot = selectedSummary.template_snapshot
+    const tables: any[] = []
+
+    // 1. Prioridade: tabelas gravadas diretamente no snapshot do template deste resumo
+    if (snapshot?.sections_config && Array.isArray(snapshot.sections_config)) {
+      let targetSec: any = null
+      if (typeof sectionKeyOrIndex === 'number') {
+        targetSec = snapshot.sections_config[sectionKeyOrIndex]
+      } else {
+        targetSec = snapshot.sections_config.find(
+          (s: any) =>
+            s.key === sectionKeyOrIndex ||
+            s.number === String(sectionKeyOrIndex) ||
+            s.order === Number(sectionKeyOrIndex),
+        )
+      }
+      if (targetSec?.custom_tables && Array.isArray(targetSec.custom_tables)) {
+        targetSec.custom_tables.forEach((t: any) => {
+          if (!tables.some((existing) => existing.id === t.id)) {
+            tables.push(t)
+          }
+        })
+      }
+      // Checar também componentes de tabela
+      if (targetSec?.components && Array.isArray(targetSec.components)) {
+        targetSec.components.forEach((c: any) => {
+          if (c.type === 'TABLE' && c.tableConfig) {
+            if (!tables.some((existing) => existing.id === c.tableConfig.id)) {
+              tables.push(c.tableConfig)
+            }
+          }
+        })
+      }
+    }
+
+    // 2. Tabelas persistidas diretamente na chave da seção de sections_data
+    if (activeSec && typeof sectionKeyOrIndex === 'string') {
+      const secData = (activeSec as any)[sectionKeyOrIndex]
+      if (secData?.custom_tables && Array.isArray(secData.custom_tables)) {
+        secData.custom_tables.forEach((t: any) => {
+          if (!tables.some((existing) => existing.id === t.id)) {
+            tables.push(t)
+          }
+        })
+      }
+    }
+
+    return tables
+  }
 
   return (
     <div className="space-y-4 max-w-full min-w-0" data-testid="pcp-resumo-mensal-page">
@@ -623,14 +677,42 @@ export const ResumoMensalPage: React.FC = () => {
                   Ref. Prog: {selectedSummary.origem_programacao_ref || 'WS-L1-2025-W18'}
                 </Badge>
               </div>
-              <div className="text-xs text-slate-500">
-                Linha: <strong>{selectedSummary.linha_nome || selectedSummary.linha_code}</strong>{' '}
-                &bull; Centro:{' '}
-                <strong>{selectedSummary.centro_nome || selectedSummary.centro_code}</strong> &bull;
-                Responsável:{' '}
-                <strong>{selectedSummary.responsavel_pcp_nome || 'Carlos Mendes'}</strong> &bull;
-                Data de Entrega: <strong>{selectedSummary.data_entrega || '04/05/2025'}</strong> (
-                {activeSec.identificacao.diaUtil})
+              <div className="text-xs text-slate-500 flex flex-wrap items-center gap-1.5">
+                <span>
+                  Linha: <strong>{selectedSummary.linha_nome || selectedSummary.linha_code}</strong>
+                </span>
+                <span>&bull;</span>
+                <span>
+                  Centro:{' '}
+                  <strong>{selectedSummary.centro_nome || selectedSummary.centro_code}</strong>
+                </span>
+                <span>&bull;</span>
+                <span>
+                  Template:{' '}
+                  <strong>
+                    {selectedSummary.template_code ||
+                      selectedSummary.template_snapshot?.code ||
+                      'Padrão'}
+                  </strong>{' '}
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono bg-white text-slate-700 ml-0.5"
+                  >
+                    {selectedSummary.template_version ||
+                      selectedSummary.template_snapshot?.version ||
+                      'V1.0'}
+                  </Badge>
+                </span>
+                <span>&bull;</span>
+                <span>
+                  Responsável:{' '}
+                  <strong>{selectedSummary.responsavel_pcp_nome || 'Carlos Mendes'}</strong>
+                </span>
+                <span>&bull;</span>
+                <span>
+                  Data de Entrega: <strong>{selectedSummary.data_entrega || '04/05/2025'}</strong> (
+                  {activeSec.identificacao.diaUtil})
+                </span>
               </div>
             </div>
 
@@ -787,6 +869,11 @@ export const ResumoMensalPage: React.FC = () => {
                   ))}
                 </ul>
               )}
+
+              {/* Tabelas configuradas na Seção 2 */}
+              {getSectionTables('sumarioExecutivo').map((tbl) => (
+                <SummaryTableRenderer key={tbl.id} table={tbl} sectionKey="sumarioExecutivo" />
+              ))}
             </div>
 
             {/* SEÇÃO 3: Análise de Carteira (Pesos específicos para L1, L2 e SDC) */}
@@ -866,6 +953,11 @@ export const ResumoMensalPage: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Tabelas configuradas na Seção 3 */}
+              {getSectionTables('analiseCarteira').map((tbl) => (
+                <SummaryTableRenderer key={tbl.id} table={tbl} sectionKey="analiseCarteira" />
+              ))}
             </div>
 
             {/* SEÇÃO 4: Estoque de Produto Acabado */}
@@ -915,6 +1007,11 @@ export const ResumoMensalPage: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Tabelas configuradas na Seção 4 */}
+              {getSectionTables('estoqueProdutoAcabado').map((tbl) => (
+                <SummaryTableRenderer key={tbl.id} table={tbl} sectionKey="estoqueProdutoAcabado" />
+              ))}
             </div>
 
             {/* SEÇÃO 5: Matéria-Prima */}
@@ -982,6 +1079,11 @@ export const ResumoMensalPage: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Tabelas configuradas na Seção 5 */}
+              {getSectionTables('materiaPrima').map((tbl) => (
+                <SummaryTableRenderer key={tbl.id} table={tbl} sectionKey="materiaPrima" />
+              ))}
             </div>
 
             {/* SEÇÃO 6: Industrializados */}
@@ -1456,7 +1558,74 @@ export const ResumoMensalPage: React.FC = () => {
                   </p>
                 </div>
               </div>
+
+              {/* Tabelas configuradas na Seção 18 */}
+              {getSectionTables('conclusaoIA').map((tbl) => (
+                <SummaryTableRenderer key={tbl.id} table={tbl} sectionKey="conclusaoIA" />
+              ))}
             </div>
+
+            {/* SEÇÃO DINÂMICA: Tabelas Customizadas Adicionais do Template Snapshot */}
+            {(() => {
+              const snapshot = selectedSummary.template_snapshot
+              if (!snapshot?.sections_config || !Array.isArray(snapshot.sections_config)) {
+                return null
+              }
+              // Coletar tabelas que pertencem a seções adicionais ou genéricas (ex: sec_6, sec_7, anexos, etc.)
+              const renderedKeys = [
+                'sumarioExecutivo',
+                'analiseCarteira',
+                'estoqueProdutoAcabado',
+                'materiaPrima',
+                'conclusaoIA',
+              ]
+              const otherTables: { sectionTitle: string; table: any }[] = []
+
+              snapshot.sections_config.forEach((sec: any) => {
+                const sKey = sec.key || `sec_${sec.order}`
+                if (!renderedKeys.includes(sKey)) {
+                  if (Array.isArray(sec.custom_tables)) {
+                    sec.custom_tables.forEach((t: any) => {
+                      otherTables.push({
+                        sectionTitle: sec.title || `Seção ${sec.order || sec.number || ''}`,
+                        table: t,
+                      })
+                    })
+                  }
+                  if (Array.isArray(sec.components)) {
+                    sec.components.forEach((c: any) => {
+                      if (c.type === 'TABLE' && c.tableConfig) {
+                        otherTables.push({
+                          sectionTitle: sec.title || `Seção ${sec.order || sec.number || ''}`,
+                          table: c.tableConfig,
+                        })
+                      }
+                    })
+                  }
+                }
+              })
+
+              if (otherTables.length === 0) return null
+
+              return (
+                <div className="space-y-3 border-t border-slate-200 pt-4">
+                  <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider flex items-center gap-1.5">
+                    <span>
+                      Tabelas Parametrizadas do Template (
+                      {snapshot.version || snapshot.versao_tag || 'Snapshot'})
+                    </span>
+                  </h3>
+                  {otherTables.map((item, idx) => (
+                    <div key={item.table.id || `extra_tbl_${idx}`} className="space-y-1">
+                      <div className="text-[11px] font-bold text-slate-600 uppercase">
+                        {item.sectionTitle}
+                      </div>
+                      <SummaryTableRenderer table={item.table} />
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
         </div>
       ) : (

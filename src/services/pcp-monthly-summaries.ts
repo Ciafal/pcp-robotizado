@@ -1305,7 +1305,7 @@ class PcpMonthlySummaryService {
     try {
       const created = await pb.collection('pcp_monthly_summaries').create(payload)
 
-      // Registrar auditoria
+      // Registrar auditoria vinculando explicitamente versão do template e snapshot
       await pcpAuditService.recordLog({
         action: 'PCP_SUMMARY_DRAFT_AUTO_CREATED',
         event_type: 'SCHEDULE_ACTION',
@@ -1323,6 +1323,10 @@ class PcpMonthlySummaryService {
           summaryCode,
           mesAno,
           programacaoVersionCode: params.programacaoVersionCode,
+          template_id: template?.id || '',
+          template_code: template?.template_code || '',
+          template_version: template?.versao_tag || '',
+          has_snapshot: Boolean(template),
         },
       })
 
@@ -1729,10 +1733,17 @@ class PcpMonthlySummaryService {
       template_snapshot: template
         ? {
             id: template.id,
+            template_id: template.id,
+            template_code: template.template_code,
             code: template.template_code,
+            nome: template.nome,
             name: template.nome,
+            versao: template.versao,
+            versao_tag: template.versao_tag,
             version: template.versao_tag,
+            sections_config: template.sections_config || [],
             sections_count: template.sections_config?.length || 18,
+            captured_at: nowIso,
           }
         : null,
     }
@@ -2463,16 +2474,25 @@ class PcpMonthlySummaryService {
       })
     }
 
+    // Incremento de versão a cada edição para garantir rastreabilidade completa
+    const currentVerNum = Number(current.versao) || 1
+    const nextVerNum = currentVerNum + 1
+    const nextVerTag = `V${nextVerNum}.0`
+
     const revHistory = current.revisions_history || []
     revHistory.push({
-      versao_tag: current.versao_tag || 'V1.0',
+      versao_anterior: current.versao_tag || `V${currentVerNum}.0`,
+      versao_tag: nextVerTag,
+      versao_numero: nextVerNum,
       data_hora: nowIso,
       usuario: userName,
-      motivo: updates.motivo || 'Atualização dos parâmetros do template',
+      motivo: updates.motivo || 'Atualização dos parâmetros e/ou tabelas do template',
     })
 
     const payload: any = {
       ...updates,
+      versao: nextVerNum,
+      versao_tag: nextVerTag,
       ultima_atualizacao_por: userName,
       revisions_history: revHistory,
     }
@@ -3556,6 +3576,10 @@ class PcpMonthlySummaryService {
       email_recipients: r.email_recipients || [],
       pdf_generated_at: r.pdf_generated_at,
       published_at: r.published_at,
+      template_id: r.template_id,
+      template_code: r.template_code,
+      template_version: r.template_version,
+      template_snapshot: r.template_snapshot,
       created: r.created,
       updated: r.updated,
     }
