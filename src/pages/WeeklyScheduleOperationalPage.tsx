@@ -160,7 +160,6 @@ import {
   Table,
   CalendarDays,
   Trash2,
-  Scissors,
   Wrench,
   RotateCcw,
   FileText,
@@ -2433,55 +2432,6 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
   }
 
-  // Divisão de lote de produção com reordenação e recálculo da cadeia completa
-  const handleSplitLot = (item: WeeklyScheduleItem) => {
-    if (!isLineActive) {
-      toast({
-        variant: 'destructive',
-        title: 'Operação Não Permitida',
-        description: 'Esta linha está inativa para novas programações.',
-      })
-      return
-    }
-    const index = items.findIndex((it) => it.id === item.id)
-    if (index === -1) return
-
-    const originalQty = item.planned_quantity_tons || 100
-    const halfQty = Math.round((originalQty / 2) * 10) / 10
-    const remainderQty = Math.round((originalQty - halfQty) * 10) / 10
-
-    const part1: WeeklyScheduleItem = {
-      ...item,
-      planned_quantity_tons: halfQty,
-    }
-    const part2: WeeklyScheduleItem = {
-      ...item,
-      id: `split-${Date.now()}`,
-      planned_quantity_tons: remainderQty,
-      sequence_order: item.sequence_order + 1,
-    }
-
-    const copy = [...items]
-    copy.splice(index, 1, part1, part2)
-    const resequenced = copy.map((it, idx) => ({ ...it, sequence_order: idx + 1 }))
-    const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
-      resequenced,
-      currentLineOverview,
-      headerFilter,
-      rawMaterialContext,
-    )
-    setItems(recalculated.items)
-
-    weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter).catch((err) => {
-      console.warn('Falha ao persistir lote dividido:', err)
-    })
-
-    toast({
-      title: 'Lote Dividido com Sucesso',
-      description: `Item ${item.material_code} dividido em 2 lotes (${halfQty} t e ${remainderQty} t). Cadeia recalculada.`,
-    })
-  }
-
   // Exclusão Lógica Auditada de Item da Programação
   const [itemToDelete, setItemToDelete] = useState<WeeklyScheduleItem | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false)
@@ -4255,7 +4205,6 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             >
               <Plus className="w-3.5 h-3.5" /> Adicionar Produto
             </Button>
-
             <Button
               variant="outline"
               size="sm"
@@ -4271,11 +4220,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <Trash2 className="w-3 h-3 mr-1 text-slate-500" />
               Remover
             </Button>
-
             <Button
               variant="outline"
               size="sm"
-              disabled={!selectedScheduleItem}
+              disabled={!selectedScheduleItem || isCurrentWeekHistorical || isScheduleApproved}
               onClick={() => {
                 if (selectedScheduleItem) {
                   const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
@@ -4287,23 +4235,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <Copy className="w-3 h-3 mr-1 text-slate-500" />
               Duplicar
             </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!selectedScheduleItem || isCurrentWeekHistorical || isScheduleApproved}
-              onClick={() => {
-                if (selectedScheduleItem) {
-                  handleSplitLot(selectedScheduleItem)
-                }
-              }}
-              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              <Scissors className="w-3 h-3 mr-1 text-slate-500" />
-              Dividir Qtd.
-            </Button>
-
-            {/* PATCH 6: Botão "Gerar Programação Derivada" visível SOMENTE quando centroDerivado === true && centroOrigem != null */}
+            {/* PATCH 6: Botão "Gerar Programação Derivada" visível SOMENTE quando centroDerivado === true && centroOrigem != null */}{' '}
             {Boolean(selectedLineCode) &&
               selectedCenterDerivation.isDerived === true &&
               selectedCenterDerivation.hasSource === true &&
@@ -4326,7 +4258,6 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   {isGeneratingDerivedSchedule ? 'Gerando...' : 'Gerar Programação Derivada'}
                 </Button>
               )}
-
             {/* Botão de Origem: abrir modal quando o centro atual é a ORIGEM de outros centros */}
             {activeSourceDerivationRules.length > 0 &&
               derivationMetrics.pendingCount > 0 &&
