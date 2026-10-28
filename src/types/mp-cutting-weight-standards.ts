@@ -1,4 +1,12 @@
-export type MPCuttingType = 'BLOCOS' | 'MULTIPLOS'
+export type MPCuttingType = 'BLOCOS' | 'MULTIPLOS' | 'PLACAS' | 'BOBINAS' | 'GEOMETRIA_DO_CORTE'
+
+export const MP_CUTTING_TYPE_LABELS: Record<MPCuttingType, string> = {
+  BLOCOS: 'Blocos',
+  MULTIPLOS: 'Múltiplos',
+  PLACAS: 'Placas',
+  BOBINAS: 'Bobinas',
+  GEOMETRIA_DO_CORTE: 'Geometria do corte',
+}
 export type MPToleranceType = 'TON' | 'PERCENT' | 'KG'
 export type MPStandardPriority = 'ALTA' | 'MEDIA' | 'BAIXA'
 export type MPStandardStatus = 'ATIVO' | 'INATIVO' | 'PENDENTE_CORRECAO'
