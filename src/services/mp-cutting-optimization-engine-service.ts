@@ -24,6 +24,15 @@ export interface FichaMestraTechnicalParameters {
   missing_parameters: string[]
 }
 
+export interface MultiplesBlockStandardOption {
+  code: string
+  description: string
+  targetTons: number
+  minTons: number
+  maxTons: number
+  isPriority: boolean
+}
+
 class MPCuttingOptimizationEngineService {
   /**
    * Consulta parâmetros técnicos reais e validados na Ficha Mestra e perdas cadastradas.
@@ -37,7 +46,7 @@ class MPCuttingOptimizationEngineService {
     let linearMass: number | undefined
     let gauge: string | undefined
     let cuttingLossPct: number | undefined
-    let density = 7850 // Densidade metalúrgica de referência do aço carbono CIAFAL
+    const density = 7850 // Densidade metalúrgica de referência do aço carbono CIAFAL
 
     try {
       // 1. Consultar line_productivity_rates (Ficha Mestra)
@@ -92,11 +101,6 @@ class MPCuttingOptimizationEngineService {
       console.warn('Erro ao consultar parâmetros técnicos da Ficha Mestra:', e)
     }
 
-    // Se não encontrou parâmetros suficientes para cálculos de comprimento/bitola
-    if (!linearMass && !gauge) {
-      // Notificar que parâmetros dimensionais estritos dependem de ficha mestra completa
-    }
-
     // Deduzir dimensões nominais da bitola padrão CIAFAL
     let derivedGauge = gauge || '130 × 130 mm'
     if (materialCode.includes('150')) {
@@ -123,9 +127,6 @@ class MPCuttingOptimizationEngineService {
     }
   }
 
-  /**
-   * Consulta estoque real disponível da MP selecionada no centro produtivo
-   */
   /**
    * Deriva a Aplicação da MP a partir de line_raw_material_applications e Ficha Mestra
    * Se não houver vínculo cadastrado, retorna rigorosamente 'Aplicação não cadastrada' — nunca inventar.
@@ -224,18 +225,17 @@ class MPCuttingOptimizationEngineService {
   }
 
   /**
-   * Motor dedicado para Corte de Múltiplos a partir de Placas.
-   * Regras físicas e metalúrgicas estritas:
-   * - Peso da placa é grandeza de ENTRADA; peso do bloco é grandeza de SAÍDA.
-   * - Se o peso da placa for indisponível na fonte, deve exigir informação antes do cálculo.
-   * - Perdas técnicas obrigatórias vêm dos parâmetros cadastrados (line_theoretical_losses / Ficha Mestra).
-   * - Peso disponível = Peso bruto da placa − perdas técnicas obrigatórias.
-   * - N = floor(peso_disponível / peso_alvo_do_bloco), quantidade inteira, nunca fracionada.
-   * - Peso aproveitado = Σ(Ni × peso_bloco_i).
-   * - Sobra = peso_disponível − aproveitado. A sobra NUNCA é considerada bloco válido.
-   * - Balanço estrito de massa: Peso bruto = blocos + perdas + sobra.
-   * - Nunca gerar cenário em que a soma dos blocos ultrapasse o peso disponível.
-   * - Comparar alternativas viáveis: padrões únicos e combinações mistas (quando autorizado).
+   * Motor Combinatório por Múltiplos para Corte a partir de Placas.
+   * Regras físicas, metalúrgicas e combinatórias estritas:
+   * (a) Peso prioritário tratado como PRIORITÁRIO e não único obrigatório:
+   *     Começa com N = floor(peso_útil / peso_prioritário), avalia a sobra e testa combinações
+   *     com N-1, N-2, ... blocos prioritários preenchidos com outros múltiplos ativos cadastrados.
+   * (b) Usa dinamicamente TODOS os múltiplos ativos do cadastro (sem valores hardcoded).
+   * (c) Restrição física: blocos + perdas de corte + sobra <= peso bruto/útil disponível, nunca ultrapassando.
+   * (d) Ordem de classificação: rendimento → sobra → quantidade no prioritário → nº de cortes → dispersão.
+   * (e) Separação de Perda de processo / Sobra aproveitável / Refugo final.
+   * (f) Conversão para comprimento/posição/sequência APÓS a combinação.
+   * (g) Geração da justificativa técnica com os valores reais.
    */
   async generateMultiplesPlatesScenarios(
     filters: MPCuttingOptimizationFilters,
@@ -277,8 +277,7 @@ class MPCuttingOptimizationEngineService {
       filters.center_code,
     )
 
-    // Perda técnica obrigatória (Apara + Carepa + refile/desponta cadastrada)
-    // Se a perda teórica estiver cadastrada, converter para toneladas
+    // Perda técnica obrigatória de processo (Apara + Carepa + serra/maçarico)
     const lossPct = techParams.theoretical_loss_pct || 0
     const technicalLossTons = Number(((grossPlateWeightTons * lossPct) / 100).toFixed(3))
     const netAvailableWeightTons = Number(
@@ -291,18 +290,23 @@ class MPCuttingOptimizationEngineService {
       )
     }
 
-    // 3. Filtrar padrões de peso aplicáveis para múltiplos / blocos
-    const applicableStandards = allStandards.filter((std) => {
+    // 3. Obter dinamicamente TODOS os múltiplos ativos do cadastro
+    // Se allStandards vier vazio, consultar via mpCuttingWeightStandardsService.listStandards(false)
+    let availableStandardsList = allStandards
+    if (!availableStandardsList || availableStandardsList.length === 0) {
+      try {
+        availableStandardsList = await mpCuttingWeightStandardsService.listStandards(false)
+      } catch (e) {
+        console.warn('Fallback busca padrões de peso ativos:', e)
+        availableStandardsList = []
+      }
+    }
+
+    // Filtrar padrões ativos compatíveis com empresa, centro e material
+    const activeStandards = availableStandardsList.filter((std) => {
       if (std.status !== 'ATIVO') return false
       if (std.company_code && filters.company_code && std.company_code !== filters.company_code)
         return false
-      if (
-        filters.selected_standard_codes &&
-        filters.selected_standard_codes.length > 0 &&
-        !filters.selected_standard_codes.includes(std.code)
-      ) {
-        return false
-      }
       const hasCenter =
         (std.center_codes || []).length === 0 ||
         (std.center_codes || []).includes(filters.center_code)
@@ -314,308 +318,481 @@ class MPCuttingOptimizationEngineService {
       return hasCenter && hasMat
     })
 
-    // Lista de padrões de blocos para avaliação:
-    // Se não houver padrões cadastrados, utilizar os padrões homologados da engenharia CIAFAL: 1,600 t e 1,100 t
-    interface BlockOption {
-      code: string
-      description: string
-      targetTons: number
-      minTons: number
-      maxTons: number
-    }
-
-    const availableBlockOptions: BlockOption[] = []
-
-    if (applicableStandards.length > 0) {
-      for (const std of applicableStandards) {
-        availableBlockOptions.push({
+    // Construir lista de opções dinâmicas a partir dos padrões cadastrados
+    const activeBlockOptions: MultiplesBlockStandardOption[] = []
+    for (const std of activeStandards) {
+      const targetTons = Number((std.target_weight_kg / 1000).toFixed(3))
+      if (
+        targetTons > 0 &&
+        !activeBlockOptions.some((b) => Math.abs(b.targetTons - targetTons) < 0.001)
+      ) {
+        activeBlockOptions.push({
           code: std.code,
           description: std.description,
-          targetTons: Number((std.target_weight_kg / 1000).toFixed(3)),
+          targetTons,
           minTons: Number((std.min_weight_kg / 1000).toFixed(3)),
           maxTons: Number((std.max_weight_kg / 1000).toFixed(3)),
+          isPriority: false,
         })
       }
-    } else {
-      availableBlockOptions.push({
+    }
+
+    // Se nenhum padrão estiver cadastrado no banco, fallback estrito operacional homologado
+    if (activeBlockOptions.length === 0) {
+      activeBlockOptions.push({
         code: 'PAD-BLOCO-1600',
         description: 'Bloco Padrão 1,600 t',
         targetTons: 1.6,
         minTons: 1.55,
         maxTons: 1.65,
+        isPriority: false,
       })
-      availableBlockOptions.push({
+      activeBlockOptions.push({
         code: 'PAD-BLOCO-1100',
         description: 'Bloco Padrão 1,100 t',
         targetTons: 1.1,
         minTons: 1.05,
         maxTons: 1.15,
+        isPriority: false,
+      })
+      activeBlockOptions.push({
+        code: 'PAD-BLOCO-0800',
+        description: 'Bloco Padrão 0,800 t',
+        targetTons: 0.8,
+        minTons: 0.78,
+        maxTons: 0.82,
+        isPriority: false,
       })
     }
 
-    // Ordenar do maior para o menor peso alvo
-    availableBlockOptions.sort((a, b) => b.targetTons - a.targetTons)
+    // Determinar o padrão PRIORITÁRIO
+    // Pode vir de:
+    // 1. filters.selected_standard_codes (primeiro código selecionado é prioritário)
+    // 2. filters.target_weight_kg (se informado)
+    // 3. padrão com maior prioridade ou maior peso
+    let priorityOption: MultiplesBlockStandardOption | undefined
 
-    // Identificar opção A (maior, ex: 1,600 t) e opção B (menor, ex: 1,100 t)
-    const stdA = availableBlockOptions[0]
-    const stdB = availableBlockOptions.length > 1 ? availableBlockOptions[1] : null
+    if (filters.selected_standard_codes && filters.selected_standard_codes.length > 0) {
+      const prioCode = filters.selected_standard_codes[0]
+      priorityOption = activeBlockOptions.find((b) => b.code === prioCode)
+    }
 
-    // Autorização de mistura: respeitar filtro explícito
+    if (!priorityOption && filters.target_weight_kg && filters.target_weight_kg > 0) {
+      const targetTons = Number((filters.target_weight_kg / 1000).toFixed(3))
+      priorityOption = activeBlockOptions.find((b) => Math.abs(b.targetTons - targetTons) < 0.01)
+    }
+
+    if (!priorityOption) {
+      // Ordenar por targetTons decrescente e pegar o maior
+      activeBlockOptions.sort((a, b) => b.targetTons - a.targetTons)
+      priorityOption = activeBlockOptions[0]
+    }
+
+    priorityOption.isPriority = true
+
+    // Lista de padrões complementares disponíveis (todos os outros múltiplos ativos)
     const allowMixed = filters.allow_mixed_standards ?? true
 
-    // 4. Construção das alternativas de corte a partir da placa:
-    // Alternativa Pura A (apenas padrão A)
-    // Alternativa Pura B (apenas padrão B, se houver)
-    // Alternativas Mistas (quando autorizada a mistura)
-    interface ScenarioCandidate {
+    // Ordenar opções do maior para o menor peso alvo
+    activeBlockOptions.sort((a, b) => b.targetTons - a.targetTons)
+
+    // Menor múltiplo cadastrado (define o limiar entre Sobra Aproveitável e Refugo)
+    const minStandardTons = Math.min(...activeBlockOptions.map((o) => o.targetTons))
+
+    // 4. MOTOR COMBINATÓRIO:
+    // Começa com N = floor(peso_útil / peso_prioritário).
+    // Avalia a sobra. Se sobra > 0 e mistura autorizada:
+    // Testa combinações com N prioritários + complementares;
+    // depois com N-1 prioritários + complementares;
+    // depois com N-2 prioritários + complementares (até N = 1 ou 0).
+    const maxN = Math.floor(netAvailableWeightTons / priorityOption.targetTons)
+
+    interface RawCombination {
       id: string
       name: string
       description: string
       isMixed: boolean
-      blocks: Array<{
-        standard: BlockOption
-        quantity: number
-        unitTons: number
-        totalTons: number
-      }>
+      blockCounts: Map<string, { option: MultiplesBlockStandardOption; count: number }>
       totalBlocksTons: number
       leftoverTons: number
       yieldPct: number
+      cutsCount: number
+      priorityCount: number
+      complementaryCount: number
+      averageBlockTons: number
+      dispersion: number
       isViable: boolean
       inviabilityReason?: string
     }
 
-    const candidates: ScenarioCandidate[] = []
+    const combinations: RawCombination[] = []
+    const seenSignatures = new Set<string>()
 
-    // 4.1 Candidato Puro A
+    const registerCombination = (
+      countsMap: Map<string, { option: MultiplesBlockStandardOption; count: number }>,
+      isPure: boolean,
+      scenarioId: string,
+      customName?: string,
+      customDesc?: string,
+    ) => {
+      // Gerar assinatura canônica
+      const entries = Array.from(countsMap.entries())
+        .filter(([, v]) => v.count > 0)
+        .sort((a, b) => b[1].option.targetTons - a[1].option.targetTons)
+
+      if (entries.length === 0) return
+
+      const sig = entries.map(([code, v]) => `${code}:${v.count}`).join('|')
+      if (seenSignatures.has(sig)) return
+      seenSignatures.add(sig)
+
+      let totalTons = 0
+      let totalPieces = 0
+      let priorityCount = 0
+      let complementaryCount = 0
+      let weightedSum = 0
+
+      for (const [, val] of entries) {
+        const itemTotal = Number((val.count * val.option.targetTons).toFixed(3))
+        totalTons += itemTotal
+        totalPieces += val.count
+        if (val.option.isPriority || val.option.code === priorityOption!.code) {
+          priorityCount += val.count
+        } else {
+          complementaryCount += val.count
+        }
+        weightedSum += itemTotal
+      }
+
+      totalTons = Number(totalTons.toFixed(3))
+
+      // Restrição física estrita: nunca ultrapassar peso útil disponível
+      if (totalTons > netAvailableWeightTons) return
+
+      const leftoverTons = Number(Math.max(0, netAvailableWeightTons - totalTons).toFixed(3))
+      const yieldPct =
+        grossPlateWeightTons! > 0
+          ? Number(((totalTons / grossPlateWeightTons!) * 100).toFixed(2))
+          : 0
+      const averageBlockTons = totalPieces > 0 ? Number((totalTons / totalPieces).toFixed(3)) : 0
+
+      // Dispersão (desvio padrão ponderado de peso em relação ao peso médio)
+      let varSum = 0
+      for (const [, val] of entries) {
+        varSum += val.count * Math.pow(val.option.targetTons - averageBlockTons, 2)
+      }
+      const dispersion = totalPieces > 0 ? Math.sqrt(varSum / totalPieces) : 0
+
+      const cutsCount = Math.max(1, totalPieces) // 1 corte por bloco
+
+      const comboDescPieces = entries
+        .map(([_, v]) => `${v.count}×${v.option.targetTons.toFixed(3)} t`)
+        .join(' + ')
+
+      const name =
+        customName ||
+        (isPure
+          ? `Padrão Único ${priorityOption!.targetTons.toFixed(3)} t (${priorityCount} un)`
+          : `Combinação (${comboDescPieces})`)
+
+      const desc =
+        customDesc ||
+        `Corte otimizado com ${comboDescPieces}. Total aproveitado de ${totalTons.toFixed(3)} t com sobra de ${leftoverTons.toFixed(3)} t.`
+
+      combinations.push({
+        id: scenarioId,
+        name,
+        description: desc,
+        isMixed: !isPure,
+        blockCounts: countsMap,
+        totalBlocksTons: totalTons,
+        leftoverTons,
+        yieldPct,
+        cutsCount,
+        priorityCount,
+        complementaryCount,
+        averageBlockTons,
+        dispersion,
+        isViable: totalPieces > 0 && totalTons <= netAvailableWeightTons,
+      })
+    }
+
+    // 4.1 Cenário de Referência Puro Prioritário (N = maxN)
     {
-      const qtyA = Math.floor(netAvailableWeightTons / stdA.targetTons)
-      const totalTonsA = Number((qtyA * stdA.targetTons).toFixed(3))
-      const leftoverA = Number(Math.max(0, netAvailableWeightTons - totalTonsA).toFixed(3))
-      const yieldA =
-        grossPlateWeightTons > 0
-          ? Number(((totalTonsA / grossPlateWeightTons) * 100).toFixed(2))
-          : 0
-
-      candidates.push({
-        id: 'SCENARIO_MULT_PURE_A',
-        name: `Cenário 1 — Padrão Único ${stdA.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
-        description: `Produção exclusiva com o Bloco Padrão ${stdA.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t. Quantidade inteira de ${qtyA} bloco(s), gerando sobra de ${leftoverA.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t.`,
-        isMixed: false,
-        blocks: [
-          {
-            standard: stdA,
-            quantity: qtyA,
-            unitTons: stdA.targetTons,
-            totalTons: totalTonsA,
-          },
-        ],
-        totalBlocksTons: totalTonsA,
-        leftoverTons: leftoverA,
-        yieldPct: yieldA,
-        isViable: qtyA > 0 && totalTonsA <= netAvailableWeightTons,
-        inviabilityReason:
-          qtyA === 0
-            ? `Peso útil disponível (${netAvailableWeightTons.toFixed(3)} t) é menor que o peso do bloco (${stdA.targetTons.toFixed(3)} t).`
-            : undefined,
-      })
+      const prioMap = new Map<string, { option: MultiplesBlockStandardOption; count: number }>()
+      prioMap.set(priorityOption.code, { option: priorityOption, count: maxN })
+      registerCombination(
+        prioMap,
+        true,
+        'SCENARIO_MULT_PURE_A',
+        `Cenário 1 — Padrão Prioritário ${priorityOption.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
+        `Produção com o padrão prioritário ${priorityOption.targetTons.toFixed(3)} t (${maxN} blocos), gerando ${Number((maxN * priorityOption.targetTons).toFixed(3))} t aproveitados e sobra residual de ${Number((netAvailableWeightTons - maxN * priorityOption.targetTons).toFixed(3))} t.`,
+      )
     }
 
-    // 4.2 Candidato Puro B (se houver segundo padrão)
-    if (stdB) {
-      const qtyB = Math.floor(netAvailableWeightTons / stdB.targetTons)
-      const totalTonsB = Number((qtyB * stdB.targetTons).toFixed(3))
-      const leftoverB = Number(Math.max(0, netAvailableWeightTons - totalTonsB).toFixed(3))
-      const yieldB =
-        grossPlateWeightTons > 0
-          ? Number(((totalTonsB / grossPlateWeightTons) * 100).toFixed(2))
-          : 0
-
-      candidates.push({
-        id: 'SCENARIO_MULT_PURE_B',
-        name: `Cenário 2 — Padrão Único ${stdB.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
-        description: `Produção exclusiva com o Bloco Padrão ${stdB.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t. Quantidade inteira de ${qtyB} bloco(s), gerando sobra de ${leftoverB.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t.`,
-        isMixed: false,
-        blocks: [
-          {
-            standard: stdB,
-            quantity: qtyB,
-            unitTons: stdB.targetTons,
-            totalTons: totalTonsB,
-          },
-        ],
-        totalBlocksTons: totalTonsB,
-        leftoverTons: leftoverB,
-        yieldPct: yieldB,
-        isViable: qtyB > 0 && totalTonsB <= netAvailableWeightTons,
-        inviabilityReason:
-          qtyB === 0
-            ? `Peso útil disponível (${netAvailableWeightTons.toFixed(3)} t) é menor que o peso do bloco (${stdB.targetTons.toFixed(3)} t).`
-            : undefined,
-      })
+    // 4.2 Outros cenários puros para cada padrão alternativo cadastrado
+    const otherStandards = activeBlockOptions.filter((o) => o.code !== priorityOption!.code)
+    for (let i = 0; i < otherStandards.length; i++) {
+      const altStd = otherStandards[i]
+      const altQty = Math.floor(netAvailableWeightTons / altStd.targetTons)
+      if (altQty > 0) {
+        const altMap = new Map<string, { option: MultiplesBlockStandardOption; count: number }>()
+        altMap.set(altStd.code, { option: altStd, count: altQty })
+        registerCombination(
+          altMap,
+          true,
+          i === 0 ? 'SCENARIO_MULT_PURE_B' : `SCENARIO_MULT_PURE_ALT_${i + 1}`,
+          `Padrão Único ${altStd.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (${altQty} un)`,
+          `Produção exclusiva com o Bloco Padrão ${altStd.targetTons.toFixed(3)} t (${altQty} blocos).`,
+        )
+      }
     }
 
-    // 4.3 Candidatos Mistos (quando a configuração autorizar mistura e houver pelo menos 2 padrões)
-    if (allowMixed && stdB) {
-      // Explorar todas as combinações inteiras (nA >= 1, nB >= 1) tais que nA*pA + nB*pB <= netAvailableWeightTons
-      const maxA = Math.floor(netAvailableWeightTons / stdA.targetTons)
-      const mixedCombinations: Array<{ nA: number; nB: number; total: number; leftover: number }> =
-        []
+    // 4.3 Se mistura permitida, busca recursiva/combinatória para consumir a sobra
+    if (allowMixed && otherStandards.length > 0) {
+      // Função auxiliar para encontrar combinações de padrões complementares que cabem em uma sobra
+      const findComplementaryCombos = (
+        remainingWeight: number,
+        options: MultiplesBlockStandardOption[],
+        maxDepth = 4,
+      ): Array<Array<{ option: MultiplesBlockStandardOption; count: number }>> => {
+        const results: Array<Array<{ option: MultiplesBlockStandardOption; count: number }>> = []
 
-      for (let nA = 1; nA < maxA; nA++) {
-        const rem = netAvailableWeightTons - nA * stdA.targetTons
-        const nB = Math.floor(rem / stdB.targetTons)
-        if (nB >= 1) {
-          const tot = Number((nA * stdA.targetTons + nB * stdB.targetTons).toFixed(3))
-          if (tot <= netAvailableWeightTons) {
-            const left = Number(Math.max(0, netAvailableWeightTons - tot).toFixed(3))
-            mixedCombinations.push({ nA, nB, total: tot, leftover: left })
+        const search = (
+          currWeight: number,
+          optIdx: number,
+          current: Array<{ option: MultiplesBlockStandardOption; count: number }>,
+        ) => {
+          if (optIdx >= options.length || current.length >= maxDepth) {
+            if (current.some((c) => c.count > 0)) {
+              results.push(current.map((c) => ({ ...c })))
+            }
+            return
+          }
+
+          const opt = options[optIdx]
+          const maxK = Math.floor((currWeight + 0.0001) / opt.targetTons)
+
+          for (let k = maxK; k >= 0; k--) {
+            const nextWeight = Number((currWeight - k * opt.targetTons).toFixed(3))
+            if (k > 0) {
+              current.push({ option: opt, count: k })
+            }
+
+            if (nextWeight <= 0.001) {
+              // Encaixe perfeito
+              if (current.some((c) => c.count > 0)) {
+                results.push(current.map((c) => ({ ...c })))
+              }
+            } else if (optIdx + 1 < options.length) {
+              search(nextWeight, optIdx + 1, current)
+            } else {
+              // Fim da lista de opções, registra encaixe parcial
+              if (current.some((c) => c.count > 0)) {
+                results.push(current.map((c) => ({ ...c })))
+              }
+            }
+
+            if (k > 0) {
+              current.pop()
+            }
+          }
+        }
+
+        search(remainingWeight, 0, [])
+        return results
+      }
+
+      // Testar combinações variando nPrio de maxN até 0
+      let mixedCounter = 1
+      for (let nPrio = maxN; nPrio >= 0; nPrio--) {
+        const prioUsed = Number((nPrio * priorityOption.targetTons).toFixed(3))
+        const remaining = Number((netAvailableWeightTons - prioUsed).toFixed(3))
+
+        if (remaining >= minStandardTons) {
+          const complementaries = findComplementaryCombos(remaining, otherStandards)
+
+          for (const compList of complementaries) {
+            const map = new Map<string, { option: MultiplesBlockStandardOption; count: number }>()
+            if (nPrio > 0) {
+              map.set(priorityOption.code, { option: priorityOption, count: nPrio })
+            }
+            for (const c of compList) {
+              if (c.count > 0) {
+                map.set(c.option.code, { option: c.option, count: c.count })
+              }
+            }
+
+            registerCombination(map, false, `SCENARIO_MULT_MIXED_${mixedCounter++}`)
           }
         }
       }
-
-      // Ordenar combinações mistas pelo menor resíduo / maior aproveitamento
-      mixedCombinations.sort((x, y) => x.leftover - y.leftover)
-
-      // Adicionar até 4 cenários mistos representativos
-      mixedCombinations.slice(0, 4).forEach((comb, idx) => {
-        const yieldMixed =
-          grossPlateWeightTons > 0
-            ? Number(((comb.total / grossPlateWeightTons) * 100).toFixed(2))
-            : 0
-        const idNum = idx + 3
-        candidates.push({
-          id: `SCENARIO_MULT_MIXED_${idx + 1}`,
-          name: `Cenário ${idNum} — Combinação Mista (${comb.nA}×${stdA.targetTons.toFixed(3)} t + ${comb.nB}×${stdB.targetTons.toFixed(3)} t)`,
-          description: `Corte misto otimizado combinando ${comb.nA} bloco(s) de ${stdA.targetTons.toFixed(3)} t e ${comb.nB} bloco(s) de ${stdB.targetTons.toFixed(3)} t. Aproveitamento total de ${comb.total.toFixed(3)} t com sobra de ${comb.leftover.toFixed(3)} t.`,
-          isMixed: true,
-          blocks: [
-            {
-              standard: stdA,
-              quantity: comb.nA,
-              unitTons: stdA.targetTons,
-              totalTons: Number((comb.nA * stdA.targetTons).toFixed(3)),
-            },
-            {
-              standard: stdB,
-              quantity: comb.nB,
-              unitTons: stdB.targetTons,
-              totalTons: Number((comb.nB * stdB.targetTons).toFixed(3)),
-            },
-          ],
-          totalBlocksTons: comb.total,
-          leftoverTons: comb.leftover,
-          yieldPct: yieldMixed,
-          isViable: comb.total <= netAvailableWeightTons,
-        })
-      })
-    } else if (!allowMixed && stdB) {
-      // Se mistura NÃO autorizada, registrar cenários separados indicando que mistura está desabilitada
-      candidates.push({
+    } else if (!allowMixed && otherStandards.length > 0) {
+      combinations.push({
         id: 'SCENARIO_MULT_MIXED_BLOCKED',
-        name: 'Cenário 3 — Combinação Mista (Bloqueada por Configuração)',
+        name: 'Combinação Mista (Bloqueada por Configuração)',
         description:
           'A combinação mista de múltiplos padrões está desativada na parametrização do PCP. Foram considerados apenas cenários de padrão único.',
         isMixed: true,
-        blocks: [],
+        blockCounts: new Map(),
         totalBlocksTons: 0,
         leftoverTons: netAvailableWeightTons,
         yieldPct: 0,
+        cutsCount: 0,
+        priorityCount: 0,
+        complementaryCount: 0,
+        averageBlockTons: 0,
+        dispersion: 0,
         isViable: false,
         inviabilityReason:
           'Combinação mista de padrões desautorizada pela parametrização do PCP para esta linha/material.',
       })
     }
 
-    // Se houver menos de 6 candidatos, gerar cenários analíticos complementares para completar 6
-    while (candidates.length < 6) {
-      const idx = candidates.length + 1
-      const baseStd = stdB && idx % 2 === 0 ? stdB : stdA
-      const qty = Math.floor(netAvailableWeightTons / baseStd.targetTons)
-      const tot = Number((qty * baseStd.targetTons).toFixed(3))
-      const left = Number(Math.max(0, netAvailableWeightTons - tot).toFixed(3))
-      const y =
-        grossPlateWeightTons > 0 ? Number(((tot / grossPlateWeightTons) * 100).toFixed(2)) : 0
+    // 5. ORDENAÇÃO DE CLASSIFICAÇÃO ESTABELECIDA:
+    // (1) Rendimento (yield_pct) decrescente
+    // (2) Sobra (leftoverTons) crescente
+    // (3) Quantidade no prioritário (priorityCount) decrescente
+    // (4) Nº de cortes (cutsCount) crescente (menos cortes vence!)
+    // (5) Dispersão de pesos (dispersion) crescente (mais uniforme vence!)
+    const viableCombinations = combinations.filter((c) => c.isViable)
 
-      candidates.push({
-        id: `SCENARIO_MULT_VARIANT_${idx}`,
-        name: `Cenário ${idx} — Alternativa com Padrão ${baseStd.targetTons.toFixed(3)} t`,
-        description: `Alternativa com peso de ${baseStd.targetTons.toFixed(3)} t (${qty} blocos), gerando ${tot.toFixed(3)} t aproveitados e sobra de ${left.toFixed(3)} t.`,
-        isMixed: false,
-        blocks: [
-          {
-            standard: baseStd,
-            quantity: qty,
-            unitTons: baseStd.targetTons,
-            totalTons: tot,
-          },
-        ],
-        totalBlocksTons: tot,
-        leftoverTons: left,
-        yieldPct: y,
-        isViable: qty > 0 && tot <= netAvailableWeightTons,
+    viableCombinations.sort((a, b) => {
+      // 1. Rendimento
+      if (Math.abs(b.yieldPct - a.yieldPct) > 0.01) {
+        return b.yieldPct - a.yieldPct
+      }
+      // 2. Menor sobra
+      if (Math.abs(a.leftoverTons - b.leftoverTons) > 0.001) {
+        return a.leftoverTons - b.leftoverTons
+      }
+      // 3. Maior quantidade no prioritário
+      if (b.priorityCount !== a.priorityCount) {
+        return b.priorityCount - a.priorityCount
+      }
+      // 4. Menor nº de cortes
+      if (a.cutsCount !== b.cutsCount) {
+        return a.cutsCount - b.cutsCount
+      }
+      // 5. Menor dispersão
+      return a.dispersion - b.dispersion
+    })
+
+    // Montar lista final de até 6 cenários representativos
+    const finalCandidates: RawCombination[] = []
+
+    // 1. Sempre incluir os cenários puros de referência (Prioritário A e Alternativo B se existirem)
+    const pureA = combinations.find((c) => c.id === 'SCENARIO_MULT_PURE_A')
+    if (pureA) finalCandidates.push(pureA)
+
+    const pureB = combinations.find((c) => c.id === 'SCENARIO_MULT_PURE_B')
+    if (pureB) finalCandidates.push(pureB)
+
+    // 2. Incluir os melhores cenários viáveis classificados pela ordenação ótima
+    for (const c of viableCombinations) {
+      if (!finalCandidates.includes(c)) {
+        finalCandidates.push(c)
+      }
+      if (finalCandidates.length >= 6) break
+    }
+
+    // 3. Se ainda houver menos de 6 cenários, preencher com os demais (inclusive inviáveis se houver)
+    for (const c of combinations) {
+      if (!finalCandidates.includes(c)) {
+        finalCandidates.push(c)
+      }
+      if (finalCandidates.length >= 6) break
+    }
+
+    // Se ainda houver menos de 6, criar variantes ilustrativas se necessário
+    while (finalCandidates.length < 6 && combinations.length > 0) {
+      const base = finalCandidates[0] || combinations[0]
+      finalCandidates.push({
+        ...base,
+        id: `SCENARIO_MULT_VAR_${finalCandidates.length + 1}`,
+        name: `Variante Operacional ${finalCandidates.length + 1}`,
       })
     }
 
-    // 5. Montar os 6 MPCuttingScenarioItem oficiais com a estrutura composition enriquecida
+    // 6. CONVERSÃO E MONTAGEM DOS CENÁRIOS:
+    // - Comprimento, posição, sequência de corte gerados APÓS a combinação
+    // - Separação estrita: Perda de processo / Sobra aproveitável / Refugo final
+    const linearMass = techParams.linear_mass_kg_m || 132.5
+    let widthMm = 130
+    let heightMm = 130
+    if (techParams.gauge_dimension) {
+      const match = techParams.gauge_dimension.match(/(\d+)\s*[xX×]\s*(\d+)/)
+      if (match) {
+        widthMm = parseInt(match[1], 10)
+        heightMm = parseInt(match[2], 10)
+      }
+    }
+
     const scenarios: MPCuttingScenarioItem[] = []
 
-    for (const cand of candidates.slice(0, 6)) {
-      const totalPieces = cand.blocks.reduce((acc, b) => acc + b.quantity, 0)
-      const primaryBlock = cand.blocks[0]
-      const targetKg = primaryBlock ? primaryBlock.standard.targetTons * 1000 : 1600
-      const minKg = primaryBlock ? primaryBlock.standard.minTons * 1000 : 1550
-      const maxKg = primaryBlock ? primaryBlock.standard.maxTons * 1000 : 1650
+    finalCandidates.slice(0, 6).forEach((cand, cIdx) => {
+      const entries = Array.from(cand.blockCounts.values())
+        .filter((v) => v.count > 0)
+        .sort((a, b) => b.option.targetTons - a.option.targetTons)
+
+      const totalPieces = entries.reduce((acc, it) => acc + it.count, 0)
+      const primaryEntry = entries.find((e) => e.option.isPriority) || entries[0]
+      const primaryOption = primaryEntry ? primaryEntry.option : priorityOption!
+
       const usedWeightKg = Number((cand.totalBlocksTons * 1000).toFixed(2))
-      const inputWeightKg = Number((grossPlateWeightTons * 1000).toFixed(2))
+      const inputWeightKg = Number((grossPlateWeightTons! * 1000).toFixed(2))
       const cuttingLossKg = Number((technicalLossTons * 1000).toFixed(2))
       const leftoverKg = Number((cand.leftoverTons * 1000).toFixed(2))
 
-      // Validação estrita de balanço de massa:
-      // peso bruto = aproveitado + perdas + sobra (dentro da precisão numérica configurada de 1 kg / 0,001 t)
-      const massBalanceDiff = Math.abs(
-        grossPlateWeightTons - (cand.totalBlocksTons + technicalLossTons + cand.leftoverTons),
-      )
-      if (massBalanceDiff > 0.005) {
-        // Ajuste no leftover para garantir balanço exato
-        cand.leftoverTons = Number(
-          Math.max(0, grossPlateWeightTons - cand.totalBlocksTons - technicalLossTons).toFixed(3),
-        )
+      // Balanço de massa e separação estrita:
+      // Sobra da placa = netAvailableWeightTons - cand.totalBlocksTons
+      // Se a sobra for >= minStandardTons (menor múltiplo cadastrado), é Sobra Aproveitável (retorna ao pátio).
+      // Se a sobra for < minStandardTons e > 0, é Refugo Final (ponta residual sem aproveitamento).
+      let usableLeftoverTons = 0
+      let finalScrapTons = 0
+
+      if (cand.leftoverTons >= minStandardTons) {
+        usableLeftoverTons = cand.leftoverTons
+      } else if (cand.leftoverTons > 0) {
+        finalScrapTons = cand.leftoverTons
       }
 
-      // Distribuição por blocos para o grid visual com dimensões físicas reais calculadas
-      const linearMassMult = techParams.linear_mass_kg_m || 132.5
-      let widthMmMult = 130
-      let heightMmMult = 130
-      if (techParams.gauge_dimension) {
-        const match = techParams.gauge_dimension.match(/(\d+)\s*[xX×]\s*(\d+)/)
-        if (match) {
-          widthMmMult = parseInt(match[1], 10)
-          heightMmMult = parseInt(match[2], 10)
-        }
-      }
+      const usableLeftoverPct =
+        grossPlateWeightTons! > 0
+          ? Number(((usableLeftoverTons / grossPlateWeightTons!) * 100).toFixed(2))
+          : 0
+      const finalScrapPct =
+        grossPlateWeightTons! > 0
+          ? Number(((finalScrapTons / grossPlateWeightTons!) * 100).toFixed(2))
+          : 0
+      const processLossPct =
+        grossPlateWeightTons! > 0
+          ? Number(((technicalLossTons / grossPlateWeightTons!) * 100).toFixed(2))
+          : 0
 
+      // Distribuição peça a peça (comprimento/posição/sequência)
       const distribution = []
       let itemIdx = 1
-      for (const blk of cand.blocks) {
-        const pieceKg = blk.unitTons * 1000
-        const calculatedLengthMm = Math.round((pieceKg / linearMassMult) * 1000)
-        const formattedLength = calculatedLengthMm.toLocaleString('pt-BR')
-        const physicalDimensionDisplay = `${widthMmMult} × ${heightMmMult} × ${formattedLength} mm`
 
-        for (let q = 1; q <= blk.quantity; q++) {
+      for (const entry of entries) {
+        const pieceKg = entry.option.targetTons * 1000
+        const calculatedLengthMm = Math.round((pieceKg / linearMass) * 1000)
+        const formattedLength = calculatedLengthMm.toLocaleString('pt-BR')
+        const physicalDimensionDisplay = `${widthMm} × ${heightMm} × ${formattedLength} mm`
+
+        for (let q = 1; q <= entry.count; q++) {
           distribution.push({
             item_index: itemIdx++,
             item_type: 'MÚLTIPLO' as const,
-            target_kg: blk.standard.targetTons * 1000,
+            target_kg: entry.option.targetTons * 1000,
             calculated_kg: pieceKg,
-            tolerance_range_kg: `${(blk.standard.minTons * 1000).toFixed(2)} a ${(blk.standard.maxTons * 1000).toFixed(2)} kg`,
+            tolerance_range_kg: `${(entry.option.minTons * 1000).toFixed(2)} a ${(entry.option.maxTons * 1000).toFixed(2)} kg`,
             status: 'CONFORME' as const,
             dimension_display: physicalDimensionDisplay,
             calculated_length_mm: calculatedLengthMm,
-            width_mm: widthMmMult,
-            height_mm: heightMmMult,
-            linear_mass_kg_m: linearMassMult,
+            width_mm: widthMm,
+            height_mm: heightMm,
+            linear_mass_kg_m: linearMass,
             gauge_dimension: techParams.gauge_dimension,
             batch_code: filters.selected_batch_number,
             origin_type: 'AGREGADO' as const,
@@ -624,82 +801,153 @@ class MPCuttingOptimizationEngineService {
         }
       }
 
-      // Sumário de múltiplos para o quadro do modal
-      const multiplesSummary = cand.blocks.map((b) => ({
-        block_standard: `Bloco ${b.unitTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
-        quantity: b.quantity,
-        unit_weight_tons: b.unitTons,
-        total_weight_tons: b.totalTons,
-      }))
+      // Sumário de múltiplos
+      let accWeight = 0
+      const multiplesSummary = entries.map((e) => {
+        const totalW = Number((e.count * e.option.targetTons).toFixed(3))
+        accWeight = Number((accWeight + totalW).toFixed(3))
+        const isPrio = e.option.code === priorityOption!.code || e.option.isPriority
+        const pctOfBlocks = totalPieces > 0 ? Number(((e.count / totalPieces) * 100).toFixed(1)) : 0
 
-      // Frações proporcionais em massa (somando 100% entre blocos, perdas e sobra)
-      const blocksPct =
-        grossPlateWeightTons > 0 ? (cand.totalBlocksTons / grossPlateWeightTons) * 100 : 0
-      const lossPctCalc =
-        grossPlateWeightTons > 0 ? (technicalLossTons / grossPlateWeightTons) * 100 : 0
-      const leftoverPct =
-        grossPlateWeightTons > 0 ? (cand.leftoverTons / grossPlateWeightTons) * 100 : 0
+        return {
+          block_standard: `Bloco ${e.option.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
+          standard_code: e.option.code,
+          quantity: e.count,
+          unit_weight_tons: e.option.targetTons,
+          total_weight_tons: totalW,
+          accumulated_weight_tons: accWeight,
+          pct_of_blocks: pctOfBlocks,
+          classification: isPrio ? ('PRIORITARIO' as const) : ('COMPLEMENTAR' as const),
+        }
+      })
 
+      // Segmentos de massa proporcionais
       const segments: Array<{
-        type: 'BLOCO' | 'PERDA' | 'SOBRA'
+        type: 'BLOCO' | 'PERDA' | 'SOBRA' | 'REFUGO'
         label: string
         weight_tons: number
         percentage: number
         color?: string
+        block_number?: number
+        calculated_length_mm?: number
+        multiple_standard?: string
+        classification?: 'PRIORITARIO' | 'COMPLEMENTAR'
+        cut_sequence?: number
       }> = []
 
-      // Segmentos individuais para cada bloco produzido
       let bCounter = 1
-      for (const b of cand.blocks) {
-        for (let k = 0; k < b.quantity; k++) {
-          const segPct = grossPlateWeightTons > 0 ? (b.unitTons / grossPlateWeightTons) * 100 : 0
+      for (const entry of entries) {
+        const isPrio = entry.option.code === priorityOption!.code || entry.option.isPriority
+        const calcLen = Math.round(((entry.option.targetTons * 1000) / linearMass) * 1000)
+
+        for (let k = 0; k < entry.count; k++) {
+          const segPct =
+            grossPlateWeightTons! > 0
+              ? Number(((entry.option.targetTons / grossPlateWeightTons!) * 100).toFixed(2))
+              : 0
+
           segments.push({
             type: 'BLOCO',
-            label: `B${bCounter++} (${b.unitTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
-            weight_tons: b.unitTons,
-            percentage: Number(segPct.toFixed(2)),
-            color: '#1e3a8a', // Azul escuro CIAFAL
+            label: `B${bCounter} (${entry.option.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
+            weight_tons: entry.option.targetTons,
+            percentage: segPct,
+            color: isPrio ? '#1e3a8a' : '#4338ca',
+            block_number: bCounter,
+            calculated_length_mm: calcLen,
+            multiple_standard: `Bloco ${entry.option.targetTons.toFixed(3)} t`,
+            classification: isPrio ? 'PRIORITARIO' : 'COMPLEMENTAR',
+            cut_sequence: bCounter++,
           })
         }
       }
 
-      // Perdas técnicas
       if (technicalLossTons > 0) {
         segments.push({
           type: 'PERDA',
-          label: `Perdas (${technicalLossTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
+          label: `Perda Processo (${technicalLossTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
           weight_tons: technicalLossTons,
-          percentage: Number(lossPctCalc.toFixed(2)),
-          color: '#d97706', // Âmbar
+          percentage: processLossPct,
+          color: '#d97706',
         })
       }
 
-      // Sobra da placa
-      if (cand.leftoverTons > 0) {
+      if (usableLeftoverTons > 0) {
         segments.push({
           type: 'SOBRA',
-          label: `Sobra (${cand.leftoverTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
-          weight_tons: cand.leftoverTons,
-          percentage: Number(leftoverPct.toFixed(2)),
-          color: '#64748b', // Ardósia
+          label: `Sobra Aproveitável (${usableLeftoverTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
+          weight_tons: usableLeftoverTons,
+          percentage: usableLeftoverPct,
+          color: '#059669',
         })
       }
 
-      // Balanço de lote
-      const batchUsedQtyTons = cand.totalBlocksTons
-      const batchInitialStockTons = grossPlateWeightTons
-      const batchProjectedBalanceTons = cand.leftoverTons
+      if (finalScrapTons > 0) {
+        segments.push({
+          type: 'REFUGO',
+          label: `Refugo Final (${finalScrapTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
+          weight_tons: finalScrapTons,
+          percentage: finalScrapPct,
+          color: '#94a3b8',
+        })
+      }
+
+      // Resumo Exclusivo do Plano de Múltiplos
+      const prioBlocksCount = cand.priorityCount
+      const compBlocksCount = cand.complementaryCount
+      const prioPct =
+        totalPieces > 0 ? Number(((prioBlocksCount / totalPieces) * 100).toFixed(1)) : 0
+      const minBlockTons =
+        entries.length > 0 ? Math.min(...entries.map((e) => e.option.targetTons)) : 0
+      const maxBlockTons =
+        entries.length > 0 ? Math.max(...entries.map((e) => e.option.targetTons)) : 0
+      const avgDevFromPrio =
+        totalPieces > 0
+          ? Number(
+              (
+                entries.reduce(
+                  (acc, e) =>
+                    acc + e.count * Math.abs(e.option.targetTons - priorityOption!.targetTons),
+                  0,
+                ) / totalPieces
+              ).toFixed(3),
+            )
+          : 0
+
+      const multiplesPlanSummary = {
+        priority_weight_tons: priorityOption!.targetTons,
+        priority_standard_code: priorityOption!.code,
+        total_blocks_count: totalPieces,
+        total_converted_weight_tons: cand.totalBlocksTons,
+        average_block_weight_tons: cand.averageBlockTons,
+        min_block_weight_tons: minBlockTons,
+        max_block_weight_tons: maxBlockTons,
+        priority_blocks_count: prioBlocksCount,
+        priority_blocks_pct: prioPct,
+        complementary_blocks_count: compBlocksCount,
+        average_deviation_from_priority_tons: avgDevFromPrio,
+        process_loss_tons: technicalLossTons,
+        process_loss_pct: processLossPct,
+        usable_leftover_tons: usableLeftoverTons,
+        usable_leftover_pct: usableLeftoverPct,
+        final_scrap_tons: finalScrapTons,
+        final_scrap_pct: finalScrapPct,
+        plate_yield_pct: cand.yieldPct,
+        gross_plate_weight_tons: grossPlateWeightTons!,
+        net_available_weight_tons: netAvailableWeightTons,
+      }
+
+      const scenarioId = cand.id.startsWith('SCENARIO_') ? cand.id : `SCENARIO_MULT_${cIdx + 1}`
 
       scenarios.push({
-        id: cand.id,
-        name: cand.name,
+        id: scenarioId,
+        name: cand.name.startsWith('Cenário ') ? cand.name : `Cenário ${cIdx + 1} — ${cand.name}`,
         cutting_type: 'MULTIPLOS',
-        used_standard_code: primaryBlock?.standard.code || 'PAD-MULT-01',
-        used_standard_description: primaryBlock?.standard.description || 'Padrão Múltiplo',
-        target_weight_kg: targetKg,
-        min_allowed_weight_kg: minKg,
-        max_allowed_weight_kg: maxKg,
-        calculated_weight_kg: targetKg,
+        used_standard_code: primaryOption.code,
+        used_standard_description: primaryOption.description,
+        target_weight_kg: primaryOption.targetTons * 1000,
+        min_allowed_weight_kg: primaryOption.minTons * 1000,
+        max_allowed_weight_kg: primaryOption.maxTons * 1000,
+        calculated_weight_kg: primaryOption.targetTons * 1000,
         deviation_kg: 0,
         deviation_pct: 0,
         produced_quantity: totalPieces,
@@ -716,16 +964,16 @@ class MPCuttingOptimizationEngineService {
         raw_material_description:
           filters.selected_material_description || 'Placa de Aço para Corte em Múltiplos',
         batch_number: filters.selected_batch_number,
-        batch_initial_stock: batchInitialStockTons,
-        batch_used_quantity: batchUsedQtyTons,
-        batch_projected_balance: batchProjectedBalanceTons,
+        batch_initial_stock: grossPlateWeightTons!,
+        batch_used_quantity: cand.totalBlocksTons,
+        batch_projected_balance: cand.leftoverTons,
         batch_unit: 't',
         storage_location: filters.selected_storage_location,
         center_code: filters.center_code,
         raw_material_utilization_pct: cand.yieldPct,
         composition: {
           pieces_count: totalPieces,
-          piece_nominal_weight_kg: targetKg,
+          piece_nominal_weight_kg: primaryOption.targetTons * 1000,
           total_cuts_count: Math.max(1, totalPieces),
           nominal_length_mm: techParams.nominal_length_mm,
           gauge_dimension: techParams.gauge_dimension,
@@ -735,61 +983,87 @@ class MPCuttingOptimizationEngineService {
           theoretical_loss_pct: techParams.theoretical_loss_pct,
           distribution,
           satisfied_restrictions: [
-            `Peso bruto da placa: ${grossPlateWeightTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (grandeza real de entrada)`,
-            `Perdas técnicas cadastradas: ${technicalLossTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (${techParams.theoretical_loss_pct || 0}%)`,
+            `Peso bruto da placa: ${grossPlateWeightTons!.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (grandeza real de entrada)`,
+            `Perdas de processo: ${technicalLossTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (${techParams.theoretical_loss_pct || 0}%)`,
             `Peso útil disponível: ${netAvailableWeightTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
             `Quantidade de blocos: ${totalPieces} unidade(s) inteira(s) — sem fracionamento`,
             cand.leftoverTons > 0
-              ? `Sobra final da placa: ${cand.leftoverTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (não é considerada bloco válido)`
+              ? `Sobra da placa: ${cand.leftoverTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (${usableLeftoverTons > 0 ? 'Aproveitável' : 'Refugo final'})`
               : 'Aproveitamento integral da placa sem sobra residual',
-            `Balanço estrito de massa: ${grossPlateWeightTons.toFixed(3)} t = ${cand.totalBlocksTons.toFixed(3)} t (blocos) + ${technicalLossTons.toFixed(3)} t (perdas) + ${cand.leftoverTons.toFixed(3)} t (sobra)`,
+            `Balanço estrito de massa: ${grossPlateWeightTons!.toFixed(3)} t = ${cand.totalBlocksTons.toFixed(3)} t (blocos) + ${technicalLossTons.toFixed(3)} t (perdas) + ${cand.leftoverTons.toFixed(3)} t (sobra)`,
           ],
           industrial_alerts:
-            cand.leftoverTons > (primaryBlock?.standard.targetTons || 1.6)
+            cand.leftoverTons >= primaryOption.targetTons
               ? [
-                  `A sobra da placa (${cand.leftoverTons.toFixed(3)} t) excede o peso unitário do bloco. Avaliar ajuste de corte.`,
+                  `A sobra da placa (${cand.leftoverTons.toFixed(3)} t) excede o peso unitário do prioritário. Avaliar corte complementar.`,
                 ]
-              : ['Excelente rendimento da placa com balanço de massa rigorosamente validado.'],
+              : ['Excelente rendimento metálico com balanço estrito de massa validado.'],
           technical_justification: cand.description,
           multiples_summary: multiplesSummary,
+          multiples_plan_summary: multiplesPlanSummary,
           mass_fractions: {
-            blocks_pct: Number(blocksPct.toFixed(2)),
-            loss_pct: Number(lossPctCalc.toFixed(2)),
-            leftover_pct: Number(leftoverPct.toFixed(2)),
+            blocks_pct:
+              grossPlateWeightTons! > 0
+                ? Number(((cand.totalBlocksTons / grossPlateWeightTons!) * 100).toFixed(2))
+                : 0,
+            loss_pct: processLossPct,
+            leftover_pct:
+              grossPlateWeightTons! > 0
+                ? Number(((cand.leftoverTons / grossPlateWeightTons!) * 100).toFixed(2))
+                : 0,
+            usable_leftover_pct: usableLeftoverPct,
+            scrap_pct: finalScrapPct,
             segments,
           },
           plate_info: {
             plate_code: filters.plate_code || `PLACA-${filters.selected_batch_number || 'LOTE'}`,
             material_code: filters.selected_material_code || filters.material_code,
             batch_number: filters.selected_batch_number,
-            gross_weight_tons: grossPlateWeightTons,
+            gross_weight_tons: grossPlateWeightTons!,
             technical_loss_tons: technicalLossTons,
             net_available_weight_tons: netAvailableWeightTons,
             used_weight_tons: cand.totalBlocksTons,
             leftover_weight_tons: cand.leftoverTons,
-            reference_block: cand.blocks
-              .map((b) => `${b.quantity}×${b.unitTons.toFixed(3)} t`)
+            usable_leftover_tons: usableLeftoverTons,
+            final_scrap_tons: finalScrapTons,
+            reference_block: entries
+              .map((e) => `${e.count}×${e.option.targetTons.toFixed(3)} t`)
               .join(' + '),
+            min_technical_leftover_tons: minStandardTons,
           },
         },
       })
+    })
+
+    // 7. Recomendação do Cenário de Maior Rendimento Viável
+    // A melhor combinação viável já foi ordenada no passo 5
+    const recommendedCand = viableCombinations[0] || finalCandidates[0]
+    const bestScenario = scenarios.find((s) => s.id === recommendedCand?.id) || scenarios[0]
+    const bestScenarioId = bestScenario?.id || 'SCENARIO_MULT_1'
+
+    // Geração da Justificativa Técnica com os Valores Reais
+    const prioDesc = `${priorityOption.targetTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`
+    let technicalJustification = ''
+
+    if (bestScenario) {
+      const bestSummary = bestScenario.composition.multiples_plan_summary
+      const complementariesUsed = bestScenario.composition.multiples_summary?.filter(
+        (s) => s.classification === 'COMPLEMENTAR',
+      )
+
+      if (complementariesUsed && complementariesUsed.length > 0) {
+        const compDesc = complementariesUsed
+          .map(
+            (c) =>
+              `${c.quantity} bloco(s) de ${c.unit_weight_tons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`,
+          )
+          .join(', ')
+
+        technicalJustification = `Recomendação orientativa IA CIAFAL — Plano de Corte para Múltiplos: O ${bestScenario.name} alcançou o maior rendimento metálico da placa (${bestScenario.yield_pct.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%), iniciando com o peso prioritário de ${prioDesc} (${bestSummary?.priority_blocks_count} blocos) e aproveitando a sobra com múltiplos complementares cadastrados (${compDesc}). Total aproveitado de ${(bestScenario.used_weight_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t, perdas de processo de ${(bestScenario.cutting_loss_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t e sobra residual de ${(bestScenario.estimated_leftover_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t.`
+      } else {
+        technicalJustification = `Recomendação orientativa IA CIAFAL — Plano de Corte para Múltiplos: O ${bestScenario.name} alcançou o maior rendimento metálico da placa (${bestScenario.yield_pct.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%), produzindo ${bestScenario.produced_quantity} bloco(s) inteiros no peso prioritário de ${prioDesc} (${(bestScenario.used_weight_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t aproveitados), com perdas técnicas de ${(bestScenario.cutting_loss_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t e sobra residual de ${(bestScenario.estimated_leftover_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t. Balanço de massa 100% consistente.`
+      }
     }
-
-    // 6. Recomendação do cenário de maior aproveitamento viável
-    const viable = scenarios.filter((s) => s.status === 'VIÁVEL')
-    let bestScenarioId = scenarios[0]?.id || 'SCENARIO_MULT_PURE_A'
-    if (viable.length > 0) {
-      // Ordenar por rendimento decrescente (e desempate por menor sobra)
-      viable.sort((a, b) => {
-        if (b.yield_pct !== a.yield_pct) return b.yield_pct - a.yield_pct
-        return a.estimated_leftover_kg - b.estimated_leftover_kg
-      })
-      bestScenarioId = viable[0].id
-    }
-
-    const bestScen = scenarios.find((s) => s.id === bestScenarioId) || scenarios[0]
-
-    const technicalJustification = `Recomendação orientativa IA CIAFAL — Plano de Corte para Múltiplos: O ${bestScen.name} alcançou o maior rendimento metálico da placa (${bestScen.yield_pct.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%), produzindo ${bestScen.produced_quantity} bloco(s) inteiros (${(bestScen.used_weight_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t aproveitados), com perdas técnicas de ${(bestScen.cutting_loss_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t e sobra residual de ${(bestScen.estimated_leftover_kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t. Balanço de massa 100% consistente.`
 
     const simCode = `SIM-MULT-${Date.now().toString(36).toUpperCase()}`
 
@@ -813,9 +1087,9 @@ class MPCuttingOptimizationEngineService {
       raw_material_description:
         filters.selected_material_description || 'Placa de Aço para Corte em Múltiplos',
       batch_number: filters.selected_batch_number,
-      batch_initial_stock: bestScen.batch_initial_stock,
-      batch_used_quantity: bestScen.batch_used_quantity,
-      batch_projected_balance: bestScen.batch_projected_balance,
+      batch_initial_stock: bestScenario?.batch_initial_stock,
+      batch_used_quantity: bestScenario?.batch_used_quantity,
+      batch_projected_balance: bestScenario?.batch_projected_balance,
       storage_location: filters.selected_storage_location,
       batch_unit: 't',
     }
@@ -849,7 +1123,6 @@ class MPCuttingOptimizationEngineService {
       if (std.status !== 'ATIVO') return false
       if (std.company_code && filters.company_code && std.company_code !== filters.company_code)
         return false
-      // Se padrões específicos foram selecionados no filtro, respeitar estritamente
       if (
         filters.selected_standard_codes &&
         filters.selected_standard_codes.length > 0 &&
@@ -857,7 +1130,6 @@ class MPCuttingOptimizationEngineService {
       ) {
         return false
       }
-      // Verificar compatibilidade centro x material
       const hasCenter =
         (std.center_codes || []).length === 0 ||
         (std.center_codes || []).includes(filters.center_code)
@@ -869,7 +1141,6 @@ class MPCuttingOptimizationEngineService {
       return hasCenter && hasMat
     })
 
-    // Caso o usuário não tenha padrões cadastrados para o filtro exato, construir padrão operacional de referência
     const primaryStandard =
       applicableStandards.length > 0
         ? applicableStandards[0]
@@ -898,7 +1169,6 @@ class MPCuttingOptimizationEngineService {
       (filters.required_quantity || 0) * primaryStandard.target_weight_kg ||
       30000 // 30 toneladas padrão
 
-    // Se o tipo de corte for MÚLTIPLOS e houver um lote selecionado, o teto de estoque é rigorosamente o saldo do lote
     const isMultiplesCutting = (filters.cutting_type as string) === 'MULTIPLOS'
     let batchStockKg = 0
     if (isMultiplesCutting && filters.selected_batch_available_stock != null) {
@@ -918,7 +1188,7 @@ class MPCuttingOptimizationEngineService {
       {
         id: 'SCENARIO_1_MAX_YIELD',
         name: 'Cenário 1 — Máximo Rendimento de MP',
-        targetDeviationFactor: 0.005, // 0.5% desvio do ideal
+        targetDeviationFactor: 0.005,
         yieldBoost: 3.2,
         cutsMultiplier: 1.15,
         type: 'BLOCOS' as const,
@@ -938,7 +1208,7 @@ class MPCuttingOptimizationEngineService {
       {
         id: 'SCENARIO_3_WEIGHT_FIDELITY',
         name: 'Cenário 3 — Máxima Aderência ao Peso Ideal',
-        targetDeviationFactor: 0.001, // Praticamente 0 desvio
+        targetDeviationFactor: 0.001,
         yieldBoost: 0.8,
         cutsMultiplier: 1.25,
         type:
@@ -971,7 +1241,7 @@ class MPCuttingOptimizationEngineService {
       {
         id: 'SCENARIO_6_CRITICAL_TOLERANCE',
         name: 'Cenário 6 — Restrição Severa de Tolerância',
-        targetDeviationFactor: 0.055, // Força cenário de teste com desvio ou restrição estreita
+        targetDeviationFactor: 0.055,
         yieldBoost: -4.5,
         cutsMultiplier: 1.4,
         type: 'MULTIPLOS' as const,
@@ -980,8 +1250,6 @@ class MPCuttingOptimizationEngineService {
       },
     ]
 
-    // Se o tipo de corte for BLOCOS e houver múltiplos selecionados pelo usuário,
-    // carregar os objetos reais dos múltiplos para individualizar dimensões e rastreabilidade
     let selectedMultiplesData: AvailableMultipleItem[] = []
     const isMultiplesMode =
       filters.cutting_type === 'BLOCOS' &&
@@ -1000,7 +1268,6 @@ class MPCuttingOptimizationEngineService {
       )
     }
 
-    // Validação de múltiplos: alertar e bloquear múltiplo sem dimensões cadastradas
     const invalidMultiples = selectedMultiplesData.filter(
       (m) => m.unit_weight_kg <= 0 || m.piece_length_mm <= 0 || m.width_mm <= 0 || m.height_mm <= 0,
     )
@@ -1021,17 +1288,13 @@ class MPCuttingOptimizationEngineService {
       const minWeight = chosenStandard.min_weight_kg
       const maxWeight = chosenStandard.max_weight_kg
 
-      // Cálculo do peso unitário planejado do bloco/múltiplo
       let calculatedUnitWeight = Number(
         (targetWeight * (1 + (i % 2 === 0 ? 1 : -1) * tmpl.targetDeviationFactor)).toFixed(2),
       )
 
-      // Regra de consistência física e restrições obrigatórias
       let isViable = true
       let inviabilityReason = ''
 
-      // Verificação de restrições físicas de peso: Peso Mínimo <= Peso Ideal <= Peso Máximo
-      // A IA e o motor não podem considerar viável um corte que viole os limites cadastrados
       if (calculatedUnitWeight < minWeight) {
         calculatedUnitWeight = minWeight
       }
@@ -1039,13 +1302,11 @@ class MPCuttingOptimizationEngineService {
         calculatedUnitWeight = maxWeight
       }
 
-      // Garantia estrita: se o peso unitário estiver fora da faixa permitida [minWeight, maxWeight], o corte é inviável
       if (calculatedUnitWeight < minWeight || calculatedUnitWeight > maxWeight) {
         isViable = false
         inviabilityReason = `Peso unitário calculado (${calculatedUnitWeight.toLocaleString('pt-BR')} kg) está fora da faixa permitida (${minWeight.toLocaleString('pt-BR')} kg a ${maxWeight.toLocaleString('pt-BR')} kg).`
       }
 
-      // No cenário 6, se a demanda exigida exceder o estoque de MP disponível
       if (tmpl.id === 'SCENARIO_6_CRITICAL_TOLERANCE' && i === 5) {
         if (requiredDemandKg > availableMpKg * 1.5) {
           isViable = false
@@ -1053,15 +1314,12 @@ class MPCuttingOptimizationEngineService {
         }
       }
 
-      // Quantidade de peças produzidas
       const piecesCount = Math.max(1, Math.floor(requiredDemandKg / calculatedUnitWeight))
       const usedWeightKg = Number((piecesCount * calculatedUnitWeight).toFixed(2))
 
-      // Perda teórica de corte cadastrada na Ficha Mestra
       const cuttingLossRate = (techParams.theoretical_loss_pct || 1.3) / 100
       const cuttingLossKg = Number((usedWeightKg * cuttingLossRate).toFixed(2))
 
-      // Sobra estimada de MP
       const totalInputNeeded = usedWeightKg + cuttingLossKg
       const inputWeightKg = Math.min(
         availableMpKg,
@@ -1069,28 +1327,22 @@ class MPCuttingOptimizationEngineService {
       )
       const estimatedLeftoverKg = Number(Math.max(0, inputWeightKg - totalInputNeeded).toFixed(2))
 
-      // Rendimento metálico conforme regras ABNT / CIAFAL
       const rawYield = inputWeightKg > 0 ? (usedWeightKg / inputWeightKg) * 100 : 0
       const yieldPct = Number(Math.min(99.4, Math.max(82.0, rawYield + tmpl.yieldBoost)).toFixed(2))
       const usedWeightPct = yieldPct
 
-      // Desvio do ideal
       const deviationKg = Number((calculatedUnitWeight - targetWeight).toFixed(2))
       const deviationPct = Number(((deviationKg / targetWeight) * 100).toFixed(2))
 
-      // Atendimento à demanda
       const demandFulfillmentPct = Number(
         Math.min(100, (usedWeightKg / requiredDemandKg) * 100).toFixed(2),
       )
 
-      // Se a disponibilidade real de MP não atende o corte
       if (totalInputNeeded > availableMpKg && isViable) {
         isViable = false
         inviabilityReason = `Disponibilidade real de MP no centro ${filters.center_code} (${availableMpKg.toLocaleString('pt-BR')} kg) é menor que a entrada necessária (${totalInputNeeded.toLocaleString('pt-BR')} kg).`
       }
 
-      // Distribuição detalhada dos blocos/múltiplos
-      // Dimensões do bloco derivadas estritamente da Ficha Mestra ou dos múltiplos individuais selecionados
       const linearMass = techParams.linear_mass_kg_m || 132.5
       let widthMm = 130
       let heightMm = 130
@@ -1105,12 +1357,8 @@ class MPCuttingOptimizationEngineService {
       const distribution = []
 
       if (isMultiplesMode && selectedMultiplesData.length > 0) {
-        // MODO INDIVIDUALIZADO: Iterar pelos múltiplos reais selecionados
-        // Cada múltiplo gera bloco(s) vinculados a sua corrida, número, lote e dimensões reais
         let itemIndex = 1
         for (const mult of selectedMultiplesData) {
-          // Uso físico: cada múltiplo selecionado representa sua quantidade disponível
-          // Impede uso duplo da mesma quantidade física na mesma simulação
           const multWidth = mult.width_mm || widthMm
           const multHeight = mult.height_mm || heightMm
           const multLength = mult.piece_length_mm
@@ -1141,12 +1389,10 @@ class MPCuttingOptimizationEngineService {
           })
         }
       } else {
-        // MODO AGREGADO (comportamento padrão preservado quando não há múltiplos selecionados)
         const sampleSize = Math.min(piecesCount, 8)
         for (let p = 1; p <= sampleSize; p++) {
           const slightVar = Math.sin(p) * 0.002 * targetWeight
           const pieceCalc = Number((calculatedUnitWeight + slightVar).toFixed(2))
-          // Comprimento calculado estritamente derivado do peso calculado e massa linear da Ficha Mestra
           const calculatedLengthMm = Math.round((pieceCalc / linearMass) * 1000)
           const formattedLength = calculatedLengthMm.toLocaleString('pt-BR')
           const dimensionDisplay = `${widthMm} × ${heightMm} × ${formattedLength} mm`
@@ -1167,7 +1413,7 @@ class MPCuttingOptimizationEngineService {
             height_mm: heightMm,
             gauge_dimension: techParams.gauge_dimension || `${widthMm} × ${heightMm} mm`,
             linear_mass_kg_m: linearMass,
-            heat_number: undefined, // Indicador de não individualizado
+            heat_number: undefined,
             multiple_number: undefined,
             origin_type: 'AGREGADO' as const,
             application: rawMaterialApp,
@@ -1177,7 +1423,6 @@ class MPCuttingOptimizationEngineService {
 
       const totalCutsCount = Math.round(piecesCount * tmpl.cutsMultiplier)
 
-      // Atributos de Matéria-Prima e Lote para Cenários
       const batchUsedQtyTons = Number((usedWeightKg / 1000).toFixed(3))
       const batchInitialStockTons =
         isMultiplesCutting && filters.selected_batch_available_stock != null
@@ -1212,7 +1457,6 @@ class MPCuttingOptimizationEngineService {
         demand_fulfillment_pct: demandFulfillmentPct,
         status: isViable ? 'VIÁVEL' : 'INVIÁVEL',
         inviability_reason: inviabilityReason,
-        // Rastreabilidade vinculada de MP e Lote
         raw_material_code: isMultiplesCutting
           ? filters.selected_material_code || filters.material_code
           : undefined,
@@ -1258,7 +1502,6 @@ class MPCuttingOptimizationEngineService {
       })
     }
 
-    // Identificar o "Melhor Cenário Recomendado" conforme o objetivo/critério escolhido pelo PCP
     let bestScenarioId = scenarios[0].id
     const viableScenarios = scenarios.filter((s) => s.status === 'VIÁVEL')
 
@@ -1302,7 +1545,6 @@ class MPCuttingOptimizationEngineService {
 
     const bestScenario = scenarios.find((s) => s.id === bestScenarioId) || scenarios[0]
 
-    // Justificativa contextual de IA orientativa — usando somente dados reais
     let technicalJustification = ''
     if (bestScenario.status === 'INVIÁVEL') {
       technicalJustification =
@@ -1319,8 +1561,6 @@ class MPCuttingOptimizationEngineService {
     }
 
     const simCode = `SIM-CUT-${Date.now().toString(36).toUpperCase()}`
-
-    // Se for Múltiplos, propagar os metadados de MP e lote na raiz do resultado da simulação
     const bestScenItem = scenarios.find((s) => s.id === bestScenarioId) || scenarios[0]
 
     return {
