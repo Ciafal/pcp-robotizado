@@ -618,7 +618,7 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                       <option value="MULTIPLOS">Múltiplos</option>
                       <option value="PLACAS">Placas</option>
                       <option value="BOBINAS">Bobinas</option>
-                      <option value="GEOMETRIA_DO_CORTE">Geometria do corte</option>
+                      <option value="GEOMETRIA">Geometria do corte</option>
                     </select>
                   </div>
                   <div>
@@ -947,7 +947,7 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     <option value="MULTIPLOS">Somente Múltiplos</option>
                     <option value="PLACAS">Somente Placas</option>
                     <option value="BOBINAS">Somente Bobinas</option>
-                    <option value="GEOMETRIA_DO_CORTE">Somente Geometria do corte</option>
+                    <option value="GEOMETRIA">Somente Geometria do corte</option>
                   </select>
                   {(searchTerm || filterType !== 'TODOS') && (
                     <Button
@@ -1034,7 +1034,8 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                                     ? 'bg-purple-50 text-purple-700 border-purple-200'
                                     : std.cutting_type === 'PLACAS'
                                       ? 'bg-teal-50 text-teal-700 border-teal-200'
-                                      : std.cutting_type === 'GEOMETRIA_DO_CORTE'
+                                      : std.cutting_type === 'GEOMETRIA' ||
+                                          std.cutting_type === 'GEOMETRIA_DO_CORTE'
                                         ? 'bg-amber-50 text-amber-800 border-amber-300'
                                         : 'bg-indigo-50 text-indigo-700 border-indigo-200'
                               }
@@ -1045,7 +1046,8 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                                   ? 'Múltiplos'
                                   : std.cutting_type === 'PLACAS'
                                     ? 'Placas'
-                                    : std.cutting_type === 'GEOMETRIA_DO_CORTE'
+                                    : std.cutting_type === 'GEOMETRIA' ||
+                                        std.cutting_type === 'GEOMETRIA_DO_CORTE'
                                       ? 'Geometria do corte'
                                       : std.cutting_type === 'BOBINAS'
                                         ? 'Bobinas'
