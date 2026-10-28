@@ -46,6 +46,10 @@ class MPCuttingWeightStandardsService {
       errors.description = 'A descrição do padrão é obrigatória.'
     }
 
+    if (!standard.cutting_type?.trim()) {
+      errors.cutting_type = 'O tipo de corte é obrigatório.'
+    }
+
     if (!standard.company_code?.trim()) {
       errors.company_code = 'A empresa é obrigatória.'
     }
@@ -141,18 +145,34 @@ class MPCuttingWeightStandardsService {
       }
     }
 
-    // Impedir duplicações exatas indesejadas, permitindo múltiplos padrões com descrições, tolerâncias ou vigências distintas
+    // Validação de unicidade de código na empresa (em TODOS os registros: ativos E inativos, na criação E na edição)
     const currentId = standard.id
+    const compCode = (standard.company_code || 'CIAFAL').trim().toUpperCase()
+    const currentCode = (standard.code || '').trim().toUpperCase()
+
+    if (currentCode && currentCode !== 'NOVO' && !currentCode.includes('UNDEFINED')) {
+      for (const existing of allExisting) {
+        if (existing.id && existing.id === currentId) continue
+        const exComp = (existing.company_code || 'CIAFAL').trim().toUpperCase()
+        const exCode = (existing.code || '').trim().toUpperCase()
+
+        if (exComp === compCode && exCode === currentCode) {
+          errors.code = `Código ${standard.code} já existe nesta empresa (ativo ou inativo).`
+          break
+        }
+      }
+    }
+
+    // Impedir duplicações de sobreposição de regras (mesma descrição, centro, material e peso)
     const startDate = standard.start_date || ''
     const endDate = standard.end_date || '9999-12-31'
     const cuttingType = standard.cutting_type || 'BLOCOS'
-    const compCode = standard.company_code || ''
     const currentDesc = standard.description?.trim().toLowerCase() || ''
 
     for (const existing of allExisting) {
       if (existing.id && existing.id === currentId) continue
       if (existing.status !== 'ATIVO') continue
-      if (existing.company_code !== compCode) continue
+      if ((existing.company_code || 'CIAFAL').trim().toUpperCase() !== compCode) continue
       if (existing.cutting_type !== cuttingType) continue
 
       // Se a descrição for idêntica e houver sobreposição total, alertar duplicata
@@ -450,9 +470,9 @@ class MPCuttingWeightStandardsService {
           )
         }
       } else {
-        const nextCode = await this.generateNextCode()
+        const codeToUse = normalizedData.code?.trim() || (await this.generateNextCode())
         const payload: any = {
-          code: nextCode,
+          code: codeToUse,
           description: normalizedData.description?.trim(),
           cutting_type: normalizedData.cutting_type || 'BLOCOS',
           company_code: normalizedData.company_code || 'CIAFAL',

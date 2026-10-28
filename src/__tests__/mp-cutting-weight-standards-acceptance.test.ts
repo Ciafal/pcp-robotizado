@@ -97,6 +97,7 @@ describe('Suíte de Testes de Aceite — Padrões de Peso para Corte & Motor de 
     // 3.4: Cadastro com exclusivamente os 3 parâmetros é válido sem tolerâncias adicionais
     const valid3Fields = mpCuttingWeightStandardsService.validateStandard({
       description: 'Padrão 3 Parâmetros',
+      cutting_type: 'BLOCOS',
       company_code: 'CIAFAL',
       center_codes: ['SEML1'],
       material_codes: ['TARUGO-130-1020'],

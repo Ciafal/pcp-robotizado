@@ -52,9 +52,10 @@ describe('Testes Obrigatórios T1 a T7 — Ciclo de Padrões de Peso para Corte'
     expect(val.isValid).toBe(true)
   })
 
-  it('T2: Salvar vazio destaca campos obrigatórios com motivos específicos (description, pesos, centros)', () => {
+  it('T2: Salvar vazio destaca campos obrigatórios com motivos específicos (description, cutting_type, pesos, centros)', () => {
     const valVazio = mpCuttingWeightStandardsService.validateStandard({
       description: '',
+      cutting_type: '' as any,
       center_codes: [],
       material_codes: [],
       target_weight_kg: 0,
@@ -64,6 +65,7 @@ describe('Testes Obrigatórios T1 a T7 — Ciclo de Padrões de Peso para Corte'
 
     expect(valVazio.isValid).toBe(false)
     expect(valVazio.errors.description).toContain('obrigatória')
+    expect(valVazio.errors.cutting_type).toContain('obrigatório')
     expect(valVazio.errors.center_codes).toContain('ao menos um centro')
     expect(valVazio.errors.material_codes).toContain('ao menos um material')
     expect(valVazio.errors.target_weight_kg).toContain('maior que zero')
@@ -142,6 +144,63 @@ describe('Testes Obrigatórios T1 a T7 — Ciclo de Padrões de Peso para Corte'
     ).toBe('1.250,00')
 
     listSpy.mockRestore()
+  })
+
+  it('T2.1: Rejeitar código duplicado na mesma empresa (ativo ou inativo)', () => {
+    const existingList: MPCuttingWeightStandard[] = [
+      {
+        id: 'rec_inativo_1',
+        code: 'PAD-000',
+        description: 'Padrão Inativo',
+        cutting_type: 'BLOCOS',
+        company_code: 'CIAFAL',
+        center_codes: ['SEML1'],
+        material_codes: ['TARUGO-130-1020'],
+        target_weight_kg: 1100,
+        min_weight_kg: 1000,
+        max_weight_kg: 1200,
+        priority: 'MEDIA',
+        status: 'INATIVO',
+        start_date: '2026-01-01',
+      },
+    ]
+
+    // Criar com mesmo código
+    const valDuplCreate = mpCuttingWeightStandardsService.validateStandard(
+      {
+        ...baseStandard,
+        code: 'PAD-000',
+        company_code: 'CIAFAL',
+      },
+      existingList,
+    )
+    expect(valDuplCreate.isValid).toBe(false)
+    expect(valDuplCreate.errors.code).toContain('já existe nesta empresa (ativo ou inativo)')
+
+    // Editar outro registro com código colidente
+    const valDuplEdit = mpCuttingWeightStandardsService.validateStandard(
+      {
+        ...baseStandard,
+        id: 'outro_id_2',
+        code: 'PAD-000',
+        company_code: 'CIAFAL',
+      },
+      existingList,
+    )
+    expect(valDuplEdit.isValid).toBe(false)
+    expect(valDuplEdit.errors.code).toContain('já existe nesta empresa (ativo ou inativo)')
+
+    // Editar o próprio registro mantendo o código passa
+    const valProprioEdit = mpCuttingWeightStandardsService.validateStandard(
+      {
+        ...baseStandard,
+        id: 'rec_inativo_1',
+        code: 'PAD-000',
+        company_code: 'CIAFAL',
+      },
+      existingList,
+    )
+    expect(valProprioEdit.errors.code).toBeUndefined()
   })
 
   it('T5: Editar registro atualiza o MESMO ID sem duplicar', async () => {

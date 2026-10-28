@@ -580,25 +580,37 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                   </Alert>
                 )}
 
-                {/* Linha 1: Descrição, Tipo de Corte, Empresa, Prioridade */}
+                {/* Linha 1: Descrição, Tipo de Corte, Código (se exibido/editável), Prioridade */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="md:col-span-2">
-                    <Label className="text-xs font-semibold text-slate-700">
-                      Descrição do Padrão *
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold text-slate-700">
+                        Descrição do Padrão *
+                      </Label>
+                      {formData.code && (
+                        <span className="text-[11px] font-mono text-blue-900 font-bold">
+                          Cód: {formData.code}
+                        </span>
+                      )}
+                    </div>
                     <Input
                       value={formData.description || ''}
                       onChange={(e) => {
                         setFormData({ ...formData, description: e.target.value })
-                        setFieldErrors((prev) => ({ ...prev, description: '' }))
+                        setFieldErrors((prev) => ({ ...prev, description: '', code: '' }))
                       }}
                       placeholder="Ex: Tarugo L1 130x130 Padrão Bloco 1,250 t"
                       className={`mt-1 ${fieldErrors.description ? 'border-red-500 ring-1 ring-red-400' : ''}`}
                       required
-                    />{' '}
+                    />
                     {fieldErrors.description && (
                       <p className="text-[11px] text-red-600 font-medium mt-1">
                         {fieldErrors.description}
+                      </p>
+                    )}
+                    {fieldErrors.code && (
+                      <p className="text-[11px] text-red-600 font-semibold mt-1">
+                        {fieldErrors.code}
                       </p>
                     )}
                   </div>
@@ -606,13 +618,16 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     <Label className="text-xs font-semibold text-slate-700">Tipo de Corte *</Label>
                     <select
                       value={formData.cutting_type || 'BLOCOS'}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
                           cutting_type: e.target.value as MPCuttingType,
                         })
-                      }
-                      className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                        setFieldErrors((prev) => ({ ...prev, cutting_type: '' }))
+                      }}
+                      className={`mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm ${
+                        fieldErrors.cutting_type ? 'border-red-500 ring-1 ring-red-400' : ''
+                      }`}
                     >
                       <option value="BLOCOS">Blocos</option>
                       <option value="MULTIPLOS">Múltiplos</option>
@@ -620,6 +635,11 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                       <option value="BOBINAS">Bobinas</option>
                       <option value="GEOMETRIA">Geometria do corte</option>
                     </select>
+                    {fieldErrors.cutting_type && (
+                      <p className="text-[11px] text-red-600 font-medium mt-1">
+                        {fieldErrors.cutting_type}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs font-semibold text-slate-700">Prioridade *</Label>

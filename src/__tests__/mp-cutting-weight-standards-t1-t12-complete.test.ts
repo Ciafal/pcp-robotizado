@@ -76,6 +76,7 @@ describe('Suíte E2E Completa T1 a T12 — Padrões de Peso de Corte', () => {
 
     const res = await mpCuttingWeightStandardsService.saveStandard({
       description: 'Padrão Alta Prioridade',
+      cutting_type: 'BLOCOS',
       center_codes: ['SEML1'],
       material_codes: ['TARUGO-130-1020'],
       target_weight_kg: 2100,
@@ -341,6 +342,7 @@ describe('Suíte E2E Completa T1 a T12 — Padrões de Peso de Corte', () => {
   it('T12: Validação mantém estritamente Peso Mínimo <= Ideal <= Máximo sem campos tolerância adicionais', () => {
     const val = mpCuttingWeightStandardsService.validateStandard({
       description: 'Padrão válido',
+      cutting_type: 'BLOCOS',
       center_codes: ['SEML1'],
       material_codes: ['TARUGO-130-1020'],
       target_weight_kg: 2100,
@@ -352,6 +354,7 @@ describe('Suíte E2E Completa T1 a T12 — Padrões de Peso de Corte', () => {
 
     const valInvalido = mpCuttingWeightStandardsService.validateStandard({
       description: 'Padrão inválido min > ideal',
+      cutting_type: 'BLOCOS',
       center_codes: ['SEML1'],
       material_codes: ['TARUGO-130-1020'],
       target_weight_kg: 2100,
