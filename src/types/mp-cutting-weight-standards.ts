@@ -129,20 +129,54 @@ export interface MPCuttingScenarioItem {
     // Resumo e detalhamento estruturado para Corte de Múltiplos a partir de Placas
     multiples_summary?: Array<{
       block_standard: string
+      standard_code?: string
       quantity: number
       unit_weight_tons: number
       total_weight_tons: number
+      accumulated_weight_tons?: number
+      pct_of_blocks?: number
+      classification?: 'PRIORITARIO' | 'COMPLEMENTAR'
     }>
+    // Resumo do Plano de Múltiplos (Quadro de Indicadores Exclusivos)
+    multiples_plan_summary?: {
+      priority_weight_tons: number
+      priority_standard_code?: string
+      total_blocks_count: number
+      total_converted_weight_tons: number
+      average_block_weight_tons: number
+      min_block_weight_tons: number
+      max_block_weight_tons: number
+      priority_blocks_count: number
+      priority_blocks_pct: number
+      complementary_blocks_count: number
+      average_deviation_from_priority_tons: number
+      process_loss_tons: number
+      process_loss_pct: number
+      usable_leftover_tons: number
+      usable_leftover_pct: number
+      final_scrap_tons: number
+      final_scrap_pct: number
+      plate_yield_pct: number
+      gross_plate_weight_tons: number
+      net_available_weight_tons: number
+    }
     mass_fractions?: {
       blocks_pct: number
       loss_pct: number
       leftover_pct: number
+      usable_leftover_pct?: number
+      scrap_pct?: number
       segments: Array<{
-        type: 'BLOCO' | 'PERDA' | 'SOBRA'
+        type: 'BLOCO' | 'PERDA' | 'SOBRA' | 'REFUGO'
         label: string
         weight_tons: number
         percentage: number
         color?: string
+        block_number?: number
+        calculated_length_mm?: number
+        multiple_standard?: string
+        classification?: 'PRIORITARIO' | 'COMPLEMENTAR'
+        cut_sequence?: number
       }>
     }
     plate_info?: {
@@ -154,7 +188,10 @@ export interface MPCuttingScenarioItem {
       net_available_weight_tons: number
       used_weight_tons: number
       leftover_weight_tons: number
+      usable_leftover_tons?: number
+      final_scrap_tons?: number
       reference_block?: string
+      min_technical_leftover_tons?: number
     }
   }
   // Matéria-prima e Lote utilizados no cenário (Múltiplos / Planos de Corte)

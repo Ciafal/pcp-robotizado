@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -49,6 +49,12 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
   scenario,
   criterionName = 'Melhor Rendimento e Equilíbrio',
 }) => {
+  // Estado local para expansão da tabela de corte consolidada / detalhada (chamado incondicionalmente no topo)
+  const [expandedStandards, setExpandedStandards] = useState<Record<string, boolean>>({})
+  const toggleExpand = (code: string) => {
+    setExpandedStandards((prev) => ({ ...prev, [code]: !prev[code] }))
+  }
+
   if (!scenario) return null
 
   const comp = scenario.composition
@@ -70,7 +76,10 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
     (scenario.estimated_leftover_kg ? scenario.estimated_leftover_kg / 1000 : 0)
   const producedPiecesCount = scenario.produced_quantity
 
-  // Linhas aplicáveis do sumário de múltiplos
+  // Resumo exclusivo do plano de múltiplos
+  const planSummary = comp.multiples_plan_summary
+
+  // Linhas aplicáveis do sumário de múltiplos (com acumulado e classificação)
   const multiplesSummary = comp.multiples_summary || []
   const hasSummary = multiplesSummary.length > 0
   const totalSummaryQty = multiplesSummary.reduce((acc, it) => acc + it.quantity, 0)
@@ -90,7 +99,7 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
       ? [
           {
             type: 'PERDA' as const,
-            label: `Perdas (${technicalLossTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
+            label: `Perda Processo (${technicalLossTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
             weight_tons: technicalLossTons,
             percentage:
               grossPlateTons > 0
@@ -104,18 +113,17 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
       ? [
           {
             type: 'SOBRA' as const,
-            label: `Sobra (${leftoverWeightTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
+            label: `Sobra Aproveitável (${leftoverWeightTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)`,
             weight_tons: leftoverWeightTons,
             percentage:
               grossPlateTons > 0
                 ? Number(((leftoverWeightTons / grossPlateTons) * 100).toFixed(2))
                 : 0,
-            color: '#64748b',
+            color: '#059669',
           },
         ]
       : []),
   ]
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[95vw] max-w-6xl max-h-[92vh] overflow-y-auto bg-slate-50 border-blue-900/20 p-6">
@@ -291,331 +299,337 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
             {/* APRESENTAÇÃO ESPECÍFICA PARA CORTE DE MÚLTIPLOS */}
             {isMultiples ? (
               <>
-                {/* 5 CARDS OBRIGATÓRIOS PARA MÚLTIPLOS */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                    <span className="text-[11px] font-semibold text-slate-500 uppercase block">
-                      Rendimento da Placa %
-                    </span>
-                    <span className="text-lg font-bold text-blue-950 mt-1 block">
-                      {scenario.yield_pct.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%
-                    </span>
-                    <span className="text-[10px] text-slate-400">Aproveitamento total</span>
-                  </div>
-
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                    <span className="text-[11px] font-semibold text-slate-500 uppercase block">
-                      Peso Total Aproveitado t
-                    </span>
-                    <span className="text-lg font-bold text-slate-900 mt-1 block">
-                      {usedWeightTons.toLocaleString('pt-BR', {
-                        minimumFractionDigits: 3,
-                        maximumFractionDigits: 3,
-                      })}{' '}
-                      t
-                    </span>
-                    <span className="text-[10px] text-slate-400">Soma dos blocos produzidos</span>
-                  </div>
-
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                    <span className="text-[11px] font-semibold text-slate-500 uppercase block">
-                      Quantidade de Blocos
-                    </span>
-                    <span className="text-lg font-bold text-blue-900 mt-1 block">
-                      {producedPiecesCount}{' '}
-                      <span className="text-xs font-normal text-slate-500">un inteira(s)</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400">Sem fracionamento</span>
-                  </div>
-
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                    <span className="text-[11px] font-semibold text-slate-500 uppercase block">
-                      Peso Total de Perdas t
-                    </span>
-                    <span className="text-lg font-bold text-amber-700 mt-1 block">
-                      {technicalLossTons.toLocaleString('pt-BR', {
-                        minimumFractionDigits: 3,
-                        maximumFractionDigits: 3,
-                      })}{' '}
-                      t
-                    </span>
-                    <span className="text-[10px] text-slate-400">Perdas técnicas cadastradas</span>
-                  </div>
-
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm col-span-2 sm:col-span-1">
-                    <span className="text-[11px] font-semibold text-slate-500 uppercase block">
-                      Sobra Final da Placa t
-                    </span>
-                    <span className="text-lg font-bold text-slate-700 mt-1 block">
-                      {leftoverWeightTons.toLocaleString('pt-BR', {
-                        minimumFractionDigits: 3,
-                        maximumFractionDigits: 3,
-                      })}{' '}
-                      t
-                    </span>
-                    <span className="text-[10px] text-slate-400">Não é bloco válido</span>
-                  </div>
-                </div>
-
-                {/* QUADRO DE IDENTIFICAÇÃO DA PLACA E DO CORTE */}
-                <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Info className="w-4 h-4 text-blue-900" /> Identificação da Placa e Parâmetros
-                    de Entrada
-                  </h4>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs bg-slate-50 p-3 rounded border">
-                    <div>
-                      <span className="text-slate-500 block text-[10px] font-semibold uppercase">
-                        Material
-                      </span>
-                      <span
-                        className="font-mono font-bold text-blue-950 block mt-0.5 truncate"
-                        title={scenario.raw_material_code || scenario.used_standard_code}
-                      >
-                        {scenario.raw_material_code ||
-                          scenario.used_standard_code ||
-                          'Dado não disponível'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-500 block text-[10px] font-semibold uppercase">
-                        Lote
-                      </span>
-                      <span className="font-mono font-bold text-slate-900 block mt-0.5">
-                        {scenario.batch_number || 'Dado não disponível'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-500 block text-[10px] font-semibold uppercase">
-                        Placa
-                      </span>
-                      <span className="font-mono font-bold text-blue-900 block mt-0.5">
-                        {plateInfo?.plate_code ||
-                          (scenario.batch_number
-                            ? `PLACA-${scenario.batch_number}`
-                            : 'Dado não disponível')}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-500 block text-[10px] font-semibold uppercase">
-                        Peso Bruto
-                      </span>
-                      <span className="font-mono font-bold text-slate-900 block mt-0.5">
-                        {grossPlateTons > 0
-                          ? `${grossPlateTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`
-                          : 'Dado não disponível'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-500 block text-[10px] font-semibold uppercase">
-                        Peso Útil Disponível
-                      </span>
-                      <span className="font-mono font-bold text-emerald-800 block mt-0.5">
-                        {netAvailableTons > 0
-                          ? `${netAvailableTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t`
-                          : 'Dado não disponível'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-500 block text-[10px] font-semibold uppercase">
-                        Bloco de Referência
-                      </span>
-                      <span
-                        className="font-mono font-medium text-slate-800 block mt-0.5 truncate"
-                        title={plateInfo?.reference_block || scenario.used_standard_description}
-                      >
-                        {plateInfo?.reference_block ||
-                          scenario.used_standard_description ||
-                          'Dado não disponível'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* NOVO QUADRO: DISTRIBUIÇÃO DE CORTE DA PLACA (BARRA HORIZONTAL PROPORCIONAL À MASSA) */}
-                <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <BarChart3 className="w-4 h-4 text-blue-900" /> Distribuição de Corte da Placa
-                      (Divisão Proporcional em Massa)
+                {/* NOVO QUADRO: RESUMO DO PLANO DE MÚLTIPLOS (INDICADORES EXCLUSIVOS) */}
+                <div className="bg-white p-4 rounded-lg border border-blue-900/20 shadow-sm space-y-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 border-b border-slate-100 pb-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-blue-950 flex items-center gap-1.5">
+                      <Scale className="w-4 h-4 text-blue-900" /> Resumo do Plano de Múltiplos
                     </h4>
-                    <span className="text-xs text-slate-500 font-mono">
-                      Aproveitamento:{' '}
-                      <strong className="text-blue-950 font-bold">
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      Critério: <strong>{criterionName}</strong> &bull; Rendimento Final da Placa:{' '}
+                      <strong className="text-emerald-700">
                         {scenario.yield_pct.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%
-                      </strong>{' '}
-                      | Peso Bruto:{' '}
-                      <strong className="text-slate-900">
-                        {grossPlateTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t
                       </strong>
                     </span>
                   </div>
 
-                  {/* Barra horizontal representando 100% da placa */}
-                  <div className="space-y-2">
-                    <div className="w-full h-10 bg-slate-100 rounded-lg overflow-hidden flex border border-slate-300 shadow-inner">
-                      {massSegments.map((seg, idx) => {
-                        const widthPct = Math.max(0.5, seg.percentage)
-                        const bgStyle =
-                          seg.type === 'BLOCO'
-                            ? idx % 2 === 0
-                              ? 'bg-blue-900 hover:bg-blue-800'
-                              : 'bg-indigo-800 hover:bg-indigo-700'
-                            : seg.type === 'PERDA'
-                              ? 'bg-amber-600 hover:bg-amber-500'
-                              : 'bg-slate-400 hover:bg-slate-500'
-
-                        return (
-                          <div
-                            key={idx}
-                            style={{ width: `${widthPct}%` }}
-                            className={`${bgStyle} h-full transition-all duration-200 flex items-center justify-center relative group border-r border-white/20 last:border-r-0`}
-                            title={`${seg.label}: ${seg.weight_tons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t (${seg.percentage.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%)`}
-                          >
-                            {seg.percentage >= 6 && (
-                              <span className="text-[10px] font-mono font-bold text-white px-1 truncate select-none drop-shadow-xs">
-                                {seg.label}
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 text-xs">
+                    <div className="bg-blue-50/50 p-2.5 rounded-lg border border-blue-100">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                        Peso Prioritário
+                      </span>
+                      <span className="text-base font-bold text-blue-950 block mt-0.5">
+                        {(
+                          planSummary?.priority_weight_tons ?? scenario.target_weight_kg / 1000
+                        ).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t
+                      </span>
+                      <span className="text-[10px] text-blue-800">Definido pelo usuário</span>
                     </div>
 
-                    {/* Legenda explicativa com pesos individuais e percentuais */}
-                    <div className="flex flex-wrap items-center gap-4 text-xs pt-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded bg-blue-900 inline-block" />
-                        <span className="text-slate-700">
-                          Blocos Produzidos:{' '}
-                          <strong className="font-mono text-blue-950">
-                            {usedWeightTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t
-                          </strong>{' '}
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                        Quantidade Total
+                      </span>
+                      <span className="text-base font-bold text-slate-900 block mt-0.5">
+                        {planSummary?.total_blocks_count ?? producedPiecesCount}{' '}
+                        <span className="text-xs font-normal text-slate-500">blocos</span>
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        Inteiros (sem fracionamento)
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                        Peso Total Convertido
+                      </span>
+                      <span className="text-base font-bold text-blue-900 block mt-0.5">
+                        {(
+                          planSummary?.total_converted_weight_tons ?? usedWeightTons
+                        ).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t
+                      </span>
+                      <span className="text-[10px] text-slate-500">Massa real em blocos</span>
+                    </div>
+
+                    <div className="bg-amber-50/60 p-2.5 rounded-lg border border-amber-200">
+                      <span className="text-[10px] font-semibold text-amber-900 uppercase block">
+                        Peso Médio dos Blocos
+                      </span>
+                      <span className="text-base font-bold text-amber-950 block mt-0.5">
+                        {(
+                          planSummary?.average_block_weight_tons ??
+                          (producedPiecesCount > 0 ? usedWeightTons / producedPiecesCount : 0)
+                        ).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t
+                      </span>
+                      <span className="text-[10px] text-amber-800">Média ponderada real</span>
+                    </div>
+
+                    <div className="bg-emerald-50/60 p-2.5 rounded-lg border border-emerald-200">
+                      <span className="text-[10px] font-semibold text-emerald-900 uppercase block">
+                        Rendimento Final Placa
+                      </span>
+                      <span className="text-base font-bold text-emerald-800 block mt-0.5">
+                        {(planSummary?.plate_yield_pct ?? scenario.yield_pct).toLocaleString(
+                          'pt-BR',
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
+                        )}
+                        %
+                      </span>
+                      <span className="text-[10px] text-emerald-700">Aproveitamento útil</span>
+                    </div>
+
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                        Peso Mínimo Gerado
+                      </span>
+                      <span className="text-sm font-bold text-slate-800 block mt-0.5">
+                        {(planSummary?.min_block_weight_tons ?? 0).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                        Peso Máximo Gerado
+                      </span>
+                      <span className="text-sm font-bold text-slate-800 block mt-0.5">
+                        {(planSummary?.max_block_weight_tons ?? 0).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                        Qtd. no Prioritário
+                      </span>
+                      <span className="text-sm font-bold text-blue-950 block mt-0.5">
+                        {planSummary?.priority_blocks_count ?? 0} un{' '}
+                        <span className="text-[11px] font-normal text-slate-500">
                           (
-                          {grossPlateTons > 0
-                            ? ((usedWeightTons / grossPlateTons) * 100).toLocaleString('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })
-                            : '0,00'}
+                          {(planSummary?.priority_blocks_pct ?? 0).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                           %)
                         </span>
-                      </div>
+                      </span>
+                    </div>
 
-                      {technicalLossTons > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-3 h-3 rounded bg-amber-600 inline-block" />
-                          <span className="text-slate-700">
-                            Perdas Técnicas:{' '}
-                            <strong className="font-mono text-amber-900">
-                              {technicalLossTons.toLocaleString('pt-BR', {
-                                minimumFractionDigits: 3,
-                              })}{' '}
-                              t
-                            </strong>{' '}
-                            (
-                            {grossPlateTons > 0
-                              ? ((technicalLossTons / grossPlateTons) * 100).toLocaleString(
-                                  'pt-BR',
-                                  {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  },
-                                )
-                              : '0,00'}
-                            %)
-                          </span>
-                        </div>
-                      )}
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                        Qtd. Complementares
+                      </span>
+                      <span className="text-sm font-bold text-purple-900 block mt-0.5">
+                        {planSummary?.complementary_blocks_count ?? 0} un
+                      </span>
+                      <span className="text-[10px] text-slate-500">Múltiplos menores</span>
+                    </div>
 
-                      {leftoverWeightTons > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-3 h-3 rounded bg-slate-400 inline-block" />
-                          <span className="text-slate-700">
-                            Sobra Final da Placa:{' '}
-                            <strong className="font-mono text-slate-800">
-                              {leftoverWeightTons.toLocaleString('pt-BR', {
-                                minimumFractionDigits: 3,
-                              })}{' '}
-                              t
-                            </strong>{' '}
-                            (
-                            {grossPlateTons > 0
-                              ? ((leftoverWeightTons / grossPlateTons) * 100).toLocaleString(
-                                  'pt-BR',
-                                  {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  },
-                                )
-                              : '0,00'}
-                            %)
-                          </span>
-                        </div>
-                      )}
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase block">
+                        Desvio Médio s/ Prioritário
+                      </span>
+                      <span className="text-sm font-bold text-slate-800 block mt-0.5">
+                        {(planSummary?.average_deviation_from_priority_tons ?? 0).toLocaleString(
+                          'pt-BR',
+                          {
+                            minimumFractionDigits: 3,
+                            maximumFractionDigits: 3,
+                          },
+                        )}{' '}
+                        t
+                      </span>
+                    </div>
+                  </div>
 
-                      <span className="text-[11px] text-slate-400 ml-auto italic">
-                        Balanço fechado:{' '}
-                        {grossPlateTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t
+                  {/* Separação Estrita de Perdas, Sobra Aproveitável e Refugo */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100 text-xs">
+                    <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+                      <span className="text-[10px] font-bold text-amber-900 uppercase block">
+                        Perda de Processo (Corte / Apara)
+                      </span>
+                      <span className="text-base font-bold text-amber-950 block mt-0.5">
+                        {(planSummary?.process_loss_tons ?? technicalLossTons).toLocaleString(
+                          'pt-BR',
+                          {
+                            minimumFractionDigits: 3,
+                            maximumFractionDigits: 3,
+                          },
+                        )}{' '}
+                        t{' '}
+                        <span className="text-xs font-normal text-amber-800">
+                          (
+                          {(
+                            planSummary?.process_loss_pct ??
+                            (grossPlateTons > 0 ? (technicalLossTons / grossPlateTons) * 100 : 0)
+                          ).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          %)
+                        </span>
+                      </span>
+                      <span className="text-[10px] text-amber-700">
+                        Material efetivamente perdido no corte
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                      <span className="text-[10px] font-bold text-emerald-900 uppercase block">
+                        Sobra Aproveitável (Retorno ao Pátio)
+                      </span>
+                      <span className="text-base font-bold text-emerald-950 block mt-0.5">
+                        {(planSummary?.usable_leftover_tons ?? leftoverWeightTons).toLocaleString(
+                          'pt-BR',
+                          {
+                            minimumFractionDigits: 3,
+                            maximumFractionDigits: 3,
+                          },
+                        )}{' '}
+                        t{' '}
+                        <span className="text-xs font-normal text-emerald-800">
+                          (
+                          {(
+                            planSummary?.usable_leftover_pct ??
+                            (grossPlateTons > 0 ? (leftoverWeightTons / grossPlateTons) * 100 : 0)
+                          ).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          %)
+                        </span>
+                      </span>
+                      <span className="text-[10px] text-emerald-700">
+                        Material restante utilizável futuramente
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-slate-100 border border-slate-300">
+                      <span className="text-[10px] font-bold text-slate-800 uppercase block">
+                        Refugo Final (Sem Aproveitamento)
+                      </span>
+                      <span className="text-base font-bold text-slate-900 block mt-0.5">
+                        {(planSummary?.final_scrap_tons ?? 0).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t{' '}
+                        <span className="text-xs font-normal text-slate-600">
+                          (
+                          {(planSummary?.final_scrap_pct ?? 0).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                          %)
+                        </span>
+                      </span>
+                      <span className="text-[10px] text-slate-600">
+                        Ponta residual abaixo da sobra técnica
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* QUADRO: DISTRIBUIÇÃO DE CORTE (TABELA SIMPLIFICADA POR PADRÃO DE BLOCO) */}
+                {/* QUADRO: TABELA DE DISTRIBUIÇÃO DOS MÚLTIPLOS (DINÂMICA) */}
                 <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Scissors className="w-4 h-4 text-blue-900" /> Distribuição de Corte
-                  </h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-blue-900" /> Tabela de Distribuição dos
+                      Múltiplos
+                    </h4>
+                    <span className="text-[11px] text-slate-500">
+                      Somente pesos de blocos efetivamente utilizados no plano
+                    </span>
+                  </div>
 
                   <div className="overflow-x-auto rounded border border-slate-200">
-                    <Table className="min-w-[500px]">
+                    <Table className="min-w-[620px]">
                       <TableHeader className="bg-slate-50">
                         <TableRow>
-                          <TableHead className="text-xs font-bold">Bloco</TableHead>
-                          <TableHead className="text-xs font-bold text-center w-[120px]">
+                          <TableHead className="text-xs font-bold">Peso do Bloco</TableHead>
+                          <TableHead className="text-xs font-bold text-center w-[110px]">
                             Quantidade
                           </TableHead>
                           <TableHead className="text-xs font-bold text-right w-[140px]">
-                            Peso Unitário
+                            Peso Acumulado
                           </TableHead>
-                          <TableHead className="text-xs font-bold text-right w-[140px]">
-                            Peso Total
+                          <TableHead className="text-xs font-bold text-center w-[120px]">
+                            % dos Blocos
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-center w-[140px]">
+                            Classificação
                           </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {hasSummary ? (
-                          multiplesSummary.map((row, idx) => (
-                            <TableRow key={idx} className="text-xs hover:bg-slate-50/80">
-                              <TableCell className="font-semibold text-slate-900">
-                                {row.block_standard}
-                              </TableCell>
-                              <TableCell className="font-mono font-bold text-center text-blue-900">
-                                {row.quantity} un
-                              </TableCell>
-                              <TableCell className="font-mono text-right text-slate-700">
-                                {row.unit_weight_tons.toLocaleString('pt-BR', {
-                                  minimumFractionDigits: 3,
-                                  maximumFractionDigits: 3,
-                                })}{' '}
-                                t
-                              </TableCell>
-                              <TableCell className="font-mono font-bold text-right text-blue-950">
-                                {row.total_weight_tons.toLocaleString('pt-BR', {
-                                  minimumFractionDigits: 3,
-                                  maximumFractionDigits: 3,
-                                })}{' '}
-                                t
-                              </TableCell>
-                            </TableRow>
-                          ))
+                          multiplesSummary.map((row, idx) => {
+                            const isPrio = row.classification === 'PRIORITARIO'
+                            return (
+                              <TableRow key={idx} className="text-xs hover:bg-slate-50/80">
+                                <TableCell className="font-semibold text-slate-900 font-mono">
+                                  {row.block_standard}
+                                </TableCell>
+                                <TableCell className="font-mono font-bold text-center text-blue-900">
+                                  {row.quantity} un
+                                </TableCell>
+                                <TableCell className="font-mono font-bold text-right text-blue-950">
+                                  {(
+                                    row.accumulated_weight_tons ?? row.total_weight_tons
+                                  ).toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 3,
+                                    maximumFractionDigits: 3,
+                                  })}{' '}
+                                  t
+                                </TableCell>
+                                <TableCell className="font-mono text-center text-slate-700">
+                                  {(
+                                    row.pct_of_blocks ??
+                                    (totalSummaryQty > 0
+                                      ? (row.quantity / totalSummaryQty) * 100
+                                      : 0)
+                                  ).toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 1,
+                                    maximumFractionDigits: 1,
+                                  })}
+                                  %
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] font-bold ${
+                                      isPrio
+                                        ? 'bg-blue-50 text-blue-900 border-blue-300'
+                                        : 'bg-purple-50 text-purple-900 border-purple-300'
+                                    }`}
+                                  >
+                                    {isPrio ? 'Peso Prioritário' : 'Complementar'}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
                         ) : (
                           <TableRow className="text-xs hover:bg-slate-50/80">
                             <TableCell className="font-semibold text-slate-900">
@@ -624,13 +638,6 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                             <TableCell className="font-mono font-bold text-center text-blue-900">
                               {scenario.produced_quantity} un
                             </TableCell>
-                            <TableCell className="font-mono text-right text-slate-700">
-                              {(scenario.target_weight_kg / 1000).toLocaleString('pt-BR', {
-                                minimumFractionDigits: 3,
-                                maximumFractionDigits: 3,
-                              })}{' '}
-                              t
-                            </TableCell>
                             <TableCell className="font-mono font-bold text-right text-blue-950">
                               {(scenario.used_weight_kg / 1000).toLocaleString('pt-BR', {
                                 minimumFractionDigits: 3,
@@ -638,18 +645,23 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                               })}{' '}
                               t
                             </TableCell>
+                            <TableCell className="font-mono text-center text-slate-700">
+                              100,0%
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge className="bg-blue-50 text-blue-900 border-blue-300 text-[10px]">
+                                Peso Prioritário
+                              </Badge>
+                            </TableCell>
                           </TableRow>
                         )}
                         {/* Linha Totalizadora Obrigatória */}
-                        <TableRow className="text-xs bg-slate-100/80 font-bold border-t-2 border-slate-300">
+                        <TableRow className="text-xs bg-slate-100/90 font-bold border-t-2 border-slate-300">
                           <TableCell className="text-blue-950 font-bold uppercase tracking-wider">
-                            Total Produzido
+                            Total Geral
                           </TableCell>
                           <TableCell className="font-mono font-bold text-center text-blue-950">
                             {hasSummary ? totalSummaryQty : scenario.produced_quantity} un
-                          </TableCell>
-                          <TableCell className="font-mono text-right text-slate-400 font-normal">
-                            —
                           </TableCell>
                           <TableCell className="font-mono font-bold text-right text-blue-950">
                             {(hasSummary
@@ -661,9 +673,328 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                             })}{' '}
                             t
                           </TableCell>
+                          <TableCell className="font-mono text-center text-blue-950">
+                            100,0%
+                          </TableCell>
+                          <TableCell className="text-center text-slate-400 font-normal">
+                            —
+                          </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
+                  </div>
+                </div>
+
+                {/* QUADRO: DISTRIBUIÇÃO DE CORTE DA PLACA (REPRESENTAÇÃO GRÁFICA COM SEGMENTOS PROPORCIONAIS E TOOLTIP) */}
+                <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <BarChart3 className="w-4 h-4 text-blue-900" /> Distribuição de Corte da Placa
+                      (Segmentos Proporcionais)
+                    </h4>
+                    <span className="text-xs text-slate-500 font-mono">
+                      Rendimento:{' '}
+                      <strong className="text-blue-950 font-bold">
+                        {scenario.yield_pct.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%
+                      </strong>{' '}
+                      | Peso Bruto:{' '}
+                      <strong className="text-slate-900">
+                        {grossPlateTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t
+                      </strong>
+                    </span>
+                  </div>
+
+                  {/* Barra horizontal proporcional com Tooltip interativo */}
+                  <TooltipProvider delayDuration={100}>
+                    <div className="w-full h-12 bg-slate-100 rounded-lg overflow-hidden flex border border-slate-300 shadow-inner">
+                      {massSegments.map((seg, idx) => {
+                        const widthPct = Math.max(0.5, seg.percentage)
+                        const isBlock = seg.type === 'BLOCO'
+                        const isPrio = seg.classification === 'PRIORITARIO'
+                        const bgStyle = isBlock
+                          ? isPrio
+                            ? 'bg-blue-900 hover:bg-blue-800'
+                            : 'bg-indigo-700 hover:bg-indigo-600'
+                          : seg.type === 'PERDA'
+                            ? 'bg-amber-600 hover:bg-amber-500'
+                            : seg.type === 'SOBRA'
+                              ? 'bg-emerald-600 hover:bg-emerald-500'
+                              : 'bg-slate-400 hover:bg-slate-500'
+
+                        return (
+                          <Tooltip key={idx}>
+                            <TooltipTrigger asChild>
+                              <div
+                                style={{ width: `${widthPct}%` }}
+                                className={`${bgStyle} h-full transition-all duration-150 flex items-center justify-center relative cursor-help border-r border-white/25 last:border-r-0`}
+                              >
+                                {seg.percentage >= 4 && (
+                                  <span className="text-[10px] font-mono font-bold text-white px-1 truncate select-none drop-shadow-xs">
+                                    {seg.label}
+                                  </span>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              className="bg-slate-950 text-slate-100 border-slate-800 text-xs p-3 space-y-1 shadow-xl z-50 max-w-xs"
+                            >
+                              <p className="font-bold text-amber-300 text-xs">
+                                {isBlock
+                                  ? `Bloco #${seg.block_number ?? idx + 1} — ${seg.classification === 'PRIORITARIO' ? 'Peso Prioritário' : 'Complementar'}`
+                                  : seg.type === 'PERDA'
+                                    ? 'Perda de Corte (Processo)'
+                                    : seg.type === 'SOBRA'
+                                      ? 'Sobra Técnica Aproveitável'
+                                      : 'Refugo Final'}
+                              </p>
+                              <div className="space-y-0.5 text-[11px] text-slate-300 pt-1 border-t border-slate-800 font-mono">
+                                <div>
+                                  <span className="text-slate-400">Peso:</span>{' '}
+                                  <strong className="text-white">
+                                    {seg.weight_tons.toLocaleString('pt-BR', {
+                                      minimumFractionDigits: 3,
+                                    })}{' '}
+                                    t ({(seg.weight_tons * 1000).toLocaleString('pt-BR')} kg)
+                                  </strong>
+                                </div>
+                                {seg.calculated_length_mm && (
+                                  <div>
+                                    <span className="text-slate-400">Comprimento:</span>{' '}
+                                    <strong className="text-blue-300">
+                                      {seg.calculated_length_mm.toLocaleString('pt-BR')} mm
+                                    </strong>
+                                  </div>
+                                )}
+                                {seg.multiple_standard && (
+                                  <div>
+                                    <span className="text-slate-400">Múltiplo:</span>{' '}
+                                    <strong className="text-emerald-300">
+                                      {seg.multiple_standard}
+                                    </strong>
+                                  </div>
+                                )}
+                                {seg.cut_sequence && (
+                                  <div>
+                                    <span className="text-slate-400">Sequência de Corte:</span>{' '}
+                                    <strong className="text-amber-200">#{seg.cut_sequence}</strong>
+                                  </div>
+                                )}
+                                <div>
+                                  <span className="text-slate-400">Fração da Placa:</span>{' '}
+                                  <strong className="text-white">
+                                    {seg.percentage.toLocaleString('pt-BR', {
+                                      minimumFractionDigits: 2,
+                                    })}
+                                    %
+                                  </strong>
+                                </div>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        )
+                      })}
+                    </div>
+                  </TooltipProvider>
+
+                  {/* Legenda dos Segmentos */}
+                  <div className="flex flex-wrap items-center gap-4 text-xs pt-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded bg-blue-900 inline-block" />
+                      <span className="text-slate-700">Bloco Prioritário</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded bg-indigo-700 inline-block" />
+                      <span className="text-slate-700">Bloco Complementar</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded bg-amber-600 inline-block" />
+                      <span className="text-slate-700">Perda de Processo</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded bg-emerald-600 inline-block" />
+                      <span className="text-slate-700">Sobra Aproveitável</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded bg-slate-400 inline-block" />
+                      <span className="text-slate-700">Refugo Final</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 ml-auto italic">
+                      Balanço fechado:{' '}
+                      {grossPlateTons.toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t
+                    </span>
+                  </div>
+                </div>
+
+                {/* QUADRO: DISTRIBUIÇÃO DE CORTE (CONSOLIDADA COM EXPANSÃO PARA DETALHADA BLOCO A BLOCO) */}
+                <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Scissors className="w-4 h-4 text-blue-900" /> Distribuição de Corte
+                      (Consolidada e Individual)
+                    </h4>
+                    <span className="text-[11px] text-slate-500">
+                      Clique em "Expandir" para inspecionar os blocos individuais da sequência
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {multiplesSummary.map((stdGroup, gIdx) => {
+                      const isExpanded = Boolean(expandedStandards[stdGroup.block_standard])
+                      const groupPieces = comp.distribution.filter(
+                        (d) => Math.abs(d.calculated_kg / 1000 - stdGroup.unit_weight_tons) < 0.05,
+                      )
+                      const samplePiece = groupPieces[0]
+                      const widthMm = samplePiece?.width_mm || 130
+                      const heightMm = samplePiece?.height_mm || 130
+                      const lengthMm = samplePiece?.calculated_length_mm || 0
+
+                      return (
+                        <div
+                          key={gIdx}
+                          className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-xs"
+                        >
+                          {/* Linha Consolidada */}
+                          <div className="bg-slate-50 p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] font-bold ${
+                                  stdGroup.classification === 'PRIORITARIO'
+                                    ? 'bg-blue-50 text-blue-900 border-blue-300'
+                                    : 'bg-purple-50 text-purple-900 border-purple-300'
+                                }`}
+                              >
+                                {stdGroup.classification === 'PRIORITARIO'
+                                  ? 'Prioritário'
+                                  : 'Complementar'}
+                              </Badge>
+                              <span className="font-bold text-slate-900 font-mono text-sm">
+                                {stdGroup.block_standard}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-4 font-mono">
+                              <div>
+                                <span className="text-slate-400 text-[10px] block">Dimensões:</span>
+                                <span className="text-slate-800 font-semibold">
+                                  {widthMm} × {heightMm} × {lengthMm.toLocaleString('pt-BR')} mm
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 text-[10px] block">
+                                  Quantidade:
+                                </span>
+                                <span className="text-blue-900 font-bold">
+                                  {stdGroup.quantity} un
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 text-[10px] block">Unitário:</span>
+                                <span className="text-slate-800">
+                                  {stdGroup.unit_weight_tons.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 3,
+                                  })}{' '}
+                                  t
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 text-[10px] block">Total:</span>
+                                <span className="text-blue-950 font-bold">
+                                  {stdGroup.total_weight_tons.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 3,
+                                  })}{' '}
+                                  t
+                                </span>
+                              </div>
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => toggleExpand(stdGroup.block_standard)}
+                                className="h-7 text-xs border-slate-300 text-slate-700 hover:bg-slate-100"
+                              >
+                                {isExpanded
+                                  ? 'Recolher Blocos'
+                                  : `Expandir (${groupPieces.length} blocos)`}
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Visão Detalhada Bloco a Bloco */}
+                          {isExpanded && (
+                            <div className="p-3 border-t border-slate-200 bg-white">
+                              <Table className="min-w-[650px]">
+                                <TableHeader className="bg-slate-50/70">
+                                  <TableRow>
+                                    <TableHead className="text-[11px] font-bold w-[70px]">
+                                      Seq. #
+                                    </TableHead>
+                                    <TableHead className="text-[11px] font-bold">Bloco</TableHead>
+                                    <TableHead className="text-[11px] font-bold">
+                                      Dimensão (L × E × C)
+                                    </TableHead>
+                                    <TableHead className="text-[11px] font-bold text-right">
+                                      Peso Unitário
+                                    </TableHead>
+                                    <TableHead className="text-[11px] font-bold text-center">
+                                      Tipo
+                                    </TableHead>
+                                    <TableHead className="text-[11px] font-bold text-center">
+                                      Status
+                                    </TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {groupPieces.map((p) => (
+                                    <TableRow
+                                      key={p.item_index}
+                                      className="text-xs hover:bg-slate-50/80"
+                                    >
+                                      <TableCell className="font-mono font-bold text-blue-950">
+                                        #{p.item_index}
+                                      </TableCell>
+                                      <TableCell className="font-mono text-slate-900">
+                                        Bloco {stdGroup.unit_weight_tons.toFixed(3)} t
+                                      </TableCell>
+                                      <TableCell className="font-mono text-slate-700">
+                                        {p.dimension_display}
+                                      </TableCell>
+                                      <TableCell className="font-mono font-bold text-right text-blue-900">
+                                        {(p.calculated_kg / 1000).toLocaleString('pt-BR', {
+                                          minimumFractionDigits: 3,
+                                        })}{' '}
+                                        t
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-[9px] ${
+                                            stdGroup.classification === 'PRIORITARIO'
+                                              ? 'bg-blue-50 text-blue-900 border-blue-200'
+                                              : 'bg-purple-50 text-purple-900 border-purple-200'
+                                          }`}
+                                        >
+                                          {stdGroup.classification === 'PRIORITARIO'
+                                            ? 'Prioritário'
+                                            : 'Complementar'}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px]">
+                                          {p.status}
+                                        </Badge>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               </>

@@ -369,7 +369,7 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
               className="bg-blue-900 hover:bg-blue-950 text-white gap-2 font-semibold shadow-sm text-xs"
             >
               <Play className="w-3.5 h-3.5" />{' '}
-              {isGenerating ? 'Calculando Cenários...' : 'Gerar 6 Cenários'}
+              {isGenerating ? 'Calculando melhor combinação de corte...' : 'Gerar 6 Cenários'}
             </Button>
           </div>
         </div>
@@ -846,11 +846,11 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
 
         {/* Linha 3: Peso Ideal, Faixas de Tolerância, Quantidade/Tonelagem e Critério de Otimização */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-1">
-          {/* Peso Ideal com Trava de Ajuste Manual (em toneladas) */}
+          {/* Peso Prioritário com Trava de Ajuste Manual (em toneladas) */}
           <div>
             <div className="flex items-center justify-between">
               <Label className="text-xs font-semibold text-slate-700">
-                Peso Ideal Desejado (t)
+                Peso Prioritário Desejado (t) *
               </Label>
               <button
                 type="button"
