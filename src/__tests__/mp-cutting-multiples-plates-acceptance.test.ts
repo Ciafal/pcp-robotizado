@@ -303,4 +303,148 @@ describe('MPCuttingOptimizationEngineService — Plano de Corte para Múltiplos 
       /130 × 130 × \d+ mm/,
     )
   })
+
+  it('7. Exclusão estrita de BOBINAS e GEOMETRIA e consumo de múltiplos BLOCOS ou PLACAS', async () => {
+    vi.spyOn(mpCuttingOptimizationEngineService, 'getTechnicalParameters').mockResolvedValueOnce({
+      material_code: 'PLACA-1020',
+      center_code: 'SEML1',
+      nominal_length_mm: 6000,
+      gauge_dimension: 'Placa 200 × 1200 mm',
+      density_kg_m3: 7850,
+      linear_mass_kg_m: 1884,
+      cutting_width_mm: 5.0,
+      theoretical_loss_pct: 0,
+      is_valid: true,
+      missing_parameters: [],
+    })
+
+    const standardsMistos: MPCuttingWeightStandard[] = [
+      {
+        code: 'PAD-PLACA-1600',
+        description: 'Placa Padrão 1,600 t',
+        cutting_type: 'PLACAS', // Aceito
+        company_code: 'CIAFAL',
+        center_codes: ['SEML1'],
+        material_codes: ['PLACA-1020'],
+        target_weight_kg: 1600,
+        min_weight_kg: 1550,
+        max_weight_kg: 1650,
+        priority: 'ALTA',
+        start_date: '2026-01-01',
+        status: 'ATIVO',
+      },
+      {
+        code: 'PAD-BLOCO-1100',
+        description: 'Bloco Complementar 1,100 t',
+        cutting_type: 'BLOCOS', // Aceito
+        company_code: 'CIAFAL',
+        center_codes: ['SEML1'],
+        material_codes: ['PLACA-1020'],
+        target_weight_kg: 1100,
+        min_weight_kg: 1050,
+        max_weight_kg: 1150,
+        priority: 'MEDIA',
+        start_date: '2026-01-01',
+        status: 'ATIVO',
+      },
+      {
+        code: 'PAD-BOBINA-2000',
+        description: 'Bobina Ativa 2,000 t',
+        cutting_type: 'BOBINAS', // EXCLUÍDO
+        company_code: 'CIAFAL',
+        center_codes: ['SEML1'],
+        material_codes: ['PLACA-1020'],
+        target_weight_kg: 2000,
+        min_weight_kg: 1950,
+        max_weight_kg: 2050,
+        priority: 'ALTA',
+        start_date: '2026-01-01',
+        status: 'ATIVO',
+      },
+      {
+        code: 'PAD-GEOM-1500',
+        description: 'Geometria Ativa 1,500 t',
+        cutting_type: 'GEOMETRIA', // EXCLUÍDO
+        company_code: 'CIAFAL',
+        center_codes: ['SEML1'],
+        material_codes: ['PLACA-1020'],
+        target_weight_kg: 1500,
+        min_weight_kg: 1450,
+        max_weight_kg: 1550,
+        priority: 'ALTA',
+        start_date: '2026-01-01',
+        status: 'ATIVO',
+      },
+      {
+        code: 'PAD-GEOM-CORTE-1200',
+        description: 'Geometria do Corte Ativa 1,200 t',
+        cutting_type: 'GEOMETRIA_DO_CORTE', // EXCLUÍDO
+        company_code: 'CIAFAL',
+        center_codes: ['SEML1'],
+        material_codes: ['PLACA-1020'],
+        target_weight_kg: 1200,
+        min_weight_kg: 1150,
+        max_weight_kg: 1250,
+        priority: 'ALTA',
+        start_date: '2026-01-01',
+        status: 'ATIVO',
+      },
+    ]
+
+    const filters: MPCuttingOptimizationFilters = {
+      company_code: 'CIAFAL',
+      center_code: 'SEML1',
+      cutting_type: 'MULTIPLOS',
+      material_code: 'PLACA-1020',
+      selected_standard_codes: ['PAD-PLACA-1600'],
+      optimization_criterion: 'MAIOR_APROVEITAMENTO',
+      plate_gross_weight_tons: 9.1,
+      allow_mixed_standards: true,
+    }
+
+    const simResult = await mpCuttingOptimizationEngineService.generateComparativeScenarios(
+      filters,
+      standardsMistos,
+      9.1,
+    )
+
+    // (a) Múltiplo PLACA como prioritário maximizado primeiro (5 placas de 1,600 t)
+    // (b) Complementar BLOCO de 1,100 t preenche a sobra de 1,100 t exatamente
+    const bestScen = simResult.scenarios.find((s) => s.id === simResult.best_scenario_id)
+    expect(bestScen).toBeDefined()
+    expect(bestScen?.used_weight_kg).toBe(9100)
+    expect(bestScen?.estimated_leftover_kg).toBe(0)
+
+    const summary = bestScen?.composition.multiples_summary || []
+    const prioPlaca = summary.find((s) => s.standard_code === 'PAD-PLACA-1600')
+    const compBloco = summary.find((s) => s.standard_code === 'PAD-BLOCO-1100')
+
+    expect(prioPlaca).toBeDefined()
+    expect(prioPlaca?.quantity).toBe(5)
+    expect(prioPlaca?.classification).toBe('PRIORITARIO')
+
+    expect(compBloco).toBeDefined()
+    expect(compBloco?.quantity).toBe(1)
+    expect(compBloco?.classification).toBe('COMPLEMENTAR')
+
+    // (c) BOBINAS e GEOMETRIA NUNCA aparecem em nenhum cenário
+    for (const scen of simResult.scenarios) {
+      const scenSummary = scen.composition.multiples_summary || []
+      expect(scenSummary.some((s) => s.standard_code === 'PAD-BOBINA-2000')).toBe(false)
+      expect(scenSummary.some((s) => s.standard_code === 'PAD-GEOM-1500')).toBe(false)
+      expect(scenSummary.some((s) => s.standard_code === 'PAD-GEOM-CORTE-1200')).toBe(false)
+    }
+
+    // (d) Balanço fechando: blocos + perdas + sobra = peso bruto/útil
+    const usedKg = bestScen?.used_weight_kg || 0
+    const lossKg = bestScen?.cutting_loss_kg || 0
+    const leftoverKg = bestScen?.estimated_leftover_kg || 0
+    expect(usedKg + lossKg + leftoverKg).toBe(9100)
+
+    // (e) Rendimento nunca > 100%
+    expect(bestScen?.yield_pct).toBe(100)
+    for (const scen of simResult.scenarios) {
+      expect(scen.yield_pct).toBeLessThanOrEqual(100)
+    }
+  })
 })

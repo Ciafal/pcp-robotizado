@@ -302,11 +302,23 @@ class MPCuttingOptimizationEngineService {
       }
     }
 
-    // Filtrar padrões ativos compatíveis com empresa, centro e material
+    // Filtrar padrões ativos compatíveis com empresa, centro e material.
+    // Aceita múltiplos do tipo BLOCOS ou PLACAS (ou MULTIPLOS); exclui rigorosamente BOBINAS e GEOMETRIA.
     const activeStandards = availableStandardsList.filter((std) => {
       if (std.status !== 'ATIVO') return false
       if (std.company_code && filters.company_code && std.company_code !== filters.company_code)
         return false
+
+      // Elegibilidade de tipo de corte: aceita BLOCOS, PLACAS ou MULTIPLOS; exclui BOBINAS e GEOMETRIA
+      const cType = (std.cutting_type || 'BLOCOS').toUpperCase()
+      if (cType === 'BOBINAS' || cType === 'GEOMETRIA' || cType === 'GEOMETRIA_DO_CORTE') {
+        return false
+      }
+      const isAllowedType = cType === 'BLOCOS' || cType === 'PLACAS' || cType === 'MULTIPLOS'
+      if (!isAllowedType) {
+        return false
+      }
+
       const hasCenter =
         (std.center_codes || []).length === 0 ||
         (std.center_codes || []).includes(filters.center_code)
