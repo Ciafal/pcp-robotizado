@@ -13,19 +13,92 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TestAiAnalysisResult } from '@/types/test-programming'
+import { TestAiAnalysisResult, TestProgrammingRecord } from '@/types/test-programming'
+import { testProgrammingService } from '@/services/test-programming-service'
+import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/hooks/use-toast'
 
 interface TestAiAnalysisSectionProps {
   analysis: TestAiAnalysisResult
+  testRecord?: TestProgrammingRecord
   onRefresh?: () => void
   isRefreshing?: boolean
 }
 
 export const TestAiAnalysisSection: React.FC<TestAiAnalysisSectionProps> = ({
   analysis,
+  testRecord,
   onRefresh,
   isRefreshing = false,
 }) => {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const [decisionState, setDecisionState] = React.useState<'CONFIRMADA' | 'DESCARTADA' | null>(
+    testRecord?.ai_revision_decision || null,
+  )
+  const [isDeciding, setIsDeciding] = React.useState(false)
+
+  React.useEffect(() => {
+    setDecisionState(testRecord?.ai_revision_decision || null)
+  }, [testRecord?.ai_revision_decision])
+
+  const suggestion = analysis.ai_revision_suggestion
+
+  const handleDecision = async (decision: 'CONFIRMADA' | 'DESCARTADA') => {
+    if (!testRecord) {
+      toast({
+        title: 'Decisão registrada localmente',
+        description: `Sugestão ${decision === 'CONFIRMADA' ? 'confirmada' : 'descartada'} pelo usuário.`,
+      })
+      setDecisionState(decision)
+      return
+    }
+
+    setIsDeciding(true)
+    try {
+      const now = new Date()
+      const dateStr = now.toISOString().split('T')[0]
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+
+      const updates: Partial<TestProgrammingRecord> = {
+        ai_revision_decision: decision,
+      }
+
+      if (decision === 'CONFIRMADA') {
+        updates.needs_revision = true
+        updates.revision_status = testRecord.revision_status || 'Pendente'
+        if (!testRecord.revision_reason) {
+          updates.revision_reason = suggestion?.justification || 'Confirmada a partir da recomendação da IA'
+        }
+        if (!testRecord.revision_types && suggestion?.suggestedRevisionTypes) {
+          updates.revision_types = suggestion.suggestedRevisionTypes.join(' e ') as any
+        }
+      }
+
+      await testProgrammingService.update(
+        testRecord.id,
+        updates,
+        { id: user?.id, name: user?.name || 'Programador PCP', role: user?.role },
+        `Decisão de Governança IA: sugestão de revisão ${decision} por ${user?.name || 'usuário'}`,
+        'Análise IA',
+      )
+
+      setDecisionState(decision)
+      toast({
+        title: decision === 'CONFIRMADA' ? 'Necessidade de revisão confirmada' : 'Sugestão da IA descartada',
+        description: `Decisão de auditoria gravada: ${decision}.`,
+      })
+      onRefresh?.()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao registrar decisão',
+        description: err?.message || 'Falha ao registrar auditoria.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeciding(false)
+    }
+  }
   return (
     <Card className="bg-white border-blue-200/90 shadow-sm overflow-hidden">
       <CardHeader className="p-3.5 bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-white border-b border-blue-100 flex flex-row items-center justify-between">
@@ -183,6 +256,97 @@ export const TestAiAnalysisSection: React.FC<TestAiAnalysisSectionProps> = ({
                 <li key={idx}>{item}</li>
               ))}
             </ul>
+          </div>
+        </div>
+
+        {/* BLOCO DE CONCLUSÃO E GOVERNANÇA (REQUISITO 5) */}
+        <div
+          data-testid="ai-governance-closure-block"
+          className="p-3.5 rounded-lg border-2 border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-purple-50/40 to-white space-y-2.5 shadow-2xs"
+        >
+          <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-700" />
+              <span className="text-xs font-bold text-indigo-950 uppercase tracking-wide">
+                Conclusão e Governança — Recomendação IA
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Badge
+                className={`text-[10px] font-bold ${
+                  decisionState === 'CONFIRMADA'
+                    ? 'bg-emerald-600 text-white'
+                    : decisionState === 'DESCARTADA'
+                      ? 'bg-slate-600 text-white'
+                      : 'bg-amber-600 text-white'
+                }`}
+              >
+                Decisão: {decisionState || 'Aguardando deliberação humana'}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-baseline gap-2">
+              <span className="font-bold text-slate-700 shrink-0">Sugestão da IA:</span>
+              <span
+                className={`font-semibold ${
+                  suggestion?.recommended ? 'text-amber-800' : 'text-slate-700'
+                }`}
+              >
+                {suggestion?.recommended ? '⚠ Revisão recomendada' : 'Revisão não mandatória'}
+              </span>
+              {suggestion?.suggestedRevisionTypes && (
+                <Badge variant="outline" className="text-[10px] bg-white font-medium">
+                  {suggestion.suggestedRevisionTypes.join(' e ')}
+                </Badge>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-700 leading-relaxed bg-white/80 p-2.5 rounded border border-indigo-100">
+              <strong>Justificativa Técnica:</strong>{' '}
+              {suggestion?.justification ||
+                'Com base nos parâmetros industriais e desvios apurados, a IA orienta a deliberação dos responsáveis técnicos.'}
+            </p>
+
+            <div className="p-2 bg-amber-50/80 border border-amber-200 rounded text-[11px] text-amber-900 flex items-center justify-between">
+              <span>
+                <strong>Regra de Governança:</strong> A IA NUNCA marca revisão automaticamente.
+                Qualquer necessidade deve ser deliberada e confirmada pelo usuário com registro de auditoria.
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-indigo-100">
+            <Button
+              data-testid="ai-discard-suggestion-btn"
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isDeciding}
+              onClick={() => handleDecision('DESCARTADA')}
+              className={`text-xs h-7.5 px-3 border-slate-300 ${
+                decisionState === 'DESCARTADA' ? 'bg-slate-200 text-slate-800 font-bold' : ''
+              }`}
+            >
+              Descartar sugestão
+            </Button>
+
+            <Button
+              data-testid="ai-confirm-revision-btn"
+              type="button"
+              size="sm"
+              disabled={isDeciding}
+              onClick={() => handleDecision('CONFIRMADA')}
+              className={`text-xs h-7.5 px-3 gap-1.5 ${
+                decisionState === 'CONFIRMADA'
+                  ? 'bg-emerald-700 hover:bg-emerald-800 text-white font-bold'
+                  : 'bg-[#004C97] hover:bg-[#003974] text-white font-bold'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Confirmar necessidade de revisão</span>
+            </Button>
           </div>
         </div>
       </CardContent>

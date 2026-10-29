@@ -25,6 +25,7 @@ import { testProgrammingService } from '@/services/test-programming-service'
 import { generateTestAiAnalysis } from '@/services/test-ai-service'
 import { TestComparisonTimeline } from './TestComparisonTimeline'
 import { TestAiAnalysisSection } from './TestAiAnalysisSection'
+import { TestClosureSection } from './TestClosureSection'
 import { formatDatePTBR, formatTonsPtBr } from '@/lib/formatters-ptbr'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
@@ -156,6 +157,28 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Badge do Status da Revisão */}
+              {currentTest.needs_revision ? (
+                <Badge
+                  data-testid="modal-revision-status-badge"
+                  className={`text-[11px] font-bold px-2 py-0.5 ${
+                    currentTest.revision_status === 'Concluída'
+                      ? 'bg-emerald-600 text-white'
+                      : currentTest.revision_status === 'Em revisão'
+                        ? 'bg-purple-600 text-white'
+                        : currentTest.revision_status === 'Em análise'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-amber-600 text-white animate-pulse'
+                  }`}
+                >
+                  ⚠ Revisão: {currentTest.revision_status || 'Pendente'}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[11px] font-medium text-slate-500 bg-slate-50">
+                  Revisão: Não aplicável
+                </Badge>
+              )}
+
               {/* Badge do MES */}
               <Badge
                 variant="outline"
@@ -219,6 +242,65 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
 
           {/* ABA 1: PREVISTO X REALIZADO (LADO A LADO + TIMELINE) */}
           <TabsContent value="comparativo" className="space-y-4 pt-2">
+            {/* ALERTA VISUAL NO DETALHE DO TESTE SE REVISÃO NECESSÁRIA */}
+            {currentTest.needs_revision && (
+              <div
+                data-testid="test-detail-revision-alert"
+                className="p-3 bg-amber-50 border-2 border-amber-400 rounded-xl flex items-start gap-2.5 text-amber-950 shadow-2xs"
+              >
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-amber-900 tracking-wide">
+                      ⚠ REVISÃO NECESSÁRIA
+                    </span>
+                    <Badge className="bg-amber-600 text-white text-[10px] font-bold">
+                      Status: {currentTest.revision_status || 'Pendente'}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-amber-800">
+                    Este teste gerou desvios ou novos limites que requerem revisão formal de documentação técnica ou meta industrial.
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1.5 text-[11px] font-medium border-t border-amber-200">
+                    <div>
+                      <span className="text-amber-700 block text-[10px]">Teste:</span>
+                      <span className="font-bold font-mono">{currentTest.test_id || currentTest.title}</span>
+                    </div>
+                    <div>
+                      <span className="text-amber-700 block text-[10px]">Linha / Centro:</span>
+                      <span className="font-bold">
+                        {currentTest.production_line} • {currentTest.work_center || '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-amber-700 block text-[10px]">Responsável Técnico:</span>
+                      <span className="font-bold">{currentTest.technical_lead}</span>
+                    </div>
+                    <div>
+                      <span className="text-amber-700 block text-[10px]">Tipo de Revisão:</span>
+                      <span className="font-bold text-amber-900">{currentTest.revision_types || 'Pendente'}</span>
+                    </div>
+                  </div>
+                  {currentTest.revision_reason && (
+                    <p className="text-[11px] text-amber-900 pt-1">
+                      <strong>Motivo:</strong> {currentTest.revision_reason}
+                    </p>
+                  )}
+                  {currentTest.revision_document_code && (
+                    <p className="text-[11px] text-blue-900">
+                      <strong>Documento SGQ:</strong> {currentTest.revision_document_code} - {currentTest.revision_document_title}{' '}
+                      ({currentTest.revision_document_version || 'v1'})
+                    </p>
+                  )}
+                  {currentTest.conclusion_date && (
+                    <p className="text-[10px] text-amber-700 font-mono pt-0.5">
+                      Data da Conclusão: {formatDatePTBR(currentTest.conclusion_date)} às {currentTest.conclusion_time || '--:--'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Timeline Horizontal Gráfica (Requisito 11) */}
             <TestComparisonTimeline
               planned={{
@@ -383,6 +465,15 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Bloco de Fechamento Integrado dentro do Detalhe do Teste */}
+            <TestClosureSection
+              test={currentTest}
+              onSaved={(updated) => {
+                setCurrentTest(updated)
+                onUpdated?.()
+              }}
+            />
           </TabsContent>
 
           {/* ABA 2: PLANEJAMENTO (DADOS COMPLETOS PCP) */}
@@ -618,11 +709,15 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
             </div>
           </TabsContent>
 
-          {/* ABA 7: ANÁLISE IA (REQUISITO 13 COM AS 7 SEÇÕES EXATAS) */}
+          {/* ABA 7: ANÁLISE IA (REQUISITO 13 COM AS 7 SEÇÕES EXATAS + GOVERNANÇA) */}
           <TabsContent value="ia" className="space-y-3 pt-2">
             <TestAiAnalysisSection
               analysis={aiAnalysis}
-              onRefresh={handleRefreshAi}
+              testRecord={currentTest}
+              onRefresh={() => {
+                handleRefreshAi()
+                onUpdated?.()
+              }}
               isRefreshing={isAiLoading}
             />
           </TabsContent>

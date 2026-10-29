@@ -33,6 +33,8 @@ import { testProgrammingService } from '@/services/test-programming-service'
 import { formatDatePTBR } from '@/lib/formatters-ptbr'
 import { TestDetailModal } from './TestDetailModal'
 import { TestAiAnalysisSection } from './TestAiAnalysisSection'
+import { TestClosureSection } from './TestClosureSection'
+import { RevisionDetailModal } from './RevisionDetailModal'
 import { generateTestAiAnalysis } from '@/services/test-ai-service'
 
 interface PlannedVsRealizedViewProps {
@@ -60,6 +62,13 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
   // Detalhamento do teste selecionado (Requisito 10)
   const [selectedTest, setSelectedTest] = useState<TestProgrammingRecord | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+
+  // Detalhamento específico da revisão
+  const [revisionModalTest, setRevisionModalTest] = useState<TestProgrammingRecord | null>(null)
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false)
+
+  // Teste selecionado para o Bloco de Fechamento do Previsto x Realizado
+  const [closureTestId, setClosureTestId] = useState<string>('')
 
   // Opções dinâmicas para os filtros baseadas nos testes existentes
   const filterOptions = useMemo(() => {
@@ -136,6 +145,20 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
     setSelectedTest(test)
     setIsDetailOpen(true)
   }
+
+  const handleOpenRevisionDetail = (test: TestProgrammingRecord, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setRevisionModalTest(test)
+    setIsRevisionModalOpen(true)
+  }
+
+  // Define teste ativo no bloco de fechamento
+  const activeClosureTest = useMemo(() => {
+    if (closureTestId) {
+      return tests.find((t) => t.id === closureTestId) || filteredTests[0] || null
+    }
+    return filteredTests[0] || tests[0] || null
+  }, [tests, filteredTests, closureTestId])
 
   // Dados para os gráficos G1-G5 reagindo aos filtros da tela (Requisito 12)
   const chartData = useMemo(() => {
@@ -404,6 +427,65 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
         </CardContent>
       </Card>
 
+      {/* ALERTA VISUAL NO TOPO DO PREVISTO X REALIZADO QUANDO EXISTIREM TESTES COM REVISÃO NECESSÁRIA */}
+      {(() => {
+        const testsNeedingRevision = filteredTests.filter((t) => t.needs_revision)
+        if (testsNeedingRevision.length === 0) return null
+
+        return (
+          <div
+            data-testid="planned-vs-realized-revision-alert"
+            className="p-3.5 bg-amber-50 border-2 border-amber-400 rounded-xl space-y-2 shadow-xs"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-sm text-amber-900 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                ⚠ REVISÃO NECESSÁRIA ({testsNeedingRevision.length} teste(s) pendente(s) de atualização de documento ou meta)
+              </span>
+              <Badge className="bg-amber-600 text-white font-mono text-[10px]">
+                Governança Ativa
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {testsNeedingRevision.slice(0, 3).map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    setRevisionModalTest(item)
+                    setIsRevisionModalOpen(true)
+                  }}
+                  className="p-2.5 bg-white border border-amber-200 rounded-lg cursor-pointer hover:border-amber-400 hover:shadow-2xs transition-all space-y-1"
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-mono font-bold text-[#004C97]">
+                      {item.test_id || 'TESTE'}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300">
+                      {item.revision_status || 'Pendente'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800 truncate">{item.title}</p>
+                  <div className="text-[11px] text-slate-500 flex justify-between">
+                    <span>{item.production_line} • {item.work_center || '-'}</span>
+                    <span className="font-medium text-amber-900">{item.revision_types || 'Revisão'}</span>
+                  </div>
+                  {item.revision_reason && (
+                    <p className="text-[10px] text-slate-600 truncate italic">
+                      Motivo: {item.revision_reason}
+                    </p>
+                  )}
+                  {item.conclusion_date && (
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      Concluído em: {formatDatePTBR(item.conclusion_date)}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* 2. CARDS RESPONSIVOS CLICÁVEIS (REQUISITO 8) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
         {/* Card 1: Testes Concluídos */}
@@ -582,6 +664,8 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
                   <th className="p-2.5">Duração Prev.</th>
                   <th className="p-2.5">Duração Real</th>
                   <th className="p-2.5 text-center">Δ Duração</th>
+                  <th className="p-2.5 text-center">Revisão?</th>
+                  <th className="p-2.5">Conclusão</th>
                   <th className="p-2.5">Status</th>
                   <th className="p-2.5 text-center">Ações</th>
                 </tr>
@@ -756,6 +840,45 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
                             </div>
                           ) : (
                             <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+
+                        {/* Indicador de Revisão: ✅ Não / ⚠ Sim (clicável abrindo detalhe da revisão) */}
+                        <td className="p-2.5 text-center whitespace-nowrap">
+                          {item.needs_revision ? (
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenRevisionDetail(item, e)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 transition-colors shadow-2xs"
+                              title="Clique para ver detalhes da revisão"
+                            >
+                              <span>⚠ Sim</span>
+                              <span className="text-[9px] text-amber-700">
+                                ({item.revision_status || 'Pendente'})
+                              </span>
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700">
+                              <span>✅ Não</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Conclusão Resumida (clicável para detalhe completo) */}
+                        <td className="p-2.5 max-w-[200px]">
+                          {item.conclusion ? (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenDetail(item)
+                              }}
+                              className="truncate text-[11px] text-slate-700 hover:text-[#004C97] hover:underline cursor-pointer"
+                              title={item.conclusion}
+                            >
+                              {item.conclusion}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic text-[11px]">Pendente</span>
                           )}
                         </td>
 
@@ -955,10 +1078,48 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
         </Card>
       </div>
 
-      {/* 5. ANÁLISE IA — TESTES INDUSTRIAIS (REQUISITO 13) */}
+      {/* 5. BLOCO DE FECHAMENTO PREVISTO X REALIZADO (REQUISITO 3) */}
+      {activeClosureTest && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              Fechamento do Teste Selecionado
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-500">Selecionar teste para fechamento:</span>
+              <Select
+                value={activeClosureTest.id}
+                onValueChange={(id) => setClosureTestId(id)}
+              >
+                <SelectTrigger className="h-7 text-xs w-64 bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  {filteredTests.map((t) => (
+                    <SelectItem key={t.id} value={t.id} className="text-xs">
+                      <span className="font-mono font-bold mr-1">{t.test_id || 'TESTE'}:</span>
+                      <span>{t.title}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <TestClosureSection
+            test={activeClosureTest}
+            onSaved={() => {
+              onRefresh()
+            }}
+          />
+        </div>
+      )}
+
+      {/* 6. ANÁLISE IA — TESTES INDUSTRIAIS (REQUISITO 13 + GOVERNANÇA) */}
       {consolidatedAiAnalysis && (
         <TestAiAnalysisSection
           analysis={consolidatedAiAnalysis}
+          testRecord={activeClosureTest || undefined}
           onRefresh={onRefresh}
           isRefreshing={isRefreshing}
         />
@@ -970,6 +1131,14 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
         onClose={() => setIsDetailOpen(false)}
         testItem={selectedTest}
         allTests={tests}
+        onUpdated={onRefresh}
+      />
+
+      {/* MODAL ESPECÍFICO DE DETALHAMENTO DA REVISÃO */}
+      <RevisionDetailModal
+        isOpen={isRevisionModalOpen}
+        onClose={() => setIsRevisionModalOpen(false)}
+        test={revisionModalTest}
         onUpdated={onRefresh}
       />
     </div>

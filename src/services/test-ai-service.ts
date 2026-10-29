@@ -288,6 +288,44 @@ export function generateTestAiAnalysis(
     'Apresentar análise na Reunião Semanal de Programação de Produção para deliberação conjunta PCP x Engenharia.',
   )
 
+  // 8. Sugestão de Revisão da IA (Governança: a IA sugere, o usuário delibera)
+  let revisionSuggestion = test.ai_revision_suggestion
+
+  if (!revisionSuggestion) {
+    const triggerRules: string[] = []
+    const suggestedTypes: Array<'Documento' | 'Meta'> = []
+
+    if (dev?.classification === 'DESVIO_CRITICO') {
+      triggerRules.push('Desvio crítico de duração detectado pelo MES 4.0')
+      suggestedTypes.push('Meta')
+    }
+    if (test.test_category === 'RECEITA_LAMINACAO') {
+      triggerRules.push('Alteração de parâmetros em Receita AOM / Calibração')
+      suggestedTypes.push('Documento')
+    }
+    if (test.test_category === 'EQUIPAMENTO' && test.equipment_data?.flags?.isNewEquipment) {
+      triggerRules.push('Instalação ou intervenção em equipamento novo na linha')
+      suggestedTypes.push('Documento')
+    }
+    if (test.efficacy_evaluation?.outcome === 'EFICAZ') {
+      triggerRules.push('Teste validado como eficaz — consolidação de nova meta recomendada')
+      suggestedTypes.push('Meta')
+    }
+
+    const recommended = triggerRules.length > 0
+    const justification = recommended
+      ? `A IA recomenda revisão formal de ${suggestedTypes.join(' e ')} devido a: ${triggerRules.join('; ')}.`
+      : 'Os parâmetros observados mantiveram-se dentro da faixa nominal histórica. Não foi identificado gatilho crítico mandatório para revisão imediata.'
+
+    revisionSuggestion = {
+      recommended,
+      justification,
+      suggestedRevisionTypes: suggestedTypes.length > 0 ? suggestedTypes : ['Documento'],
+      triggerRules,
+      suggestedAt: generatedAt,
+    }
+  }
+
   return {
     principais_desvios: principaisDesvios,
     evidencias,
@@ -296,6 +334,7 @@ export function generateTestAiAnalysis(
     recorrencia,
     aprendizados,
     acoes_sugeridas: acoesSugeridas,
+    ai_revision_suggestion: revisionSuggestion,
     has_sufficient_data: hasSufficientData,
     generated_at: generatedAt,
   }

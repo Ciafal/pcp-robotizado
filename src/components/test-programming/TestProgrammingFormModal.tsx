@@ -43,6 +43,7 @@ import { calculatePeriodDuration, MSG_REGRA_1_DATA_HORA } from '@/lib/test-progr
 import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
+import { SearchableCombobox } from './SearchableCombobox'
 
 interface TestProgrammingFormModalProps {
   isOpen: boolean
@@ -101,9 +102,21 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
   const [periodValidationMessage, setPeriodValidationMessage] = useState<string | null>(null)
 
   const [requestingSector, setRequestingSector] = useState('Engenharia de Processos')
-  const [requesterName, setRequesterName] = useState(user?.name || user?.email || 'Lucas Ferreira')
+  const [requesterId, setRequesterId] = useState<string>('')
+  const [requesterName, setRequesterName] = useState(user?.name || user?.email || '')
+  const [technicalLeadId, setTechnicalLeadId] = useState<string>('')
   const [technicalLead, setTechnicalLead] = useState('')
-  const [testType, setTestType] = useState('Homologação Operacional')
+  const [testTypeId, setTestTypeId] = useState<string>('')
+  const [testType, setTestType] = useState('')
+
+  // Listas reais do backend para os comboboxes pesquisáveis
+  const [hubUsers, setHubUsers] = useState<Array<{ id: string; name: string; sector: string; role: string; label: string }>>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [errorUsers, setErrorUsers] = useState<string | null>(null)
+
+  const [activeTestTypes, setActiveTestTypes] = useState<Array<{ id: string; description: string }>>([])
+  const [loadingTestTypes, setLoadingTestTypes] = useState(false)
+  const [errorTestTypes, setErrorTestTypes] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [objective, setObjective] = useState('')
   const [availableObjectives, setAvailableObjectives] = useState<IndustrialTestObjective[]>([])
@@ -205,9 +218,33 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
         const compRecs = await pb.collection('companies').getFullList({ sort: 'name' })
         setCompanies(compRecs.map((c: any) => ({ code: c.code, name: c.name || c.corporate_name })))
 
-        // Objetivos Industriais Padronizados
+        // Objetivos Industriais Padronizados (incluindo OBJ-38 e OBJ-39)
         const objs = await testProgrammingService.listActiveIndustrialObjectives()
         setAvailableObjectives(objs)
+
+        // Usuários Reais do HUB (users formatados Nome — Setor)
+        setLoadingUsers(true)
+        setErrorUsers(null)
+        try {
+          const usersList = await testProgrammingService.listHubUsers()
+          setHubUsers(usersList)
+        } catch (err: any) {
+          setErrorUsers(err?.message || 'Falha ao buscar usuários')
+        } finally {
+          setLoadingUsers(false)
+        }
+
+        // Tipos de Teste Ativos (test_types)
+        setLoadingTestTypes(true)
+        setErrorTestTypes(null)
+        try {
+          const typesList = await testProgrammingService.listActiveTestTypes()
+          setActiveTestTypes(typesList.map((t) => ({ id: t.id, description: t.description })))
+        } catch (err: any) {
+          setErrorTestTypes(err?.message || 'Falha ao buscar tipos de teste')
+        } finally {
+          setLoadingTestTypes(false)
+        }
 
         // Linhas de produção
         const lineRecs = await pb
@@ -361,7 +398,9 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       setExpectedEndDate(initialItem.expected_end_date || initialItem.expected_date)
       setExpectedEndTime(initialItem.expected_end_time || '10:30')
       setRequestingSector(initialItem.requesting_sector)
+      setRequesterId(initialItem.requester_user_id || '')
       setRequesterName(initialItem.requester_name)
+      setTechnicalLeadId(initialItem.technical_lead_user_id || '')
       setTechnicalLead(initialItem.technical_lead)
       setTestType(initialItem.test_type)
       setTitle(initialItem.title)
@@ -463,7 +502,12 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       setConflictWarning(null)
       setDescription('')
       setJustification('')
-      setTechnicalLead(user?.name || 'Carlos Mendes')
+      setRequesterId(user?.id || '')
+      setRequesterName(user?.name || user?.email || '')
+      setTechnicalLeadId('')
+      setTechnicalLead('')
+      setTestTypeId('')
+      setTestType('')
       const todayStr = new Date().toISOString().split('T')[0]
       setExpectedStartDate(todayStr)
       setExpectedStartTime('08:00')
@@ -473,6 +517,42 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       setErrorMessage(null)
     }
   }, [initialItem, isOpen, user])
+
+  // Sincroniza ID e Descrição quando hubUsers ou activeTestTypes carregam (especialmente na Edição)
+  useEffect(() => {
+    if (hubUsers.length > 0) {
+      // Se temos requesterId mas não temos nome, busca da lista
+      if (requesterId && !requesterName) {
+        const u = hubUsers.find((x) => x.id === requesterId)
+        if (u) setRequesterName(u.name)
+      } else if (!requesterId && requesterName) {
+        // Tenta associar pelo nome
+        const u = hubUsers.find((x) => x.name.toLowerCase() === requesterName.toLowerCase())
+        if (u) setRequesterId(u.id)
+      }
+
+      // Responsável Técnico
+      if (technicalLeadId && !technicalLead) {
+        const u = hubUsers.find((x) => x.id === technicalLeadId)
+        if (u) setTechnicalLead(u.name)
+      } else if (!technicalLeadId && technicalLead) {
+        const u = hubUsers.find((x) => x.name.toLowerCase() === technicalLead.toLowerCase())
+        if (u) setTechnicalLeadId(u.id)
+      }
+    }
+  }, [hubUsers, requesterId, requesterName, technicalLeadId, technicalLead])
+
+  useEffect(() => {
+    if (activeTestTypes.length > 0) {
+      if (testTypeId && !testType) {
+        const t = activeTestTypes.find((x) => x.id === testTypeId)
+        if (t) setTestType(t.description)
+      } else if (!testTypeId && testType) {
+        const t = activeTestTypes.find((x) => x.description.toLowerCase() === testType.toLowerCase())
+        if (t) setTestTypeId(t.id)
+      }
+    }
+  }, [activeTestTypes, testTypeId, testType])
 
   // Duração prevista calculada automaticamente e validação em tempo real (Requisitos 1 e 2)
   const computedPeriod = useMemo(() => {
@@ -597,8 +677,18 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       setActiveTab('geral')
       return
     }
-    if (!technicalLead.trim()) {
-      setErrorMessage('O responsável técnico é obrigatório.')
+    if (!requesterId || !requesterName.trim()) {
+      setErrorMessage('O Solicitante é obrigatório. Selecione um usuário cadastrado no HUB.')
+      setActiveTab('geral')
+      return
+    }
+    if (!technicalLeadId || !technicalLead.trim()) {
+      setErrorMessage('O Responsável Técnico é obrigatório. Selecione um usuário cadastrado no HUB.')
+      setActiveTab('geral')
+      return
+    }
+    if (!testType.trim()) {
+      setErrorMessage('O Tipo de Teste é obrigatório. Selecione um tipo de teste cadastrado.')
       setActiveTab('geral')
       return
     }
@@ -772,8 +862,9 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
         expected_duration_formatted: computedPeriod.formatted,
         requesting_sector: requestingSector,
         requester_name: requesterName,
-        requester_user_id: user?.id || '',
+        requester_user_id: requesterId || user?.id || '',
         technical_lead: technicalLead,
+        technical_lead_user_id: technicalLeadId || '',
         test_type: testType,
         title: title.trim(),
         objective: primaryObjectiveName,
@@ -1073,31 +1164,75 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs font-semibold text-slate-700">Solicitante *</Label>
-                <Input
-                  value={requesterName}
-                  onChange={(e) => setRequesterName(e.target.value)}
-                  placeholder="Nome do Solicitante"
-                  className="text-xs h-8"
+                <SearchableCombobox
+                  data-testid="requester-combobox"
+                  options={hubUsers.map((u) => ({
+                    value: u.id,
+                    label: u.label,
+                    subLabel: u.role ? `Perfil: ${u.role}` : undefined,
+                  }))}
+                  value={requesterId}
+                  onChange={(val, opt) => {
+                    setRequesterId(val)
+                    if (opt) {
+                      const found = hubUsers.find((u) => u.id === val)
+                      setRequesterName(found?.name || opt.label.split(' — ')[0])
+                      if (found?.sector) setRequestingSector(found.sector)
+                    }
+                  }}
+                  placeholder="Selecione o solicitante..."
+                  searchPlaceholder="Pesquisar usuário cadastrado..."
+                  loading={loadingUsers}
+                  error={errorUsers}
+                  emptyText="Nenhum usuário cadastrado encontrado."
                 />
               </div>
               <div>
                 <Label className="text-xs font-semibold text-slate-700">
                   Responsável Técnico *
                 </Label>
-                <Input
-                  value={technicalLead}
-                  onChange={(e) => setTechnicalLead(e.target.value)}
-                  placeholder="Engenheiro / Técnico Líder"
-                  className="text-xs h-8"
+                <SearchableCombobox
+                  data-testid="technical-lead-combobox"
+                  options={hubUsers.map((u) => ({
+                    value: u.id,
+                    label: u.label,
+                    subLabel: u.role ? `Perfil: ${u.role}` : undefined,
+                  }))}
+                  value={technicalLeadId}
+                  onChange={(val, opt) => {
+                    setTechnicalLeadId(val)
+                    if (opt) {
+                      const found = hubUsers.find((u) => u.id === val)
+                      setTechnicalLead(found?.name || opt.label.split(' — ')[0])
+                    }
+                  }}
+                  placeholder="Selecione o responsável..."
+                  searchPlaceholder="Pesquisar técnico cadastrado..."
+                  loading={loadingUsers}
+                  error={errorUsers}
+                  emptyText="Nenhum responsável cadastrado encontrado."
                 />
               </div>
               <div>
                 <Label className="text-xs font-semibold text-slate-700">Tipo de Teste *</Label>
-                <Input
-                  value={testType}
-                  onChange={(e) => setTestType(e.target.value)}
-                  placeholder="Ex: Validação Dimensional / Homologação"
-                  className="text-xs h-8"
+                <SearchableCombobox
+                  data-testid="test-type-combobox"
+                  options={activeTestTypes.map((t) => ({
+                    value: t.id,
+                    label: t.description,
+                  }))}
+                  value={testTypeId}
+                  onChange={(val, opt) => {
+                    setTestTypeId(val)
+                    if (opt) {
+                      setTestType(opt.label)
+                    }
+                  }}
+                  placeholder="Selecione o tipo..."
+                  searchPlaceholder="Pesquisar tipo de teste cadastrado..."
+                  loading={loadingTestTypes}
+                  error={errorTestTypes}
+                  emptyText="Nenhum tipo de teste ativo encontrado."
                 />
               </div>
             </div>
