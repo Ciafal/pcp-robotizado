@@ -78,6 +78,7 @@ export const CuttingPlanBottleneckValidationSection: React.FC<
     )
   }
 
+  const validations = impact.constraints_validations || []
   const isBlocked = impact.classification === 'VERMELHO_INVIAVEL'
   const isWarning = impact.classification === 'AMARELO_POSSIVEL_COM_RESSALVA'
   const isApproved = impact.classification === 'VERDE_RECOMENDADO'
@@ -279,27 +280,27 @@ export const CuttingPlanBottleneckValidationSection: React.FC<
               <div className="flex justify-between">
                 <span className="text-slate-600">Rendimento MP ({scenario.yield_pct}%):</span>
                 <span className="font-bold text-slate-800">
-                  +{impact.score_components.yield_component.contribution} pts
+                  +{impact.score_components?.yield_component?.contribution ?? 0} pts
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Throughput da Linha:</span>
                 <span className="font-bold text-slate-800">
-                  +{impact.score_components.throughput_component.contribution} pts
+                  +{impact.score_components?.throughput_component?.contribution ?? 0} pts
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Segurança Leito TCC:</span>
                 <span className="font-bold text-slate-800">
-                  +{impact.score_components.tcc_safety_margin.contribution} pts
+                  +{impact.score_components?.tcc_safety_margin?.contribution ?? 0} pts
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Atendimento à Carteira:</span>
                 <span className="font-bold text-slate-800">
-                  +{impact.score_components.demand_fulfillment.contribution} pts
+                  +{impact.score_components?.demand_fulfillment?.contribution ?? 0} pts
                 </span>
-              </div>
+              </div>{' '}
             </div>
           </CardContent>
         </Card>
@@ -320,15 +321,14 @@ export const CuttingPlanBottleneckValidationSection: React.FC<
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs text-emerald-800 border-emerald-300">
-              {impact.constraints_validations.filter((v) => v.status === 'APPROVED').length}{' '}
-              Aprovadas
+              {validations.filter((v) => v?.status === 'APPROVED').length} Aprovadas
             </Badge>
-            {impact.hard_constraints_violated_count > 0 && (
+            {(impact.hard_constraints_violated_count || 0) > 0 && (
               <Badge className="bg-rose-600 text-white text-xs font-bold">
                 {impact.hard_constraints_violated_count} Hard Violada
               </Badge>
             )}
-            {impact.soft_constraints_warning_count > 0 && (
+            {(impact.soft_constraints_warning_count || 0) > 0 && (
               <Badge className="bg-amber-500 text-white text-xs font-bold">
                 {impact.soft_constraints_warning_count} Ressalvas
               </Badge>
@@ -351,7 +351,7 @@ export const CuttingPlanBottleneckValidationSection: React.FC<
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {impact.constraints_validations.map((v, idx) => (
+                {validations.map((v, idx) => (
                   <tr
                     key={idx}
                     className={`hover:bg-slate-50/80 transition-colors ${
@@ -554,7 +554,8 @@ export const CuttingPlanBottleneckValidationSection: React.FC<
               </div>
               <div className="text-rose-700 font-bold">
                 Restrição Bloqueante:{' '}
-                {impact.constraints_validations.find((v) => v.status === 'VIOLATED')?.title}
+                {validations.find((v) => v?.status === 'VIOLATED')?.title ||
+                  'Nenhuma restrição impeditiva'}
               </div>
             </div>
 

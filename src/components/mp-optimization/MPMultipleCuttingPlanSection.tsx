@@ -15,7 +15,15 @@ import {
   ArrowRight,
   ChevronRight,
   ExternalLink,
+  FileCheck2,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -103,7 +111,19 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
   const [isOptimizing, setIsOptimizing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [optResult, setOptResult] = useState<PieceOptimizationResult | null>(null)
+  const [savedPlanRecord, setSavedPlanRecord] = useState<MPMultipleCuttingPlanRecord | null>(null)
   const [savedPlanCode, setSavedPlanCode] = useState<string | null>(null)
+
+  // Modal de Confirmação Rico pós-salvamento
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+  const [successModalData, setSuccessModalData] = useState<{
+    code: string
+    version: number
+    dateFormatted: string
+    user: string
+    isUpdate: boolean
+    status: string
+  } | null>(null)
 
   // Sincroniza se o initialMaterial mudar
   useEffect(() => {
@@ -233,20 +253,61 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
     }
   }
 
-  // Salvar plano gerado
+  // Validação prévia e salvamento/atualização defensivo
   const handleSavePlan = async () => {
-    if (!optResult) return
+    // 1. Validação de cálculo
+    if (!optResult) {
+      toast({
+        title: 'Cálculo Pendente',
+        description: 'É necessário calcular o plano de corte antes de salvar.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 2. Validação da matéria-prima identificada
+    if (!materialCode.trim()) {
+      toast({
+        title: 'Identificação Pendente',
+        description: 'Informe o código do material antes de salvar o plano.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 3. Validação de peso / dimensões consistentes
+    if (blockWeightTons <= 0 || lengthMm <= 0 || linearMassKgM <= 0) {
+      toast({
+        title: 'Parâmetros Inválidos',
+        description: 'Peso do bloco, comprimento e massa linear devem ser maiores que zero.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 4. Validação de aplicações selecionadas
+    if (!optResult.allocated_items || optResult.allocated_items.length === 0) {
+      toast({
+        title: 'Sem Peças Alocadas',
+        description:
+          'O plano gerado não contém peças alocadas. Ajuste as aplicações antes de salvar.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setIsSaving(true)
     try {
-      const planCode = `PCM-${Date.now()}`
       const usableLeftoverWeightKg = (optResult.usable_leftover_mm / 1000) * linearMassKgM
       const scrapWeightKg =
         ((optResult.scrap_mm + optResult.cut_losses_length_mm) / 1000) * linearMassKgM
       const aiScore = Math.min(100, Math.round(optResult.cutting_yield_pct * 0.95 + 5))
       const aiJustification = `Motor de corte longitudinal aprovou plano com ${optResult.cutting_yield_pct.toFixed(2)}% de rendimento metálico, alocando ${optResult.generated_pieces_count} peças em múltiplos comprimentos com ${optResult.cuts_count} cortes de serra.`
 
-      const record: MPMultipleCuttingPlanRecord = {
-        plan_code: planCode,
+      const currentAuthor = user?.name || user?.email || 'Programador PCP'
+
+      const recordToSave: MPMultipleCuttingPlanRecord = {
+        plan_code: savedPlanRecord?.plan_code || '',
         material_code: materialCode,
         material_description: materialDescription,
         steel_grade: steelGrade,
@@ -273,6 +334,7 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
         ai_score: aiScore,
         ai_technical_justification: aiJustification,
         allocated_applications_json: optResult.allocated_items,
+        distribution_cuts_json: optResult.allocated_items,
         multiples_summary_json: {
           sawKerfMm,
           squaringLossMm,
@@ -280,21 +342,52 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
           cuts_count: optResult.cuts_count,
           cut_losses_length_mm: optResult.cut_losses_length_mm,
         },
-        status: 'CONFIRMADO_PCP',
-        created_by_user_name: user?.name || user?.email || 'Programador PCP',
+        status: savedPlanRecord ? 'EM_REVISAO' : 'RASCUNHO',
+        created_by_user_name: savedPlanRecord?.created_by_user_name || currentAuthor,
+        responsible_user_name: currentAuthor,
+        plan_type: 'MULTIPLO',
       }
 
-      await mpMultipleCuttingPlansService.savePlan(record)
-      setSavedPlanCode(planCode)
-
-      toast({
-        title: 'Plano Salvo com Sucesso',
-        description: `Código do Plano: ${planCode}. Disponível no Histórico de Planos.`,
+      const saveResult = await mpMultipleCuttingPlansService.savePlan(recordToSave, {
+        targetPlanId: savedPlanRecord?.id,
+        clientExpectedVersion: savedPlanRecord?.version,
+        justification: savedPlanRecord
+          ? `Atualização de parâmetros e distribuição com rendimento de ${optResult.cutting_yield_pct.toFixed(2)}%`
+          : 'Criação inicial do plano',
+        actionUser: currentAuthor,
       })
+
+      setSavedPlanRecord(saveResult.record)
+      setSavedPlanCode(saveResult.plan_code)
+
+      // Formatação dd/mm/aaaa + hora 24h
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+      const timeStr = now.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      })
+      const fullDateFormatted = `${dateStr} às ${timeStr}`
+
+      setSuccessModalData({
+        code: saveResult.plan_code,
+        version: saveResult.version,
+        dateFormatted: fullDateFormatted,
+        user: currentAuthor,
+        isUpdate: saveResult.isUpdate,
+        status: saveResult.record.status || 'Rascunho',
+      })
+      setIsSuccessModalOpen(true)
     } catch (err: any) {
       toast({
-        title: 'Erro ao Salvar Plano',
-        description: err.message || 'Falha de persistência no Skip Cloud.',
+        title: 'Erro ao Gravar Plano',
+        description: err.message || 'Falha de persistência no servidor.',
         variant: 'destructive',
       })
     } finally {
@@ -678,11 +771,11 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
               <Button
                 type="button"
                 onClick={handleSavePlan}
-                disabled={isSaving}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold gap-1.5 shadow-xs"
+                disabled={isSaving || !optResult}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold gap-1.5 shadow-xs transition-all disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
-                {savedPlanCode ? 'Plano Salvo (Atualizar)' : 'Salvar Plano de Corte Múltiplo'}
+                {savedPlanRecord ? 'Atualizar Plano de Corte' : 'Salvar Plano de Corte'}
               </Button>
             </div>
           </div>
@@ -822,6 +915,84 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
           </div>
         </div>
       )}
+
+      {/* MODAL DE CONFIRMAÇÃO RICO PÓS-SALVAMENTO CONFIRMADO PELO SERVIDOR */}
+      <Dialog open={isSuccessModalOpen} onOpenChange={setIsSuccessModalOpen}>
+        <DialogContent className="max-w-md p-6 bg-white border border-slate-200 shadow-xl rounded-2xl">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
+                <FileCheck2 className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  {successModalData?.isUpdate
+                    ? `Plano de Corte ${successModalData?.code} atualizado com sucesso — Versão 0${successModalData?.version}.`
+                    : `Plano de Corte ${successModalData?.code} salvo com sucesso!`}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  Registro gravado e versionado de forma imutável no Skip Cloud.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {successModalData && (
+            <div className="my-3 space-y-2.5 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Código do Plano:</span>
+                <span className="font-mono font-bold text-[#004C97]">{successModalData.code}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Versão Ativa:</span>
+                <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-mono text-[11px]">
+                  v0{successModalData.version}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Data e Hora (24h):</span>
+                <span className="font-medium text-slate-800">{successModalData.dateFormatted}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Usuário Responsável:</span>
+                <span className="font-semibold text-slate-800">{successModalData.user}</span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-slate-500 font-medium">Status do Plano:</span>
+                <Badge variant="outline" className="border-slate-300 text-slate-700">
+                  {successModalData.status}
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2">
+            {onOpenHistory && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsSuccessModalOpen(false)
+                  onOpenHistory()
+                }}
+                className="w-full sm:w-auto text-xs font-semibold gap-1.5"
+              >
+                <History className="w-3.5 h-3.5 text-[#004C97]" />
+                Histórico de Planos
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsSuccessModalOpen(false)}
+              className="w-full sm:w-auto bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold px-4"
+            >
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

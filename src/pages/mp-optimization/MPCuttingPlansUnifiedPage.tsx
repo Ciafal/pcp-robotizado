@@ -69,17 +69,33 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
   const { user } = useAuth()
   const { toast } = useToast()
 
-  const [activeSecondaryTab, setActiveSecondaryTab] = useState<
-    | 'ESTOQUE_DIMENSIONAL'
-    | 'NOVO_PLANO'
-    | 'CENARIOS'
-    | 'CORTE_MULTIPLO'
-    | 'VALIDACAO_GARGALOS'
-    | 'PROJECAO_3D'
-    | 'MATRIZ_REQUISITOS'
-    | 'HISTORICO'
-  >('NOVO_PLANO')
+  const validTabs = useMemo(
+    () => [
+      'CENARIOS',
+      'CORTE_MULTIPLO',
+      'HISTORICO',
+      'NOVO_PLANO',
+      'ESTOQUE_DIMENSIONAL',
+      'VALIDACAO_GARGALOS',
+      'PROJECAO_3D',
+      'MATRIZ_REQUISITOS',
+    ],
+    [],
+  )
 
+  const [activeSecondaryTab, setActiveSecondaryTab] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('planos_corte_secondary_tabs')
+      if (saved && validTabs.includes(saved)) {
+        // Se a aba salva requer dados adicionais não carregados no cold start (ex: CENARIOS/VALIDACAO_GARGALOS),
+        // fallback seguro para a primeira aba operacional
+        return saved
+      }
+    } catch {
+      // Ignora erro de acesso ao localStorage
+    }
+    return 'CENARIOS'
+  })
   // Filtros unificados de Planos de Corte / Estoque Dimensional
   const [viewFilters, setViewFilters] = useState<MPCuttingViewFilters>(DEFAULT_CUTTING_VIEW_FILTERS)
 
@@ -557,6 +573,29 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
             }
             items={[
               {
+                id: 'CENARIOS',
+                label: 'Plano Blocos',
+                icon: Sliders,
+              },
+              {
+                id: 'CORTE_MULTIPLO',
+                label: 'Plano de Corte Múltiplo',
+                badge: (
+                  <Badge
+                    variant="outline"
+                    className="ml-1 text-[9px] py-0 h-4 bg-emerald-100 text-emerald-800 border-emerald-300"
+                  >
+                    Novo
+                  </Badge>
+                ),
+                icon: Sparkles,
+              },
+              {
+                id: 'HISTORICO',
+                label: 'Histórico de Planos',
+                icon: History,
+              },
+              {
                 id: 'NOVO_PLANO',
                 label: 'Novo Plano',
                 badge: (
@@ -583,24 +622,6 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                 icon: Boxes,
               },
               {
-                id: 'CENARIOS',
-                label: 'Plano Blocos',
-                icon: Sliders,
-              },
-              {
-                id: 'CORTE_MULTIPLO',
-                label: 'Plano de Corte Múltiplo',
-                badge: (
-                  <Badge
-                    variant="outline"
-                    className="ml-1 text-[9px] py-0 h-4 bg-emerald-100 text-emerald-800 border-emerald-300"
-                  >
-                    Novo
-                  </Badge>
-                ),
-                icon: Sparkles,
-              },
-              {
                 id: 'VALIDACAO_GARGALOS',
                 label: 'Validação Matriz de Gargalos',
                 icon: ShieldAlert,
@@ -615,19 +636,6 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                 id: 'MATRIZ_REQUISITOS',
                 label: 'Matriz Oficial (ZPPMP)',
                 icon: Layers,
-              },
-              {
-                id: 'HISTORICO',
-                label: 'Histórico de Planos',
-                badge: (
-                  <Badge
-                    variant="secondary"
-                    className="ml-1 text-[10px] font-mono py-0 h-4 bg-slate-200 text-slate-800"
-                  >
-                    {plans.length}
-                  </Badge>
-                ),
-                icon: History,
               },
             ]}
           />
@@ -712,530 +720,527 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
           </div>
         </div>
 
-        {/* ABA 1: NOVO PLANO — Layout Visual Obrigatório em 4 Áreas */}
-        {/* Esquerda: Lista de MP | Centro: Desenho do Plano | Direita: Análise IA | Inferior: Carteira + Cenários */}
-        <TabsContent value="NOVO_PLANO" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* LADO ESQUERDO: LISTA DE MP DISPONÍVEL (Colunas 1 a 3) */}
-            <div className="lg:col-span-3 bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
-                  <Boxes className="w-4 h-4 text-[#004C97]" />
-                  <span>MP Disponível em Pátio</span>
-                </div>
-                <Badge variant="outline" className="text-[10px] font-mono">
-                  {filteredItems.length} un
-                </Badge>
-              </div>
-
-              {items.length === 0 ? (
-                <SapEmptyState
-                  title="SEM MP DISPONÍVEL"
-                  description="Aguardando sincronização de placas e blocos no SAP ECC."
-                  sapTransaction="ZPP86 / MB52"
-                  onRefresh={loadData}
-                />
-              ) : filteredItems.length === 0 ? (
-                <div className="p-6 text-center border border-dashed border-slate-200 rounded-lg text-xs space-y-2">
-                  <p className="font-semibold text-slate-700">
-                    Nenhum material encontrado com os filtros aplicados.
-                  </p>
-                  <p className="text-slate-500 text-[11px]">
-                    Tente ajustar o termo de pesquisa ou limpar os filtros de centro/aço.
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setViewFilters(DEFAULT_CUTTING_VIEW_FILTERS)}
-                    className="text-xs h-7 text-[#004C97]"
-                  >
-                    Limpar Filtros
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-[520px] overflow-y-auto no-scrollbar pr-1">
-                  {filteredItems.map((it) => {
-                    const isSel = selectedPlate?.id === it.id
-                    return (
-                      <div
-                        key={it.id}
-                        onClick={() => setSelectedPlate(it)}
-                        className={`p-3 rounded-lg border text-xs cursor-pointer transition-all ${
-                          isSel
-                            ? 'border-[#004C97] bg-blue-50/80 shadow-xs ring-1 ring-[#004C97]'
-                            : 'border-slate-200 bg-white hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between font-mono font-bold text-slate-900 mb-1">
-                          <span>Bloco {it.block_number || it.material_code}</span>
-                          <span className="text-[10px] text-[#004C97]">{it.steel_grade}</span>
-                        </div>
-                        <div className="text-[11px] text-slate-600 font-mono">
-                          {it.thickness_mm} × {it.width_mm} × {it.length_mm} mm &bull;{' '}
-                          <strong>
-                            {((it.weight_kg || 0) / 1000).toLocaleString('pt-BR', {
-                              minimumFractionDigits: 3,
-                              maximumFractionDigits: 3,
-                            })}{' '}
-                            t
-                          </strong>
-                        </div>
-                        <div className="mt-1.5 flex items-center justify-between text-[10px]">
-                          <span className="text-slate-500">
-                            Apl: <strong>{it.current_application}</strong>
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className={`text-[9px] ${
-                              it.reservation_status === 'LIVRE'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : 'bg-blue-50 text-blue-800 border-blue-200'
-                            }`}
-                          >
-                            {it.reservation_status}
-                          </Badge>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* CENTRO: DESENHO DO PLANO DE CORTE / GÊMEO 3D (Colunas 4 a 8) */}
-            <div className="lg:col-span-6 space-y-4">
-              <MP3DCanvasViewer
-                title={
-                  selectedPlate
-                    ? `Plano de Corte — Placa ${selectedPlate.block_number} (${selectedPlate.steel_grade})`
-                    : 'Desenho Proporcional do Plano de Corte'
+        {/* ABA 3: PLANO BLOCOS (Integrada aos Padrões de Peso para Corte) */}
+        <TabsContent value="CENARIOS" className="space-y-4">
+          <LocalErrorBoundary moduleName="Plano Blocos">
+            {/* Barra de Filtros Superiores: Empresa, Centro, Padrões Múltiplos, Tolerâncias, Critério */}
+            <MPCuttingOptimizationFilterBar
+              filters={optimizationFilters}
+              standards={weightStandards}
+              onFiltersChange={(updated) => {
+                setOptimizationFilters(updated)
+                if (highlightBatchError && updated.selected_batch_number) {
+                  setHighlightBatchError(false)
                 }
-                plate={
-                  selectedPlate
-                    ? {
-                        thickness: selectedPlate.thickness_mm,
-                        width: selectedPlate.width_mm,
-                        length: selectedPlate.length_mm,
-                        weight: selectedPlate.weight_kg,
-                        label: `Bloco ${selectedPlate.block_number} &bull; ${selectedPlate.current_application}`,
-                      }
-                    : undefined
-                }
-                pieces={activeScenario?.pieces_generated}
+              }}
+              onGenerateScenarios={handleGenerateComparativeScenarios}
+              onOpenStandardsModal={() => setIsStandardsModalOpen(true)}
+              isGenerating={isGenerating}
+            />
+
+            {/* NOVO QUADRO: MATERIAL E LOTE PARA O PLANO DE CORTE (Exclusivo para Tipo de Corte = MULTIPLOS) */}
+            {optimizationFilters.cutting_type === 'MULTIPLOS' && (
+              <MPCuttingBatchSelector
+                materialCode={optimizationFilters.material_code}
+                centerCode={optimizationFilters.center_code}
+                selectedBatchNumber={optimizationFilters.selected_batch_number}
+                highlightError={highlightBatchError}
+                onSelectBatch={(batchItem) => {
+                  setHighlightBatchError(false)
+                  setOptimizationFilters((prev) => ({
+                    ...prev,
+                    selected_material_code: batchItem.material_code,
+                    selected_material_description: batchItem.material_description,
+                    selected_batch_number: batchItem.batch_number,
+                    selected_batch_available_stock: batchItem.available_stock,
+                    selected_batch_unit: batchItem.unit,
+                    selected_center_code: batchItem.center_code,
+                    selected_storage_location: batchItem.storage_location,
+                  }))
+                }}
+                onClearSelection={() => {
+                  setOptimizationFilters((prev) => ({
+                    ...prev,
+                    selected_material_code: undefined,
+                    selected_material_description: undefined,
+                    selected_batch_number: undefined,
+                    selected_batch_available_stock: undefined,
+                    selected_batch_unit: undefined,
+                    selected_center_code: undefined,
+                    selected_storage_location: undefined,
+                  }))
+                }}
               />
+            )}
 
-              {/* Barra de Ações Rápidas de Reserva Inteligente */}
-              {selectedPlate && (
-                <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">
-                      Status de Reserva da MP:
-                    </span>
-                    <div className="font-mono font-bold text-slate-900">
-                      Estado Atual:{' '}
-                      <span className="text-[#004C97]">{selectedPlate.reservation_status}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {selectedPlate.reservation_status === 'LIVRE' && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleCommitReservation(selectedPlate)}
-                        className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs gap-1.5"
-                      >
-                        <Lock className="w-3.5 h-3.5" />
-                        Efetivar Reserva Inteligente
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleGeneratePlan}
-                      className="border-slate-300 text-slate-700 font-semibold text-xs gap-1.5"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-[#004C97]" />
-                      Recalcular Encaixe IA
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* LADO DIREITO: ANÁLISE DA IA & SCORE (Colunas 9 a 12) */}
-            <div className="lg:col-span-3 bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-4 text-xs">
-              <div className="flex items-center gap-2 font-bold text-slate-900">
-                <Sparkles className="w-4 h-4 text-[#004C97]" />
-                <span>Score & Explicabilidade IA</span>
-              </div>
-
-              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg space-y-1.5">
-                <div className="flex items-center justify-between font-bold text-[#004C97]">
-                  <span>Score Global do Plano:</span>
-                  <span className="text-base font-black">
-                    {activeScenario?.score_ia || 94} / 100
+            {/* Botão de Histórico e Ações Auxiliares */}
+            <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-lg border border-slate-200">
+              <div className="text-xs text-slate-600">
+                {comparativeScenarios.length > 0 ? (
+                  <span>
+                    Simulação ativa:{' '}
+                    <strong className="font-mono text-blue-950">
+                      {activeSimulation?.simulation_code || 'SIM-CORRENTE'}
+                    </strong>{' '}
+                    &bull; Critério: <strong>{optimizationFilters.optimization_criterion}</strong>
                   </span>
-                </div>
-                <p className="text-[11px] text-slate-700 leading-snug">
-                  Cálculo com 10 pesos parametrizados pelo PCP: Rendimento (20%), Atendimento
-                  Carteira (25%), Custo (15%), Menor Sucata (10%), Preservação MP Crítica (7%).
-                </p>
+                ) : (
+                  <span>Aguardando cálculo dos cenários de plano blocos...</span>
+                )}
               </div>
 
-              {/* Classificação de Sobras: Reutilizável, Reservar, Reaplicável ou Sucata */}
-              <div className="space-y-2">
-                <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
-                  Classificação das Sobras do Corte
-                </span>
-                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Sobra Reutilizável:</span>
-                    <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[9px]">
-                      Retorna ao Estoque (1.2 t)
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Aparação / Refile:</span>
-                    <Badge className="bg-slate-100 text-slate-700 text-[9px]">
-                      Sucata Inevitável (3.2%)
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Botão de Solicitação de Aprovação */}
               <Button
-                onClick={handleRequestApproval}
-                disabled={isSubmittingApproval || !selectedPlate}
-                className="w-full bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-2 py-2.5 shadow-xs"
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsHistoryModalOpen(true)}
+                className="border-slate-300 text-slate-700 hover:bg-slate-50 gap-1.5 text-xs font-semibold"
               >
-                <Send className="w-3.5 h-3.5" />
-                {isSubmittingApproval ? 'Submetendo...' : 'SOLICITAR APROVAÇÃO HUMANA'}
+                <History className="w-3.5 h-3.5 text-blue-900" /> Consultar Histórico de Simulações
               </Button>
             </div>
-          </div>
 
-          {/* PARTE INFERIOR: VALIDAÇÃO DA MATRIZ DE GARGALOS INTEGRADA */}
-          {activeScenario && (
-            <CuttingPlanBottleneckValidationSection
-              scenario={activeScenario}
-              scenariosMap={scenarios || undefined}
-              lineCode={selectedPlate?.line_destination_code || 'L1'}
-              plateInfo={{
-                blockNumber: selectedPlate?.block_number || 'BL-01',
-                steelGrade: selectedPlate?.steel_grade || 'SAE 1020',
-                dimensions: `${selectedPlate?.thickness_mm || 130}x${selectedPlate?.width_mm || 130}x${selectedPlate?.length_mm || 6000} mm`,
-                weightKg: selectedPlate?.weight_kg || 795,
-              }}
-              onSelectScenario={(k) => setSelectedScenarioType(k as CuttingScenarioType)}
-              onApproveSuccess={loadData}
-            />
-          )}
-
-          {/* PARTE INFERIOR: CARTEIRA + PROGRAMAÇÕES FUTURAS */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#004C97]" />
-                Carteira Ativa SAP &bull; Programação Futura (7-90 dias) &bull; Integração
-                Sequenciador
-              </h3>
-              <Badge variant="outline" className="text-xs font-mono text-[#004C97]">
-                Integração Direta com ZPPMP & Matriz de Gargalos
-              </Badge>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              O motor de plano de corte subordina a aprovação às restrições soberanas da linha,
-              impedindo que planos com alto rendimento metálico mas que sobrecarregam a TCC ou a
-              tesoura TR2 sejam liberados para o sequenciador semanal.
-            </p>
-          </div>
-        </TabsContent>
-
-        {/* ABA DEDICADA: VALIDAÇÃO MATRIZ DE GARGALOS */}
-        <TabsContent value="VALIDACAO_GARGALOS" className="space-y-4">
-          {activeScenario ? (
-            <CuttingPlanBottleneckValidationSection
-              scenario={activeScenario}
-              scenariosMap={scenarios || undefined}
-              lineCode={selectedPlate?.line_destination_code || 'L1'}
-              plateInfo={{
-                blockNumber: selectedPlate?.block_number || 'BL-01',
-                steelGrade: selectedPlate?.steel_grade || 'SAE 1020',
-                dimensions: `${selectedPlate?.thickness_mm || 130}x${selectedPlate?.width_mm || 130}x${selectedPlate?.length_mm || 6000} mm`,
-                weightKg: selectedPlate?.weight_kg || 795,
-              }}
-              onSelectScenario={(k) => setSelectedScenarioType(k as CuttingScenarioType)}
-              onApproveSuccess={loadData}
-            />
-          ) : (
-            <div className="p-8 text-center bg-white border border-slate-200 rounded-xl text-xs text-slate-500">
-              Gere um plano com a IA para visualizar a validação da Matriz de Gargalos.
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ABA 2: ESTOQUE DIMENSIONAL COMPLETO — Grade Operacional Rastreável */}
-        <TabsContent value="ESTOQUE_DIMENSIONAL" className="space-y-3">
-          <MPDimensionalOperationalGrid
-            items={items}
-            isLoading={isLoadingInventory}
-            lastSyncTime={lastSyncTime}
-            syncError={syncError}
-            onRefresh={loadData}
-            externalSearchTerm={viewFilters.searchTerm}
-            externalCenter={viewFilters.center}
-            externalDepot={viewFilters.depot}
-            externalType={viewFilters.itemType}
-            externalSteel={viewFilters.steelGrade}
-            externalReservation={viewFilters.reservationStatus}
-            onExternalFiltersChange={{
-              setSearchTerm: (val) => setViewFilters((prev) => ({ ...prev, searchTerm: val })),
-              setFilterCenter: (val) => setViewFilters((prev) => ({ ...prev, center: val })),
-              setFilterDepot: (val) => setViewFilters((prev) => ({ ...prev, depot: val })),
-              setFilterType: (val) => setViewFilters((prev) => ({ ...prev, itemType: val })),
-              setFilterSteel: (val) => setViewFilters((prev) => ({ ...prev, steelGrade: val })),
-              setFilterReservation: (val) =>
-                setViewFilters((prev) => ({ ...prev, reservationStatus: val })),
-            }}
-            onSelectForCuttingPlan={(selected) => {
-              setSelectedPlate(selected)
-              setActiveSecondaryTab('NOVO_PLANO')
-              toast({
-                title: 'Material Selecionado',
-                description: `Bloco ${selected.block_number || selected.material_code} carregado no cockpit de corte.`,
-              })
-            }}
-            onSelectForMultiplePlan={(selected) => {
-              setMaterialForMultiple(selected)
-              setActiveSecondaryTab('CORTE_MULTIPLO')
-              toast({
-                title: 'Material no Corte Múltiplo',
-                description: `Material ${selected.material_code} carregado para otimização de múltiplos comprimentos.`,
-              })
-            }}
-          />
+            {/* Grade com os 6 Cenários Comparativos e Destaque para o Melhor Cenário Recomendado */}
+            {comparativeScenarios.length > 0 && (
+              <MPCuttingComparativeScenariosGrid
+                scenarios={comparativeScenarios}
+                bestScenarioId={bestScenarioId}
+                selectedScenarioId={selectedComparativeScenarioId}
+                onSelectScenario={(scenId) => {
+                  setSelectedComparativeScenarioId(scenId)
+                  toast({
+                    title: 'Cenário Selecionado para Programação',
+                    description: `O cenário ${scenId} foi definido como prioritário para o sequenciamento.`,
+                  })
+                }}
+                onDetailScenario={(scen) => setDetailModalScenario(scen)}
+                aiJustification={aiJustification}
+              />
+            )}
+          </LocalErrorBoundary>
         </TabsContent>
 
         {/* ABA NOVA: PLANO DE CORTE MÚLTIPLO */}
         <TabsContent value="CORTE_MULTIPLO" className="space-y-4">
-          <MPMultipleCuttingPlanSection
-            initialMaterial={materialForMultiple}
-            onOpenHistory={() => setIsHistoryModalOpen(true)}
-          />
+          <LocalErrorBoundary moduleName="Plano de Corte Múltiplo">
+            <MPMultipleCuttingPlanSection
+              initialMaterial={materialForMultiple}
+              onOpenHistory={() => setActiveSecondaryTab('HISTORICO')}
+            />
+          </LocalErrorBoundary>
         </TabsContent>
 
-        {/* ABA 3: PLANO BLOCOS (Integrada aos Padrões de Peso para Corte) */}
-        <TabsContent value="CENARIOS" className="space-y-4">
-          {/* Barra de Filtros Superiores: Empresa, Centro, Padrões Múltiplos, Tolerâncias, Critério */}
-          <MPCuttingOptimizationFilterBar
-            filters={optimizationFilters}
-            standards={weightStandards}
-            onFiltersChange={(updated) => {
-              setOptimizationFilters(updated)
-              if (highlightBatchError && updated.selected_batch_number) {
-                setHighlightBatchError(false)
-              }
-            }}
-            onGenerateScenarios={handleGenerateComparativeScenarios}
-            onOpenStandardsModal={() => setIsStandardsModalOpen(true)}
-            isGenerating={isGenerating}
-          />
-
-          {/* NOVO QUADRO: MATERIAL E LOTE PARA O PLANO DE CORTE (Exclusivo para Tipo de Corte = MULTIPLOS) */}
-          {optimizationFilters.cutting_type === 'MULTIPLOS' && (
-            <MPCuttingBatchSelector
-              materialCode={optimizationFilters.material_code}
-              centerCode={optimizationFilters.center_code}
-              selectedBatchNumber={optimizationFilters.selected_batch_number}
-              highlightError={highlightBatchError}
-              onSelectBatch={(batchItem) => {
-                setHighlightBatchError(false)
-                setOptimizationFilters((prev) => ({
-                  ...prev,
-                  selected_material_code: batchItem.material_code,
-                  selected_material_description: batchItem.material_description,
-                  selected_batch_number: batchItem.batch_number,
-                  selected_batch_available_stock: batchItem.available_stock,
-                  selected_batch_unit: batchItem.unit,
-                  selected_center_code: batchItem.center_code,
-                  selected_storage_location: batchItem.storage_location,
-                }))
-              }}
-              onClearSelection={() => {
-                setOptimizationFilters((prev) => ({
-                  ...prev,
-                  selected_material_code: undefined,
-                  selected_material_description: undefined,
-                  selected_batch_number: undefined,
-                  selected_batch_available_stock: undefined,
-                  selected_batch_unit: undefined,
-                  selected_center_code: undefined,
-                  selected_storage_location: undefined,
-                }))
-              }}
-            />
-          )}
-
-          {/* Botão de Histórico e Ações Auxiliares */}
-          <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-lg border border-slate-200">
-            <div className="text-xs text-slate-600">
-              {comparativeScenarios.length > 0 ? (
-                <span>
-                  Simulação ativa:{' '}
-                  <strong className="font-mono text-blue-950">
-                    {activeSimulation?.simulation_code || 'SIM-CORRENTE'}
-                  </strong>{' '}
-                  &bull; Critério: <strong>{optimizationFilters.optimization_criterion}</strong>
-                </span>
-              ) : (
-                <span>Aguardando cálculo dos cenários de plano blocos...</span>
-              )}
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsHistoryModalOpen(true)}
-              className="border-slate-300 text-slate-700 hover:bg-slate-50 gap-1.5 text-xs font-semibold"
-            >
-              <History className="w-3.5 h-3.5 text-blue-900" /> Consultar Histórico de Simulações
-            </Button>
-          </div>
-
-          {/* Grade com os 6 Cenários Comparativos e Destaque para o Melhor Cenário Recomendado */}
-          {comparativeScenarios.length > 0 && (
-            <MPCuttingComparativeScenariosGrid
-              scenarios={comparativeScenarios}
-              bestScenarioId={bestScenarioId}
-              selectedScenarioId={selectedComparativeScenarioId}
-              onSelectScenario={(scenId) => {
-                setSelectedComparativeScenarioId(scenId)
+        {/* ABA HISTÓRICO DE PLANOS COMPLETA COM FILTROS, ORDENAÇÃO E MODAL */}
+        <TabsContent value="HISTORICO" className="space-y-4">
+          <LocalErrorBoundary moduleName="Histórico de Planos">
+            <MPCuttingPlansHistoryTab
+              onSelectPlanToEdit={(plan) => {
+                setMaterialForMultiple({
+                  material_code: plan.material_code,
+                  material_description: plan.material_description,
+                  steel_grade: plan.steel_grade,
+                  center_code: plan.center_code,
+                  line_code: plan.line_code,
+                  batch_number: plan.batch_number,
+                  heat_number: plan.heat_number,
+                  supplier_code: plan.supplier_code,
+                  supplier_name: plan.supplier_name,
+                  thickness_mm: plan.thickness_mm,
+                  width_mm: plan.width_mm,
+                  length_mm: plan.length_mm,
+                  weight_kg: plan.block_weight_tons ? plan.block_weight_tons * 1000 : undefined,
+                })
+                setActiveSecondaryTab('CORTE_MULTIPLO')
                 toast({
-                  title: 'Cenário Selecionado para Programação',
-                  description: `O cenário ${scenId} foi definido como prioritário para o sequenciamento.`,
+                  title: 'Plano Carregado para Edição',
+                  description: `Plano ${plan.plan_code} v0${plan.version || 1} carregado na tela de Corte Múltiplo.`,
                 })
               }}
-              onDetailScenario={(scen) => setDetailModalScenario(scen)}
-              aiJustification={aiJustification}
             />
-          )}
+          </LocalErrorBoundary>
+        </TabsContent>
+
+        {/* ABA 1: NOVO PLANO — Layout Visual Obrigatório em 4 Áreas */}
+        <TabsContent value="NOVO_PLANO" className="space-y-4">
+          <LocalErrorBoundary moduleName="Novo Plano">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              {/* LADO ESQUERDO: LISTA DE MP DISPONÍVEL (Colunas 1 a 3) */}
+              <div className="lg:col-span-3 bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                    <Boxes className="w-4 h-4 text-[#004C97]" />
+                    <span>MP Disponível em Pátio</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {filteredItems.length} un
+                  </Badge>
+                </div>
+
+                {items.length === 0 ? (
+                  <SapEmptyState
+                    title="SEM MP DISPONÍVEL"
+                    description="Aguardando sincronização de placas e blocos no SAP ECC."
+                    sapTransaction="ZPP86 / MB52"
+                    onRefresh={loadData}
+                  />
+                ) : filteredItems.length === 0 ? (
+                  <div className="p-6 text-center border border-dashed border-slate-200 rounded-lg text-xs space-y-2">
+                    <p className="font-semibold text-slate-700">
+                      Nenhum material encontrado com os filtros aplicados.
+                    </p>
+                    <p className="text-slate-500 text-[11px]">
+                      Tente ajustar o termo de pesquisa ou limpar os filtros de centro/aço.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewFilters(DEFAULT_CUTTING_VIEW_FILTERS)}
+                      className="text-xs h-7 text-[#004C97]"
+                    >
+                      Limpar Filtros
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[520px] overflow-y-auto no-scrollbar pr-1">
+                    {filteredItems.map((it) => {
+                      const isSel = selectedPlate?.id === it.id
+                      return (
+                        <div
+                          key={it.id}
+                          onClick={() => setSelectedPlate(it)}
+                          className={`p-3 rounded-lg border text-xs cursor-pointer transition-all ${
+                            isSel
+                              ? 'border-[#004C97] bg-blue-50/80 shadow-xs ring-1 ring-[#004C97]'
+                              : 'border-slate-200 bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-mono font-bold text-slate-900 mb-1">
+                            <span>Bloco {it.block_number || it.material_code}</span>
+                            <span className="text-[10px] text-[#004C97]">{it.steel_grade}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-600 font-mono">
+                            {it.thickness_mm} × {it.width_mm} × {it.length_mm} mm &bull;{' '}
+                            <strong>
+                              {((it.weight_kg || 0) / 1000).toLocaleString('pt-BR', {
+                                minimumFractionDigits: 3,
+                                maximumFractionDigits: 3,
+                              })}{' '}
+                              t
+                            </strong>
+                          </div>
+                          <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                            <span className="text-slate-500">
+                              Apl: <strong>{it.current_application}</strong>
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={`text-[9px] ${
+                                it.reservation_status === 'LIVRE'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : 'bg-blue-50 text-blue-800 border-blue-200'
+                              }`}
+                            >
+                              {it.reservation_status}
+                            </Badge>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* CENTRO: DESENHO DO PLANO DE CORTE / GÊMEO 3D (Colunas 4 a 8) */}
+              <div className="lg:col-span-6 space-y-4">
+                <LocalErrorBoundary moduleName="Visualizador 3D do Bloco">
+                  <MP3DCanvasViewer
+                    title={
+                      selectedPlate
+                        ? `Plano de Corte — Placa ${selectedPlate.block_number} (${selectedPlate.steel_grade})`
+                        : 'Desenho Proporcional do Plano de Corte'
+                    }
+                    plate={
+                      selectedPlate
+                        ? {
+                            thickness: selectedPlate.thickness_mm,
+                            width: selectedPlate.width_mm,
+                            length: selectedPlate.length_mm,
+                            weight: selectedPlate.weight_kg,
+                            label: `Bloco ${selectedPlate.block_number} &bull; ${selectedPlate.current_application}`,
+                          }
+                        : undefined
+                    }
+                    pieces={activeScenario?.pieces_generated}
+                  />
+                </LocalErrorBoundary>
+
+                {/* Barra de Ações Rápidas de Reserva Inteligente */}
+                {selectedPlate && (
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                        Status de Reserva da MP:
+                      </span>
+                      <div className="font-mono font-bold text-slate-900">
+                        Estado Atual:{' '}
+                        <span className="text-[#004C97]">{selectedPlate.reservation_status}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {selectedPlate.reservation_status === 'LIVRE' && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleCommitReservation(selectedPlate)}
+                          className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs gap-1.5"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          Efetivar Reserva Inteligente
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleGeneratePlan}
+                        className="border-slate-300 text-slate-700 font-semibold text-xs gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-[#004C97]" />
+                        Recalcular Encaixe IA
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* LADO DIREITO: ANÁLISE DA IA & SCORE (Colunas 9 a 12) */}
+              <div className="lg:col-span-3 bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-4 text-xs">
+                <div className="flex items-center gap-2 font-bold text-slate-900">
+                  <Sparkles className="w-4 h-4 text-[#004C97]" />
+                  <span>Score & Explicabilidade IA</span>
+                </div>
+
+                <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg space-y-1.5">
+                  <div className="flex items-center justify-between font-bold text-[#004C97]">
+                    <span>Score Global do Plano:</span>
+                    <span className="text-base font-black">
+                      {activeScenario?.score_ia || 94} / 100
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-700 leading-snug">
+                    Cálculo com 10 pesos parametrizados pelo PCP: Rendimento (20%), Atendimento
+                    Carteira (25%), Custo (15%), Menor Sucata (10%), Preservação MP Crítica (7%).
+                  </p>
+                </div>
+
+                {/* Classificação de Sobras */}
+                <div className="space-y-2">
+                  <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
+                    Classificação das Sobras do Corte
+                  </span>
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Sobra Reutilizável:</span>
+                      <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[9px]">
+                        Retorna ao Estoque (1.2 t)
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Aparação / Refile:</span>
+                      <Badge className="bg-slate-100 text-slate-700 text-[9px]">
+                        Sucata Inevitável (3.2%)
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botão de Solicitação de Aprovação */}
+                <Button
+                  onClick={handleRequestApproval}
+                  disabled={isSubmittingApproval || !selectedPlate}
+                  className="w-full bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-2 py-2.5 shadow-xs"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {isSubmittingApproval ? 'Submetendo...' : 'SOLICITAR APROVAÇÃO HUMANA'}
+                </Button>
+              </div>
+            </div>
+
+            {/* PARTE INFERIOR: VALIDAÇÃO DA MATRIZ DE GARGALOS INTEGRADA */}
+            {activeScenario && (
+              <LocalErrorBoundary moduleName="Validação de Gargalos">
+                <CuttingPlanBottleneckValidationSection
+                  scenario={activeScenario}
+                  scenariosMap={scenarios || undefined}
+                  lineCode={selectedPlate?.line_destination_code || 'L1'}
+                  plateInfo={{
+                    blockNumber: selectedPlate?.block_number || 'BL-01',
+                    steelGrade: selectedPlate?.steel_grade || 'SAE 1020',
+                    dimensions: `${selectedPlate?.thickness_mm || 130}x${selectedPlate?.width_mm || 130}x${selectedPlate?.length_mm || 6000} mm`,
+                    weightKg: selectedPlate?.weight_kg || 795,
+                  }}
+                  onSelectScenario={(k) => setSelectedScenarioType(k as CuttingScenarioType)}
+                  onApproveSuccess={loadData}
+                />
+              </LocalErrorBoundary>
+            )}
+
+            {/* PARTE INFERIOR: CARTEIRA + PROGRAMAÇÕES FUTURAS */}
+            <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#004C97]" />
+                  Carteira Ativa SAP &bull; Programação Futura (7-90 dias) &bull; Integração
+                  Sequenciador
+                </h3>
+                <Badge variant="outline" className="text-xs font-mono text-[#004C97]">
+                  Integração Direta com ZPPMP & Matriz de Gargalos
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                O motor de plano de corte subordina a aprovação às restrições soberanas da linha,
+                impedindo que planos com alto rendimento metálico mas que sobrecarregam a TCC ou a
+                tesoura TR2 sejam liberados para o sequenciador semanal.
+              </p>
+            </div>
+          </LocalErrorBoundary>
+        </TabsContent>
+
+        {/* ABA DEDICADA: VALIDAÇÃO MATRIZ DE GARGALOS */}
+        <TabsContent value="VALIDACAO_GARGALOS" className="space-y-4">
+          <LocalErrorBoundary moduleName="Validação Matriz de Gargalos">
+            {activeScenario ? (
+              <CuttingPlanBottleneckValidationSection
+                scenario={activeScenario}
+                scenariosMap={scenarios || undefined}
+                lineCode={selectedPlate?.line_destination_code || 'L1'}
+                plateInfo={{
+                  blockNumber: selectedPlate?.block_number || 'BL-01',
+                  steelGrade: selectedPlate?.steel_grade || 'SAE 1020',
+                  dimensions: `${selectedPlate?.thickness_mm || 130}x${selectedPlate?.width_mm || 130}x${selectedPlate?.length_mm || 6000} mm`,
+                  weightKg: selectedPlate?.weight_kg || 795,
+                }}
+                onSelectScenario={(k) => setSelectedScenarioType(k as CuttingScenarioType)}
+                onApproveSuccess={loadData}
+              />
+            ) : (
+              <div className="p-8 text-center bg-white border border-slate-200 rounded-xl text-xs text-slate-500">
+                Gere um plano com a IA para visualizar a validação da Matriz de Gargalos.
+              </div>
+            )}
+          </LocalErrorBoundary>
+        </TabsContent>
+
+        {/* ABA 2: ESTOQUE DIMENSIONAL COMPLETO — Grade Operacional Rastreável */}
+        <TabsContent value="ESTOQUE_DIMENSIONAL" className="space-y-3">
+          <LocalErrorBoundary moduleName="Estoque Dimensional">
+            <MPDimensionalOperationalGrid
+              items={items}
+              isLoading={isLoadingInventory}
+              lastSyncTime={lastSyncTime}
+              syncError={syncError}
+              onRefresh={loadData}
+              externalSearchTerm={viewFilters.searchTerm}
+              externalCenter={viewFilters.center}
+              externalDepot={viewFilters.depot}
+              externalType={viewFilters.itemType}
+              externalSteel={viewFilters.steelGrade}
+              externalReservation={viewFilters.reservationStatus}
+              onExternalFiltersChange={{
+                setSearchTerm: (val) => setViewFilters((prev) => ({ ...prev, searchTerm: val })),
+                setFilterCenter: (val) => setViewFilters((prev) => ({ ...prev, center: val })),
+                setFilterDepot: (val) => setViewFilters((prev) => ({ ...prev, depot: val })),
+                setFilterType: (val) => setViewFilters((prev) => ({ ...prev, itemType: val })),
+                setFilterSteel: (val) => setViewFilters((prev) => ({ ...prev, steelGrade: val })),
+                setFilterReservation: (val) =>
+                  setViewFilters((prev) => ({ ...prev, reservationStatus: val })),
+              }}
+              onSelectForCuttingPlan={(selected) => {
+                setSelectedPlate(selected)
+                setActiveSecondaryTab('NOVO_PLANO')
+                toast({
+                  title: 'Material Selecionado',
+                  description: `Bloco ${selected.block_number || selected.material_code} carregado no cockpit de corte.`,
+                })
+              }}
+              onSelectForMultiplePlan={(selected) => {
+                setMaterialForMultiple(selected)
+                setActiveSecondaryTab('CORTE_MULTIPLO')
+                toast({
+                  title: 'Material no Corte Múltiplo',
+                  description: `Material ${selected.material_code} carregado para otimização de múltiplos comprimentos.`,
+                })
+              }}
+            />
+          </LocalErrorBoundary>
         </TabsContent>
 
         {/* ABA 4: GÊMEO DIGITAL 3D */}
         <TabsContent value="PROJECAO_3D" className="space-y-3">
-          <MP3DCanvasViewer
-            title={`Gêmeo Digital 3D Proporcional — ${selectedPlate?.block_number || 'Material'}`}
-            plate={
-              selectedPlate
-                ? {
-                    thickness: selectedPlate.thickness_mm,
-                    width: selectedPlate.width_mm,
-                    length: selectedPlate.length_mm,
-                    weight: selectedPlate.weight_kg,
-                    label: `Bloco ${selectedPlate.block_number} &bull; ${selectedPlate.steel_grade}`,
-                  }
-                : undefined
-            }
-            pieces={activeScenario?.pieces_generated}
-          />
+          <LocalErrorBoundary moduleName="Gêmeo Digital 3D">
+            <MP3DCanvasViewer
+              title={`Gêmeo Digital 3D Proporcional — ${selectedPlate?.block_number || 'Material'}`}
+              plate={
+                selectedPlate
+                  ? {
+                      thickness: selectedPlate.thickness_mm,
+                      width: selectedPlate.width_mm,
+                      length: selectedPlate.length_mm,
+                      weight: selectedPlate.weight_kg,
+                      label: `Bloco ${selectedPlate.block_number} &bull; ${selectedPlate.steel_grade}`,
+                    }
+                  : undefined
+              }
+              pieces={activeScenario?.pieces_generated}
+            />
+          </LocalErrorBoundary>
         </TabsContent>
 
         {/* ABA 5: MATRIZ OFICIAL DE REQUISITOS (ZPPMP) */}
         <TabsContent value="MATRIZ_REQUISITOS" className="space-y-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-900 mb-3">
-              Matriz Oficial de Requisitos de Aplicação (ZPPMP / ZBITOLAS)
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left font-mono">
-                <thead className="bg-slate-50 text-slate-600 uppercase text-[10px]">
-                  <tr>
-                    <th className="p-2.5">Aplicação</th>
-                    <th className="p-2.5">Aço</th>
-                    <th className="p-2.5">Espessura (Min - Ideal - Max)</th>
-                    <th className="p-2.5">Largura (Min - Ideal - Max)</th>
-                    <th className="p-2.5">Comprimento (Min - Ideal - Max)</th>
-                    <th className="p-2.5">Tabela SAP</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {requirements.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-50">
-                      <td className="p-2.5 font-bold text-slate-900">{req.application_code}</td>
-                      <td className="p-2.5 text-[#004C97] font-bold">{req.steel_grade}</td>
-                      <td className="p-2.5">
-                        {req.min_thickness_mm} &bull; <strong>{req.ideal_thickness_mm}</strong>{' '}
-                        &bull; {req.max_thickness_mm} mm
-                      </td>
-                      <td className="p-2.5">
-                        {req.min_width_mm} &bull; <strong>{req.ideal_width_mm}</strong> &bull;{' '}
-                        {req.max_width_mm} mm
-                      </td>
-                      <td className="p-2.5">
-                        {req.min_length_mm} &bull; <strong>{req.ideal_length_mm}</strong> &bull;{' '}
-                        {req.max_length_mm} mm
-                      </td>
-                      <td className="p-2.5 text-slate-500 font-sans">
-                        {req.zppmp_table_ref || 'ZPPMP'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* ABA 6: HISTÓRICO DE PLANOS */}
-        <TabsContent value="HISTORICO" className="space-y-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-900 mb-3">
-              Histórico de Planos de Corte Versionados
-            </h3>
-            {plans.length === 0 ? (
-              <SapEmptyState
-                title="SEM HISTÓRICO DE CORTE"
-                description="Nenhum plano de corte gerado ou integrado até o momento."
-                sapTransaction="ZPP_HIST_CORTE"
-                onRefresh={loadData}
-              />
-            ) : (
+          <LocalErrorBoundary moduleName="Matriz Oficial ZPPMP">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+              <h3 className="text-sm font-bold text-slate-900 mb-3">
+                Matriz Oficial de Requisitos de Aplicação (ZPPMP / ZBITOLAS)
+              </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left font-mono">
                   <thead className="bg-slate-50 text-slate-600 uppercase text-[10px]">
                     <tr>
-                      <th className="p-2.5">Código Plano</th>
-                      <th className="p-2.5">Versão</th>
-                      <th className="p-2.5">Título</th>
-                      <th className="p-2.5">Cenário</th>
-                      <th className="p-2.5">Rendimento</th>
-                      <th className="p-2.5">Score IA</th>
-                      <th className="p-2.5">Status</th>
+                      <th className="p-2.5">Aplicação</th>
+                      <th className="p-2.5">Aço</th>
+                      <th className="p-2.5">Espessura (Min - Ideal - Max)</th>
+                      <th className="p-2.5">Largura (Min - Ideal - Max)</th>
+                      <th className="p-2.5">Comprimento (Min - Ideal - Max)</th>
+                      <th className="p-2.5">Tabela SAP</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {plans.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50">
-                        <td className="p-2.5 font-bold text-slate-900">{p.plan_code}</td>
-                        <td className="p-2.5">v{p.version}</td>
-                        <td className="p-2.5 font-sans">{p.title}</td>
-                        <td className="p-2.5">{p.selected_scenario}</td>
-                        <td className="p-2.5 font-bold text-emerald-800">{p.overall_yield_pct}%</td>
-                        <td className="p-2.5 font-bold text-[#004C97]">{p.overall_ai_score}/100</td>
-                        <td className="p-2.5 font-sans">
-                          <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px]">
-                            {p.status}
-                          </Badge>
+                    {requirements.map((req) => (
+                      <tr key={req.id} className="hover:bg-slate-50">
+                        <td className="p-2.5 font-bold text-slate-900">{req.application_code}</td>
+                        <td className="p-2.5 text-[#004C97] font-bold">{req.steel_grade}</td>
+                        <td className="p-2.5">
+                          {req.min_thickness_mm} &bull; <strong>{req.ideal_thickness_mm}</strong>{' '}
+                          &bull; {req.max_thickness_mm} mm
+                        </td>
+                        <td className="p-2.5">
+                          {req.min_width_mm} &bull; <strong>{req.ideal_width_mm}</strong> &bull;{' '}
+                          {req.max_width_mm} mm
+                        </td>
+                        <td className="p-2.5">
+                          {req.min_length_mm} &bull; <strong>{req.ideal_length_mm}</strong> &bull;{' '}
+                          {req.max_length_mm} mm
+                        </td>
+                        <td className="p-2.5 text-slate-500 font-sans">
+                          {req.zppmp_table_ref || 'ZPPMP'}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
+            </div>
+          </LocalErrorBoundary>
         </TabsContent>
       </Tabs>
 

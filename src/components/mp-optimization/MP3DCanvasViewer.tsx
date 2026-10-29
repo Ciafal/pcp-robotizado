@@ -257,15 +257,19 @@ export const MP3DCanvasViewer: React.FC<Dimension3DProps> = ({
                 : ''}
             </span>
           </div>
-          {pieces.length > 0 && (
+          {Array.isArray(pieces) && pieces.length > 0 ? (
             <div className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-500 font-medium">
               <span className="text-emerald-700 font-bold">
-                {pieces.filter((p) => !p.is_reusable_leftover).length} peças úteis
+                {pieces.filter((p) => !p?.is_reusable_leftover).length} peças úteis
               </span>
               <span>•</span>
               <span className="text-blue-700 font-bold">
-                {pieces.filter((p) => p.is_reusable_leftover).length} sobras reutilizáveis
+                {pieces.filter((p) => p?.is_reusable_leftover).length} sobras reutilizáveis
               </span>
+            </div>
+          ) : (
+            <div className="mt-1.5 text-[10px] text-slate-400 font-medium italic">
+              Aguardando geração do plano para projeção de peças
             </div>
           )}
           {bottleneckImpact && (
@@ -331,12 +335,16 @@ export const MP3DCanvasViewer: React.FC<Dimension3DProps> = ({
               }}
               className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-300 border border-slate-400/80 rounded shadow-inner flex flex-wrap p-1 gap-1 overflow-hidden"
             >
-              {pieces.length > 0 ? (
+              {pieces && pieces.length > 0 ? (
                 pieces.map((p, idx) => {
-                  const pieceL = Math.max(20, (p.length_mm / plate.length) * plateVisualL)
-                  const pieceW = Math.max(15, (p.width_mm / plate.width) * plateVisualW)
+                  const safePlateL = plate?.length || 1
+                  const safePlateW = plate?.width || 1
+                  const pieceL = Math.max(20, ((p?.length_mm || 0) / safePlateL) * plateVisualL)
+                  const pieceW = Math.max(15, ((p?.width_mm || 0) / safePlateW) * plateVisualW)
 
-                  const isLeftover = p.is_reusable_leftover || p.status === 'SOBRA_REUTILIZAVEL'
+                  const isLeftover = Boolean(
+                    p?.is_reusable_leftover || p?.status === 'SOBRA_REUTILIZAVEL',
+                  )
 
                   return (
                     <div
