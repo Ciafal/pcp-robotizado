@@ -56,8 +56,10 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { ResponsiveHorizontalNav } from '@/components/common/ResponsiveHorizontalNav'
+import { LocalErrorBoundary } from '@/components/common/LocalErrorBoundary'
 import { MPDimensionalOperationalGrid } from '@/components/mp-optimization/MPDimensionalOperationalGrid'
 import { MPMultipleCuttingPlanSection } from '@/components/mp-optimization/MPMultipleCuttingPlanSection'
+import { MPCuttingPlansHistoryTab } from '@/components/mp-optimization/MPCuttingPlansHistoryTab'
 import {
   MPCuttingPlansFilterBar,
   MPCuttingViewFilters,

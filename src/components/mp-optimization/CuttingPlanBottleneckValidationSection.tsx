@@ -95,7 +95,12 @@ export const CuttingPlanBottleneckValidationSection: React.FC<
         test_quantity_tons: 25.0,
         estimated_test_hours: 1.2,
         expected_throughput_gain_pct: (impact?.throughput_delta_th || 0) > 0 ? 8.5 : 0,
-        technical_risks: impact?.ai_choice_reasoning?.operational_risks || [],
+        technical_risks:
+          typeof impact?.ai_choice_reasoning?.operational_risks === 'string'
+            ? impact.ai_choice_reasoning.operational_risks
+            : Array.isArray(impact?.ai_choice_reasoning?.operational_risks)
+              ? (impact.ai_choice_reasoning.operational_risks as any[]).filter(Boolean).join('; ')
+              : 'Risco operacional padrão avaliado pela IA',
         justification: `Plano com alta eficiência dimensional (${scenario?.yield_pct || 0}%), porém com ressalva na Matriz de Gargalos.`,
         status: 'SOLICITADO',
         requester_name: 'PCP Robotizado CIAFAL',
@@ -281,27 +286,27 @@ export const CuttingPlanBottleneckValidationSection: React.FC<
             </div>
             <div className="space-y-1 text-[11px] font-mono">
               <div className="flex justify-between">
-                <span className="text-slate-600">Rendimento MP ({scenario.yield_pct}%):</span>
+                <span className="text-slate-600">Rendimento MP ({scenario?.yield_pct || 0}%):</span>
                 <span className="font-bold text-slate-800">
-                  +{impact.score_components?.yield_component?.contribution ?? 0} pts
+                  +{impact?.score_components?.yield_component?.contribution ?? 0} pts
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Throughput da Linha:</span>
                 <span className="font-bold text-slate-800">
-                  +{impact.score_components?.throughput_component?.contribution ?? 0} pts
+                  +{impact?.score_components?.throughput_component?.contribution ?? 0} pts
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Segurança Leito TCC:</span>
                 <span className="font-bold text-slate-800">
-                  +{impact.score_components?.tcc_safety_margin?.contribution ?? 0} pts
+                  +{impact?.score_components?.tcc_safety_margin?.contribution ?? 0} pts
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Atendimento à Carteira:</span>
                 <span className="font-bold text-slate-800">
-                  +{impact.score_components?.demand_fulfillment?.contribution ?? 0} pts
+                  +{impact?.score_components?.demand_fulfillment?.contribution ?? 0} pts
                 </span>
               </div>{' '}
             </div>
@@ -326,14 +331,14 @@ export const CuttingPlanBottleneckValidationSection: React.FC<
             <Badge variant="outline" className="text-xs text-emerald-800 border-emerald-300">
               {validations.filter((v) => v?.status === 'APPROVED').length} Aprovadas
             </Badge>
-            {(impact.hard_constraints_violated_count || 0) > 0 && (
+            {(impact?.hard_constraints_violated_count || 0) > 0 && (
               <Badge className="bg-rose-600 text-white text-xs font-bold">
-                {impact.hard_constraints_violated_count} Hard Violada
+                {impact?.hard_constraints_violated_count} Hard Violada
               </Badge>
             )}
-            {(impact.soft_constraints_warning_count || 0) > 0 && (
+            {(impact?.soft_constraints_warning_count || 0) > 0 && (
               <Badge className="bg-amber-500 text-white text-xs font-bold">
-                {impact.soft_constraints_warning_count} Ressalvas
+                {impact?.soft_constraints_warning_count} Ressalvas
               </Badge>
             )}
           </div>
@@ -569,7 +574,7 @@ export const CuttingPlanBottleneckValidationSection: React.FC<
                 Justificativa Operacional do Teste:
               </label>
               <textarea
-                value={`Solicitamos teste assistido para avaliar a estabilidade do leito TCC sob cadência de ${impact.throughput_after_th} t/h com barras de 68m.`}
+                value={`Solicitamos teste assistido para avaliar a estabilidade do leito TCC sob cadência de ${impact?.throughput_after_th || 25} t/h com barras de 68m.`}
                 readOnly
                 className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 h-16 resize-none"
               />
