@@ -37,6 +37,7 @@ interface OperationalTimelineGridProps {
   weekNumber?: number
   singleDayKey?: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
   targetDateStr?: string
+  isLoading?: boolean
   onSelectItem?: (item: WeeklyScheduleItem) => void
   onMoveItem?: (
     fromIndex: number,
@@ -134,6 +135,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   weekNumber = getCurrentPlantIsoWeek().week,
   singleDayKey,
   targetDateStr,
+  isLoading = false,
   onSelectItem,
   onEditItem,
   onMoveItem,
@@ -145,6 +147,32 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   documentImpactsByItem = {},
 }) => {
   const isWeekPast = isWeekInPast(year, weekNumber)
+
+  // Densidade visual (compacta vs confortável) com persistência em localStorage
+  const [density, setDensity] = useState<'compact' | 'comfortable'>(() => {
+    try {
+      const saved = localStorage.getItem('pcp_timeline_grid_density')
+      return saved === 'comfortable' ? 'comfortable' : 'compact'
+    } catch {
+      return 'compact'
+    }
+  })
+
+  const toggleDensity = () => {
+    const next = density === 'compact' ? 'comfortable' : 'compact'
+    setDensity(next)
+    try {
+      localStorage.setItem('pcp_timeline_grid_density', next)
+    } catch {
+      // noop
+    }
+  }
+
+  // Hover de linha de sequência para destacar linha inteira
+  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null)
+
+  // Flash visual no cartão solto recentemente para confirmação de drop bem-sucedido
+  const [lastDroppedItemId, setLastDroppedItemId] = useState<string | null>(null)
   const isItemInPast = (item: WeeklyScheduleItem): boolean => {
     return isScheduleItemInPast(item, year, weekNumber)
   }
@@ -369,8 +397,13 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
       setDragValidationMsg(null)
       return
     }
+    const movedItem = items[fromIndex]
     if (!isNaN(fromIndex) && fromIndex !== targetGlobalIndex && onMoveItem) {
       onMoveItem(fromIndex, targetGlobalIndex)
+      if (movedItem?.id) {
+        setLastDroppedItemId(movedItem.id)
+        setTimeout(() => setLastDroppedItemId(null), 1800)
+      }
     }
     setDraggedIdx(null)
     setDragOverIdx(null)
@@ -477,6 +510,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
       return
     }
 
+    const movedItem = items[fromIndex]
     onMoveItem(fromIndex, toIndex, {
       day_of_week: targetDay,
       date_str: targetDateStr,
@@ -485,27 +519,123 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
       crew_name: (matchedShift as any)?.crew_name || 'Turma A',
     })
 
+    if (movedItem?.id) {
+      setLastDroppedItemId(movedItem.id)
+      setTimeout(() => setLastDroppedItemId(null), 1800)
+    }
+
     setDraggedIdx(null)
     setDragOverIdx(null)
     setDragValidationMsg(null)
   }
 
+  if (isLoading) {
+    return (
+      <div className="w-full bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden flex flex-col p-4 space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div className="h-5 w-48 bg-slate-200 rounded animate-pulse" />
+          <div className="h-5 w-32 bg-slate-200 rounded animate-pulse" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="h-10 w-20 bg-slate-200 rounded shrink-0 animate-pulse" />
+              <div className="h-10 w-16 bg-slate-200 rounded shrink-0 animate-pulse" />
+              <div className="h-10 w-14 bg-slate-200 rounded shrink-0 animate-pulse" />
+              <div className="h-10 flex-1 bg-slate-100 rounded animate-pulse flex items-center px-4">
+                <div
+                  className="h-6 bg-slate-300 rounded"
+                  style={{ width: `${30 + (i % 3) * 20}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="w-full bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden flex flex-col">
-        {/* CONTÊINER ÚNICO DE ROLAGEM HORIZONTAL PARA GARANTIR ALINHAMENTO E ELIMINAR BARRAS DE ROLAGEM ESPÚRIAS */}
-        <div className="w-full overflow-x-auto no-scrollbar">
+        {/* BARRA SUPERIOR DE UTILITÁRIOS DA GRADE: DENSIDADE + STATUS DO DRAG & DROP */}
+        <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-700">Densidade da Grade:</span>
+            <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setDensity('compact')
+                  try {
+                    localStorage.setItem('pcp_timeline_grid_density', 'compact')
+                  } catch {
+                    // noop
+                  }
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                  density === 'compact'
+                    ? 'bg-[#004C97] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Compacta
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDensity('comfortable')
+                  try {
+                    localStorage.setItem('pcp_timeline_grid_density', 'comfortable')
+                  } catch {
+                    // noop
+                  }
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                  density === 'comfortable'
+                    ? 'bg-[#004C97] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Confortável
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px]">
+            {dragValidationMsg && (
+              <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-medium flex items-center gap-1 animate-pulse">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                {dragValidationMsg}
+              </span>
+            )}
+            {draggedIdx !== null && !dragValidationMsg && (
+              <span className="text-[#004C97] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
+                <ArrowRight className="w-3.5 h-3.5 shrink-0 animate-pulse" />
+                Arraste sobre uma linha ou cabeçalho de dia para reposicionar
+              </span>
+            )}
+            {lastDroppedItemId && (
+              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-semibold flex items-center gap-1 animate-fade-in">
+                ✓ Sequência atualizada com sucesso
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* CONTÊINER ÚNICO DE ROLAGEM HORIZONTAL E VERTICAL PARA GARANTIR ALINHAMENTO E ELIMINAR BARRAS DE ROLAGEM ESPÚRIAS */}
+        <div className="w-full max-h-[75vh] overflow-x-auto overflow-y-auto no-scrollbar relative">
           <div className="min-w-[980px] flex flex-col">
             {/* CABEÇALHO HORIZONTAL DA GRADE (COLUNAS COMPACTAS STICKY: DIA | TURNO | SEQ. | TIMELINE) */}
-            <div className="flex border-b border-slate-200 bg-slate-100 sticky top-0 z-30 text-[11px] font-bold text-slate-700">
+            <div className="flex border-b border-slate-200 bg-slate-100 sticky top-0 z-30 text-[11px] font-bold text-slate-700 shadow-xs">
               {/* Colunas Fixas Compactas Congeladas à Esquerda */}
-              <div className="w-[80px] shrink-0 px-2 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold sticky left-0 z-30 shadow-xs">
+              <div className="w-[80px] shrink-0 px-2 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold sticky left-0 z-40 shadow-xs">
                 DIA
               </div>
-              <div className="w-[70px] shrink-0 px-2 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold sticky left-[80px] z-30 shadow-xs">
+              <div className="w-[70px] shrink-0 px-2 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold sticky left-[80px] z-40 shadow-xs">
                 TURNO
               </div>
-              <div className="w-[60px] shrink-0 px-1.5 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold sticky left-[150px] z-30 shadow-xs">
+              <div className="w-[60px] shrink-0 px-1.5 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold sticky left-[150px] z-40 shadow-xs">
                 SEQ.
               </div>
 
@@ -531,7 +661,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                         }}
                         className="absolute top-0 bottom-0 flex items-center px-2 py-1.5 font-bold select-none"
                       >
-                        <span className="bg-slate-200/60 px-1.5 py-0.5 rounded border border-slate-300/60">
+                        <span className="bg-slate-200/70 px-1.5 py-0.5 rounded border border-slate-300 text-slate-800">
                           {hr}
                         </span>
                       </div>
@@ -705,7 +835,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                   className="flex items-stretch border-b border-slate-200 last:border-b-0"
                                 >
                                   {/* Coluna Fixa 1: DIA/DATA COMPACTA FUNDIDA (Sticky left-0, rowspan visual vertical) */}
-                                  <div className="w-[80px] shrink-0 px-2 py-2 border-r border-slate-200 text-xs font-semibold text-slate-700 flex flex-col justify-center items-center text-center sticky left-0 z-20 bg-white">
+                                  <div className="w-[80px] shrink-0 px-2 py-2 border-r border-slate-200 text-xs font-semibold text-slate-700 flex flex-col justify-center items-center text-center sticky left-0 z-20 bg-white shadow-xs">
                                     <span className="font-black text-slate-900 text-[11px]">
                                       {dayObj.label}
                                     </span>
@@ -717,7 +847,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                   {/* Coluna Fixa 2: TURNO COMPACTO FUNDIDO (T1, T2...) (Sticky left-[80px], rowspan visual vertical) */}
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <div className="w-[70px] shrink-0 px-2 py-2 border-r border-slate-200 text-xs flex items-center justify-center text-center sticky left-[80px] z-20 bg-white cursor-help">
+                                      <div className="w-[70px] shrink-0 px-2 py-2 border-r border-slate-200 text-xs flex items-center justify-center text-center sticky left-[80px] z-20 bg-white cursor-help shadow-xs">
                                         <span className="font-black text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[11px]">
                                           {WeeklyScheduleEngine.formatShiftCodeOnly(
                                             grp.shiftName,
@@ -775,42 +905,49 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                         endStr,
                                       )
 
+                                      const rowKey = `${item.id || originalIndex}-part-${segmentPartIndex}`
+                                      const isHovered = hoveredRowKey === rowKey
+                                      const isRecentlyDropped = lastDroppedItemId === item.id
+                                      const isDragTarget = dragOverIdx === originalIndex
+
                                       return (
                                         <div
-                                          key={`${item.id || originalIndex}-part-${segmentPartIndex}`}
+                                          key={rowKey}
                                           draggable={!isLockedExternally}
                                           onDragStart={(e) =>
                                             !isLockedExternally && handleDragStart(e, originalIndex)
                                           }
                                           onDragOver={(e) => handleDragOver(e, originalIndex)}
-                                          onDrop={(e) => {
-                                            e.preventDefault()
-                                            const fromIndex =
-                                              draggedIdx !== null
-                                                ? draggedIdx
-                                                : Number(e.dataTransfer.getData('text/plain'))
-                                            if (!isNaN(fromIndex) && onMoveItem) {
-                                              onMoveItem(fromIndex, originalIndex, {
-                                                day_of_week: item.day_of_week || dayObj.key,
-                                                date_str: item.date_str || dayObj.date,
-                                                shift_code: item.shift_code,
-                                                shift_name: item.shift_name,
-                                                crew_name: item.crew_name,
-                                              })
-                                            }
-                                            setDraggedIdx(null)
-                                            setDragOverIdx(null)
-                                            setDragValidationMsg(null)
-                                          }}
+                                          onDrop={(e) => handleDrop(e, originalIndex)}
+                                          onMouseEnter={() => setHoveredRowKey(rowKey)}
+                                          onMouseLeave={() => setHoveredRowKey(null)}
                                           onClick={() => onSelectItem && onSelectItem(item)}
-                                          className={`flex min-h-[44px] transition-colors cursor-pointer group ${
-                                            dragOverIdx === originalIndex
-                                              ? 'bg-blue-50/80 border-t-2 border-blue-500'
-                                              : ''
-                                          } ${isSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50/80'}`}
+                                          className={`flex transition-all cursor-pointer group relative ${
+                                            density === 'comfortable'
+                                              ? 'min-h-[52px]'
+                                              : 'min-h-[44px]'
+                                          } ${
+                                            isDragTarget
+                                              ? 'bg-blue-100/90 border-t-2 border-blue-600 ring-2 ring-blue-400 ring-inset shadow-xs'
+                                              : isRecentlyDropped
+                                                ? 'bg-emerald-50 ring-2 ring-emerald-400 ring-inset animate-pulse'
+                                                : isHovered
+                                                  ? 'bg-blue-50/70 shadow-2xs'
+                                                  : isSelected
+                                                    ? 'bg-blue-50/50'
+                                                    : 'hover:bg-slate-50/80'
+                                          }`}
                                         >
                                           {/* Coluna Fixa 3: SEQUÊNCIA COMPACTA COM DRAG INDICATOR (Sticky left-[150px]) */}
-                                          <div className="w-[60px] shrink-0 px-1 py-1.5 border-r border-slate-200 flex items-center justify-center font-mono text-xs sticky left-[150px] z-20 bg-white group-hover:bg-slate-50">
+                                          <div
+                                            className={`w-[60px] shrink-0 px-1 py-1.5 border-r border-slate-200 flex items-center justify-center font-mono text-xs sticky left-[150px] z-20 transition-colors shadow-xs ${
+                                              isHovered
+                                                ? 'bg-blue-100/80 font-bold'
+                                                : isSelected
+                                                  ? 'bg-blue-50 font-bold'
+                                                  : 'bg-white group-hover:bg-slate-50'
+                                            }`}
+                                          >
                                             <div className="flex items-center gap-0.5">
                                               {isLockedExternally ? (
                                                 <Tooltip>
@@ -1451,12 +1588,13 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                                           !isWeekPast && (
                                                             <button
                                                               type="button"
+                                                              aria-label={`Editar item ${item.material_code}`}
                                                               title="Editar item da programação"
                                                               onClick={(e) => {
                                                                 e.stopPropagation()
                                                                 onEditItem(item)
                                                               }}
-                                                              className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
+                                                              className="min-w-[24px] min-h-[24px] p-1 flex items-center justify-center text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
                                                             >
                                                               ✏️
                                                             </button>
@@ -1466,14 +1604,15 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                                           !isWeekPast && (
                                                             <button
                                                               type="button"
+                                                              aria-label={`Excluir item ${item.material_code}`}
                                                               title="Eliminar"
                                                               onClick={(e) => {
                                                                 e.stopPropagation()
                                                                 onRemoveItem(item)
                                                               }}
-                                                              className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
+                                                              className="min-w-[24px] min-h-[24px] p-1 flex items-center justify-center text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
                                                             >
-                                                              <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
+                                                              <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-rose-600" />
                                                             </button>
                                                           )}
                                                       </>
@@ -1491,15 +1630,21 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                               </TooltipTrigger>
                                               <TooltipContent
                                                 side="top"
-                                                className="bg-slate-950 text-white text-xs p-3 max-w-md shadow-xl border border-slate-800"
+                                                className="bg-slate-950 text-white text-xs p-3.5 max-w-md shadow-xl border border-slate-800"
                                               >
-                                                <div className="border-b border-slate-800 pb-1.5 mb-2 flex items-center justify-between gap-4">
-                                                  <span className="font-black text-amber-400 text-sm">
-                                                    {item.material_code} —{' '}
-                                                    {item.material_description ||
-                                                      'Produto Laminado'}
-                                                  </span>
-                                                  <span className="font-mono text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                                <div className="border-b border-slate-800 pb-2 mb-2 flex items-center justify-between gap-4">
+                                                  <div>
+                                                    <span className="font-black text-amber-400 text-sm block">
+                                                      {item.material_code} —{' '}
+                                                      {item.material_description ||
+                                                        'Produto Laminado'}
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-300 block mt-0.5">
+                                                      Dia {dayObj.label} ({displayDate}) •{' '}
+                                                      {grp.shiftName || grp.shiftCode}
+                                                    </span>
+                                                  </div>
+                                                  <span className="font-mono text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded shrink-0">
                                                     Seq. #{item.sequence_order || originalIndex + 1}
                                                   </span>
                                                 </div>
@@ -1697,10 +1842,29 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                     </div>
                   )
                 })}
+                {/* Badges explicativos de Setup / Acerto / Falta de MP */}
+                <div className="flex items-center gap-1.5 shrink-0 border-l border-slate-300 pl-3">
+                  <span className="w-3.5 h-3.5 rounded bg-slate-700 text-white text-[8px] flex items-center justify-center font-bold">
+                    🔧
+                  </span>
+                  <span className="font-medium text-slate-800">Setup Troca</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="w-3.5 h-3.5 rounded bg-slate-300 text-slate-900 text-[8px] flex items-center justify-center font-bold">
+                    ⚙
+                  </span>
+                  <span className="font-medium text-slate-800">Acerto Bitola</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="w-3.5 h-3.5 rounded bg-rose-600 text-white text-[8px] flex items-center justify-center font-bold">
+                    !
+                  </span>
+                  <span className="font-medium text-slate-800">Falta de MP</span>
+                </div>
               </div>
 
               <div className="text-[10px] font-mono text-slate-400">
-                Arraste para mover • Recalculo automático em tempo real
+                Arraste para mover • Recálculo automático em tempo real
               </div>
             </div>
           </div>

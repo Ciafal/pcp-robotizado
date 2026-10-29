@@ -4509,6 +4509,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   weekNumber={selectedWeekNumber}
                   singleDayKey={selectedDayOfWeek}
                   targetDateStr={activeDayDateShort}
+                  isLoading={isLoadingLine}
                   documentImpactsByItem={documentImpactsByItem}
                   onSelectItem={(item) => setSelectedScheduleItem(item)}
                   onEditItem={handleOpenEditItem}
@@ -4671,6 +4672,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 selectedItemId={selectedScheduleItem?.id}
                 year={selectedYear}
                 weekNumber={selectedWeekNumber}
+                isLoading={isLoadingLine}
                 documentImpactsByItem={documentImpactsByItem}
                 onSelectItem={(item) => setSelectedScheduleItem(item)}
                 onEditItem={handleOpenEditItem}
