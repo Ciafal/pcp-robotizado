@@ -336,4 +336,12 @@ export const mpOptimizationService = {
     }
     return await pb.collection('mp_optimization_parameters').create<MPOptimizationParameters>(data)
   },
+
+  // 13. Acesso direto unificado ao serviço de planos de corte múltiplos
+  async getNextCuttingPlanCode(
+    prefixOrType: 'PCM' | 'PCB' | 'multiplo' | 'blocos' = 'PCM',
+  ): Promise<string> {
+    const { mpMultipleCuttingPlansService } = await import('./mp-dimensional-notes-service')
+    return await mpMultipleCuttingPlansService.generateSequentialCode(prefixOrType)
+  },
 }

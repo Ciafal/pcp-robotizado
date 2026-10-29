@@ -102,44 +102,54 @@ export interface SavePlanResult {
   plan_code: string
 }
 
+// Trava em memória para idempotência contra duplo clique simultâneo
+let isMultipleCuttingPlanInFlight = false
+
 export const mpMultipleCuttingPlansService = {
   /**
-   * Reserva e gera o próximo código sequencial no formato PCM-YYYY-XXXXX ou PCB-YYYY-XXXXX
-   * Garante unicidade e concorrência com retries automáticos.
+   * Obtém o próximo código atômico diretamente do endpoint seguro POST /backend/v1/pcp/cutting-plans/next-code.
+   * Se o endpoint falhar, propaga o erro de forma explícita — proibido gerar código por timestamp.
    */
-  async generateSequentialCode(prefix: 'PCM' | 'PCB' = 'PCM'): Promise<string> {
+  async generateSequentialCode(
+    prefixOrType: 'PCM' | 'PCB' | 'multiplo' | 'blocos' = 'PCM',
+  ): Promise<string> {
+    const rawType = String(prefixOrType || 'multiplo').toLowerCase()
+    const isBlocos = rawType === 'pcb' || rawType === 'blocos'
+    const planTypeNormalized = isBlocos ? 'blocos' : 'multiplo'
+    const prefix = isBlocos ? 'PCB' : 'PCM'
     const year = new Date().getFullYear()
 
-    // 1. Tenta prioritariamente via endpoint oficial atômico no servidor
     try {
       const serverRes = await pb.send<{
         success: boolean
         plan_code: string
+        error?: string
       }>('/backend/v1/pcp/cutting-plans/next-code', {
         method: 'POST',
-        body: { prefix, year },
+        body: {
+          plan_type: planTypeNormalized,
+          prefix,
+          year,
+        },
       })
+
       if (serverRes?.success && serverRes.plan_code) {
         return serverRes.plan_code
       }
-    } catch (endpointErr) {
-      console.warn(
-        '[mpMultipleCuttingPlansService] Endpoint de código retornou erro, aplicando transação via SDK:',
+      throw new Error(serverRes?.error || 'Endpoint de numeração retornou resposta inválida.')
+    } catch (endpointErr: any) {
+      console.error(
+        '[mpMultipleCuttingPlansService] Erro ao chamar endpoint /backend/v1/pcp/cutting-plans/next-code:',
         endpointErr,
       )
-    }
-
-    // 2. Fallback transacional com retries no SDK
-    const maxRetries = 10
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      // Tenta fallback atômico via tabela mp_cutting_plan_sequences
       try {
         const filterStr = `prefix = '${prefix}' && year = ${year}`
         const existingList = await pb
           .collection('mp_cutting_plan_sequences')
           .getList(1, 1, { filter: filterStr, sort: '-updated' })
-          .catch(() => null)
 
-        if (existingList && existingList.items.length > 0) {
+        if (existingList.items.length > 0) {
           const seqRec = existingList.items[0]
           const nextVal = (Number(seqRec.current_number) || 0) + 1
           await pb.collection('mp_cutting_plan_sequences').update(seqRec.id, {
@@ -159,22 +169,12 @@ export const mpMultipleCuttingPlansService = {
         })
         const formattedNumber = String(initialVal).padStart(5, '0')
         return `${prefix}-${year}-${formattedNumber}`
-      } catch (err: any) {
-        if (attempt < maxRetries - 1) {
-          const delay = Math.floor(Math.random() * 80) + 40
-          await new Promise((res) => setTimeout(res, delay))
-        } else {
-          const count = await pb
-            .collection('mp_multiple_cutting_plans')
-            .getList(1, 1, { filter: `plan_code ~ '${prefix}-${year}'` })
-            .then((r) => r.totalItems)
-            .catch(() => 0)
-          const fallbackNum = String(count + 1).padStart(5, '0')
-          return `${prefix}-${year}-${fallbackNum}`
-        }
+      } catch (fallbackErr: any) {
+        throw new Error(
+          `Falha ao obter código transacional do servidor (${endpointErr.message || 'Erro no endpoint'}). Gravação abortada para evitar código inconsistente.`,
+        )
       }
     }
-    return `${prefix}-${year}-00001`
   },
 
   async listPlans(filters?: string): Promise<MPMultipleCuttingPlanRecord[]> {
@@ -217,18 +217,25 @@ export const mpMultipleCuttingPlansService = {
   },
 
   /**
-   * Salva um plano novo ou cria uma nova versão imutável se já houver registro persistido (targetPlanId).
-   * Implementa collision guard e auditoria formal.
+   * Atualiza um plano existente gerando uma nova versão imutável (version + 1).
+   * Desativa a flag is_latest do anterior e grava log de auditoria no sistema central do PCP.
    */
-  async savePlan(
-    planData: MPMultipleCuttingPlanRecord,
+  async atualizarPlano(
+    targetPlanId: string,
+    planData: Partial<MPMultipleCuttingPlanRecord>,
     options?: {
-      targetPlanId?: string
       clientExpectedVersion?: number
       justification?: string
       actionUser?: string
     },
   ): Promise<SavePlanResult> {
+    if (isMultipleCuttingPlanInFlight) {
+      throw new Error(
+        'Uma operação de salvamento de plano de corte já está em andamento. Aguarde a confirmação do servidor antes de tentar novamente.',
+      )
+    }
+
+    isMultipleCuttingPlanInFlight = true
     const user = pb.authStore.record
     const authorName =
       options?.actionUser ||
@@ -236,25 +243,21 @@ export const mpMultipleCuttingPlansService = {
       planData.created_by_user_name ||
       user?.name ||
       user?.email ||
-      'Engenheiro PCP'
+      'Engenharia PCP'
 
     const nowIso = new Date().toISOString()
-    const targetId = options?.targetPlanId || planData.id
 
-    // FLUXO DE ATUALIZAÇÃO / NOVA VERSÃO
-    if (targetId) {
+    try {
       const existing = await pb
         .collection('mp_multiple_cutting_plans')
-        .getOne<MPMultipleCuttingPlanRecord>(targetId)
-        .catch(() => null)
+        .getOne<MPMultipleCuttingPlanRecord>(targetPlanId)
 
       if (!existing) {
         throw new Error(
-          `Plano de corte com ID "${targetId}" não foi encontrado no banco de dados para atualização.`,
+          `Plano de corte com ID "${targetPlanId}" não foi encontrado no banco de dados para atualização.`,
         )
       }
 
-      // Collision guard: verifica se a versão do cliente coincide com a do registro atual
       const currentDbVersion = existing.version || 1
       if (
         options?.clientExpectedVersion !== undefined &&
@@ -265,15 +268,14 @@ export const mpMultipleCuttingPlansService = {
         )
       }
 
-      // Marcar registro anterior como is_latest = false
+      // 1. Marca versão anterior como is_latest = false
       await pb.collection('mp_multiple_cutting_plans').update(existing.id!, {
         is_latest: false,
       })
 
       const newVersion = currentDbVersion + 1
-      const planCode = existing.plan_code || planData.plan_code
+      const planCode = existing.plan_code || planData.plan_code || ''
 
-      // Monta histórico de auditoria com diff
       const priorAudit = Array.isArray(existing.audit_history_json)
         ? existing.audit_history_json
         : []
@@ -296,12 +298,15 @@ export const mpMultipleCuttingPlansService = {
 
       const updatedAudit = [auditEntry, ...priorAudit]
 
-      const newRecordData: MPMultipleCuttingPlanRecord = {
+      const planTypeVal = (planData.plan_type || existing.plan_type || 'multiplo').toLowerCase()
+
+      const newRecordPayload: Partial<MPMultipleCuttingPlanRecord> = {
+        ...existing,
         ...planData,
-        id: undefined, // força PocketBase a criar um novo registro com novo ID
+        id: undefined, // Garante geração de novo ID
         plan_code: planCode,
         version: newVersion,
-        plan_type: planData.plan_type || 'MULTIPLO',
+        plan_type: planTypeVal,
         parent_plan_id: existing.id,
         is_latest: true,
         version_notes: options?.justification || `Revisão v0${newVersion}`,
@@ -311,11 +316,15 @@ export const mpMultipleCuttingPlansService = {
         status: existing.status === 'APROVADO' ? 'EM_REVISAO' : existing.status || 'RASCUNHO',
       }
 
+      // Limpa chaves gerenciadas pelo sistema para não enviar ao create
+      delete (newRecordPayload as any).created
+      delete (newRecordPayload as any).updated
+
       const createdVersion = await pb
         .collection('mp_multiple_cutting_plans')
-        .create<MPMultipleCuttingPlanRecord>(newRecordData)
+        .create<MPMultipleCuttingPlanRecord>(newRecordPayload)
 
-      // Registrar no módulo de Auditoria central
+      // Grava log de auditoria no módulo central
       await pcpAuditService
         .recordLog({
           event_type: 'Alteração',
@@ -332,10 +341,14 @@ export const mpMultipleCuttingPlansService = {
             plan_code: planCode,
             version: newVersion,
             parent_id: existing.id,
-            action: 'Nova versão gerada',
+            action: `Plano atualizado para Versão 0${newVersion}`,
+            yield_pct: planData.cutting_yield_pct,
+            pieces_count: planData.pieces_count,
           },
         })
-        .catch(() => null)
+        .catch((auditErr) => {
+          console.warn('[mpMultipleCuttingPlansService] Erro ao gravar log de auditoria:', auditErr)
+        })
 
       return {
         record: createdVersion,
@@ -344,71 +357,179 @@ export const mpMultipleCuttingPlansService = {
         version: newVersion,
         plan_code: planCode,
       }
+    } catch (err: any) {
+      // Registra log de erro de auditoria
+      await pcpAuditService
+        .recordLog({
+          event_type: 'Alteração',
+          action: 'ERRO_ATUALIZAR_PLANO_CORTE',
+          module: 'Gestão de MP',
+          screen: 'Planos de Corte',
+          entity: 'mp_multiple_cutting_plans',
+          record_id: targetPlanId,
+          user_name: authorName,
+          status: 'Falha',
+          outcome: 'ERROR',
+          source: 'Sistema',
+          details: {
+            target_id: targetPlanId,
+            error: err.message,
+          },
+        })
+        .catch(() => null)
+
+      throw err
+    } finally {
+      isMultipleCuttingPlanInFlight = false
+    }
+  },
+
+  /**
+   * Salva um plano novo ou cria uma nova versão imutável se já houver registro persistido (targetPlanId).
+   * Implementa collision guard, trava in-flight de duplo clique e auditoria formal.
+   */
+  async savePlan(
+    planData: MPMultipleCuttingPlanRecord,
+    options?: {
+      targetPlanId?: string
+      clientExpectedVersion?: number
+      justification?: string
+      actionUser?: string
+    },
+  ): Promise<SavePlanResult> {
+    const targetId = options?.targetPlanId || planData.id
+
+    // Rota de atualização caso haja registro alvo
+    if (targetId) {
+      return await this.atualizarPlano(targetId, planData, options)
     }
 
-    // FLUXO DE NOVO PLANO (Versão 1)
-    let planCode = planData.plan_code
-    if (!planCode || planCode.startsWith('PCM-1') || planCode.includes('Date.now')) {
-      const pfx = planData.plan_type === 'BLOCOS' ? 'PCB' : 'PCM'
-      planCode = await mpMultipleCuttingPlansService.generateSequentialCode(pfx)
+    if (isMultipleCuttingPlanInFlight) {
+      throw new Error(
+        'Uma operação de salvamento de plano de corte já está em andamento. Aguarde a confirmação do servidor antes de tentar novamente.',
+      )
     }
 
-    const initialAudit = [
-      {
-        event: 'CREATION',
-        version: 1,
-        action: 'Criação inicial do Plano de Corte',
-        timestamp: nowIso,
-        user: authorName,
-        yield_pct: planData.cutting_yield_pct,
-        pieces_count: planData.pieces_count,
-      },
-    ]
+    isMultipleCuttingPlanInFlight = true
+    const user = pb.authStore.record
+    const authorName =
+      options?.actionUser ||
+      planData.responsible_user_name ||
+      planData.created_by_user_name ||
+      user?.name ||
+      user?.email ||
+      'Engenharia PCP'
 
-    const newRecordPayload: MPMultipleCuttingPlanRecord = {
-      ...planData,
-      plan_code: planCode,
-      version: 1,
-      plan_type: planData.plan_type || 'MULTIPLO',
-      is_latest: true,
-      parent_plan_id: '',
-      version_notes: 'Criação inicial v01',
-      responsible_user_name: authorName,
-      created_by_user_name: authorName,
-      audit_history_json: initialAudit,
-      status: planData.status || 'RASCUNHO',
-    }
+    const nowIso = new Date().toISOString()
 
-    const createdRecord = await pb
-      .collection('mp_multiple_cutting_plans')
-      .create<MPMultipleCuttingPlanRecord>(newRecordPayload)
+    try {
+      // 1. OBTENÇÃO OBRIGATÓRIA DO CÓDIGO TRANSACIONAL VIA ENDPOINT ATÔMICO
+      const rawType = (planData.plan_type || 'multiplo').toLowerCase()
+      const isBlocos = rawType === 'blocos' || rawType === 'pcb'
+      const planType = isBlocos ? 'blocos' : 'multiplo'
+      const prefix = isBlocos ? 'PCB' : 'PCM'
 
-    // Log de auditoria
-    await pcpAuditService
-      .recordLog({
-        event_type: 'Criação',
-        action: 'CRIAR_PLANO_CORTE',
-        module: 'Gestão de MP',
-        screen: 'Planos de Corte',
-        entity: 'mp_multiple_cutting_plans',
-        record_id: createdRecord.id,
-        user_name: authorName,
-        status: 'Concluída',
-        outcome: 'SUCCESS',
-        source: 'Usuário',
-        details: {
-          plan_code: planCode,
+      const allocatedSequentialCode = await this.generateSequentialCode(prefix)
+
+      if (
+        !allocatedSequentialCode ||
+        allocatedSequentialCode.startsWith('PCM-1') ||
+        allocatedSequentialCode.length < 10
+      ) {
+        throw new Error(
+          `Código gerado "${allocatedSequentialCode}" é inválido. A gravação foi abortada.`,
+        )
+      }
+
+      const initialAudit = [
+        {
+          event: 'CREATION',
           version: 1,
-          action: 'Plano criado com sucesso',
+          action: 'Criação inicial do Plano de Corte',
+          timestamp: nowIso,
+          user: authorName,
+          yield_pct: planData.cutting_yield_pct,
+          pieces_count: planData.pieces_count,
         },
-      })
-      .catch(() => null)
+      ]
 
-    return {
-      record: createdRecord,
-      isUpdate: false,
-      version: 1,
-      plan_code: planCode,
+      const newRecordPayload: Partial<MPMultipleCuttingPlanRecord> = {
+        ...planData,
+        id: undefined,
+        plan_code: allocatedSequentialCode,
+        version: 1,
+        plan_type: planType,
+        is_latest: true,
+        parent_plan_id: '',
+        version_notes: 'Criação inicial v01',
+        responsible_user_name: authorName,
+        created_by_user_name: authorName,
+        audit_history_json: initialAudit,
+        status: planData.status || 'RASCUNHO',
+      }
+
+      delete (newRecordPayload as any).created
+      delete (newRecordPayload as any).updated
+
+      const createdRecord = await pb
+        .collection('mp_multiple_cutting_plans')
+        .create<MPMultipleCuttingPlanRecord>(newRecordPayload)
+
+      // Log de auditoria no módulo central
+      await pcpAuditService
+        .recordLog({
+          event_type: 'Criação',
+          action: 'CRIAR_PLANO_CORTE',
+          module: 'Gestão de MP',
+          screen: 'Planos de Corte',
+          entity: 'mp_multiple_cutting_plans',
+          record_id: createdRecord.id,
+          user_name: authorName,
+          status: 'Concluída',
+          outcome: 'SUCCESS',
+          source: 'Usuário',
+          details: {
+            plan_code: allocatedSequentialCode,
+            version: 1,
+            action: 'Plano criado com sucesso',
+            material_code: planData.material_code,
+            pieces_count: planData.pieces_count,
+            yield_pct: planData.cutting_yield_pct,
+          },
+        })
+        .catch((auditErr) => {
+          console.warn('[mpMultipleCuttingPlansService] Erro ao gravar log de auditoria:', auditErr)
+        })
+
+      return {
+        record: createdRecord,
+        isUpdate: false,
+        version: 1,
+        plan_code: allocatedSequentialCode,
+      }
+    } catch (err: any) {
+      await pcpAuditService
+        .recordLog({
+          event_type: 'Criação',
+          action: 'ERRO_CRIAR_PLANO_CORTE',
+          module: 'Gestão de MP',
+          screen: 'Planos de Corte',
+          entity: 'mp_multiple_cutting_plans',
+          record_id: '',
+          user_name: authorName,
+          status: 'Falha',
+          outcome: 'ERROR',
+          source: 'Sistema',
+          details: {
+            error: err.message,
+            material_code: planData.material_code,
+          },
+        })
+        .catch(() => null)
+
+      throw err
+    } finally {
+      isMultipleCuttingPlanInFlight = false
     }
   },
 }

@@ -50,9 +50,11 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
   // Filtros
   const [searchTerm, setSearchTerm] = useState('')
   const [centerFilter, setCenterFilter] = useState('ALL')
+  const [lineFilter, setLineFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [typeFilter, setTypeFilter] = useState('ALL')
   const [steelGradeFilter, setSteelGradeFilter] = useState('ALL')
+  const [periodFilter, setPeriodFilter] = useState<'ALL' | '7D' | '30D' | '90D'>('ALL')
 
   // Paginação e Ordenação
   const [currentPage, setCurrentPage] = useState(1)
@@ -83,6 +85,12 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
     return Array.from(s).sort()
   }, [plans])
 
+  const availableLines = useMemo(() => {
+    const s = new Set<string>()
+    plans.forEach((p) => p.line_code && s.add(p.line_code))
+    return Array.from(s).sort()
+  }, [plans])
+
   const availableSteels = useMemo(() => {
     const s = new Set<string>()
     plans.forEach((p) => p.steel_grade && s.add(p.steel_grade))
@@ -91,11 +99,28 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
 
   // Filtragem
   const filteredPlans = useMemo(() => {
+    const now = Date.now()
     return plans.filter((p) => {
       if (centerFilter !== 'ALL' && p.center_code !== centerFilter) return false
-      if (statusFilter !== 'ALL' && (p.status || 'RASCUNHO') !== statusFilter) return false
-      if (typeFilter !== 'ALL' && (p.plan_type || 'MULTIPLO') !== typeFilter) return false
+      if (lineFilter !== 'ALL' && p.line_code !== lineFilter) return false
+      if (statusFilter !== 'ALL') {
+        const normStatus = (p.status || 'RASCUNHO').toUpperCase()
+        if (normStatus !== statusFilter) return false
+      }
+      if (typeFilter !== 'ALL') {
+        const normType = (p.plan_type || 'multiplo').toLowerCase()
+        const targetType = typeFilter.toLowerCase()
+        if (normType !== targetType) return false
+      }
       if (steelGradeFilter !== 'ALL' && p.steel_grade !== steelGradeFilter) return false
+
+      if (periodFilter !== 'ALL' && p.created) {
+        const createdMs = new Date(p.created).getTime()
+        const diffDays = (now - createdMs) / (1000 * 60 * 60 * 24)
+        if (periodFilter === '7D' && diffDays > 7) return false
+        if (periodFilter === '30D' && diffDays > 30) return false
+        if (periodFilter === '90D' && diffDays > 90) return false
+      }
 
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase()
@@ -114,7 +139,16 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
 
       return true
     })
-  }, [plans, searchTerm, centerFilter, statusFilter, typeFilter, steelGradeFilter])
+  }, [
+    plans,
+    searchTerm,
+    centerFilter,
+    lineFilter,
+    statusFilter,
+    typeFilter,
+    steelGradeFilter,
+    periodFilter,
+  ])
 
   // Ordenação
   const sortedPlans = useMemo(() => {
@@ -156,9 +190,11 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
   const handleClearFilters = () => {
     setSearchTerm('')
     setCenterFilter('ALL')
+    setLineFilter('ALL')
     setStatusFilter('ALL')
     setTypeFilter('ALL')
     setSteelGradeFilter('ALL')
+    setPeriodFilter('ALL')
     setCurrentPage(1)
   }
 
@@ -214,8 +250,10 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
 
             {(searchTerm ||
               centerFilter !== 'ALL' ||
+              lineFilter !== 'ALL' ||
               statusFilter !== 'ALL' ||
               typeFilter !== 'ALL' ||
+              periodFilter !== 'ALL' ||
               steelGradeFilter !== 'ALL') && (
               <Button
                 type="button"
@@ -232,7 +270,27 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
         </div>
 
         {/* COMBOS DE FILTRO */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-100">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1 border-t border-slate-100">
+          <div>
+            <Select
+              value={periodFilter}
+              onValueChange={(val: any) => {
+                setPeriodFilter(val)
+                setCurrentPage(1)
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-300 bg-white">
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todo Período</SelectItem>
+                <SelectItem value="7D">Últimos 7 dias</SelectItem>
+                <SelectItem value="30D">Últimos 30 dias</SelectItem>
+                <SelectItem value="90D">Últimos 90 dias</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <Select
               value={typeFilter}
@@ -246,8 +304,8 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Todos os Tipos</SelectItem>
-                <SelectItem value="MULTIPLO">Plano Múltiplo</SelectItem>
-                <SelectItem value="BLOCOS">Plano Blocos</SelectItem>
+                <SelectItem value="multiplo">Plano Múltiplo</SelectItem>
+                <SelectItem value="blocos">Plano Blocos</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -291,6 +349,28 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
                 {availableCenters.map((c) => (
                   <SelectItem key={c} value={c}>
                     Centro {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Select
+              value={lineFilter}
+              onValueChange={(val) => {
+                setLineFilter(val)
+                setCurrentPage(1)
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-300 bg-white">
+                <SelectValue placeholder="Linha" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todas as Linhas</SelectItem>
+                {availableLines.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    Linha {l}
                   </SelectItem>
                 ))}
               </SelectContent>

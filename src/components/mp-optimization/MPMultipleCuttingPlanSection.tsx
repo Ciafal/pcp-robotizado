@@ -111,11 +111,14 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
   const [isOptimizing, setIsOptimizing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [optResult, setOptResult] = useState<PieceOptimizationResult | null>(null)
+  const [calculatedParamsHash, setCalculatedParamsHash] = useState<string | null>(null)
   const [savedPlanRecord, setSavedPlanRecord] = useState<MPMultipleCuttingPlanRecord | null>(null)
   const [savedPlanCode, setSavedPlanCode] = useState<string | null>(null)
 
   // Modal de Confirmação Rico pós-salvamento
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+  const [selectedPlanForViewer, setSelectedPlanForViewer] =
+    useState<MPMultipleCuttingPlanRecord | null>(null)
   const [successModalData, setSuccessModalData] = useState<{
     code: string
     version: number
@@ -237,6 +240,23 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
 
       setOptResult(result)
       setSavedPlanCode(null)
+      // Grava hash dos parâmetros no momento do cálculo para validar se houve alteração antes de salvar
+      const currentParamsHash = JSON.stringify({
+        materialCode,
+        steelGrade,
+        blockWeightTons,
+        thicknessMm,
+        widthMm,
+        lengthMm,
+        linearMassKgM,
+        sawKerfMm,
+        squaringLossMm,
+        endCropLossMm,
+        selectedApps,
+        appPriorities,
+        appDesiredQty,
+      })
+      setCalculatedParamsHash(currentParamsHash)
 
       toast({
         title: 'Plano de Corte Múltiplo Otimizado',
@@ -255,6 +275,9 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
 
   // Validação prévia e salvamento/atualização defensivo
   const handleSavePlan = async () => {
+    // Trava de ocupado local extra contra duplo clique
+    if (isSaving) return
+
     // 1. Validação de cálculo
     if (!optResult) {
       toast({
@@ -265,7 +288,34 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
       return
     }
 
-    // 2. Validação da matéria-prima identificada
+    // 2. Validação se parâmetros mudaram após o último cálculo
+    const currentParamsHash = JSON.stringify({
+      materialCode,
+      steelGrade,
+      blockWeightTons,
+      thicknessMm,
+      widthMm,
+      lengthMm,
+      linearMassKgM,
+      sawKerfMm,
+      squaringLossMm,
+      endCropLossMm,
+      selectedApps,
+      appPriorities,
+      appDesiredQty,
+    })
+
+    if (calculatedParamsHash && calculatedParamsHash !== currentParamsHash) {
+      toast({
+        title: 'Recálculo Necessário',
+        description:
+          'Os parâmetros do bloco ou das aplicações foram alterados após o último cálculo. Clique em "Recalcular" antes de salvar.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 3. Validação da matéria-prima identificada
     if (!materialCode.trim()) {
       toast({
         title: 'Identificação Pendente',
@@ -275,7 +325,7 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
       return
     }
 
-    // 3. Validação de peso / dimensões consistentes
+    // 4. Validação de peso / dimensões consistentes
     if (blockWeightTons <= 0 || lengthMm <= 0 || linearMassKgM <= 0) {
       toast({
         title: 'Parâmetros Inválidos',
@@ -285,7 +335,17 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
       return
     }
 
-    // 4. Validação de aplicações selecionadas
+    // 5. Validação de aplicações selecionadas
+    const selectedCount = Object.values(selectedApps).filter(Boolean).length
+    if (selectedCount === 0) {
+      toast({
+        title: 'Seleção Obrigatória',
+        description: 'Selecione ao menos 1 aplicação industrial compatível antes de salvar.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     if (!optResult.allocated_items || optResult.allocated_items.length === 0) {
       toast({
         title: 'Sem Peças Alocadas',
@@ -302,9 +362,9 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
       const scrapWeightKg =
         ((optResult.scrap_mm + optResult.cut_losses_length_mm) / 1000) * linearMassKgM
       const aiScore = Math.min(100, Math.round(optResult.cutting_yield_pct * 0.95 + 5))
-      const aiJustification = `Motor de corte longitudinal aprovou plano com ${optResult.cutting_yield_pct.toFixed(2)}% de rendimento metálico, alocando ${optResult.generated_pieces_count} peças em múltiplos comprimentos com ${optResult.cuts_count} cortes de serra.`
+      const aiJustification = `Motor heurístico unificado CIAFAL aprovou plano longitudinal com rendimento metálico de ${optResult.cutting_yield_pct.toFixed(2)}%, gerando ${optResult.generated_pieces_count} peças em múltiplos com ${optResult.cuts_count} cortes de serra (kerf ${sawKerfMm}mm).`
 
-      const currentAuthor = user?.name || user?.email || 'Programador PCP'
+      const currentAuthor = user?.name || user?.email || 'Engenharia PCP'
 
       const recordToSave: MPMultipleCuttingPlanRecord = {
         plan_code: savedPlanRecord?.plan_code || '',
@@ -345,7 +405,7 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
         status: savedPlanRecord ? 'EM_REVISAO' : 'RASCUNHO',
         created_by_user_name: savedPlanRecord?.created_by_user_name || currentAuthor,
         responsible_user_name: currentAuthor,
-        plan_type: 'MULTIPLO',
+        plan_type: 'multiplo',
       }
 
       const saveResult = await mpMultipleCuttingPlansService.savePlan(recordToSave, {
@@ -967,6 +1027,23 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
           )}
 
           <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2">
+            {savedPlanRecord && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsSuccessModalOpen(false)
+                  if (savedPlanRecord) {
+                    setSelectedPlanForViewer(savedPlanRecord)
+                  }
+                }}
+                className="w-full sm:w-auto text-xs font-semibold gap-1.5 text-[#004C97] border-blue-200 hover:bg-blue-50"
+              >
+                <Eye className="w-3.5 h-3.5 text-[#004C97]" />
+                Visualizar Plano
+              </Button>
+            )}
             {onOpenHistory && (
               <Button
                 type="button"
@@ -993,6 +1070,16 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DE VISUALIZAÇÃO DIRETO APÓS SALVAMENTO */}
+      {selectedPlanForViewer && (
+        <MPCuttingPlanViewerModal
+          isOpen={Boolean(selectedPlanForViewer)}
+          onClose={() => setSelectedPlanForViewer(null)}
+          plan={selectedPlanForViewer}
+          onSelectVersion={(v) => setSelectedPlanForViewer(v)}
+        />
+      )}
     </div>
   )
 }

@@ -53,6 +53,27 @@ export const MPCuttingPlanViewerModal: React.FC<MPCuttingPlanViewerModalProps> =
   useEffect(() => {
     if (isOpen && plan?.plan_code) {
       setIsLoadingVersions(true)
+      // Grava auditoria de visualização do plano de corte
+      import('@/services/pcp-audit-service').then(({ pcpAuditService }) => {
+        pcpAuditService
+          .recordLog({
+            event_type: 'Consulta',
+            action: 'VISUALIZAR_PLANO_CORTE',
+            module: 'Gestão de MP',
+            screen: 'Planos de Corte',
+            entity: 'mp_multiple_cutting_plans',
+            record_id: plan.id,
+            status: 'Concluída',
+            outcome: 'SUCCESS',
+            source: 'Usuário',
+            details: {
+              plan_code: plan.plan_code,
+              version: plan.version || 1,
+            },
+          })
+          .catch(() => null)
+      })
+
       mpMultipleCuttingPlansService
         .getVersionsByPlanCode(plan.plan_code)
         .then((list) => {
@@ -65,7 +86,7 @@ export const MPCuttingPlanViewerModal: React.FC<MPCuttingPlanViewerModalProps> =
         })
         .finally(() => setIsLoadingVersions(false))
     }
-  }, [isOpen, plan?.plan_code, plan?.id])
+  }, [isOpen, plan?.plan_code, plan?.id, plan?.version])
 
   if (!plan) return null
 
