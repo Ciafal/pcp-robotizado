@@ -188,6 +188,10 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       setSelectedDay(targetDay || 'SEG')
       setSelectedShift(targetShiftCode || 'T1_L1')
       setUserManuallyModifiedTime(false)
+      // Garante que não haja estado inconsistente residual
+      if (!selectedMaterial) {
+        setSearchTerm('')
+      }
     }
   }, [isOpen, targetDay, targetShiftCode])
 

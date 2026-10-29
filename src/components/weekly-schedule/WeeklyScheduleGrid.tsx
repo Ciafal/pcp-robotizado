@@ -1183,7 +1183,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                                       {!isPast && <DropdownMenuSeparator />}
                                       {!isPast && (
                                         <DropdownMenuItem
-                                          onClick={() => onRemove(originalIndex)}
+                                          onClick={() => onRemove(item)}
                                           className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
                                         >
                                           <Trash2 className="w-3.5 h-3.5 mr-2" />

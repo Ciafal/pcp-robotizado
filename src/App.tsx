@@ -9,7 +9,10 @@ import { PermissionGuard, PermissionGate } from '@/components/auth/PermissionGua
 import { ErrorBoundary, RouteErrorBoundary } from '@/components/common/ErrorBoundary'
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
 
-const ProgramacaoParadaPage = lazyWithRetry(() => import('@/pages/ProgramacaoParadaPage'))
+const ProgramacaoParadaPage = lazyWithRetry(
+  () => import('@/pages/ProgramacaoParadaPage'),
+  'ProgramacaoParadaPage',
+)
 
 // Loading Fallback visual discreto
 const ModuleFallback = () => (
