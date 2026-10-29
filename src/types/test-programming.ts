@@ -263,6 +263,18 @@ export interface TestAiAnalysisResult {
   recorrencia: string[]
   aprendizados: string[]
   acoes_sugeridas: string[]
+  conclusao_governanca?: {
+    objetivo_atingido: string
+    eficacia_resumo: string
+    conclusao_registrada: string
+    necessidade_novo_teste: string
+    revisao_documental: string
+    revisao_meta: string
+    risco_recorrencia: string
+    acao_recomendada: string
+    fatos: string[]
+    hipoteses_recomendacoes: string[]
+  }
   has_sufficient_data: boolean
   warning_note?: string
   generated_at: string
@@ -327,6 +339,26 @@ export interface TestProgrammingRecord {
   pcp_approval_decision?: PcpApprovalDecision
   execution_result?: ExecutionResultData
   efficacy_evaluation?: EfficacyEvaluationData
+
+  // Novos campos: Responsável Técnico ID, Conclusão, Revisão e Governança IA
+  technical_lead_user_id?: string
+  conclusion?: string
+  conclusion_user_id?: string
+  conclusion_user_name?: string
+  conclusion_date?: string
+  conclusion_time?: string
+  needs_revision?: boolean
+  revision_types?: Array<'Documento' | 'Meta'>
+  revision_reason?: string
+  revision_document_code?: string
+  revision_document_title?: string
+  revision_document_version?: string
+  revision_status?: RevisionStatus
+  ai_revision_suggestion?: AiRevisionSuggestion
+  ai_revision_decision?: 'CONFIRMADA' | 'DESCARTADA'
+  ai_revision_decision_by?: string
+  ai_revision_decision_at?: string
+
   created?: string
   updated?: string
 }
@@ -344,6 +376,49 @@ export interface IndustrialTestObjective {
   updated_by?: string
   created?: string
   updated?: string
+}
+
+export interface TestTypeItem {
+  id: string
+  description: string
+  active: boolean
+  created_by?: string
+  updated_by?: string
+  created?: string
+  updated?: string
+}
+
+export type RevisionStatus =
+  | 'Pendente'
+  | 'Em análise'
+  | 'Em revisão'
+  | 'Concluída'
+  | 'Não aplicável'
+
+export interface TestConclusionData {
+  conclusion: string
+  userId: string
+  userName: string
+  date: string
+  time: string
+}
+
+export interface TestRevisionData {
+  needsRevision: boolean
+  revisionTypes?: Array<'Documento' | 'Meta'>
+  revisionReason?: string
+  documentCode?: string
+  documentTitle?: string
+  documentVersion?: string
+  status?: RevisionStatus
+}
+
+export interface AiRevisionSuggestion {
+  recommended: boolean
+  justification: string
+  suggestedRevisionTypes: Array<'Documento' | 'Meta'>
+  triggerRules: string[]
+  suggestedAt: string
 }
 
 export interface TestProgrammingLogRecord {

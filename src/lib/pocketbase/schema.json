@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T14:06:38.925Z",
+  "generatedAt": "2026-10-29T14:40:03.510Z",
   "collections": [
     {
       "name": "users",
@@ -19340,6 +19340,108 @@
           "required": false,
           "system": false,
           "selectValues": ["INTEGRADO", "SINCRONIZADO", "DESVINCULADO", "CANCELADO"]
+        },
+        {
+          "name": "technical_lead_user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conclusion",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conclusion_user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conclusion_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conclusion_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conclusion_time",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "needs_revision",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revision_types",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revision_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revision_document_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revision_document_title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revision_document_version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revision_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_revision_suggestion",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_revision_decision",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_revision_decision_by",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_revision_decision_at",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

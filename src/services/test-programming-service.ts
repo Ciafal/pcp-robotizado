@@ -196,6 +196,85 @@ export class TestProgrammingService {
   }
 
   /**
+   * Busca os tipos de teste cadastrados no banco (collection test_types)
+   */
+  async listActiveTestTypes(): Promise<TestTypeItem[]> {
+    try {
+      return await pb.collection('test_types').getFullList<TestTypeItem>({
+        filter: 'active = true',
+        sort: '+description',
+      })
+    } catch (err) {
+      console.warn('Erro ao carregar test_types:', err)
+      return []
+    }
+  }
+
+  /**
+   * Carrega usuários ativos do HUB (collection users) formatados como Nome — Setor
+   */
+  async listHubUsers(): Promise<
+    Array<{ id: string; name: string; sector: string; role: string; label: string }>
+  > {
+    try {
+      const records = await pb.collection('users').getFullList({
+        sort: '+name',
+      })
+      const result: Array<{
+        id: string
+        name: string
+        sector: string
+        role: string
+        label: string
+      }> = []
+      const seen = new Set<string>()
+
+      for (const u of records as any[]) {
+        if (!u.id || seen.has(u.id)) continue
+        seen.add(u.id)
+
+        const rawName = u.name?.trim() || u.email?.split('@')[0] || 'Usuário'
+        // Define setor coerente
+        let sector = 'Operação'
+        const role = String(u.role || '')
+        if (role.includes('PROGRAMMER') || role.includes('PCP')) {
+          sector = 'PCP'
+        } else if (role.includes('LINE_MANAGER')) {
+          sector = 'Gestão de Linha'
+        } else if (role.includes('EXECUTIVE')) {
+          sector = 'Diretoria Industrial'
+        } else if (role.includes('AUDITOR')) {
+          sector = 'SGQ / Auditoria'
+        } else if (role.includes('ADMIN')) {
+          sector = 'Administração'
+        }
+
+        // Se o nome já tiver um formato tipo "Lucas Ferreira (PCP)", limpa parênteses para exibição Nome — Setor
+        let cleanName = rawName
+        const parenMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/)
+        if (parenMatch) {
+          cleanName = parenMatch[1].trim()
+          if (!sector || sector === 'Operação') {
+            sector = parenMatch[2].trim()
+          }
+        }
+
+        result.push({
+          id: u.id,
+          name: cleanName,
+          sector,
+          role,
+          label: `${cleanName} — ${sector}`,
+        })
+      }
+      return result
+    } catch (err) {
+      console.warn('Erro ao carregar users do HUB:', err)
+      return []
+    }
+  }
+
+  /**
    * Verifica conflito de horário no mesmo centro com outros eventos da Montagem Semanal
    * (produtos, outros testes, setup, acerto e paradas).
    */
