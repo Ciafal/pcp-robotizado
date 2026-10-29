@@ -89,4 +89,41 @@ describe('Planos de Corte — Navegação Horizontal Responsiva e Grade Operacio
       screen.getByText(/Informação não disponível na integração SAP no momento/i),
     ).toBeInTheDocument()
   })
+
+  it('deve permitir abrir o detalhamento do estoque dimensional ao clicar no item', () => {
+    const mockItems: MPDimensionalItem[] = [
+      {
+        id: 'rec-002',
+        material_code: '10000452',
+        material_description: 'Tarugo Redondo 130mm SAE 1020',
+        steel_grade: 'SAE 1020',
+        center_code: '1020',
+        storage_location: 'DP04',
+        batch_number: 'LT-998',
+        heat_number: 'CR-887',
+        supplier_code: 'GERDAU',
+        supplier_name: 'Gerdau Aços Especiais',
+        item_type: 'BLOCO',
+        thickness_mm: 130,
+        width_mm: 130,
+        length_mm: 6000,
+        weight_kg: 5268,
+        reservation_status: 'LIVRE',
+        original_application: 'Laminado Redondo',
+        current_application: 'Laminado Redondo',
+        sap_block_status: '01_DISPONIVEL',
+        dimensional_classification: 'NIVEL_1_IDEAL',
+        reception_date: '2026-03-01T10:00:00Z',
+        created: '2026-03-01T10:00:00Z',
+        updated: '2026-03-01T10:00:00Z',
+      },
+    ]
+
+    render(<MPDimensionalOperationalGrid items={mockItems} isLoading={false} />)
+
+    const row = screen.getByText('10000452')
+    fireEvent.click(row)
+
+    expect(screen.getByText(/Detalhamento do Estoque Dimensional/i)).toBeInTheDocument()
+  })
 })

@@ -313,6 +313,7 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
     const tons = kgVal / 1000
     return `${formatNumberPtBr(tons, 3)} t`
   }
+
   // B/C. COMPRIMENTO -> metros com EXATAMENTE 2 casas decimais (ex.: "9,46 m", "3,00 m")
   const formatMeters = (mmVal?: number) => {
     if (mmVal === undefined || mmVal === null || isNaN(mmVal)) return '0,00 m'
@@ -761,7 +762,7 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
                                 <div>
                                   <span className="text-slate-400">Peso estimado:</span>{' '}
                                   <strong className="text-white font-mono">
-                                    {formatKg(seg.estimated_weight_kg)}
+                                    {formatTons(seg.estimated_weight_kg)}
                                   </strong>
                                 </div>
                               )}
