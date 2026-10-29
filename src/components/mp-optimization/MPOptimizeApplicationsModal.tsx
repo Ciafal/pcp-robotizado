@@ -300,38 +300,34 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
     }
   }
 
-  // Helpers padronizados de exibição (Regras A, B, C, D e E):
-  // A. PESO -> toneladas com EXATAMENTE 3 casas decimais (ex.: "5,268 t", "1,600 t", "0,025 t")
+  // Helpers padronizados de exibição (Regras A, B, C, D e E do Usuário):
+  // 1. PESO -> TONELADAS com EXATAMENTE 3 casas decimais ("5,268 t", "1,600 t", "59,200 t")
   const formatTons = (kgVal?: number) => {
     if (kgVal === undefined || kgVal === null || isNaN(kgVal)) return '-'
     const tons = kgVal / 1000
     return `${formatNumberPtBr(tons, 3)} t`
   }
 
-  const formatKg = (kgVal?: number) => {
-    if (kgVal === undefined || kgVal === null || isNaN(kgVal)) return '-'
-    const tons = kgVal / 1000
-    return `${formatNumberPtBr(tons, 3)} t`
-  }
-
-  // B/C. COMPRIMENTO -> metros com EXATAMENTE 2 casas decimais (ex.: "9,46 m", "3,00 m")
+  // 2. COMPRIMENTO LAMINADO e COMPRIMENTO FINAL DA PEÇA -> METROS com EXATAMENTE 2 casas ("9,46 m", "6,00 m")
   const formatMeters = (mmVal?: number) => {
     if (mmVal === undefined || mmVal === null || isNaN(mmVal)) return '0,00 m'
     const meters = mmVal / 1000
     return `${formatNumberPtBr(meters, 2)} m`
   }
 
-  // D/E. PARÂMETROS TÉCNICOS / DIMENSÕES DOS BLOCOS -> mantêm mm com formatação pt-BR
+  // 3. DIMENSÕES DOS BLOCOS e PARÂMETROS TÉCNICOS -> MILÍMETROS ("130 × 130 × 12.156 mm", "5 mm", "10 mm")
   const formatMm = (val?: number) => {
     if (val === undefined || val === null || isNaN(val)) return '0 mm'
     return `${Math.round(val).toLocaleString('pt-BR')} mm`
   }
 
+  // 4. MASSA LINEAR -> kg/m ("132,5 kg/m")
   const formatLinearMass = (val?: number) => {
     if (val === undefined || val === null || isNaN(val)) return '0,0 kg/m'
     return `${formatNumberPtBr(val, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kg/m`
   }
 
+  // 5. RENDIMENTO (%)
   const formatPct = (val?: number) => {
     if (val === undefined || val === null || isNaN(val)) return '0,00%'
     return `${formatNumberPtBr(val, 2)}%`
@@ -345,11 +341,18 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
     )
   }, [pieceWeightKg, linearMassKgM])
 
+  // Normalização de Dimensões do Bloco para mm com formato pt-BR (ex. "130 × 130 mm")
+  const blockDimensionsFormatted = useMemo(() => {
+    if (!gaugeDimension) return '130 × 130 mm'
+    // Limpeza de formatações legadas (ex: 130x130 mm -> 130 × 130 mm)
+    return gaugeDimension.replace(/x/gi, ' × ').trim()
+  }, [gaugeDimension])
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         data-testid="mp-optimize-applications-modal-content"
-        className="max-w-[1440px] w-[95vw] max-h-[94vh] h-[94vh] flex flex-col p-0 overflow-hidden bg-slate-50 text-slate-900 shadow-2xl border border-slate-300 rounded-xl"
+        className="w-[95vw] max-w-[1400px] h-[94vh] max-h-[94vh] flex flex-col p-0 overflow-hidden bg-slate-50 text-slate-900 shadow-2xl border border-slate-300 rounded-xl"
       >
         <ErrorBoundary
           fallback={
@@ -363,7 +366,7 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
             </div>
           }
         >
-          {/* CABEÇALHO FIXO (Título, Identificação da Peça, Subtítulo, Botão Fechar) */}
+          {/* CABEÇALHO FIXO (Título; Identificação da peça; Subtítulo; Botão de fechar) */}
           <DialogHeader className="shrink-0 p-3.5 sm:p-4 bg-slate-900 text-white flex flex-row items-center justify-between border-b border-slate-800 gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="p-2 bg-blue-700/60 rounded-md shrink-0">
@@ -409,113 +412,95 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
           </DialogHeader>
 
           {/* CONTEÚDO COM ROLAGEM VERTICAL EXCLUSIVA */}
-          <div className="flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-5 space-y-4 min-h-0 bg-slate-50">
-            {/* INDICADORES TÉCNICOS DETALHADOS (Cards responsivos em grade flexível sem sobreposição) */}
+          <div
+            data-testid="mp-optimize-modal-scrollable-body"
+            className="flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-5 space-y-4 min-h-0 bg-slate-50"
+          >
+            {/* 1. SEÇÃO DE INDICADORES TÉCNICOS & PARÂMETROS TÉCNICOS DE CORTE */}
             <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                   <Factory className="w-4 h-4 text-blue-900 shrink-0" />
-                  Parâmetros Técnicos & Identificação da Peça
+                  Indicadores Técnicos & Parâmetros de Corte
                 </h4>
                 <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                  <span>Dimensões do Bloco:</span>
-                  <span className="font-mono font-bold text-slate-800">
-                    {gaugeDimension || '130 × 130 mm'}
+                  <span>Dimensões dos Blocos:</span>
+                  <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                    {blockDimensionsFormatted}
                   </span>
                 </div>
               </div>
 
-              {/* Grid Responsiva: 1 col (mobile), 2-3 cols (tablet), 5 cols (desktop) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
-                {/* 1. Centro e Linha */}
-                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
-                  <span className="text-slate-500 block text-[11px] font-medium">
-                    Centro / Linha
-                  </span>
-                  <span className="font-semibold text-slate-900 flex items-center gap-1.5 mt-0.5">
-                    <Factory className="w-3.5 h-3.5 text-blue-900 shrink-0" />
-                    <span>{centerCode || 'L1'}</span>
-                  </span>
-                </div>
-
-                {/* 2. Material */}
-                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
-                  <span className="text-slate-500 block text-[11px] font-medium">
-                    Material (Aço)
-                  </span>
-                  <span className="font-bold text-slate-900 font-mono mt-0.5 block truncate">
-                    {materialCode || 'SAE 1020'}
-                  </span>
-                </div>
-
-                {/* 3. Corrida / Múltiplo */}
-                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
-                  <span className="text-slate-500 block text-[11px] font-medium">
-                    Corrida / Múltiplo
-                  </span>
-                  <span className="font-semibold text-slate-900 font-mono mt-0.5 block truncate">
-                    {heatNumber || '—'}
-                  </span>
-                </div>
-
-                {/* 4. Peso da Peça (Padronizado em Toneladas com 3 casas) */}
-                <div className="bg-blue-50/50 p-2.5 rounded-lg border border-blue-100">
-                  <span className="text-blue-900 block text-[11px] font-medium">
+              {/* Grade flexível e responsiva: 1 col (mobile), 2-3 cols (tablet), 6 cols (desktop) sem sobreposição */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+                {/* 1. Peso da Peça (Padronizado em Toneladas com 3 casas) */}
+                <div className="bg-blue-50/60 p-3 rounded-lg border border-blue-200 flex flex-col justify-between">
+                  <span className="text-blue-900 block text-[11px] font-semibold">
                     Peso da Peça (t)
                   </span>
-                  <span className="font-bold text-blue-950 font-mono flex items-center gap-1.5 mt-0.5 text-sm">
-                    <Scale className="w-3.5 h-3.5 text-blue-800 shrink-0" />
+                  <span className="font-bold text-blue-950 font-mono flex items-center gap-1.5 mt-1 text-sm sm:text-base">
+                    <Scale className="w-4 h-4 text-blue-800 shrink-0" />
                     <span>{formatTons(pieceWeightKg)}</span>
                   </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                    Precisão interna: {formatNumberPtBr(pieceWeightKg, 2)} kg
+                  </span>
                 </div>
 
-                {/* 5. Massa Linear (kg/m) */}
-                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
-                  <span className="text-slate-500 block text-[11px] font-medium">Massa Linear</span>
-                  <span className="font-bold text-slate-900 font-mono flex items-center gap-1.5 mt-0.5 text-xs">
-                    <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                {/* 2. Massa Linear (kg/m) */}
+                <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200 flex flex-col justify-between">
+                  <span className="text-slate-600 block text-[11px] font-semibold">
+                    Massa Linear
+                  </span>
+                  <span className="font-bold text-slate-900 font-mono flex items-center gap-1.5 mt-1 text-sm">
+                    <Info className="w-4 h-4 text-slate-500 shrink-0" />
                     <span>{formatLinearMass(linearMassKgM)}</span>
                   </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">kg/m da seção</span>
                 </div>
 
-                {/* 6. Comprimento Laminado (Padronizado em Metros com 2 casas) */}
-                <div className="bg-emerald-50/60 p-2.5 rounded-lg border border-emerald-100">
-                  <span className="text-emerald-900 block text-[11px] font-medium">
+                {/* 3. Comprimento Laminado (Padronizado em Metros com 2 casas) */}
+                <div className="bg-emerald-50/60 p-3 rounded-lg border border-emerald-200 flex flex-col justify-between">
+                  <span className="text-emerald-900 block text-[11px] font-semibold">
                     Comprimento Laminado (m)
                   </span>
-                  <span className="font-bold text-emerald-800 font-mono flex items-center gap-1.5 mt-0.5 text-sm">
-                    <Ruler className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="font-bold text-emerald-900 font-mono flex items-center gap-1.5 mt-1 text-sm sm:text-base">
+                    <Ruler className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>{formatMeters(totalRolledLengthMm)}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                    {formatMm(totalRolledLengthMm)}
                   </span>
                 </div>
 
-                {/* 7. Largura de Corte (Serra em mm) */}
-                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
-                  <span className="text-slate-500 block text-[11px] font-medium">
-                    Largura de Corte da Serra
+                {/* 4. Largura de Corte da Serra (mm) */}
+                <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200 flex flex-col justify-between">
+                  <span className="text-slate-600 block text-[11px] font-semibold">
+                    Largura de Corte (Kerf)
                   </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5 mt-1">
                     <Input
                       type="number"
                       min="0"
                       step="0.5"
                       value={sawKerfMm}
                       onChange={(e) => setSawKerfMm(Math.max(0, parseFloat(e.target.value) || 0))}
-                      className="h-7 w-20 text-xs font-mono px-2 py-0 bg-white"
+                      className="h-7 w-20 text-xs font-mono px-2 py-0 bg-white border-slate-300"
                     />
-                    <span className="text-slate-600 font-mono text-xs font-semibold">mm</span>
+                    <span className="text-slate-700 font-mono text-xs font-semibold">mm</span>
                   </div>
+                  <span className="text-[10px] text-slate-400 mt-0.5">Por corte efetuado</span>
                 </div>
 
-                {/* 8. Esquadrejamento (mm) - Incorporado de forma permanente aos parâmetros técnicos sem flutuação */}
+                {/* 5. Esquadrejamento (mm) - Incorporado de forma permanente aos parâmetros técnicos sem flutuar nem vazar */}
                 <div
                   data-testid="param-esquadrejamento-container"
-                  className="bg-amber-50/50 p-2.5 rounded-lg border border-amber-200"
+                  className="bg-amber-50/60 p-3 rounded-lg border border-amber-200 flex flex-col justify-between"
                 >
-                  <span className="text-amber-900 block text-[11px] font-semibold">
+                  <span className="text-amber-950 block text-[11px] font-semibold">
                     Esquadrejamento
                   </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5 mt-1">
                     <Input
                       type="number"
                       min="0"
@@ -528,14 +513,15 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
                     />
                     <span className="text-amber-900 font-mono text-xs font-semibold">mm</span>
                   </div>
+                  <span className="text-[10px] text-amber-800/80 mt-0.5">Extremidade frontal</span>
                 </div>
 
-                {/* 9. Ponta Descartada (mm) - Incorporado permanente */}
-                <div className="bg-amber-50/50 p-2.5 rounded-lg border border-amber-200">
-                  <span className="text-amber-900 block text-[11px] font-semibold">
+                {/* 6. Ponta Descartada (mm) - Incorporado aos parâmetros técnicos */}
+                <div className="bg-amber-50/60 p-3 rounded-lg border border-amber-200 flex flex-col justify-between">
+                  <span className="text-amber-950 block text-[11px] font-semibold">
                     Ponta Descartada
                   </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5 mt-1">
                     <Input
                       type="number"
                       min="0"
@@ -548,14 +534,31 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
                     />
                     <span className="text-amber-900 font-mono text-xs font-semibold">mm</span>
                   </div>
+                  <span className="text-[10px] text-amber-800/80 mt-0.5">Extremidade traseira</span>
                 </div>
+              </div>
 
-                {/* 10. Perda Total Inicial (mm) */}
-                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100 flex flex-col justify-center">
-                  <span className="text-slate-500 block text-[11px] font-medium">
-                    Perdas de Extremidades
+              {/* Informações adicionais do bloco/peça em linha secundária */}
+              <div className="flex flex-wrap items-center gap-4 pt-1 text-[11px] text-slate-500 border-t border-slate-100">
+                <div>
+                  <span className="font-medium text-slate-600">Centro:</span>{' '}
+                  <span className="font-bold text-slate-800">{centerCode || 'L1'}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-600">Material (Aço):</span>{' '}
+                  <span className="font-bold font-mono text-slate-800">
+                    {materialCode || 'SAE 1020'}
                   </span>
-                  <span className="font-mono font-bold text-slate-800 text-xs mt-0.5">
+                </div>
+                <div>
+                  <span className="font-medium text-slate-600">Corrida:</span>{' '}
+                  <span className="font-bold font-mono text-slate-800">{heatNumber || '—'}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-600">
+                    Perdas Fixas (Esquadr. + Ponta):
+                  </span>{' '}
+                  <span className="font-bold font-mono text-amber-900">
                     {squaringLossMm + endCropLossMm} mm (
                     {formatMeters(squaringLossMm + endCropLossMm)})
                   </span>
@@ -574,38 +577,49 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
               </div>
             )}
 
-            {/* TABELA DE APLICAÇÕES INTERATIVA */}
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm space-y-2">
-              <div className="flex items-center justify-between">
+            {/* 2. TABELA DE APLICAÇÕES INDUSTRIAIS COMPATÍVEIS */}
+            <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-xs space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-blue-900" />
+                  <Layers className="w-4 h-4 text-blue-900 shrink-0" />
                   Aplicações Industriais Compatíveis
                 </h4>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleRecalculate}
-                  className="h-7 text-xs flex items-center gap-1 text-blue-900 hover:text-blue-950 border-blue-200"
+                  className="h-7 text-xs flex items-center gap-1.5 text-blue-900 hover:text-blue-950 border-blue-300 bg-blue-50/50"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   Simular Combinações
                 </Button>
               </div>
 
-              <div className="overflow-x-auto rounded border border-slate-100">
-                <Table className="text-xs">
-                  <TableHeader className="bg-slate-50">
+              {/* Rolagem horizontal exclusiva da tabela para proteger telas pequenas */}
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <Table className="text-xs w-full min-w-[760px]">
+                  <TableHeader className="bg-slate-100/80">
                     <TableRow>
-                      <TableHead className="w-[45px] text-center">Ativar</TableHead>
-                      <TableHead className="min-w-[180px]">Aplicação</TableHead>
-                      <TableHead className="min-w-[120px]">Produto</TableHead>
-                      <TableHead className="min-w-[120px] text-right">Comprimento (mm)</TableHead>
-                      <TableHead className="min-w-[100px] text-center">
+                      <TableHead className="w-[50px] text-center font-bold text-slate-700">
+                        Ativar
+                      </TableHead>
+                      <TableHead className="min-w-[220px] font-bold text-slate-700">
+                        Aplicação
+                      </TableHead>
+                      <TableHead className="min-w-[120px] font-bold text-slate-700">
+                        Produto
+                      </TableHead>
+                      <TableHead className="min-w-[130px] text-right font-bold text-slate-700 whitespace-nowrap">
+                        Comprimento (m)
+                      </TableHead>
+                      <TableHead className="min-w-[140px] text-center font-bold text-slate-700 whitespace-nowrap">
                         Quantidade Desejada
                       </TableHead>
-                      <TableHead className="w-[90px] text-center">Prioridade</TableHead>
-                      <TableHead className="min-w-[140px] text-right">
-                        Comprimento Utilizado (mm)
+                      <TableHead className="w-[110px] text-center font-bold text-slate-700">
+                        Prioridade
+                      </TableHead>
+                      <TableHead className="min-w-[170px] text-right font-bold text-slate-700 whitespace-nowrap">
+                        Comprimento Utilizado (m)
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -623,11 +637,12 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
                       return (
                         <TableRow
                           key={cand.id}
-                          className={`hover:bg-slate-50 ${!isSelected ? 'opacity-50 bg-slate-50/50' : ''}`}
+                          className={`hover:bg-slate-50 transition-colors ${!isSelected ? 'opacity-50 bg-slate-50/60' : ''}`}
                         >
                           <TableCell className="text-center">
                             <Checkbox
                               checked={isSelected}
+                              aria-label={`Ativar ${cand.application_name}`}
                               onCheckedChange={(checked) => {
                                 setSelectedApps((prev) => ({
                                   ...prev,
@@ -637,53 +652,124 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
                             />
                           </TableCell>
                           <TableCell className="font-semibold text-slate-800">
-                            {cand.application_name}
-                            <span className="block text-[10px] text-slate-400 font-mono font-normal">
+                            <span>{cand.application_name}</span>
+                            <span className="block text-[10px] text-slate-500 font-mono font-normal">
                               Cód: {cand.application_code} • {cand.steel_grade}
                             </span>
                           </TableCell>
                           <TableCell className="font-mono text-slate-700">
                             {cand.product_code}
                           </TableCell>
-                          <TableCell className="text-right font-mono font-medium text-slate-900">
-                            {cand.target_length_mm.toLocaleString('pt-BR')} mm
+                          <TableCell className="text-right font-mono font-semibold text-slate-900 whitespace-nowrap">
+                            {formatMeters(cand.target_length_mm)}
+                            <span className="block text-[10px] text-slate-400 font-normal">
+                              ({cand.target_length_mm.toLocaleString('pt-BR')} mm)
+                            </span>
                           </TableCell>
                           <TableCell className="text-center">
-                            <Input
-                              type="number"
-                              min="1"
-                              value={desiredQty}
-                              disabled={!isSelected}
-                              onChange={(e) => {
-                                const v = Math.max(0, parseInt(e.target.value, 10) || 0)
-                                setAppDesiredQty((prev) => ({ ...prev, [cand.id]: v }))
-                              }}
-                              className="h-6 w-16 text-center text-xs font-mono mx-auto py-0"
-                            />
+                            <div className="inline-flex items-center justify-center gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={!isSelected || desiredQty <= 0}
+                                onClick={() => {
+                                  setAppDesiredQty((prev) => ({
+                                    ...prev,
+                                    [cand.id]: Math.max(0, desiredQty - 1),
+                                  }))
+                                }}
+                                className="h-6 w-6 p-0 text-xs shrink-0"
+                                title="Diminuir quantidade"
+                              >
+                                -
+                              </Button>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={desiredQty}
+                                disabled={!isSelected}
+                                onChange={(e) => {
+                                  const v = Math.max(0, parseInt(e.target.value, 10) || 0)
+                                  setAppDesiredQty((prev) => ({ ...prev, [cand.id]: v }))
+                                }}
+                                className="h-6 w-14 text-center text-xs font-mono py-0 px-1"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={!isSelected}
+                                onClick={() => {
+                                  setAppDesiredQty((prev) => ({
+                                    ...prev,
+                                    [cand.id]: desiredQty + 1,
+                                  }))
+                                }}
+                                className="h-6 w-6 p-0 text-xs shrink-0"
+                                title="Aumentar quantidade"
+                              >
+                                +
+                              </Button>
+                            </div>
                           </TableCell>
                           <TableCell className="text-center">
-                            <Input
-                              type="number"
-                              min="1"
-                              value={prio}
-                              disabled={!isSelected}
-                              onChange={(e) => {
-                                const v = Math.max(1, parseInt(e.target.value, 10) || 1)
-                                setAppPriorities((prev) => ({ ...prev, [cand.id]: v }))
-                              }}
-                              className="h-6 w-14 text-center text-xs font-mono mx-auto py-0"
-                            />
+                            <div className="inline-flex items-center justify-center gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={!isSelected || prio <= 1}
+                                onClick={() => {
+                                  setAppPriorities((prev) => ({
+                                    ...prev,
+                                    [cand.id]: Math.max(1, prio - 1),
+                                  }))
+                                }}
+                                className="h-6 w-6 p-0 text-xs shrink-0"
+                                title="Aumentar prioridade"
+                              >
+                                -
+                              </Button>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={prio}
+                                disabled={!isSelected}
+                                onChange={(e) => {
+                                  const v = Math.max(1, parseInt(e.target.value, 10) || 1)
+                                  setAppPriorities((prev) => ({ ...prev, [cand.id]: v }))
+                                }}
+                                className="h-6 w-12 text-center text-xs font-mono py-0 px-1"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={!isSelected}
+                                onClick={() => {
+                                  setAppPriorities((prev) => ({
+                                    ...prev,
+                                    [cand.id]: prio + 1,
+                                  }))
+                                }}
+                                className="h-6 w-6 p-0 text-xs shrink-0"
+                                title="Diminuir prioridade"
+                              >
+                                +
+                              </Button>
+                            </div>
                           </TableCell>
-                          <TableCell className="text-right font-mono font-bold text-blue-950">
+                          <TableCell className="text-right font-mono font-bold text-blue-950 whitespace-nowrap">
                             {usedMm > 0 ? (
                               <span>
-                                {usedMm.toLocaleString('pt-BR')} mm{' '}
+                                {formatMeters(usedMm)}{' '}
                                 <span className="text-[11px] font-normal text-slate-500">
                                   ({allocQty} un)
                                 </span>
                               </span>
                             ) : (
-                              <span className="text-slate-400 font-normal">0 mm</span>
+                              <span className="text-slate-400 font-normal">0,00 m</span>
                             )}
                           </TableCell>
                         </TableRow>
@@ -694,238 +780,287 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
               </div>
             </div>
 
-            {/* GRÁFICO LONGITUDINAL PROPORCIONAL */}
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm space-y-2">
-              <div className="flex items-center justify-between text-xs">
+            {/* 3. GRÁFICO "PLANO DE CORTE LONGITUDINAL DA PEÇA (VISUALIZAÇÃO EM ESCALA)" */}
+            <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-xs space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <h4 className="font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                  <Scissors className="w-4 h-4 text-blue-900" />
+                  <Scissors className="w-4 h-4 text-blue-900 shrink-0" />
                   Plano de Corte Longitudinal da Peça (Visualização em Escala)
                 </h4>
-                <span className="text-[11px] text-slate-500 font-mono">
-                  Comprimento Total: {formatMm(totalRolledLengthMm)}
-                </span>
+                <div className="flex items-center gap-2 font-mono text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  <span>Comprimento Laminado Total:</span>
+                  <strong className="text-slate-900">{formatMeters(totalRolledLengthMm)}</strong>
+                  <span className="text-slate-400">({formatMm(totalRolledLengthMm)})</span>
+                </div>
               </div>
 
-              {/* Barra Longitudinal Proporcional */}
-              <div className="relative w-full h-10 bg-slate-200 rounded-md overflow-hidden flex border border-slate-300 shadow-inner">
-                <TooltipProvider delayDuration={100}>
-                  {optResult?.visual_segments && optResult.visual_segments.length > 0 ? (
-                    optResult.visual_segments.map((seg) => {
-                      const widthPct = Math.max(
-                        0.5,
-                        (seg.length_mm / (optResult.total_rolled_length_mm || 1)) * 100,
-                      )
-                      return (
-                        <Tooltip key={seg.id}>
-                          <TooltipTrigger asChild>
-                            <div
-                              style={{
-                                width: `${widthPct}%`,
-                                backgroundColor: seg.color,
-                              }}
-                              className="h-full border-r border-white/20 transition-all hover:brightness-110 flex items-center justify-center cursor-help px-1"
+              {/* Barra Longitudinal Proporcional com rolagem horizontal interna protegida */}
+              <div className="overflow-x-auto pb-1">
+                <div className="relative min-w-[700px] w-full h-11 bg-slate-200 rounded-md overflow-hidden flex border border-slate-300 shadow-inner">
+                  <TooltipProvider delayDuration={50}>
+                    {optResult?.visual_segments && optResult.visual_segments.length > 0 ? (
+                      optResult.visual_segments.map((seg) => {
+                        const widthPct = Math.max(
+                          0.5,
+                          (seg.length_mm / (optResult.total_rolled_length_mm || 1)) * 100,
+                        )
+                        return (
+                          <Tooltip key={seg.id}>
+                            <TooltipTrigger asChild>
+                              <div
+                                style={{
+                                  width: `${widthPct}%`,
+                                  backgroundColor: seg.color,
+                                }}
+                                className="h-full border-r border-white/20 transition-all hover:brightness-110 flex items-center justify-center cursor-help px-1 select-none"
+                              >
+                                {widthPct > 6 && (
+                                  <span className="text-[10px] font-bold text-white truncate drop-shadow-sm font-mono whitespace-nowrap">
+                                    {formatMeters(seg.length_mm)}
+                                  </span>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              className="bg-slate-950 text-slate-100 border-slate-800 text-xs p-3 space-y-1.5 max-w-sm shadow-xl z-50 pointer-events-none"
                             >
-                              {widthPct > 5 && (
-                                <span className="text-[10px] font-bold text-white truncate drop-shadow-sm font-mono">
-                                  {seg.length_mm} mm
-                                </span>
-                              )}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            className="bg-slate-950 text-slate-100 border-slate-800 text-xs p-3 space-y-1.5 max-w-sm shadow-xl z-50"
-                          >
-                            <p className="font-bold text-amber-300 text-xs">{seg.label}</p>
-                            <div className="border-t border-slate-800 pt-1 space-y-0.5 text-[11px]">
-                              {seg.application_name && (
+                              <p className="font-bold text-amber-300 text-xs">{seg.label}</p>
+                              <div className="border-t border-slate-800 pt-1 space-y-0.5 text-[11px]">
+                                {seg.application_name && (
+                                  <div>
+                                    <span className="text-slate-400">Aplicação:</span>{' '}
+                                    <strong className="text-white">{seg.application_name}</strong>
+                                  </div>
+                                )}
+                                {seg.product_code && (
+                                  <div>
+                                    <span className="text-slate-400">Código do Produto:</span>{' '}
+                                    <strong className="text-blue-300 font-mono">
+                                      {seg.product_code}
+                                    </strong>
+                                  </div>
+                                )}
                                 <div>
-                                  <span className="text-slate-400">Aplicação:</span>{' '}
-                                  <strong className="text-white">{seg.application_name}</strong>
-                                </div>
-                              )}
-                              {seg.product_code && (
-                                <div>
-                                  <span className="text-slate-400">Código do Produto:</span>{' '}
-                                  <strong className="text-blue-300 font-mono">
-                                    {seg.product_code}
-                                  </strong>
-                                </div>
-                              )}
-                              <div>
-                                <span className="text-slate-400">Comprimento:</span>{' '}
-                                <strong className="text-white font-mono">
-                                  {formatMm(seg.length_mm)}
-                                </strong>
-                              </div>
-                              {seg.estimated_weight_kg !== undefined && (
-                                <div>
-                                  <span className="text-slate-400">Peso estimado:</span>{' '}
+                                  <span className="text-slate-400">Comprimento:</span>{' '}
                                   <strong className="text-white font-mono">
-                                    {formatTons(seg.estimated_weight_kg)}
+                                    {formatMeters(seg.length_mm)} ({formatMm(seg.length_mm)})
                                   </strong>
                                 </div>
-                              )}
-                              {seg.piece_number && (
+                                {seg.estimated_weight_kg !== undefined && (
+                                  <div>
+                                    <span className="text-slate-400">Peso estimado:</span>{' '}
+                                    <strong className="text-white font-mono">
+                                      {formatTons(seg.estimated_weight_kg)}
+                                    </strong>
+                                  </div>
+                                )}
+                                {seg.piece_number && (
+                                  <div>
+                                    <span className="text-slate-400">Nº da Peça:</span>{' '}
+                                    <strong className="text-emerald-400 font-mono">
+                                      #{seg.piece_number}
+                                    </strong>
+                                  </div>
+                                )}
+                                {seg.cut_sequence && (
+                                  <div>
+                                    <span className="text-slate-400">Posição no corte:</span>{' '}
+                                    <strong className="text-amber-300 font-mono">
+                                      {seg.cut_sequence}º corte
+                                    </strong>
+                                  </div>
+                                )}
                                 <div>
-                                  <span className="text-slate-400">Nº da Peça:</span>{' '}
-                                  <strong className="text-emerald-400 font-mono">
-                                    #{seg.piece_number}
+                                  <span className="text-slate-400">Posição longitudinal:</span>{' '}
+                                  <strong className="text-slate-300 font-mono">
+                                    {formatMeters(seg.start_mm)} a {formatMeters(seg.end_mm)}
                                   </strong>
                                 </div>
-                              )}
-                              {seg.cut_sequence && (
-                                <div>
-                                  <span className="text-slate-400">Posição no corte:</span>{' '}
-                                  <strong className="text-amber-300 font-mono">
-                                    {seg.cut_sequence}º corte
-                                  </strong>
-                                </div>
-                              )}
-                              <div>
-                                <span className="text-slate-400">Posição longitudinal:</span>{' '}
-                                <strong className="text-slate-300 font-mono">
-                                  {seg.start_mm} a {seg.end_mm} mm
-                                </strong>
                               </div>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      )
-                    })
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 italic">
-                      Nenhuma distribuição calculada
-                    </div>
-                  )}
-                </TooltipProvider>
+                            </TooltipContent>
+                          </Tooltip>
+                        )
+                      })
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 italic">
+                        Nenhuma distribuição calculada
+                      </div>
+                    )}
+                  </TooltipProvider>
+                </div>
               </div>
 
               {/* Legenda do Gráfico */}
               <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-600">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-sm bg-[#1e3a8a]" />
+                  <div className="w-3 h-3 rounded-sm bg-[#1e3a8a] shrink-0" />
                   <span>Produtos Conformes</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-sm bg-[#64748b]" />
+                  <div className="w-3 h-3 rounded-sm bg-[#64748b] shrink-0" />
                   <span>Corte Serra (Kerf)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-sm bg-[#f59e0b]" />
+                  <div className="w-3 h-3 rounded-sm bg-[#f59e0b] shrink-0" />
                   <span>Esquadrejamento</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-sm bg-[#10b981]" />
+                  <div className="w-3 h-3 rounded-sm bg-[#10b981] shrink-0" />
                   <span>Sobra Aproveitável</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-sm bg-[#ef4444]" />
+                  <div className="w-3 h-3 rounded-sm bg-[#ef4444] shrink-0" />
                   <span>Refugo Final</span>
                 </div>
               </div>
             </div>
 
-            {/* 8 CARDS DE INDICADORES TÉCNICOS */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {/* 1. Comprimento laminado total */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                <span className="text-[11px] text-slate-500 block font-medium">
-                  1. Comprimento Laminado Total
-                </span>
-                <span className="text-sm font-bold text-slate-900 font-mono">
-                  {formatMm(optResult?.total_rolled_length_mm)}
-                </span>
-              </div>
+            {/* 4. RESULTADOS DA OTIMIZAÇÃO (8 CARDS DE INDICADORES TÉCNICOS COM UNIDADES PADRONIZADAS) */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                Resultados da Otimização & Balanço Metálico
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+                {/* 1. Comprimento Laminado Total (m) */}
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-500 block font-medium leading-tight">
+                    1. Comp. Laminado Total (m)
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 font-mono mt-1">
+                    {formatMeters(optResult?.total_rolled_length_mm)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {formatMm(optResult?.total_rolled_length_mm)}
+                  </span>
+                </div>
 
-              {/* 2. Comprimento aproveitado */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                <span className="text-[11px] text-slate-500 block font-medium">
-                  2. Comprimento Aproveitado
-                </span>
-                <span className="text-sm font-bold text-blue-900 font-mono">
-                  {formatMm(optResult?.used_length_mm)}
-                </span>
-              </div>
+                {/* 2. Comprimento Aproveitado (m) */}
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] text-blue-900 block font-medium leading-tight">
+                    2. Comp. Aproveitado (m)
+                  </span>
+                  <span className="text-sm font-bold text-blue-900 font-mono mt-1">
+                    {formatMeters(optResult?.used_length_mm)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {formatMm(optResult?.used_length_mm)}
+                  </span>
+                </div>
 
-              {/* 3. Quantidade de peças geradas */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                <span className="text-[11px] text-slate-500 block font-medium">
-                  3. Quantidade de Peças Geradas
-                </span>
-                <span className="text-sm font-bold text-slate-900 font-mono">
-                  {optResult?.generated_pieces_count || 0} un
-                </span>
-              </div>
+                {/* 3. Quantidade de Peças Geradas */}
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-500 block font-medium leading-tight">
+                    3. Peças Geradas
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 font-mono mt-1">
+                    {optResult?.generated_pieces_count || 0} un
+                  </span>
+                  <span className="text-[10px] text-slate-400">Total conformado</span>
+                </div>
 
-              {/* 4. Quantidade de aplicações atendidas */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                <span className="text-[11px] text-slate-500 block font-medium">
-                  4. Aplicações Atendidas
-                </span>
-                <span className="text-sm font-bold text-slate-900 font-mono">
-                  {optResult?.fulfilled_applications_count || 0}
-                </span>
-              </div>
+                {/* 4. Quantidade de Aplicações Atendidas */}
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] text-slate-500 block font-medium leading-tight">
+                    4. Aplicações Atendidas
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 font-mono mt-1">
+                    {optResult?.fulfilled_applications_count || 0}
+                  </span>
+                  <span className="text-[10px] text-slate-400">Demandas PCP</span>
+                </div>
 
-              {/* 5. Comprimento perdido nos cortes */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                <span className="text-[11px] text-slate-500 block font-medium">
-                  5. Perdas de Corte (mm)
-                </span>
-                <span className="text-sm font-bold text-amber-700 font-mono">
-                  {formatMm(optResult?.cut_losses_length_mm)}
-                </span>
-              </div>
+                {/* 5. Comprimento Perdido nos Cortes (m) */}
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] text-amber-800 block font-medium leading-tight">
+                    5. Perdas de Corte (m)
+                  </span>
+                  <span className="text-sm font-bold text-amber-700 font-mono mt-1">
+                    {formatMeters(optResult?.cut_losses_length_mm)}
+                  </span>
+                  <span className="text-[10px] text-amber-900/70 font-mono">
+                    {formatMm(optResult?.cut_losses_length_mm)}
+                  </span>
+                </div>
 
-              {/* 6. Sobra aproveitável */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                <span className="text-[11px] text-slate-500 block font-medium">
-                  6. Sobra Aproveitável
-                </span>
-                <span className="text-sm font-bold text-emerald-700 font-mono">
-                  {formatMm(optResult?.usable_leftover_mm)}
-                </span>
-              </div>
+                {/* 6. Sobra Aproveitável (m) */}
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] text-emerald-800 block font-medium leading-tight">
+                    6. Sobra Aproveitável (m)
+                  </span>
+                  <span className="text-sm font-bold text-emerald-700 font-mono mt-1">
+                    {formatMeters(optResult?.usable_leftover_mm)}
+                  </span>
+                  <span className="text-[10px] text-emerald-900/70 font-mono">
+                    {formatMm(optResult?.usable_leftover_mm)}
+                  </span>
+                </div>
 
-              {/* 7. Refugo */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                <span className="text-[11px] text-slate-500 block font-medium">7. Refugo (mm)</span>
-                <span className="text-sm font-bold text-red-600 font-mono">
-                  {formatMm(optResult?.scrap_mm)}
-                </span>
-              </div>
+                {/* 7. Refugo (m) */}
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] text-red-700 block font-medium leading-tight">
+                    7. Refugo Final (m)
+                  </span>
+                  <span className="text-sm font-bold text-red-600 font-mono mt-1">
+                    {formatMeters(optResult?.scrap_mm)}
+                  </span>
+                  <span className="text-[10px] text-red-800/70 font-mono">
+                    {formatMm(optResult?.scrap_mm)}
+                  </span>
+                </div>
 
-              {/* 8. Rendimento do corte (%) */}
-              <div className="bg-blue-50/70 p-3 rounded-lg border border-blue-200 shadow-sm">
-                <span className="text-[11px] text-blue-900 block font-bold">
-                  8. Rendimento do Corte (%)
-                </span>
-                <span className="text-base font-extrabold text-blue-950 font-mono">
-                  {formatPct(optResult?.cutting_yield_pct)}
-                </span>
-                <span className="text-[10px] text-blue-800 block leading-tight">
-                  (comprimento convertido / disponível × 100)
-                </span>
+                {/* 8. Rendimento do Corte (%) */}
+                <div className="bg-blue-50/80 p-2.5 rounded-lg border border-blue-200 shadow-xs flex flex-col justify-between">
+                  <span className="text-[11px] text-blue-900 block font-bold leading-tight">
+                    8. Rendimento (%)
+                  </span>
+                  <span className="text-base font-extrabold text-blue-950 font-mono mt-0.5">
+                    {formatPct(optResult?.cutting_yield_pct)}
+                  </span>
+                  <span className="text-[10px] text-blue-800 leading-tight">
+                    Metálico aproveitado
+                  </span>
+                </div>
               </div>
+            </div>
+
+            {/* 5. INFORMAÇÕES TÉCNICAS COMPLEMENTARES */}
+            <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-xs space-y-1.5 text-xs">
+              <h4 className="font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5 text-[11px]">
+                <Info className="w-3.5 h-3.5 text-blue-900 shrink-0" />
+                Informações Técnicas Complementares
+              </h4>
+              <p className="text-slate-600 leading-relaxed text-[11px]">
+                Os cálculos de rendimento respeitam rigorosamente a conservação da massa e as
+                espessuras de corte programadas para as serras industriais. Os comprimentos dos
+                blocos são calculados a partir da massa linear de{' '}
+                <strong>{formatLinearMass(linearMassKgM)}</strong>. Todas as alterações efetuadas
+                geram registro auditável no log de operações do PCP Robotizado.
+              </p>
             </div>
           </div>
 
-          <DialogFooter className="p-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
-            <div className="text-xs text-slate-500">
+          {/* RODAPÉ FIXO (Status da otimização; Botão Cancelar; Botão Confirmar Otimização) */}
+          <DialogFooter className="shrink-0 p-3 sm:p-4 bg-slate-100 border-t border-slate-200 flex flex-row items-center justify-between gap-3">
+            <div className="text-xs text-slate-600 min-w-0 truncate">
               {optResult?.is_viable ? (
-                <span className="text-emerald-700 font-medium flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Combinação técnica viável sem
-                  extrapolação de perdas.
+                <span className="text-emerald-700 font-semibold flex items-center gap-1.5 truncate">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="truncate">
+                    Combinação viável ({formatPct(optResult.cutting_yield_pct)} de rendimento em{' '}
+                    {optResult.generated_pieces_count} peças)
+                  </span>
                 </span>
               ) : (
-                <span className="text-red-600 font-medium flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" /> {optResult?.inviability_reason}
+                <span className="text-red-600 font-semibold flex items-center gap-1.5 truncate">
+                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span className="truncate">{optResult?.inviability_reason}</span>
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>
                 Cancelar
               </Button>
@@ -934,7 +1069,7 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
                 size="sm"
                 onClick={handleConfirm}
                 disabled={saving || !optResult?.is_viable}
-                className="bg-blue-900 hover:bg-blue-950 text-white flex items-center gap-1.5"
+                className="bg-blue-900 hover:bg-blue-950 text-white flex items-center gap-1.5 shadow-sm font-semibold"
               >
                 <Save className="w-4 h-4" />
                 {saving ? 'Gravando...' : 'Confirmar Otimização'}

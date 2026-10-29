@@ -1235,10 +1235,10 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                               Dimensões do Bloco
                             </TableHead>
                             <TableHead className="text-xs font-bold min-w-[140px] whitespace-nowrap">
-                              Comprimento Laminado (mm)
+                              Comprimento Laminado (m)
                             </TableHead>
                             <TableHead className="text-xs font-bold min-w-[150px] whitespace-nowrap">
-                              Comprimento por Peça (mm)
+                              Comprimento Final da Peça (m)
                             </TableHead>
                             <TableHead className="text-xs font-bold min-w-[140px] whitespace-nowrap">
                               Aplicação
@@ -1390,13 +1390,19 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                                   </Tooltip>
                                 </TableCell>
 
-                                {/* NOVO CAMPO: Comprimento Laminado (mm) com tooltip consultável de origem e recálculo automático */}
+                                {/* NOVO CAMPO: Comprimento Laminado (m) com tooltip consultável de origem e recálculo automático */}
                                 <TableCell className="font-mono text-xs whitespace-nowrap">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <span className="inline-flex items-center gap-1 font-bold text-emerald-800 cursor-help py-0.5 px-1.5 rounded hover:bg-emerald-50 border border-transparent hover:border-emerald-200">
                                         <Ruler className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span>{calculatedLengthMm.toLocaleString('pt-BR')} mm</span>
+                                        <span>
+                                          {(calculatedLengthMm / 1000).toLocaleString('pt-BR', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          })}{' '}
+                                          m
+                                        </span>
                                         <Info className="w-3 h-3 text-slate-400 opacity-80" />
                                       </span>
                                     </TooltipTrigger>
@@ -1415,14 +1421,18 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                                       <div className="border-t border-slate-800 pt-1 text-[11px] text-slate-400 font-mono">
                                         Total:{' '}
                                         <strong>
-                                          {calculatedLengthMm.toLocaleString('pt-BR')} mm
+                                          {(calculatedLengthMm / 1000).toLocaleString('pt-BR', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          })}{' '}
+                                          m ({calculatedLengthMm.toLocaleString('pt-BR')} mm)
                                         </strong>
                                       </div>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TableCell>
 
-                                {/* NOVO CAMPO: Comprimento por Peça (mm) vinculado à aplicação e quantidade produzível */}
+                                {/* NOVO CAMPO: Comprimento Final da Peça (m) vinculado à aplicação e quantidade produzível */}
                                 <TableCell className="font-mono text-xs">
                                   {pieceOpt ? (
                                     <div className="space-y-0.5">
@@ -1432,7 +1442,11 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                                           className="flex items-center gap-1 text-[11px]"
                                         >
                                           <span className="font-bold text-blue-900">
-                                            {item.length_mm.toLocaleString('pt-BR')} mm
+                                            {(item.length_mm / 1000).toLocaleString('pt-BR', {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            })}{' '}
+                                            m
                                           </span>
                                           <span className="text-slate-600 font-sans">
                                             ({item.quantity} un)
@@ -1456,7 +1470,11 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                                   ) : (
                                     <div className="space-y-0.5">
                                       <span className="text-slate-700 font-medium">
-                                        {calculatedLengthMm.toLocaleString('pt-BR')} mm
+                                        {(calculatedLengthMm / 1000).toLocaleString('pt-BR', {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        })}{' '}
+                                        m
                                       </span>
                                       <span className="block text-[10px] text-slate-400 font-sans">
                                         (1 un • Aplicação direta)
