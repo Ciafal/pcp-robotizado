@@ -59,6 +59,7 @@ interface OperationalTimelineGridProps {
   onEditItem?: (item: WeeklyScheduleItem) => void
   onOpenAwaitingModal?: (item: WeeklyScheduleItem) => void
   onOpenSetupDetail?: (item: WeeklyScheduleItem) => void
+  onOpenChangeHistory?: () => void
   documentImpactsByItem?: Record<string, ScheduleItemDocumentImpact[]>
 }
 
@@ -144,6 +145,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   onAddItem,
   onOpenAwaitingModal,
   onOpenSetupDetail,
+  onOpenChangeHistory,
   documentImpactsByItem = {},
 }) => {
   const isWeekPast = isWeekInPast(year, weekNumber)
@@ -561,6 +563,18 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
         {/* BARRA SUPERIOR DE UTILITÁRIOS DA GRADE: DENSIDADE + STATUS DO DRAG & DROP */}
         <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
+            {onOpenChangeHistory && (
+              <button
+                type="button"
+                onClick={onOpenChangeHistory}
+                title="Histórico de alterações na grade (quem mexeu, quando e o que mudou)"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-[#004C97] hover:border-blue-300 shadow-2xs transition-colors cursor-pointer"
+              >
+                <History className="w-3.5 h-3.5 text-[#004C97]" />
+                <span>Histórico de Alterações</span>
+              </button>
+            )}
+
             <span className="text-[11px] font-bold text-slate-700">Densidade da Grade:</span>
             <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 shadow-2xs">
               <button
