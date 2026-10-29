@@ -303,7 +303,11 @@ export function generateTestAiAnalysis(
       triggerRules.push('Alteração de parâmetros em Receita AOM / Calibração')
       suggestedTypes.push('Documento')
     }
-    if (test.test_category === 'EQUIPAMENTO' && test.equipment_data?.flags?.isNewEquipment) {
+    if (
+      test.test_category === 'EQUIPAMENTO' &&
+      test.dynamic_category_data?.category === 'EQUIPAMENTO' &&
+      test.dynamic_category_data.data?.isNewEquipment
+    ) {
       triggerRules.push('Instalação ou intervenção em equipamento novo na linha')
       suggestedTypes.push('Documento')
     }

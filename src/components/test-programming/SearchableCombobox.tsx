@@ -120,7 +120,9 @@ export const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
                         className="text-xs py-1.5 px-2 cursor-pointer flex items-center justify-between"
                       >
                         <div className="flex flex-col flex-1 min-w-0 pr-2">
-                          <span className={cn('truncate', isSelected && 'font-bold text-[#004C97]')}>
+                          <span
+                            className={cn('truncate', isSelected && 'font-bold text-[#004C97]')}
+                          >
                             {opt.label}
                           </span>
                           {opt.subLabel && (

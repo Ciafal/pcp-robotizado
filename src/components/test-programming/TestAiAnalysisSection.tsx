@@ -68,7 +68,8 @@ export const TestAiAnalysisSection: React.FC<TestAiAnalysisSectionProps> = ({
         updates.needs_revision = true
         updates.revision_status = testRecord.revision_status || 'Pendente'
         if (!testRecord.revision_reason) {
-          updates.revision_reason = suggestion?.justification || 'Confirmada a partir da recomendação da IA'
+          updates.revision_reason =
+            suggestion?.justification || 'Confirmada a partir da recomendação da IA'
         }
         if (!testRecord.revision_types && suggestion?.suggestedRevisionTypes) {
           updates.revision_types = suggestion.suggestedRevisionTypes.join(' e ') as any
@@ -80,12 +81,15 @@ export const TestAiAnalysisSection: React.FC<TestAiAnalysisSectionProps> = ({
         updates,
         { id: user?.id, name: user?.name || 'Programador PCP', role: user?.role },
         `Decisão de Governança IA: sugestão de revisão ${decision} por ${user?.name || 'usuário'}`,
-        'Análise IA',
+        'PCP Robotizado',
       )
 
       setDecisionState(decision)
       toast({
-        title: decision === 'CONFIRMADA' ? 'Necessidade de revisão confirmada' : 'Sugestão da IA descartada',
+        title:
+          decision === 'CONFIRMADA'
+            ? 'Necessidade de revisão confirmada'
+            : 'Sugestão da IA descartada',
         description: `Decisão de auditoria gravada: ${decision}.`,
       })
       onRefresh?.()
@@ -312,7 +316,8 @@ export const TestAiAnalysisSection: React.FC<TestAiAnalysisSectionProps> = ({
             <div className="p-2 bg-amber-50/80 border border-amber-200 rounded text-[11px] text-amber-900 flex items-center justify-between">
               <span>
                 <strong>Regra de Governança:</strong> A IA NUNCA marca revisão automaticamente.
-                Qualquer necessidade deve ser deliberada e confirmada pelo usuário com registro de auditoria.
+                Qualquer necessidade deve ser deliberada e confirmada pelo usuário com registro de
+                auditoria.
               </span>
             </div>
           </div>

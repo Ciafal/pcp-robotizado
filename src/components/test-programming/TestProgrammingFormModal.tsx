@@ -110,11 +110,15 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
   const [testType, setTestType] = useState('')
 
   // Listas reais do backend para os comboboxes pesquisáveis
-  const [hubUsers, setHubUsers] = useState<Array<{ id: string; name: string; sector: string; role: string; label: string }>>([])
+  const [hubUsers, setHubUsers] = useState<
+    Array<{ id: string; name: string; sector: string; role: string; label: string }>
+  >([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [errorUsers, setErrorUsers] = useState<string | null>(null)
 
-  const [activeTestTypes, setActiveTestTypes] = useState<Array<{ id: string; description: string }>>([])
+  const [activeTestTypes, setActiveTestTypes] = useState<
+    Array<{ id: string; description: string }>
+  >([])
   const [loadingTestTypes, setLoadingTestTypes] = useState(false)
   const [errorTestTypes, setErrorTestTypes] = useState<string | null>(null)
   const [title, setTitle] = useState('')
@@ -548,7 +552,9 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
         const t = activeTestTypes.find((x) => x.id === testTypeId)
         if (t) setTestType(t.description)
       } else if (!testTypeId && testType) {
-        const t = activeTestTypes.find((x) => x.description.toLowerCase() === testType.toLowerCase())
+        const t = activeTestTypes.find(
+          (x) => x.description.toLowerCase() === testType.toLowerCase(),
+        )
         if (t) setTestTypeId(t.id)
       }
     }
@@ -683,7 +689,9 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       return
     }
     if (!technicalLeadId || !technicalLead.trim()) {
-      setErrorMessage('O Responsável Técnico é obrigatório. Selecione um usuário cadastrado no HUB.')
+      setErrorMessage(
+        'O Responsável Técnico é obrigatório. Selecione um usuário cadastrado no HUB.',
+      )
       setActiveTab('geral')
       return
     }

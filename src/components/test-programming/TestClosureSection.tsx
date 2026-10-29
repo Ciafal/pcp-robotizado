@@ -39,7 +39,11 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
 
   const [conclusion, setConclusion] = useState<string>(test.conclusion || '')
   const [needsRevision, setNeedsRevision] = useState<boolean>(test.needs_revision ?? false)
-  const [revisionTypes, setRevisionTypes] = useState<string>(test.revision_types || '')
+  const [revisionTypes, setRevisionTypes] = useState<string>(
+    Array.isArray(test.revision_types)
+      ? test.revision_types.join(' e ')
+      : (test.revision_types as unknown as string) || '',
+  )
   const [revisionReason, setRevisionReason] = useState<string>(test.revision_reason || '')
   const [revisionDocCode, setRevisionDocCode] = useState<string>(test.revision_document_code || '')
   const [revisionDocTitle, setRevisionDocTitle] = useState<string>(
@@ -83,14 +87,16 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
   useEffect(() => {
     setConclusion(test.conclusion || '')
     setNeedsRevision(test.needs_revision ?? false)
-    setRevisionTypes(test.revision_types || '')
+    setRevisionTypes(
+      Array.isArray(test.revision_types)
+        ? test.revision_types.join(' e ')
+        : (test.revision_types as unknown as string) || '',
+    )
     setRevisionReason(test.revision_reason || '')
     setRevisionDocCode(test.revision_document_code || '')
     setRevisionDocTitle(test.revision_document_title || '')
     setRevisionDocVersion(test.revision_document_version || '')
-    setRevisionStatus(
-      test.revision_status || (test.needs_revision ? 'Pendente' : 'Não aplicável'),
-    )
+    setRevisionStatus(test.revision_status || (test.needs_revision ? 'Pendente' : 'Não aplicável'))
     setValidationError(null)
   }, [test])
 
@@ -99,7 +105,7 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
     const found = sgqDocuments.find((d) => d.code === docCode)
     if (found) {
       setRevisionDocTitle(found.title)
-      setRevisionDocVersion(found.version)
+      setRevisionDocVersion(found.revision || '')
     }
   }
 
@@ -131,7 +137,8 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
       const payload: Partial<TestProgrammingRecord> = {
         conclusion: conclusion.trim(),
         conclusion_user_id: user?.id || test.conclusion_user_id || 'system',
-        conclusion_user_name: user?.name || user?.email || test.conclusion_user_name || 'Usuário PCP',
+        conclusion_user_name:
+          user?.name || user?.email || test.conclusion_user_name || 'Usuário PCP',
         conclusion_date: test.conclusion_date || dateStr,
         conclusion_time: test.conclusion_time || timeStr,
         needs_revision: needsRevision,
@@ -140,9 +147,7 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
         revision_document_code: needsRevision ? revisionDocCode : undefined,
         revision_document_title: needsRevision ? revisionDocTitle : undefined,
         revision_document_version: needsRevision ? revisionDocVersion : undefined,
-        revision_status: needsRevision
-          ? (revisionStatus as any || 'Pendente')
-          : 'Não aplicável',
+        revision_status: needsRevision ? (revisionStatus as any) || 'Pendente' : 'Não aplicável',
       }
 
       const updated = await testProgrammingService.update(
@@ -150,7 +155,7 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
         payload,
         { id: user?.id, name: user?.name || 'Programador PCP', role: user?.role },
         'Fechamento do teste e governança de revisão',
-        'Previsto x Realizado',
+        'PCP Robotizado',
       )
 
       toast({
@@ -181,7 +186,8 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
         </CardTitle>
         {test.conclusion_date && (
           <span className="text-[11px] text-slate-500 font-mono">
-            Concluído em: {formatDatePTBR(test.conclusion_date)} às {test.conclusion_time || '--:--'} por{' '}
+            Concluído em: {formatDatePTBR(test.conclusion_date)} às{' '}
+            {test.conclusion_time || '--:--'} por{' '}
             <strong className="text-slate-700">{test.conclusion_user_name}</strong>
           </span>
         )}
@@ -198,15 +204,16 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
             <div className="space-y-1 text-xs flex-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-sm text-amber-900 tracking-wide flex items-center gap-1.5">
-                  ⚠ REVISÃO NECESSÁRIA
+                  ⚠ REVISÃO NECESSÁRIA — Este teste identificou necessidade de revisão de documento
+                  e/ou meta.
                 </span>
                 <Badge className="bg-amber-600 text-white text-[10px] font-bold">
                   Status: {revisionStatus || 'Pendente'}
                 </Badge>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
-                Este teste gerou impacto nos padrões industriais. É mandatório revisar os
-                documentos ou metas antes de novas campanhas operacionais na linha.
+                Impacto identificado em procedimento operacional, parametrização ou meta de
+                produtividade/qualidade.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1.5 text-[11px] font-medium border-t border-amber-200">
                 <div>
@@ -214,19 +221,41 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
                   <span className="font-bold font-mono">{test.test_id || test.title}</span>
                 </div>
                 <div>
-                  <span className="text-amber-700 block text-[10px]">Linha / Centro:</span>
-                  <span className="font-bold">
-                    {test.production_line} • {test.work_center || '-'}
-                  </span>
+                  <span className="text-amber-700 block text-[10px]">Linha:</span>
+                  <span className="font-bold">{test.production_line}</span>
+                </div>
+                <div>
+                  <span className="text-amber-700 block text-[10px]">Centro de Trabalho:</span>
+                  <span className="font-bold">{test.work_center || '-'}</span>
                 </div>
                 <div>
                   <span className="text-amber-700 block text-[10px]">Responsável Técnico:</span>
                   <span className="font-bold">{test.technical_lead}</span>
                 </div>
                 <div>
-                  <span className="text-amber-700 block text-[10px]">Tipo de Revisão:</span>
+                  <span className="text-amber-700 block text-[10px]">Tipo da Revisão:</span>
                   <span className="font-bold text-amber-900">{revisionTypes || 'Pendente'}</span>
                 </div>
+                <div>
+                  <span className="text-amber-700 block text-[10px]">Data da Conclusão:</span>
+                  <span className="font-bold font-mono">
+                    {test.conclusion_date ? formatDatePTBR(test.conclusion_date) : 'Hoje'}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-amber-700 block text-[10px]">Documento Relacionado:</span>
+                  <span className="font-bold">
+                    {revisionDocCode
+                      ? `${revisionDocCode} - ${revisionDocTitle || ''} ${revisionDocVersion ? `(${revisionDocVersion})` : ''}`
+                      : 'Não vinculado'}
+                  </span>
+                </div>
+                {revisionReason && (
+                  <div className="col-span-2 sm:col-span-4 pt-1 border-t border-amber-200/60">
+                    <span className="text-amber-700 block text-[10px]">Motivo da Revisão:</span>
+                    <span className="text-amber-950 font-medium">{revisionReason}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -258,7 +287,8 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
                 Necessita revisão de documento ou meta? *
               </Label>
               <span className="text-[11px] text-slate-500">
-                Determina se o resultado do teste exige atualização de IT, Ficha Mestra, AOM ou meta.
+                Determina se o resultado do teste exige atualização de IT, Ficha Mestra, AOM ou
+                meta.
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -299,14 +329,12 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Tipo de Revisão */}
                 <div>
-                  <Label className="text-xs font-bold text-slate-700">
-                    Tipo de Revisão *
-                  </Label>
-                  <Select
-                    value={revisionTypes}
-                    onValueChange={(val) => setRevisionTypes(val)}
-                  >
-                    <SelectTrigger data-testid="revision-type-select" className="text-xs h-8 bg-white mt-1">
+                  <Label className="text-xs font-bold text-slate-700">Tipo de Revisão *</Label>
+                  <Select value={revisionTypes} onValueChange={(val) => setRevisionTypes(val)}>
+                    <SelectTrigger
+                      data-testid="revision-type-select"
+                      className="text-xs h-8 bg-white mt-1"
+                    >
                       <SelectValue placeholder="Selecione o tipo de revisão..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -325,13 +353,8 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
 
                 {/* Status da Revisão */}
                 <div>
-                  <Label className="text-xs font-bold text-slate-700">
-                    Status da Revisão
-                  </Label>
-                  <Select
-                    value={revisionStatus}
-                    onValueChange={(val) => setRevisionStatus(val)}
-                  >
+                  <Label className="text-xs font-bold text-slate-700">Status da Revisão</Label>
+                  <Select value={revisionStatus} onValueChange={(val) => setRevisionStatus(val)}>
                     <SelectTrigger className="text-xs h-8 bg-white mt-1">
                       <SelectValue />
                     </SelectTrigger>
@@ -342,13 +365,22 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
                       <SelectItem value="Em análise" className="text-xs font-medium text-blue-700">
                         Em análise
                       </SelectItem>
-                      <SelectItem value="Em revisão" className="text-xs font-medium text-purple-700">
+                      <SelectItem
+                        value="Em revisão"
+                        className="text-xs font-medium text-purple-700"
+                      >
                         Em revisão
                       </SelectItem>
-                      <SelectItem value="Concluída" className="text-xs font-medium text-emerald-700">
+                      <SelectItem
+                        value="Concluída"
+                        className="text-xs font-medium text-emerald-700"
+                      >
                         Concluída
                       </SelectItem>
-                      <SelectItem value="Não aplicável" className="text-xs font-medium text-slate-500">
+                      <SelectItem
+                        value="Não aplicável"
+                        className="text-xs font-medium text-slate-500"
+                      >
                         Não aplicável
                       </SelectItem>
                     </SelectContent>
@@ -358,9 +390,7 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
 
               {/* Motivo Obrigatório */}
               <div>
-                <Label className="text-xs font-bold text-slate-700">
-                  Motivo da Revisão *
-                </Label>
+                <Label className="text-xs font-bold text-slate-700">Motivo da Revisão *</Label>
                 <Textarea
                   data-testid="revision-reason-textarea"
                   rows={2}
@@ -386,9 +416,7 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div className="sm:col-span-2">
-                    <Label className="text-[11px] text-slate-600">
-                      Selecionar do Catálogo SGQ
-                    </Label>
+                    <Label className="text-[11px] text-slate-600">Selecionar do Catálogo SGQ</Label>
                     <Select value={revisionDocCode} onValueChange={handleSelectSgqDoc}>
                       <SelectTrigger className="text-xs h-8 bg-white mt-0.5">
                         <SelectValue placeholder="Selecione um documento SGQ..." />
@@ -400,7 +428,7 @@ export const TestClosureSection: React.FC<TestClosureSectionProps> = ({ test, on
                               {doc.code}
                             </span>
                             <span>{doc.title}</span>{' '}
-                            <span className="text-[10px] text-slate-400">({doc.version})</span>
+                            <span className="text-[10px] text-slate-400">({doc.revision})</span>
                           </SelectItem>
                         ))}
                       </SelectContent>

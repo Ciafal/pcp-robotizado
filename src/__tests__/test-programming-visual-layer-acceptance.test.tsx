@@ -12,8 +12,20 @@ vi.mock('@/services/test-programming-service', () => ({
   testProgrammingService: {
     update: vi.fn(),
     listHubUsers: vi.fn().mockResolvedValue([
-      { id: 'usr-1', name: 'Lucas Ferreira', sector: 'Engenharia de Processos', role: 'Engenheiro', label: 'Lucas Ferreira — Engenharia de Processos' },
-      { id: 'usr-2', name: 'Carlos Mendes', sector: 'Produção', role: 'Supervisor', label: 'Carlos Mendes — Produção' },
+      {
+        id: 'usr-1',
+        name: 'Lucas Ferreira',
+        sector: 'Engenharia de Processos',
+        role: 'Engenheiro',
+        label: 'Lucas Ferreira — Engenharia de Processos',
+      },
+      {
+        id: 'usr-2',
+        name: 'Carlos Mendes',
+        sector: 'Produção',
+        role: 'Supervisor',
+        label: 'Carlos Mendes — Produção',
+      },
     ]),
     listActiveTestTypes: vi.fn().mockResolvedValue([
       { id: 'tt-1', description: 'Homologação Operacional' },
@@ -25,7 +37,12 @@ vi.mock('@/services/test-programming-service', () => ({
 vi.mock('@/services/sgq-document-provider', () => ({
   sgqDocumentProvider: {
     searchDocuments: vi.fn().mockResolvedValue([
-      { code: 'IT-L1-002', title: 'Operação do Desbastador L1', version: 'Rev. 04', status: 'VIGENTE' },
+      {
+        code: 'IT-L1-002',
+        title: 'Operação do Desbastador L1',
+        version: 'Rev. 04',
+        status: 'VIGENTE',
+      },
     ]),
   },
 }))
@@ -102,7 +119,9 @@ describe('Test Programming Visual Layer Improvements Acceptance Suite', () => {
 
     // Preenche conclusão
     const textarea = screen.getByTestId('test-conclusion-textarea')
-    fireEvent.change(textarea, { target: { value: 'Teste aprovado tecnicamente mas com novo limite térmico.' } })
+    fireEvent.change(textarea, {
+      target: { value: 'Teste aprovado tecnicamente mas com novo limite térmico.' },
+    })
 
     // Clica em Sim para necessidade de revisão
     const simBtn = screen.getByRole('button', { name: /Sim/i })
@@ -110,11 +129,13 @@ describe('Test Programming Visual Layer Improvements Acceptance Suite', () => {
 
     // Alerta de revisão deve aparecer
     expect(screen.getByTestId('closure-revision-alert')).toBeDefined()
-    expect(screen.getByText('⚠ REVISÃO NECESSÁRIA')).toBeDefined()
+    expect(screen.getByText(/⚠ REVISÃO NECESSÁRIA/)).toBeDefined()
 
     // Preenche motivo da revisão
     const reasonTextarea = screen.getByTestId('revision-reason-textarea')
-    fireEvent.change(reasonTextarea, { target: { value: 'Alteração do parâmetro na Instrução de Trabalho.' } })
+    fireEvent.change(reasonTextarea, {
+      target: { value: 'Alteração do parâmetro na Instrução de Trabalho.' },
+    })
 
     // Clica em Salvar Fechamento
     vi.mocked(testProgrammingService.update).mockResolvedValueOnce({
@@ -200,13 +221,7 @@ describe('Test Programming Visual Layer Improvements Acceptance Suite', () => {
       conclusion: 'Concluído com restrição.',
     }
 
-    render(
-      <RevisionDetailModal
-        isOpen={true}
-        onClose={vi.fn()}
-        test={testWithRevision}
-      />,
-    )
+    render(<RevisionDetailModal isOpen={true} onClose={vi.fn()} test={testWithRevision} />)
 
     expect(screen.getByTestId('revision-detail-modal')).toBeDefined()
     expect(screen.getByText('Detalhamento da Revisão Obrigatória')).toBeDefined()

@@ -872,12 +872,60 @@ export class TestProgrammingService {
       reason: entry.reason || '',
     }
 
+    // 1. Grava no log de histórico local da programação de testes
+    let createdLocalLog: TestProgrammingLogRecord = payload as unknown as TestProgrammingLogRecord
     try {
-      return await pb.collection('test_programming_log').create<TestProgrammingLogRecord>(payload)
+      createdLocalLog = await pb
+        .collection('test_programming_log')
+        .create<TestProgrammingLogRecord>(payload)
     } catch (err) {
-      console.warn('Erro ao salvar log de auditoria do teste:', err)
-      return payload as unknown as TestProgrammingLogRecord
+      console.warn('Erro ao salvar em test_programming_log:', err)
     }
+
+    // 2. Grava no serviço unificado de auditoria do PCP Robotizado (pcp_audit_logs)
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: entry.user_id || pb.authStore.record?.id || '',
+        user_name: entry.user_name || pb.authStore.record?.name || 'Usuário Sistema',
+        user_email: pb.authStore.record?.email || '',
+        user_role: entry.user_role || pb.authStore.record?.role || 'PCP',
+        action: `PROGRAMAÇÃO_TESTES_${entry.action}`,
+        event_type: 'PROGRAMAÇÃO_TESTE',
+        module: 'Programação de Testes Industriais',
+        screen: 'Programação de Testes',
+        entity: 'test_programming',
+        record_id: entry.test_id || entry.test_programming_id,
+        line: entry.center_new || '',
+        center: entry.center_new || '',
+        status: 'Sucesso',
+        outcome: 'SUCCESS',
+        reason: entry.reason || entry.action,
+        changes: entry.field_changed
+          ? [
+              {
+                field: entry.field_changed,
+                previous_value: entry.previous_value || '',
+                new_value: entry.new_value || '',
+              },
+            ]
+          : [],
+        details: {
+          test_programming_id: entry.test_programming_id,
+          test_id: entry.test_id,
+          field_changed: entry.field_changed,
+          previous_value: entry.previous_value,
+          new_value: entry.new_value,
+          origin: entry.origin,
+          integration_name: entry.integration_name,
+          operation_result: entry.operation_result,
+          ...(entry.metadata || {}),
+        },
+      })
+    } catch (err) {
+      console.warn('Falha silenciosa ao registrar auditoria em pcp_audit_logs:', err)
+    }
+
+    return createdLocalLog
   }
 
   /**

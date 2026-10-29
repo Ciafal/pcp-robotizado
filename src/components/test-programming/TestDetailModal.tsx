@@ -174,7 +174,10 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                   ⚠ Revisão: {currentTest.revision_status || 'Pendente'}
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-[11px] font-medium text-slate-500 bg-slate-50">
+                <Badge
+                  variant="outline"
+                  className="text-[11px] font-medium text-slate-500 bg-slate-50"
+                >
                   Revisão: Não aplicável
                 </Badge>
               )}
@@ -259,12 +262,15 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                     </Badge>
                   </div>
                   <p className="text-[11px] text-amber-800">
-                    Este teste gerou desvios ou novos limites que requerem revisão formal de documentação técnica ou meta industrial.
+                    Este teste gerou desvios ou novos limites que requerem revisão formal de
+                    documentação técnica ou meta industrial.
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1.5 text-[11px] font-medium border-t border-amber-200">
                     <div>
                       <span className="text-amber-700 block text-[10px]">Teste:</span>
-                      <span className="font-bold font-mono">{currentTest.test_id || currentTest.title}</span>
+                      <span className="font-bold font-mono">
+                        {currentTest.test_id || currentTest.title}
+                      </span>
                     </div>
                     <div>
                       <span className="text-amber-700 block text-[10px]">Linha / Centro:</span>
@@ -278,7 +284,9 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                     </div>
                     <div>
                       <span className="text-amber-700 block text-[10px]">Tipo de Revisão:</span>
-                      <span className="font-bold text-amber-900">{currentTest.revision_types || 'Pendente'}</span>
+                      <span className="font-bold text-amber-900">
+                        {currentTest.revision_types || 'Pendente'}
+                      </span>
                     </div>
                   </div>
                   {currentTest.revision_reason && (
@@ -288,13 +296,15 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                   )}
                   {currentTest.revision_document_code && (
                     <p className="text-[11px] text-blue-900">
-                      <strong>Documento SGQ:</strong> {currentTest.revision_document_code} - {currentTest.revision_document_title}{' '}
-                      ({currentTest.revision_document_version || 'v1'})
+                      <strong>Documento SGQ:</strong> {currentTest.revision_document_code} -{' '}
+                      {currentTest.revision_document_title} (
+                      {currentTest.revision_document_version || 'v1'})
                     </p>
                   )}
                   {currentTest.conclusion_date && (
                     <p className="text-[10px] text-amber-700 font-mono pt-0.5">
-                      Data da Conclusão: {formatDatePTBR(currentTest.conclusion_date)} às {currentTest.conclusion_time || '--:--'}
+                      Data da Conclusão: {formatDatePTBR(currentTest.conclusion_date)} às{' '}
+                      {currentTest.conclusion_time || '--:--'}
                     </p>
                   )}
                 </div>

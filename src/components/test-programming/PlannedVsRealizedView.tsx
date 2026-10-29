@@ -439,8 +439,9 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
           >
             <div className="flex items-center justify-between">
               <span className="font-bold text-sm text-amber-900 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                ⚠ REVISÃO NECESSÁRIA ({testsNeedingRevision.length} teste(s) pendente(s) de atualização de documento ou meta)
+                <AlertTriangle className="w-4 h-4 text-amber-600" />⚠ REVISÃO NECESSÁRIA — Este
+                teste identificou necessidade de revisão de documento e/ou meta. (
+                {testsNeedingRevision.length} teste(s) com tratativa ativa)
               </span>
               <Badge className="bg-amber-600 text-white font-mono text-[10px]">
                 Governança Ativa
@@ -460,23 +461,41 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
                     <span className="font-mono font-bold text-[#004C97]">
                       {item.test_id || 'TESTE'}
                     </span>
-                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] bg-amber-50 text-amber-800 border-amber-300"
+                    >
                       {item.revision_status || 'Pendente'}
                     </Badge>
                   </div>
                   <p className="text-xs font-semibold text-slate-800 truncate">{item.title}</p>
-                  <div className="text-[11px] text-slate-500 flex justify-between">
-                    <span>{item.production_line} • {item.work_center || '-'}</span>
-                    <span className="font-medium text-amber-900">{item.revision_types || 'Revisão'}</span>
+                  <div className="text-[11px] text-slate-600 space-y-0.5">
+                    <p>
+                      Linha: <strong>{item.production_line}</strong> • Centro:{' '}
+                      <strong>{item.work_center || '-'}</strong>
+                    </p>
+                    <p>
+                      Resp. Técnico: <strong>{item.technical_lead}</strong>
+                    </p>
+                    <p>
+                      Tipo:{' '}
+                      <strong className="text-amber-900">{item.revision_types || 'Revisão'}</strong>
+                    </p>
+                    {item.revision_document_code && (
+                      <p className="text-[10px] text-[#004C97] font-mono font-semibold">
+                        Doc: {item.revision_document_code}{' '}
+                        {item.revision_document_title ? `- ${item.revision_document_title}` : ''}
+                      </p>
+                    )}
                   </div>
                   {item.revision_reason && (
-                    <p className="text-[10px] text-slate-600 truncate italic">
-                      Motivo: {item.revision_reason}
+                    <p className="text-[10px] text-slate-700 italic border-t border-amber-100 pt-1">
+                      <strong>Motivo:</strong> {item.revision_reason}
                     </p>
                   )}
                   {item.conclusion_date && (
-                    <p className="text-[10px] text-slate-400 font-mono">
-                      Concluído em: {formatDatePTBR(item.conclusion_date)}
+                    <p className="text-[10px] text-slate-500 font-mono">
+                      Data da conclusão: {formatDatePTBR(item.conclusion_date)}
                     </p>
                   )}
                 </div>
@@ -1087,10 +1106,7 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-slate-500">Selecionar teste para fechamento:</span>
-              <Select
-                value={activeClosureTest.id}
-                onValueChange={(id) => setClosureTestId(id)}
-              >
+              <Select value={activeClosureTest.id} onValueChange={(id) => setClosureTestId(id)}>
                 <SelectTrigger className="h-7 text-xs w-64 bg-white">
                   <SelectValue />
                 </SelectTrigger>

@@ -1,10 +1,5 @@
 import React, { useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -16,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ShieldAlert, FileText, Calendar, User, Clock, CheckCircle2 } from 'lucide-react'
-import { TestProgrammingRecord, TestRevisionStatus } from '@/types/test-programming'
+import { TestProgrammingRecord, RevisionStatus } from '@/types/test-programming'
 import { testProgrammingService } from '@/services/test-programming-service'
 import { formatDatePTBR } from '@/lib/formatters-ptbr'
 import { useAuth } from '@/contexts/AuthContext'
@@ -38,9 +33,7 @@ export const RevisionDetailModal: React.FC<RevisionDetailModalProps> = ({
   const { user } = useAuth()
   const { toast } = useToast()
 
-  const [currentStatus, setCurrentStatus] = useState<string>(
-    test?.revision_status || 'Pendente',
-  )
+  const [currentStatus, setCurrentStatus] = useState<string>(test?.revision_status || 'Pendente')
   const [isUpdating, setIsUpdating] = useState<boolean>(false)
 
   React.useEffect(() => {
@@ -56,10 +49,10 @@ export const RevisionDetailModal: React.FC<RevisionDetailModalProps> = ({
     try {
       await testProgrammingService.update(
         test.id,
-        { revision_status: newStatus as TestRevisionStatus },
+        { revision_status: newStatus as RevisionStatus },
         { id: user?.id, name: user?.name || 'Programador PCP', role: user?.role },
-        `Status da revisão alterado para "${newStatus}"`,
-        'Governança de Revisão',
+        `Status da revisão alterado de "${test.revision_status || 'Pendente'}" para "${newStatus}"`,
+        'PCP Robotizado',
       )
       setCurrentStatus(newStatus)
       toast({

@@ -275,6 +275,7 @@ export interface TestAiAnalysisResult {
     fatos: string[]
     hipoteses_recomendacoes: string[]
   }
+  ai_revision_suggestion?: AiRevisionSuggestion
   has_sufficient_data: boolean
   warning_note?: string
   generated_at: string
