@@ -430,8 +430,8 @@ const MPOrdersAndReceiptPage = lazyWithRetry(
 )
 const MPCuttingPlansUnifiedPage = lazyWithRetry(
   () =>
-    import('@/pages/mp-optimization/MPCuttingPlansUnifiedPage').then((m) => ({
-      default: m.MPCuttingPlansUnifiedPage,
+    import('@/pages/mp-optimization/MPCuttingPlansUnifiedPage').then((m: any) => ({
+      default: m.default ?? m.MPCuttingPlansUnifiedPage,
     })),
   'MPCuttingPlansUnifiedPage',
 )
@@ -1526,11 +1526,11 @@ export const App: React.FC = () => {
                     <Route
                       path="/pcp/gestao-materia-prima/planos-corte"
                       element={
-                        <PermissionGuard permission="pcp.mp_opt.simulate">
-                          <ErrorBoundary moduleName="Planos de Corte (Otimização MP)">
+                        <ErrorBoundary moduleName="Planos de Corte (Otimização MP)">
+                          <PermissionGuard permission="pcp.mp_opt.simulate">
                             <MPCuttingPlansUnifiedPage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
+                          </PermissionGuard>
+                        </ErrorBoundary>
                       }
                     />
                     <Route

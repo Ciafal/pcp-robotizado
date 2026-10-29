@@ -303,11 +303,16 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
   // Helpers padronizados de exibição (Regras A, B, C, D e E):
   // A. PESO -> toneladas com EXATAMENTE 3 casas decimais (ex.: "5,268 t", "1,600 t", "0,025 t")
   const formatTons = (kgVal?: number) => {
-    if (kgVal === undefined || kgVal === null || isNaN(kgVal)) return '0,000 t'
+    if (kgVal === undefined || kgVal === null || isNaN(kgVal)) return '-'
     const tons = kgVal / 1000
     return `${formatNumberPtBr(tons, 3)} t`
   }
 
+  const formatKg = (kgVal?: number) => {
+    if (kgVal === undefined || kgVal === null || isNaN(kgVal)) return '-'
+    const tons = kgVal / 1000
+    return `${formatNumberPtBr(tons, 3)} t`
+  }
   // B/C. COMPRIMENTO -> metros com EXATAMENTE 2 casas decimais (ex.: "9,46 m", "3,00 m")
   const formatMeters = (mmVal?: number) => {
     if (mmVal === undefined || mmVal === null || isNaN(mmVal)) return '0,00 m'

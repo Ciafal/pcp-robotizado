@@ -257,7 +257,7 @@ export const MPCuttingComparativeScenariosGrid: React.FC<
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
             <Layers className="w-4 h-4 text-blue-900" />
-            Matriz dos 6 Cenários Comparativos Gerados
+            Matriz dos 6 Cenários de Plano Blocos Gerados
           </h3>
           <span className="text-xs text-slate-500">
             Total de 6 cenários dimensionados conforme regras industriais de corte

@@ -14,6 +14,8 @@ import {
   Building2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { useNavigate } from 'react-router-dom'
+import { ResponsiveHorizontalNav } from '@/components/common/ResponsiveHorizontalNav'
 
 interface MPModuleLayoutProps {
   children: React.ReactNode
@@ -130,6 +132,7 @@ export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
   headerActions,
 }) => {
   const location = useLocation()
+  const navigate = useNavigate()
 
   return (
     <div className="w-full max-w-full min-w-0 box-border space-y-4 bg-slate-50">
@@ -191,60 +194,58 @@ export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
         </div>
       </div>
 
-      {/* Régua dos Subtópicos da Gestão de MP */}
-      <div className="w-full max-w-full min-w-0 box-border bg-white border border-slate-200 rounded-xl p-1.5 shadow-xs overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300">
-        <div className="flex items-center gap-1.5 min-w-max">
-          {mpMainTopics.map((topic) => {
+      {/* Régua dos Subtópicos da Gestão de MP com Navegação Horizontal Responsiva e Setas */}
+      <div className="w-full max-w-full min-w-0 box-border bg-white border border-slate-200 rounded-xl p-1.5 shadow-xs">
+        <ResponsiveHorizontalNav
+          ariaLabel="Navegação da Gestão de MP"
+          storageKey="gestao_mp_topics"
+          activeId={
+            activeTopic ||
+            (location.pathname.includes('/planos-corte') ||
+            location.pathname.includes('/plano-corte') ||
+            location.pathname.includes('/estoque-dimensional')
+              ? 'planos-corte'
+              : location.pathname.includes('/pedidos-recebimento')
+                ? 'pedidos-recebimento'
+                : location.pathname.includes('/projecoes-mp')
+                  ? 'projecoes-mp'
+                  : location.pathname.includes('/saldo-disponibilidade-destino')
+                    ? 'saldo-disponibilidade-destino'
+                    : location.pathname.includes('/niveis-estoque-acos-especiais')
+                      ? 'niveis-estoque-acos-especiais'
+                      : location.pathname.includes('/saldo-mp-l1-previsao-consumo')
+                        ? 'saldo-mp-l1-previsao-consumo'
+                        : location.pathname.includes('/utilizacao-substituicao-mp')
+                          ? 'utilizacao-substituicao-mp'
+                          : location.pathname.includes('/otimizar-aplicacoes')
+                            ? 'otimizar-aplicacoes'
+                            : location.pathname.includes('/industrializador')
+                              ? 'materia-prima-industrializador'
+                              : location.pathname.includes('/sidercentro')
+                                ? 'materia-prima-sidercentro'
+                                : 'visao-geral')
+          }
+          items={mpMainTopics.map((topic) => {
             const TopicIcon = topic.icon
-            const isCurrent =
-              activeTopic === topic.id ||
-              (topic.id === 'visao-geral' &&
-                (location.pathname === '/pcp/gestao-materia-prima' ||
-                  location.pathname === '/pcp/otimizacao-mp' ||
-                  location.pathname === '/pcp/otimizacao-mp/visao-geral')) ||
-              (topic.id === 'pedidos-recebimento' &&
-                (location.pathname.includes('/pedidos-recebimento') ||
-                  location.pathname.includes('/necessidade'))) ||
-              (topic.id === 'planos-corte' &&
-                (location.pathname.includes('/planos-corte') ||
-                  location.pathname.includes('/plano-corte') ||
-                  location.pathname.includes('/estoque-dimensional') ||
-                  location.pathname.includes('/por-aplicacao'))) ||
-              (topic.id === 'otimizar-aplicacoes' &&
-                (location.pathname.includes('/otimizar-aplicacoes') ||
-                  location.pathname.includes('/cortes-existentes') ||
-                  location.pathname.includes('/reaplicacoes') ||
-                  location.pathname.includes('/fora-padrao-ideal') ||
-                  location.pathname.includes('/projecao-3d') ||
-                  location.pathname.includes('/analise-dimensional') ||
-                  location.pathname.includes('/aprovacoes') ||
-                  location.pathname.includes('/historico') ||
-                  location.pathname.includes('/plano-x-real') ||
-                  location.pathname.includes('/indicadores')))
-
-            return (
-              <Link
-                key={topic.id}
-                to={topic.path}
-                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  isCurrent
-                    ? 'bg-[#004C97] text-white shadow-xs'
-                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/90'
-                }`}
-              >
-                <span
-                  className={`w-5 h-5 rounded-md text-[10px] flex items-center justify-center font-mono font-bold ${
-                    isCurrent ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-800'
-                  }`}
-                >
-                  {topic.number}
-                </span>
-                <TopicIcon className="w-4 h-4 shrink-0" />
-                <span>{topic.title}</span>
-              </Link>
-            )
+            return {
+              id: topic.id,
+              icon: TopicIcon,
+              label: (
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-md text-[10px] flex items-center justify-center font-mono font-bold bg-black/10">
+                    {topic.number}
+                  </span>
+                  <span>{topic.title}</span>
+                </div>
+              ),
+              onClick: () => {
+                if (location.pathname !== topic.path) {
+                  navigate(topic.path)
+                }
+              },
+            }
           })}
-        </div>
+        />
       </div>
 
       {/* Conteúdo da Subpágina */}

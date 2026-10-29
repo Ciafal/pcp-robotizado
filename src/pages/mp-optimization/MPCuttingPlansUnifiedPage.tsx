@@ -55,6 +55,9 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
+import { ResponsiveHorizontalNav } from '@/components/common/ResponsiveHorizontalNav'
+import { MPDimensionalOperationalGrid } from '@/components/mp-optimization/MPDimensionalOperationalGrid'
+import { MPMultipleCuttingPlanSection } from '@/components/mp-optimization/MPMultipleCuttingPlanSection'
 
 export const MPCuttingPlansUnifiedPage: React.FC = () => {
   const { user } = useAuth()
@@ -64,6 +67,8 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
     | 'ESTOQUE_DIMENSIONAL'
     | 'NOVO_PLANO'
     | 'CENARIOS'
+    | 'CORTE_MULTIPLO'
+    | 'VALIDACAO_GARGALOS'
     | 'PROJECAO_3D'
     | 'MATRIZ_REQUISITOS'
     | 'HISTORICO'
@@ -73,6 +78,10 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
   const [requirements, setRequirements] = useState<MPApplicationRequirement[]>([])
   const [plans, setPlans] = useState<MPCuttingPlan[]>([])
   const [selectedPlate, setSelectedPlate] = useState<MPDimensionalItem | null>(null)
+  const [materialForMultiple, setMaterialForMultiple] = useState<any | null>(null)
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [isLoadingInventory, setIsLoadingInventory] = useState(false)
   const [scenarios, setScenarios] = useState<Record<CuttingScenarioType, ScenarioDetail> | null>(
     null,
   )
@@ -128,6 +137,8 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
   }
 
   const loadData = async () => {
+    setIsLoadingInventory(true)
+    setSyncError(null)
     try {
       const [inv, reqs, cutPlans] = await Promise.all([
         mpOptimizationService.getDimensionalInventory(),
@@ -137,11 +148,15 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
       setItems(inv)
       setRequirements(reqs)
       setPlans(cutPlans)
+      setLastSyncTime(new Date().toLocaleTimeString('pt-BR'))
       if (inv.length > 0 && !selectedPlate) {
         setSelectedPlate(inv[0])
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Erro ao carregar dados de corte:', err)
+      setSyncError(err.message || 'Falha na interface de integração SAP ECC.')
+    } finally {
+      setIsLoadingInventory(false)
     }
   }
 
@@ -150,7 +165,7 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
     loadWeightStandards()
   }, [])
 
-  // Geração dos 6 Cenários Comparativos pelo Motor Integrado aos Padrões de Peso
+  // Geração dos Cenários de Plano Blocos pelo Motor Integrado aos Padrões de Peso
   const handleGenerateComparativeScenarios = async () => {
     // REGRA OBRIGATÓRIA: Se Tipo de Corte = Múltiplos e não há material+lote selecionado
     if (optimizationFilters.cutting_type === 'MULTIPLOS') {
@@ -242,8 +257,8 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
       )
 
       toast({
-        title: '6 Cenários Comparativos Gerados',
-        description: `Motor calculou os cenários com base no critério [${simResult.optimization_criterion}] e padrões de peso.`,
+        title: 'Cenários de Plano Blocos Gerados',
+        description: `Motor calculou os cenários de blocos com base no critério [${simResult.optimization_criterion}] e padrões de peso.`,
       })
     } catch (err: any) {
       toast({
@@ -412,67 +427,94 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
         </div>
       }
     >
-      {/* Régua de Abas Secundárias Obrigatórias de Planos de Corte */}
+      {/* Régua de Abas Secundárias Obrigatórias de Planos de Corte com Navegação Horizontal Responsiva */}
       <Tabs
         value={activeSecondaryTab}
         onValueChange={(v: any) => setActiveSecondaryTab(v)}
         className="w-full space-y-4"
       >
-        <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-3">
-          <TabsList className="bg-slate-100 p-1 rounded-lg">
-            <TabsTrigger
-              value="NOVO_PLANO"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <Scissors className="w-3.5 h-3.5 mr-1.5" />
-              NOVO PLANO (Cockpit 4 Áreas)
-            </TabsTrigger>
-            <TabsTrigger
-              value="ESTOQUE_DIMENSIONAL"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <Boxes className="w-3.5 h-3.5 mr-1.5" />
-              ESTOQUE DIMENSIONAL ({items.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="CENARIOS"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <Sliders className="w-3.5 h-3.5 mr-1.5" />6 CENÁRIOS COMPARATIVOS
-            </TabsTrigger>
-            <TabsTrigger
-              value="VALIDACAO_GARGALOS"
-              className="text-xs font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white"
-            >
-              <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
-              VALIDAÇÃO MATRIZ DE GARGALOS
-            </TabsTrigger>
-            <TabsTrigger
-              value="PROJECAO_3D"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <Maximize2 className="w-3.5 h-3.5 mr-1.5" />
-              GÊMEO DIGITAL 3D
-            </TabsTrigger>
-            <TabsTrigger
-              value="MATRIZ_REQUISITOS"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <Layers className="w-3.5 h-3.5 mr-1.5" />
-              MATRIZ OFICIAL (ZPPMP)
-            </TabsTrigger>
-            <TabsTrigger
-              value="HISTORICO"
-              className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
-            >
-              <History className="w-3.5 h-3.5 mr-1.5" />
-              HISTÓRICO DE PLANOS ({plans.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <Badge variant="outline" className="text-xs font-mono text-[#004C97] border-blue-200">
-            Kerf: 5.0mm &bull; Margem: 10.0mm &bull; Tolerância Real SAP
-          </Badge>
+        <div className="bg-white border border-slate-200 rounded-xl p-1.5 shadow-xs">
+          <ResponsiveHorizontalNav
+            ariaLabel="Navegação interna de Planos de Corte"
+            storageKey="planos_corte_secondary_tabs"
+            activeId={activeSecondaryTab}
+            onSelect={(id) => setActiveSecondaryTab(id as any)}
+            rightContent={
+              <Badge
+                variant="outline"
+                className="text-[11px] font-mono text-[#004C97] border-blue-200"
+              >
+                Kerf: 5.0mm &bull; Margem: 10.0mm &bull; Tolerância Real SAP
+              </Badge>
+            }
+            items={[
+              {
+                id: 'NOVO_PLANO',
+                label: 'Novo Plano',
+                icon: Scissors,
+              },
+              {
+                id: 'ESTOQUE_DIMENSIONAL',
+                label: 'Estoque Dimensional',
+                badge: (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 text-[10px] font-mono py-0 h-4 bg-slate-200 text-slate-800"
+                  >
+                    {items.length}
+                  </Badge>
+                ),
+                icon: Boxes,
+              },
+              {
+                id: 'CENARIOS',
+                label: 'Plano Blocos',
+                icon: Sliders,
+              },
+              {
+                id: 'CORTE_MULTIPLO',
+                label: 'Plano de Corte Múltiplo',
+                badge: (
+                  <Badge
+                    variant="outline"
+                    className="ml-1 text-[9px] py-0 h-4 bg-emerald-100 text-emerald-800 border-emerald-300"
+                  >
+                    Novo
+                  </Badge>
+                ),
+                icon: Sparkles,
+              },
+              {
+                id: 'VALIDACAO_GARGALOS',
+                label: 'Validação Matriz de Gargalos',
+                icon: ShieldAlert,
+                activeItemClassName: 'bg-rose-600 text-white shadow-xs',
+              },
+              {
+                id: 'PROJECAO_3D',
+                label: 'Gêmeo Digital 3D',
+                icon: Maximize2,
+              },
+              {
+                id: 'MATRIZ_REQUISITOS',
+                label: 'Matriz Oficial (ZPPMP)',
+                icon: Layers,
+              },
+              {
+                id: 'HISTORICO',
+                label: 'Histórico de Planos',
+                badge: (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 text-[10px] font-mono py-0 h-4 bg-slate-200 text-slate-800"
+                  >
+                    {plans.length}
+                  </Badge>
+                ),
+                icon: History,
+              },
+            ]}
+          />
         </div>
 
         {/* ABA 1: NOVO PLANO — Layout Visual Obrigatório em 4 Áreas */}
@@ -721,87 +763,42 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
           )}
         </TabsContent>
 
-        {/* ABA 2: ESTOQUE DIMENSIONAL COMPLETO */}
+        {/* ABA 2: ESTOQUE DIMENSIONAL COMPLETO — Grade Operacional Rastreável */}
         <TabsContent value="ESTOQUE_DIMENSIONAL" className="space-y-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-900 mb-3">
-              Estoque Dimensional Rastreável (Placas, Blocos, Peças e Sobras)
-            </h3>
-
-            {items.length === 0 ? (
-              <SapEmptyState
-                title="SEM DADOS DISPONÍVEIS"
-                description="Aguardando sincronização com depósitos SAP."
-                sapTransaction="MB52 / ZPP86"
-                onRefresh={loadData}
-              />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left font-mono">
-                  <thead className="bg-slate-50 text-slate-600 uppercase text-[10px]">
-                    <tr>
-                      <th className="p-2.5">ID / Bloco</th>
-                      <th className="p-2.5">Centro/Dep</th>
-                      <th className="p-2.5">Material / Aço</th>
-                      <th className="p-2.5">Espessura</th>
-                      <th className="p-2.5">Largura</th>
-                      <th className="p-2.5">Comprimento</th>
-                      <th className="p-2.5">Peso (t)</th>
-                      <th className="p-2.5">Aplicação Atual</th>
-                      <th className="p-2.5">Situação Reserva</th>
-                      <th className="p-2.5 text-right">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {items.map((it) => (
-                      <tr key={it.id} className="hover:bg-slate-50">
-                        <td className="p-2.5 font-bold text-slate-900">
-                          {it.block_number || it.material_code}
-                        </td>
-                        <td className="p-2.5">{it.center_code}</td>
-                        <td className="p-2.5 text-[#004C97] font-bold">{it.steel_grade}</td>
-                        <td className="p-2.5">{it.thickness_mm} mm</td>
-                        <td className="p-2.5">{it.width_mm} mm</td>
-                        <td className="p-2.5">{it.length_mm} mm</td>
-                        <td className="p-2.5 font-bold text-emerald-800">
-                          {((it.weight_kg || 0) / 1000).toLocaleString('pt-BR', {
-                            minimumFractionDigits: 3,
-                            maximumFractionDigits: 3,
-                          })}{' '}
-                          t
-                        </td>
-                        <td className="p-2.5">{it.current_application}</td>
-                        <td className="p-2.5">
-                          <Badge
-                            variant="outline"
-                            className="bg-emerald-50 text-emerald-800 text-[9px]"
-                          >
-                            {it.reservation_status}
-                          </Badge>
-                        </td>
-                        <td className="p-2.5 text-right font-sans">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedPlate(it)
-                              setActiveSecondaryTab('NOVO_PLANO')
-                            }}
-                            className="h-6 text-[10px] font-bold text-[#004C97]"
-                          >
-                            Planejar Corte
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <MPDimensionalOperationalGrid
+            items={items}
+            isLoading={isLoadingInventory}
+            lastSyncTime={lastSyncTime}
+            syncError={syncError}
+            onRefresh={loadData}
+            onSelectForCuttingPlan={(selected) => {
+              setSelectedPlate(selected)
+              setActiveSecondaryTab('NOVO_PLANO')
+              toast({
+                title: 'Material Selecionado',
+                description: `Bloco ${selected.block_number || selected.material_code} carregado no cockpit de corte.`,
+              })
+            }}
+            onSelectForMultiplePlan={(selected) => {
+              setMaterialForMultiple(selected)
+              setActiveSecondaryTab('CORTE_MULTIPLO')
+              toast({
+                title: 'Material no Corte Múltiplo',
+                description: `Material ${selected.material_code} carregado para otimização de múltiplos comprimentos.`,
+              })
+            }}
+          />
         </TabsContent>
 
-        {/* ABA 3: 6 CENÁRIOS COMPARATIVOS (Integrada aos Padrões de Peso para Corte) */}
+        {/* ABA NOVA: PLANO DE CORTE MÚLTIPLO */}
+        <TabsContent value="CORTE_MULTIPLO" className="space-y-4">
+          <MPMultipleCuttingPlanSection
+            initialMaterial={materialForMultiple}
+            onOpenHistory={() => setIsHistoryModalOpen(true)}
+          />
+        </TabsContent>
+
+        {/* ABA 3: PLANO BLOCOS (Integrada aos Padrões de Peso para Corte) */}
         <TabsContent value="CENARIOS" className="space-y-4">
           {/* Barra de Filtros Superiores: Empresa, Centro, Padrões Múltiplos, Tolerâncias, Critério */}
           <MPCuttingOptimizationFilterBar
@@ -865,7 +862,7 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                   &bull; Critério: <strong>{optimizationFilters.optimization_criterion}</strong>
                 </span>
               ) : (
-                <span>Aguardando cálculo dos 6 cenários comparativos...</span>
+                <span>Aguardando cálculo dos cenários de plano blocos...</span>
               )}
             </div>
 
@@ -1046,3 +1043,5 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
     </MPModuleLayout>
   )
 }
+
+export default MPCuttingPlansUnifiedPage
