@@ -31,10 +31,13 @@ import {
   FileText,
   Info,
   Boxes,
+  Ruler,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import type { MPCuttingScenarioItem } from '@/types/mp-cutting-weight-standards'
+import { MPOptimizeApplicationsModal } from '@/components/mp-optimization/MPOptimizeApplicationsModal'
+import { PieceOptimizationResult } from '@/types/mp-piece-application-optimization'
 
 interface MPCuttingScenarioDetailModalProps {
   isOpen: boolean
@@ -53,6 +56,32 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
   const [expandedStandards, setExpandedStandards] = useState<Record<string, boolean>>({})
   const toggleExpand = (code: string) => {
     setExpandedStandards((prev) => ({ ...prev, [code]: !prev[code] }))
+  }
+
+  // Estado para o popup de Otimização de Aplicações por Peça
+  const [isOptimizeModalOpen, setIsOptimizeModalOpen] = useState(false)
+  const [selectedPieceForOptimization, setSelectedPieceForOptimization] = useState<any | null>(null)
+  const [pieceOptimizationsMap, setPieceOptimizationsMap] = useState<
+    Record<string, PieceOptimizationResult>
+  >({})
+
+  const handleOpenOptimization = (pieceItem?: any) => {
+    if (pieceItem) {
+      setSelectedPieceForOptimization(pieceItem)
+    } else if (
+      scenario?.composition?.distribution &&
+      scenario.composition.distribution.length > 0
+    ) {
+      setSelectedPieceForOptimization(scenario.composition.distribution[0])
+    }
+    setIsOptimizeModalOpen(true)
+  }
+
+  const handleOptimizationConfirmed = (result: PieceOptimizationResult) => {
+    setPieceOptimizationsMap((prev) => ({
+      ...prev,
+      [result.piece_identifier]: result,
+    }))
   }
 
   if (!scenario) return null
@@ -1172,9 +1201,22 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
 
                 {/* Distribuição de Pesos por Peça / Amostral */}
                 <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Scissors className="w-4 h-4 text-blue-900" /> Distribuição de Pesos por Peça
-                  </h4>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Scissors className="w-4 h-4 text-blue-900" /> Distribuição de Pesos por Peça
+                    </h4>
+
+                    {/* BOTÃO OTIMIZAR APLICAÇÕES POR PEÇA NO CABEÇALHO */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenOptimization()}
+                      className="h-7 text-xs font-semibold bg-blue-50 text-blue-900 hover:bg-blue-100 hover:text-blue-950 border-blue-300 flex items-center gap-1.5 shadow-sm ml-auto"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-blue-900" />
+                      Otimizar Aplicações por Peça
+                    </Button>
+                  </div>
 
                   <div className="overflow-x-auto rounded border border-slate-100 max-w-full">
                     <TooltipProvider delayDuration={150}>
@@ -1193,7 +1235,16 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                               Dimensões do Bloco
                             </TableHead>
                             <TableHead className="text-xs font-bold min-w-[140px] whitespace-nowrap">
+                              Comprimento Laminado (mm)
+                            </TableHead>
+                            <TableHead className="text-xs font-bold min-w-[150px] whitespace-nowrap">
+                              Comprimento por Peça (mm)
+                            </TableHead>
+                            <TableHead className="text-xs font-bold min-w-[140px] whitespace-nowrap">
                               Aplicação
+                            </TableHead>
+                            <TableHead className="text-xs font-bold whitespace-nowrap">
+                              Ações
                             </TableHead>
                             <TableHead className="text-xs font-bold whitespace-nowrap">
                               Peso Ideal (t)
@@ -1211,6 +1262,10 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                           {comp.distribution.map((d) => {
                             // Derivação segura e consistente da dimensão caso o objeto ainda não venha com dimension_display
                             const linearMass = d.linear_mass_kg_m || comp.linear_mass_kg_m || 132.5
+                            const pieceIdKey = `PECA-${d.item_index}`
+                            const pieceOpt =
+                              pieceOptimizationsMap[pieceIdKey] ||
+                              pieceOptimizationsMap[d.multiple_number || '']
                             let widthMm = d.width_mm || 130
                             let heightMm = d.height_mm || 130
                             const rawGauge = d.gauge_dimension || comp.gauge_dimension || ''
@@ -1334,10 +1389,103 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                                     </TooltipContent>
                                   </Tooltip>
                                 </TableCell>
+
+                                {/* NOVO CAMPO: Comprimento Laminado (mm) com tooltip consultável de origem e recálculo automático */}
+                                <TableCell className="font-mono text-xs whitespace-nowrap">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex items-center gap-1 font-bold text-emerald-800 cursor-help py-0.5 px-1.5 rounded hover:bg-emerald-50 border border-transparent hover:border-emerald-200">
+                                        <Ruler className="w-3.5 h-3.5 text-emerald-600" />
+                                        <span>{calculatedLengthMm.toLocaleString('pt-BR')} mm</span>
+                                        <Info className="w-3 h-3 text-slate-400 opacity-80" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      className="bg-slate-950 text-slate-100 border-slate-800 text-xs p-3 space-y-1.5 max-w-sm shadow-xl z-50 font-sans"
+                                    >
+                                      <p className="font-bold text-amber-300 text-xs">
+                                        Origem Técnica: Ficha Mestra Expandida
+                                      </p>
+                                      <p className="text-[11px] text-slate-300 leading-tight">
+                                        Comprimento (m) = Peso da peça (
+                                        {d.calculated_kg.toLocaleString('pt-BR')} kg) / Massa linear
+                                        ({linearMass.toLocaleString('pt-BR')} kg/m)
+                                      </p>
+                                      <div className="border-t border-slate-800 pt-1 text-[11px] text-slate-400 font-mono">
+                                        Total:{' '}
+                                        <strong>
+                                          {calculatedLengthMm.toLocaleString('pt-BR')} mm
+                                        </strong>
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TableCell>
+
+                                {/* NOVO CAMPO: Comprimento por Peça (mm) vinculado à aplicação e quantidade produzível */}
+                                <TableCell className="font-mono text-xs">
+                                  {pieceOpt ? (
+                                    <div className="space-y-0.5">
+                                      {pieceOpt.allocated_items.map((item, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center gap-1 text-[11px]"
+                                        >
+                                          <span className="font-bold text-blue-900">
+                                            {item.length_mm.toLocaleString('pt-BR')} mm
+                                          </span>
+                                          <span className="text-slate-600 font-sans">
+                                            ({item.quantity} un)
+                                          </span>
+                                          <span
+                                            className="text-[10px] text-slate-400 truncate max-w-[100px]"
+                                            title={item.application_name}
+                                          >
+                                            - {item.product_code}
+                                          </span>
+                                        </div>
+                                      ))}
+                                      <div className="text-[10px] text-emerald-700 font-bold font-sans">
+                                        Rendimento corte:{' '}
+                                        {pieceOpt.cutting_yield_pct.toLocaleString('pt-BR', {
+                                          minimumFractionDigits: 1,
+                                        })}
+                                        %
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-0.5">
+                                      <span className="text-slate-700 font-medium">
+                                        {calculatedLengthMm.toLocaleString('pt-BR')} mm
+                                      </span>
+                                      <span className="block text-[10px] text-slate-400 font-sans">
+                                        (1 un • Aplicação direta)
+                                      </span>
+                                    </div>
+                                  )}
+                                </TableCell>
+
                                 <TableCell className="min-w-[140px] whitespace-nowrap">
-                                  {d.application &&
-                                  d.application.trim() !== '' &&
-                                  d.application.trim() !== 'Aplicação não cadastrada' ? (
+                                  {pieceOpt && pieceOpt.allocated_items.length > 0 ? (
+                                    <div className="space-y-0.5">
+                                      {pieceOpt.allocated_items.map((it, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="text-xs font-semibold text-blue-950 flex items-center gap-1"
+                                        >
+                                          <span className="w-1.5 h-1.5 rounded-full bg-blue-700 inline-block" />
+                                          <span
+                                            className="truncate max-w-[140px]"
+                                            title={it.application_name}
+                                          >
+                                            {it.application_name}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : d.application &&
+                                    d.application.trim() !== '' &&
+                                    d.application.trim() !== 'Aplicação não cadastrada' ? (
                                     <span className="font-semibold text-slate-800">
                                       {d.application.trim()}
                                     </span>
@@ -1349,6 +1497,19 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                                       Aplicação não cadastrada
                                     </span>
                                   )}
+                                </TableCell>
+
+                                {/* Ações por Peça */}
+                                <TableCell className="whitespace-nowrap">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenOptimization(d)}
+                                    className="h-6 px-2 text-[11px] text-blue-900 hover:text-blue-950 hover:bg-blue-100/70 border border-blue-200"
+                                  >
+                                    <Sparkles className="w-3 h-3 mr-1 text-blue-800" />
+                                    Otimizar
+                                  </Button>
                                 </TableCell>
                                 <TableCell>
                                   {(d.target_kg / 1000).toLocaleString('pt-BR', {
@@ -1453,6 +1614,37 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
           </DialogFooter>
         </ErrorBoundary>
       </DialogContent>
+
+      {/* POPUP DE OTIMIZAÇÃO DE APLICAÇÕES POR PEÇA */}
+      {isOptimizeModalOpen && (
+        <MPOptimizeApplicationsModal
+          isOpen={isOptimizeModalOpen}
+          onClose={() => setIsOptimizeModalOpen(false)}
+          pieceIdentifier={
+            selectedPieceForOptimization
+              ? `PECA-${selectedPieceForOptimization.item_index}`
+              : 'PECA-1'
+          }
+          scenarioId={scenario.id}
+          scenarioName={scenario.name}
+          materialCode={scenario.raw_material_code || 'SAE 1020'}
+          gaugeDimension={scenario.composition.gauge_dimension || '130 × 130 mm'}
+          centerCode={scenario.center_code || 'L1'}
+          heatNumber={selectedPieceForOptimization?.heat_number || scenario.batch_number}
+          pieceWeightKg={
+            selectedPieceForOptimization?.calculated_kg ||
+            scenario.composition.piece_nominal_weight_kg ||
+            1000
+          }
+          linearMassKgM={
+            selectedPieceForOptimization?.linear_mass_kg_m ||
+            scenario.composition.linear_mass_kg_m ||
+            132.5
+          }
+          cuttingWidthMm={scenario.composition.cutting_width_mm || 5}
+          onConfirmOptimization={handleOptimizationConfirmed}
+        />
+      )}
     </Dialog>
   )
 }
