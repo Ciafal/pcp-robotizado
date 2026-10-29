@@ -53,9 +53,11 @@ import {
   Info,
   Scale,
   Ruler,
-  Maximize2,
   Layers,
   Factory,
+  ChevronDown,
+  ChevronUp,
+  X,
 } from 'lucide-react'
 import {
   IndustrialApplicationCandidate,
@@ -63,6 +65,7 @@ import {
   SavedPieceApplicationRecord,
 } from '@/types/mp-piece-application-optimization'
 import { mpPieceApplicationOptimizationService } from '@/services/mp-piece-application-optimization-service'
+import { formatNumberPtBr } from '@/lib/number-format'
 import { useToast } from '@/hooks/use-toast'
 
 export interface MPOptimizeApplicationsModalProps {
@@ -297,20 +300,35 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
     }
   }
 
-  // Helpers de formatação pt-BR
+  // Helpers padronizados de exibição (Regras A, B, C, D e E):
+  // A. PESO -> toneladas com EXATAMENTE 3 casas decimais (ex.: "5,268 t", "1,600 t", "0,025 t")
+  const formatTons = (kgVal?: number) => {
+    if (kgVal === undefined || kgVal === null || isNaN(kgVal)) return '0,000 t'
+    const tons = kgVal / 1000
+    return `${formatNumberPtBr(tons, 3)} t`
+  }
+
+  // B/C. COMPRIMENTO -> metros com EXATAMENTE 2 casas decimais (ex.: "9,46 m", "3,00 m")
+  const formatMeters = (mmVal?: number) => {
+    if (mmVal === undefined || mmVal === null || isNaN(mmVal)) return '0,00 m'
+    const meters = mmVal / 1000
+    return `${formatNumberPtBr(meters, 2)} m`
+  }
+
+  // D/E. PARÂMETROS TÉCNICOS / DIMENSÕES DOS BLOCOS -> mantêm mm com formatação pt-BR
   const formatMm = (val?: number) => {
     if (val === undefined || val === null || isNaN(val)) return '0 mm'
     return `${Math.round(val).toLocaleString('pt-BR')} mm`
   }
 
-  const formatKg = (val?: number) => {
-    if (val === undefined || val === null || isNaN(val)) return '0,00 kg'
-    return `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`
+  const formatLinearMass = (val?: number) => {
+    if (val === undefined || val === null || isNaN(val)) return '0,0 kg/m'
+    return `${formatNumberPtBr(val, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kg/m`
   }
 
   const formatPct = (val?: number) => {
     if (val === undefined || val === null || isNaN(val)) return '0,00%'
-    return `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+    return `${formatNumberPtBr(val, 2)}%`
   }
 
   // Comprimento Laminado Calculado
@@ -323,154 +341,218 @@ export const MPOptimizeApplicationsModal: React.FC<MPOptimizeApplicationsModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-6xl w-[95vw] max-h-[92vh] flex flex-col p-0 overflow-hidden bg-slate-50 text-slate-900 shadow-2xl">
+      <DialogContent
+        data-testid="mp-optimize-applications-modal-content"
+        className="max-w-[1440px] w-[95vw] max-h-[94vh] h-[94vh] flex flex-col p-0 overflow-hidden bg-slate-50 text-slate-900 shadow-2xl border border-slate-300 rounded-xl"
+      >
         <ErrorBoundary
           fallback={
-            <div className="p-6 text-red-600">
-              Erro no painel de otimização de aplicações por peça.
+            <div className="p-6 text-red-600 bg-white m-4 rounded-lg border border-red-200">
+              <h3 className="font-bold text-sm">
+                Erro no painel de otimização de aplicações por peça.
+              </h3>
+              <p className="text-xs text-slate-600 mt-1">
+                Por favor, feche e abra novamente a janela de otimização.
+              </p>
             </div>
           }
         >
-          <DialogHeader className="p-4 bg-slate-900 text-white flex flex-row items-center justify-between border-b border-slate-800">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-blue-700/60 rounded-md">
+          {/* CABEÇALHO FIXO (Título, Identificação da Peça, Subtítulo, Botão Fechar) */}
+          <DialogHeader className="shrink-0 p-3.5 sm:p-4 bg-slate-900 text-white flex flex-row items-center justify-between border-b border-slate-800 gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 bg-blue-700/60 rounded-md shrink-0">
                 <Sparkles className="w-5 h-5 text-amber-300" />
               </div>
-              <div>
-                <DialogTitle className="text-base font-bold tracking-tight text-white flex items-center gap-2">
-                  Otimização de Aplicações por Peça
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <DialogTitle className="text-sm sm:text-base font-bold tracking-tight text-white truncate">
+                    Otimização de Aplicações por Peça
+                  </DialogTitle>
                   <Badge
                     variant="outline"
-                    className="bg-blue-950 text-blue-200 border-blue-700 font-mono text-[11px]"
+                    className="bg-blue-950 text-blue-200 border-blue-700 font-mono text-[11px] shrink-0"
                   >
                     {pieceIdentifier}
                   </Badge>
-                </DialogTitle>
-                <p className="text-xs text-slate-300">
-                  HUB CIAFAL → PCP Robotizado → Gestão de MP → Máximo Rendimento de MP
+                  {savedRecord && (
+                    <Badge
+                      variant="outline"
+                      className="bg-emerald-950/80 text-emerald-300 border-emerald-600 text-[11px] shrink-0 flex items-center gap-1"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Plano Salvo
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[11px] sm:text-xs text-slate-300 truncate">
+                  HUB Industrial Ciafal → Gestão de MP → Planos de Corte → Máximo Rendimento de MP
                 </p>
               </div>
             </div>
 
-            {savedRecord && (
-              <Badge
-                variant="outline"
-                className="bg-emerald-950/80 text-emerald-300 border-emerald-600 text-[11px] flex items-center gap-1"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Plano Otimizado Salvo
-              </Badge>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="text-slate-300 hover:text-white hover:bg-slate-800 h-8 w-8 p-0 shrink-0 rounded-full"
+              title="Fechar janela"
+            >
+              <X className="w-4 h-4" />
+              <span className="sr-only">Fechar</span>
+            </Button>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* CABEÇALHO TÉCNICO DETALHADO */}
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">
-                  Centro / Linha:
-                </span>
-                <span className="font-semibold text-slate-900 flex items-center gap-1">
-                  <Factory className="w-3.5 h-3.5 text-blue-900" />
-                  {centerCode || 'L1'}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">Material:</span>
-                <span className="font-semibold text-slate-900 font-mono">
-                  {materialCode || 'SAE 1020'}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">
-                  Bitola / Seção:
-                </span>
-                <span className="font-semibold text-slate-900">
-                  {gaugeDimension || '130 × 130 mm'}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">
-                  Corrida / Múltiplo:
-                </span>
-                <span className="font-semibold text-slate-900 font-mono">{heatNumber || '—'}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">
-                  Identificação do Bloco:
-                </span>
-                <span className="font-bold text-blue-950 font-mono">{pieceIdentifier}</span>
-              </div>
-
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">
-                  Peso Calculado da Peça:
-                </span>
-                <span className="font-bold text-blue-900 font-mono flex items-center gap-1">
-                  <Scale className="w-3.5 h-3.5 text-blue-800" />
-                  {formatKg(pieceWeightKg)} (
-                  {(pieceWeightKg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t)
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">
-                  Massa Linear Teórica:
-                </span>
-                <span className="font-semibold text-slate-900 font-mono flex items-center gap-1">
-                  <Info className="w-3.5 h-3.5 text-slate-400" />
-                  {linearMassKgM.toLocaleString('pt-BR')} kg/m
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">
-                  Comprimento Laminado:
-                </span>
-                <span className="font-bold text-emerald-700 font-mono flex items-center gap-1">
-                  <Ruler className="w-3.5 h-3.5 text-emerald-600" />
-                  {formatMm(totalRolledLengthMm)}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">
-                  Largura de Corte (Serra):
-                </span>
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={sawKerfMm}
-                    onChange={(e) => setSawKerfMm(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="h-6 w-16 text-xs font-mono px-1.5 py-0"
-                  />
-                  <span className="text-slate-500 font-mono text-[11px]">mm</span>
+          {/* CONTEÚDO COM ROLAGEM VERTICAL EXCLUSIVA */}
+          <div className="flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-5 space-y-4 min-h-0 bg-slate-50">
+            {/* INDICADORES TÉCNICOS DETALHADOS (Cards responsivos em grade flexível sem sobreposição) */}
+            <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Factory className="w-4 h-4 text-blue-900 shrink-0" />
+                  Parâmetros Técnicos & Identificação da Peça
+                </h4>
+                <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                  <span>Dimensões do Bloco:</span>
+                  <span className="font-mono font-bold text-slate-800">
+                    {gaugeDimension || '130 × 130 mm'}
+                  </span>
                 </div>
               </div>
-              <div>
-                <span className="text-slate-500 block text-[11px] font-medium">
-                  Perdas de Extremidades:
-                </span>
-                <div className="flex items-center gap-1 text-[11px]">
-                  <span title="Esquadrejamento">Esq:</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={squaringLossMm}
-                    onChange={(e) =>
-                      setSquaringLossMm(Math.max(0, parseInt(e.target.value, 10) || 0))
-                    }
-                    className="h-6 w-12 text-xs font-mono px-1 py-0"
-                  />
-                  <span title="Ponta Descartada">Ponta:</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={endCropLossMm}
-                    onChange={(e) =>
-                      setEndCropLossMm(Math.max(0, parseInt(e.target.value, 10) || 0))
-                    }
-                    className="h-6 w-12 text-xs font-mono px-1 py-0"
-                  />
+
+              {/* Grid Responsiva: 1 col (mobile), 2-3 cols (tablet), 5 cols (desktop) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+                {/* 1. Centro e Linha */}
+                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-slate-500 block text-[11px] font-medium">
+                    Centro / Linha
+                  </span>
+                  <span className="font-semibold text-slate-900 flex items-center gap-1.5 mt-0.5">
+                    <Factory className="w-3.5 h-3.5 text-blue-900 shrink-0" />
+                    <span>{centerCode || 'L1'}</span>
+                  </span>
+                </div>
+
+                {/* 2. Material */}
+                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-slate-500 block text-[11px] font-medium">
+                    Material (Aço)
+                  </span>
+                  <span className="font-bold text-slate-900 font-mono mt-0.5 block truncate">
+                    {materialCode || 'SAE 1020'}
+                  </span>
+                </div>
+
+                {/* 3. Corrida / Múltiplo */}
+                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-slate-500 block text-[11px] font-medium">
+                    Corrida / Múltiplo
+                  </span>
+                  <span className="font-semibold text-slate-900 font-mono mt-0.5 block truncate">
+                    {heatNumber || '—'}
+                  </span>
+                </div>
+
+                {/* 4. Peso da Peça (Padronizado em Toneladas com 3 casas) */}
+                <div className="bg-blue-50/50 p-2.5 rounded-lg border border-blue-100">
+                  <span className="text-blue-900 block text-[11px] font-medium">
+                    Peso da Peça (t)
+                  </span>
+                  <span className="font-bold text-blue-950 font-mono flex items-center gap-1.5 mt-0.5 text-sm">
+                    <Scale className="w-3.5 h-3.5 text-blue-800 shrink-0" />
+                    <span>{formatTons(pieceWeightKg)}</span>
+                  </span>
+                </div>
+
+                {/* 5. Massa Linear (kg/m) */}
+                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-slate-500 block text-[11px] font-medium">Massa Linear</span>
+                  <span className="font-bold text-slate-900 font-mono flex items-center gap-1.5 mt-0.5 text-xs">
+                    <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{formatLinearMass(linearMassKgM)}</span>
+                  </span>
+                </div>
+
+                {/* 6. Comprimento Laminado (Padronizado em Metros com 2 casas) */}
+                <div className="bg-emerald-50/60 p-2.5 rounded-lg border border-emerald-100">
+                  <span className="text-emerald-900 block text-[11px] font-medium">
+                    Comprimento Laminado (m)
+                  </span>
+                  <span className="font-bold text-emerald-800 font-mono flex items-center gap-1.5 mt-0.5 text-sm">
+                    <Ruler className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>{formatMeters(totalRolledLengthMm)}</span>
+                  </span>
+                </div>
+
+                {/* 7. Largura de Corte (Serra em mm) */}
+                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-slate-500 block text-[11px] font-medium">
+                    Largura de Corte da Serra
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={sawKerfMm}
+                      onChange={(e) => setSawKerfMm(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="h-7 w-20 text-xs font-mono px-2 py-0 bg-white"
+                    />
+                    <span className="text-slate-600 font-mono text-xs font-semibold">mm</span>
+                  </div>
+                </div>
+
+                {/* 8. Esquadrejamento (mm) - Incorporado de forma permanente aos parâmetros técnicos sem flutuação */}
+                <div
+                  data-testid="param-esquadrejamento-container"
+                  className="bg-amber-50/50 p-2.5 rounded-lg border border-amber-200"
+                >
+                  <span className="text-amber-900 block text-[11px] font-semibold">
+                    Esquadrejamento
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={squaringLossMm}
+                      onChange={(e) =>
+                        setSquaringLossMm(Math.max(0, parseInt(e.target.value, 10) || 0))
+                      }
+                      className="h-7 w-20 text-xs font-mono px-2 py-0 bg-white border-amber-300 focus:border-amber-500"
+                    />
+                    <span className="text-amber-900 font-mono text-xs font-semibold">mm</span>
+                  </div>
+                </div>
+
+                {/* 9. Ponta Descartada (mm) - Incorporado permanente */}
+                <div className="bg-amber-50/50 p-2.5 rounded-lg border border-amber-200">
+                  <span className="text-amber-900 block text-[11px] font-semibold">
+                    Ponta Descartada
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={endCropLossMm}
+                      onChange={(e) =>
+                        setEndCropLossMm(Math.max(0, parseInt(e.target.value, 10) || 0))
+                      }
+                      className="h-7 w-20 text-xs font-mono px-2 py-0 bg-white border-amber-300 focus:border-amber-500"
+                    />
+                    <span className="text-amber-900 font-mono text-xs font-semibold">mm</span>
+                  </div>
+                </div>
+
+                {/* 10. Perda Total Inicial (mm) */}
+                <div className="bg-slate-50/70 p-2.5 rounded-lg border border-slate-100 flex flex-col justify-center">
+                  <span className="text-slate-500 block text-[11px] font-medium">
+                    Perdas de Extremidades
+                  </span>
+                  <span className="font-mono font-bold text-slate-800 text-xs mt-0.5">
+                    {squaringLossMm + endCropLossMm} mm (
+                    {formatMeters(squaringLossMm + endCropLossMm)})
+                  </span>
                 </div>
               </div>
             </div>

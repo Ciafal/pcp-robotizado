@@ -252,6 +252,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.rules.view' ||
     permission === 'pcp.carteira.view' ||
     permission === 'pcp.mp_opt.view' ||
+    permission === 'pcp.mp_opt.simulate' ||
+    permission.startsWith('pcp.mp_opt.') ||
     permission === 'pcp.mp_out_of_standard.view' ||
     permission.startsWith('pcp.mp_out_of_standard.') ||
     permission === 'pcp.meeting.view' ||
@@ -345,6 +347,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.rules.view' ||
     permission === 'pcp.rules.edit' ||
     permission === 'pcp.mp_opt.view' ||
+    permission === 'pcp.mp_opt.simulate' ||
+    permission.startsWith('pcp.mp_opt.') ||
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
     permission === 'pcp.faca.view' ||
