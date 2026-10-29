@@ -109,11 +109,30 @@ export const mpMultipleCuttingPlansService = {
    */
   async generateSequentialCode(prefix: 'PCM' | 'PCB' = 'PCM'): Promise<string> {
     const year = new Date().getFullYear()
-    const maxRetries = 10
 
+    // 1. Tenta prioritariamente via endpoint oficial atômico no servidor
+    try {
+      const serverRes = await pb.send<{
+        success: boolean
+        plan_code: string
+      }>('/backend/v1/pcp/cutting-plans/next-code', {
+        method: 'POST',
+        body: { prefix, year },
+      })
+      if (serverRes?.success && serverRes.plan_code) {
+        return serverRes.plan_code
+      }
+    } catch (endpointErr) {
+      console.warn(
+        '[mpMultipleCuttingPlansService] Endpoint de código retornou erro, aplicando transação via SDK:',
+        endpointErr,
+      )
+    }
+
+    // 2. Fallback transacional com retries no SDK
+    const maxRetries = 10
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        // Busca a sequência existente para prefix + year
         const filterStr = `prefix = '${prefix}' && year = ${year}`
         const existingList = await pb
           .collection('mp_cutting_plan_sequences')
@@ -131,7 +150,6 @@ export const mpMultipleCuttingPlansService = {
           return `${prefix}-${year}-${formattedNumber}`
         }
 
-        // Se não existir registro de sequência, tenta criar a sequência inicial
         const initialVal = 1
         await pb.collection('mp_cutting_plan_sequences').create({
           prefix,
@@ -142,12 +160,10 @@ export const mpMultipleCuttingPlansService = {
         const formattedNumber = String(initialVal).padStart(5, '0')
         return `${prefix}-${year}-${formattedNumber}`
       } catch (err: any) {
-        // Em caso de colisão no create/update, tenta novamente após breve jitter
         if (attempt < maxRetries - 1) {
           const delay = Math.floor(Math.random() * 80) + 40
           await new Promise((res) => setTimeout(res, delay))
         } else {
-          // Fallback resiliente garantindo sequência baseada na contagem real
           const count = await pb
             .collection('mp_multiple_cutting_plans')
             .getList(1, 1, { filter: `plan_code ~ '${prefix}-${year}'` })

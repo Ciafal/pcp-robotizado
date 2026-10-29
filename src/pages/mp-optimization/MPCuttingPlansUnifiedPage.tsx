@@ -1066,7 +1066,7 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
             </div>
 
             {/* PARTE INFERIOR: VALIDAÇÃO DA MATRIZ DE GARGALOS INTEGRADA */}
-            {activeScenario && (
+            {activeScenario?.bottleneck_impact && (
               <LocalErrorBoundary moduleName="Validação de Gargalos">
                 <CuttingPlanBottleneckValidationSection
                   scenario={activeScenario}
@@ -1108,7 +1108,7 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
         {/* ABA DEDICADA: VALIDAÇÃO MATRIZ DE GARGALOS */}
         <TabsContent value="VALIDACAO_GARGALOS" className="space-y-4">
           <LocalErrorBoundary moduleName="Validação Matriz de Gargalos">
-            {activeScenario ? (
+            {activeScenario?.bottleneck_impact ? (
               <CuttingPlanBottleneckValidationSection
                 scenario={activeScenario}
                 scenariosMap={scenarios || undefined}
