@@ -9,6 +9,7 @@ import {
   PlannedVsRealizedCardMetrics,
   AuditLogOrigin,
   IndustrialTestObjective,
+  TestTypeItem,
 } from '@/types/test-programming'
 import { calculateTestDeviations, formatDurationPCP } from '@/lib/test-programming-calculations'
 import { formatTonsPtBr } from '@/lib/formatters-ptbr'
