@@ -2435,8 +2435,21 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   // Exclusão Lógica Auditada de Item da Programação
   const [itemToDelete, setItemToDelete] = useState<WeeklyScheduleItem | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false)
+  const [isDeletingItem, setIsDeletingItem] = useState<boolean>(false)
 
   const handleRequestDeleteItem = (item: WeeklyScheduleItem) => {
+    if (!item) return
+
+    if (item.status === 'CANCELLED' || isScheduleApproved || isScheduleHistoricalLocked) {
+      toast({
+        title: 'Operação Bloqueada',
+        description:
+          'Este item não pode ser removido porque a programação está bloqueada ou já faz parte do histórico. Verifique as permissões ou o procedimento de revisão.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     if (isItemInPast(item)) {
       toast({
         title: 'Operação Bloqueada',
@@ -2445,96 +2458,110 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       })
       return
     }
+
     setItemToDelete(item)
     setIsDeleteDialogOpen(true)
   }
 
   const handleConfirmDeleteItem = async () => {
-    if (!itemToDelete) return
+    if (!itemToDelete || isDeletingItem) return
     const target = itemToDelete
-    setIsDeleteDialogOpen(false)
-    setItemToDelete(null)
+    setIsDeletingItem(true)
 
-    // 1. Exclusão LÓGICA: marca status='CANCELLED'
-    const updatedList = items.map((it) =>
-      it.id === target.id ? { ...it, status: 'CANCELLED' as WeeklyScheduleWorkflowState } : it,
-    )
-    const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
-      updatedList,
-      currentLineOverview,
-      headerFilter,
-      rawMaterialContext,
-    )
-    setItems(recalculated.items)
-
-    // Se o item deletado for o selecionado no painel lateral, desmarca
-    if (selectedScheduleItem?.id === target.id) {
-      setSelectedScheduleItem(null)
-    }
-
-    // 2. Gravação de Auditoria em pcp_audit_logs (SCHEDULE_ITEM_DELETE)
     try {
-      await weeklyScheduleService.logScheduleItemDeletion({
-        item: target,
-        version: currentVersion,
-        context: {
-          companyCode: headerFilter.companyCode,
-          lineCode: headerFilter.lineCode,
-          year: headerFilter.year,
-          weekNumber: headerFilter.weekNumber,
-          dayOfWeek: target.day_of_week,
-        },
-      })
-    } catch (auditErr) {
-      console.warn('Falha ao auditar SCHEDULE_ITEM_DELETE:', auditErr)
-    }
-
-    // Se o item cancelado for origem de programações derivadas, atualizar derivadas vinculadas (Requisito C.6)
-    const derivedItemsAffected = recalculated.items.filter(
-      (it) => it.origem_programacao_id === target.id,
-    )
-    let itemsToSave = recalculated.items
-    if (derivedItemsAffected.length > 0) {
-      itemsToSave = weeklyDerivationEngine.handleParentItemChangeOrCancel(
-        target.id,
-        'CANCEL',
-        undefined,
-        recalculated.items,
-        auth?.user?.name || 'Engenharia PCP',
+      // 1. Exclusão LÓGICA: marca status='CANCELLED'
+      const updatedList = items.map((it) =>
+        it.id === target.id ? { ...it, status: 'CANCELLED' as WeeklyScheduleWorkflowState } : it,
       )
-      setItems(itemsToSave)
+      const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+        updatedList,
+        currentLineOverview,
+        headerFilter,
+        rawMaterialContext,
+      )
+      setItems(recalculated.items)
+
+      // Se o item deletado for o selecionado no painel lateral, desmarca
+      if (selectedScheduleItem?.id === target.id) {
+        setSelectedScheduleItem(null)
+      }
+
+      // 2. Gravação de Auditoria em pcp_audit_logs (SCHEDULE_ITEM_DELETE)
+      try {
+        await weeklyScheduleService.logScheduleItemDeletion({
+          item: target,
+          version: currentVersion,
+          context: {
+            companyCode: headerFilter.companyCode,
+            lineCode: headerFilter.lineCode,
+            year: headerFilter.year,
+            weekNumber: headerFilter.weekNumber,
+            dayOfWeek: target.day_of_week,
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Falha ao auditar SCHEDULE_ITEM_DELETE:', auditErr)
+      }
+
+      // Se o item cancelado for origem de programações derivadas, atualizar derivadas vinculadas (Requisito C.6)
+      const derivedItemsAffected = recalculated.items.filter(
+        (it) => it.origem_programacao_id === target.id,
+      )
+      let itemsToSave = recalculated.items
+      if (derivedItemsAffected.length > 0) {
+        itemsToSave = weeklyDerivationEngine.handleParentItemChangeOrCancel(
+          target.id,
+          'CANCEL',
+          undefined,
+          recalculated.items,
+          auth?.user?.name || 'Engenharia PCP',
+        )
+        setItems(itemsToSave)
+        toast({
+          title: `Origem cancelada — revisão necessária em ${derivedItemsAffected.length} derivada(s).`,
+          description:
+            'As programações vinculadas não foram apagadas para preservar a rastreabilidade.',
+          variant: 'destructive',
+        })
+      }
+
+      // 3. Persistência do rascunho com o item cancelado
+      try {
+        await weeklyScheduleService.saveWeeklyScheduleDraft(itemsToSave, headerFilter)
+      } catch (saveErr) {
+        console.warn('Falha ao persistir rascunho pós-exclusão:', saveErr)
+      }
+
       toast({
-        title: `Origem cancelada — revisão necessária em ${derivedItemsAffected.length} derivada(s).`,
-        description:
-          'As programações vinculadas não foram apagadas para preservar a rastreabilidade.',
-        variant: 'destructive',
+        title: 'Item removido da programação com sucesso.',
+        description: `Item #${target.sequence_order} (${target.material_code} - ${target.material_description}) removido da programação ativa.`,
       })
-    }
 
-    // 3. Persistência do rascunho com o item cancelado
-    try {
-      await weeklyScheduleService.saveWeeklyScheduleDraft(itemsToSave, headerFilter)
-    } catch (saveErr) {
-      console.warn('Falha ao persistir rascunho pós-exclusão:', saveErr)
+      setIsDeleteDialogOpen(false)
+      setItemToDelete(null)
+    } finally {
+      setIsDeletingItem(false)
     }
-
-    toast({
-      title: 'Registro Eliminado',
-      description: `Item #${target.sequence_order} (${target.material_code}) cancelado logicamente e totais recalculados.`,
-    })
   }
 
-  const handleRemove = (index: number) => {
-    const target = items[index]
-    if (target) {
-      handleRequestDeleteItem(target)
+  const handleRemove = (indexOrItem: number | WeeklyScheduleItem) => {
+    if (typeof indexOrItem === 'number') {
+      const target = items[indexOrItem]
+      if (target) {
+        handleRequestDeleteItem(target)
+        return
+      }
+      setItems((prev) => prev.filter((_, i) => i !== indexOrItem))
+      toast({
+        title: 'Item Removido',
+        description: 'Atividade removida da programação semanal.',
+      })
       return
     }
-    setItems((prev) => prev.filter((_, i) => i !== index))
-    toast({
-      title: 'Item Removido',
-      description: 'Atividade removida da programação semanal.',
-    })
+
+    if (indexOrItem) {
+      handleRequestDeleteItem(indexOrItem)
+    }
   }
 
   // PATCH 7: Lógica de Geração de Programação Derivada a partir do Centro de Origem
@@ -4211,8 +4238,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               disabled={!selectedScheduleItem}
               onClick={() => {
                 if (selectedScheduleItem) {
-                  const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
-                  if (idx !== -1) handleRemove(idx)
+                  const item =
+                    calculatedItems.find((it) => it.id === selectedScheduleItem.id) ||
+                    selectedScheduleItem
+                  handleRequestDeleteItem(item)
                 }
               }}
               className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
@@ -5123,14 +5152,24 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       />
 
       {/* 17. MODAL DE CONFIRMAÇÃO DE EXCLUSÃO LÓGICA DE ITEM (ITEM 3) */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!isDeletingItem) {
+            setIsDeleteDialogOpen(open)
+            if (!open) setItemToDelete(null)
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">
-              Confirmar Eliminação
+              CONFIRMAR REMOÇÃO
             </DialogTitle>
             <DialogDescription className="text-sm text-slate-600 pt-2 font-medium">
-              Deseja realmente eliminar este registro?
+              {itemToDelete
+                ? `Você selecionou o item [${itemToDelete.material_code} - ${itemToDelete.material_description}]. Tem certeza de que deseja removê-lo da programação?`
+                : 'Tem certeza de que deseja remover este item da programação?'}
             </DialogDescription>
           </DialogHeader>
           {itemToDelete && (
@@ -5157,6 +5196,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               type="button"
               variant="outline"
               size="sm"
+              disabled={isDeletingItem}
               onClick={() => {
                 setIsDeleteDialogOpen(false)
                 setItemToDelete(null)
@@ -5169,10 +5209,12 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               type="button"
               variant="destructive"
               size="sm"
+              disabled={isDeletingItem}
               onClick={handleConfirmDeleteItem}
               className="h-8 px-3 text-xs font-semibold bg-rose-600 hover:bg-rose-700"
             >
-              Eliminar
+              {isDeletingItem && <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" />}
+              {isDeletingItem ? 'Removendo...' : 'Sim, remover'}
             </Button>
           </DialogFooter>
         </DialogContent>
