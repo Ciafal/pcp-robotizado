@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { MPModuleLayout } from '@/components/mp-optimization/MPModuleLayout'
 import { SapEmptyState } from '@/components/mp-optimization/SapEmptyState'
 import { mpOptimizationService } from '@/services/mp-optimization'
@@ -58,6 +58,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { ResponsiveHorizontalNav } from '@/components/common/ResponsiveHorizontalNav'
 import { MPDimensionalOperationalGrid } from '@/components/mp-optimization/MPDimensionalOperationalGrid'
 import { MPMultipleCuttingPlanSection } from '@/components/mp-optimization/MPMultipleCuttingPlanSection'
+import {
+  MPCuttingPlansFilterBar,
+  MPCuttingViewFilters,
+  DEFAULT_CUTTING_VIEW_FILTERS,
+} from '@/components/mp-optimization/MPCuttingPlansFilterBar'
+import { formatNumberPtBr } from '@/lib/number-format'
 
 export const MPCuttingPlansUnifiedPage: React.FC = () => {
   const { user } = useAuth()
@@ -73,6 +79,9 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
     | 'MATRIZ_REQUISITOS'
     | 'HISTORICO'
   >('NOVO_PLANO')
+
+  // Filtros unificados de Planos de Corte / Estoque Dimensional
+  const [viewFilters, setViewFilters] = useState<MPCuttingViewFilters>(DEFAULT_CUTTING_VIEW_FILTERS)
 
   const [items, setItems] = useState<MPDimensionalItem[]>([])
   const [requirements, setRequirements] = useState<MPApplicationRequirement[]>([])
@@ -159,6 +168,105 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
       setIsLoadingInventory(false)
     }
   }
+
+  // Opções únicas disponíveis para os filtros
+  const availableCenters = useMemo(
+    () => Array.from(new Set(items.map((i) => i.center_code).filter(Boolean))),
+    [items],
+  )
+  const availableDepots = useMemo(
+    () => Array.from(new Set(items.map((i) => i.storage_location).filter(Boolean))) as string[],
+    [items],
+  )
+  const availableItemTypes = useMemo(
+    () => Array.from(new Set(items.map((i) => i.item_type).filter(Boolean))),
+    [items],
+  )
+  const availableSteelGrades = useMemo(
+    () => Array.from(new Set(items.map((i) => i.steel_grade).filter(Boolean))) as string[],
+    [items],
+  )
+
+  // Itens filtrados com base nos filtros da visualização de Planos de Corte
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      if (viewFilters.center !== 'ALL' && item.center_code !== viewFilters.center) return false
+      if (viewFilters.depot !== 'ALL' && item.storage_location !== viewFilters.depot) return false
+      if (viewFilters.itemType !== 'ALL' && item.item_type !== viewFilters.itemType) return false
+      if (viewFilters.steelGrade !== 'ALL' && item.steel_grade !== viewFilters.steelGrade)
+        return false
+      if (
+        viewFilters.reservationStatus !== 'ALL' &&
+        item.reservation_status !== viewFilters.reservationStatus
+      ) {
+        return false
+      }
+
+      if (viewFilters.searchTerm.trim()) {
+        const q = viewFilters.searchTerm.toLowerCase()
+        const matchCode = item.material_code?.toLowerCase().includes(q)
+        const matchDesc = item.material_description?.toLowerCase().includes(q)
+        const matchBatch = item.batch_number?.toLowerCase().includes(q)
+        const matchHeat = item.heat_number?.toLowerCase().includes(q)
+        const matchBlock = item.block_number?.toLowerCase().includes(q)
+        const matchSupp = item.supplier_name?.toLowerCase().includes(q)
+        if (!matchCode && !matchDesc && !matchBatch && !matchHeat && !matchBlock && !matchSupp) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [items, viewFilters])
+
+  // Totalizadores / Cards de Indicadores calculados dinamicamente sobre filteredItems
+  const viewMetrics = useMemo(() => {
+    let totalAvailableWeightKg = 0
+    let totalFilteredWeightKg = 0
+    let platesCount = 0
+    let blocksCount = 0
+    let piecesCount = 0
+    let reusableLeftoversCount = 0
+    let blockedCount = 0
+
+    filteredItems.forEach((it) => {
+      const wKg = it.weight_kg || 0
+      totalFilteredWeightKg += wKg
+      if (it.reservation_status === 'LIVRE' || it.reservation_status === 'SUGESTAO_RESERVA') {
+        totalAvailableWeightKg += wKg
+      }
+      if (it.reservation_status === 'BLOQUEADA') {
+        blockedCount += 1
+      }
+      if (it.item_type === 'PLACA') platesCount += 1
+      else if (it.item_type === 'BLOCO') blocksCount += 1
+      else if (it.item_type === 'PECA') piecesCount += 1
+      else if (it.item_type === 'SOBRA_REUTILIZAVEL') reusableLeftoversCount += 1
+    })
+
+    return {
+      totalAvailableWeightTons: totalAvailableWeightKg / 1000,
+      totalFilteredWeightTons: totalFilteredWeightKg / 1000,
+      totalCount: filteredItems.length,
+      platesCount,
+      blocksCount,
+      piecesCount,
+      reusableLeftoversCount,
+      blockedCount,
+    }
+  }, [filteredItems])
+
+  // Se a placa selecionada não passar pelos filtros aplicados, reajusta para a primeira compatível
+  useEffect(() => {
+    if (filteredItems.length > 0) {
+      const isCurrentInFiltered = filteredItems.some((it) => it.id === selectedPlate?.id)
+      if (!isCurrentInFiltered) {
+        setSelectedPlate(filteredItems[0])
+      }
+    } else if (items.length > 0 && filteredItems.length === 0) {
+      setSelectedPlate(null)
+    }
+  }, [filteredItems])
 
   useEffect(() => {
     loadData()
@@ -451,6 +559,14 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
               {
                 id: 'NOVO_PLANO',
                 label: 'Novo Plano',
+                badge: (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 text-[10px] font-mono py-0 h-4 bg-slate-200 text-slate-800"
+                  >
+                    {filteredItems.length}
+                  </Badge>
+                ),
                 icon: Scissors,
               },
               {
@@ -461,7 +577,7 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                     variant="secondary"
                     className="ml-1 text-[10px] font-mono py-0 h-4 bg-slate-200 text-slate-800"
                   >
-                    {items.length}
+                    {filteredItems.length}
                   </Badge>
                 ),
                 icon: Boxes,
@@ -517,6 +633,85 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
           />
         </div>
 
+        {/* BARRA UNIFICADA DE FILTROS DE PLANOS DE CORTE */}
+        <MPCuttingPlansFilterBar
+          filters={viewFilters}
+          onFiltersChange={setViewFilters}
+          onClearFilters={() => setViewFilters(DEFAULT_CUTTING_VIEW_FILTERS)}
+          availableCenters={availableCenters}
+          availableDepots={availableDepots}
+          availableItemTypes={availableItemTypes}
+          availableSteelGrades={availableSteelGrades}
+          totalItemsCount={items.length}
+          filteredItemsCount={filteredItems.length}
+          isSapEmpty={items.length === 0}
+        />
+
+        {/* CARDS INDICADORES / TOTALIZADORES OPERACIONAIS (Refletem os filtros aplicados) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 text-xs">
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">
+              Peso Livre para Corte
+            </span>
+            <div className="text-base font-black font-mono text-[#004C97] mt-0.5">
+              {formatNumberPtBr(viewMetrics.totalAvailableWeightTons, 3)} t
+            </div>
+            <span className="text-[10px] text-emerald-700">Disponível Imediato</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">
+              Peso Total Filtrado
+            </span>
+            <div className="text-base font-black font-mono text-slate-900 mt-0.5">
+              {formatNumberPtBr(viewMetrics.totalFilteredWeightTons, 3)} t
+            </div>
+            <span className="text-[10px] text-slate-500">{viewMetrics.totalCount} un</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Placas</span>
+            <div className="text-base font-black font-mono text-slate-900 mt-0.5">
+              {viewMetrics.platesCount} un
+            </div>
+            <span className="text-[10px] text-slate-400">Pátio Matriz</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Blocos</span>
+            <div className="text-base font-black font-mono text-slate-900 mt-0.5">
+              {viewMetrics.blocksCount} un
+            </div>
+            <span className="text-[10px] text-slate-400">Produção</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Peças</span>
+            <div className="text-base font-black font-mono text-slate-900 mt-0.5">
+              {viewMetrics.piecesCount} un
+            </div>
+            <span className="text-[10px] text-slate-400">Cortadas</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">
+              Sobras Aprov.
+            </span>
+            <div className="text-base font-black font-mono text-emerald-800 mt-0.5">
+              {viewMetrics.reusableLeftoversCount} un
+            </div>
+            <span className="text-[10px] text-emerald-700">Reaproveitáveis</span>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Bloqueados</span>
+            <div className="text-base font-black font-mono text-rose-800 mt-0.5">
+              {viewMetrics.blockedCount} un
+            </div>
+            <span className="text-[10px] text-rose-600">Qualidade/SAP</span>
+          </div>
+        </div>
+
         {/* ABA 1: NOVO PLANO — Layout Visual Obrigatório em 4 Áreas */}
         {/* Esquerda: Lista de MP | Centro: Desenho do Plano | Direita: Análise IA | Inferior: Carteira + Cenários */}
         <TabsContent value="NOVO_PLANO" className="space-y-4">
@@ -529,7 +724,7 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                   <span>MP Disponível em Pátio</span>
                 </div>
                 <Badge variant="outline" className="text-[10px] font-mono">
-                  {items.length} un
+                  {filteredItems.length} un
                 </Badge>
               </div>
 
@@ -540,9 +735,26 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                   sapTransaction="ZPP86 / MB52"
                   onRefresh={loadData}
                 />
+              ) : filteredItems.length === 0 ? (
+                <div className="p-6 text-center border border-dashed border-slate-200 rounded-lg text-xs space-y-2">
+                  <p className="font-semibold text-slate-700">
+                    Nenhum material encontrado com os filtros aplicados.
+                  </p>
+                  <p className="text-slate-500 text-[11px]">
+                    Tente ajustar o termo de pesquisa ou limpar os filtros de centro/aço.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewFilters(DEFAULT_CUTTING_VIEW_FILTERS)}
+                    className="text-xs h-7 text-[#004C97]"
+                  >
+                    Limpar Filtros
+                  </Button>
+                </div>
               ) : (
                 <div className="space-y-2 max-h-[520px] overflow-y-auto no-scrollbar pr-1">
-                  {items.map((it) => {
+                  {filteredItems.map((it) => {
                     const isSel = selectedPlate?.id === it.id
                     return (
                       <div
@@ -771,6 +983,21 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
             lastSyncTime={lastSyncTime}
             syncError={syncError}
             onRefresh={loadData}
+            externalSearchTerm={viewFilters.searchTerm}
+            externalCenter={viewFilters.center}
+            externalDepot={viewFilters.depot}
+            externalType={viewFilters.itemType}
+            externalSteel={viewFilters.steelGrade}
+            externalReservation={viewFilters.reservationStatus}
+            onExternalFiltersChange={{
+              setSearchTerm: (val) => setViewFilters((prev) => ({ ...prev, searchTerm: val })),
+              setFilterCenter: (val) => setViewFilters((prev) => ({ ...prev, center: val })),
+              setFilterDepot: (val) => setViewFilters((prev) => ({ ...prev, depot: val })),
+              setFilterType: (val) => setViewFilters((prev) => ({ ...prev, itemType: val })),
+              setFilterSteel: (val) => setViewFilters((prev) => ({ ...prev, steelGrade: val })),
+              setFilterReservation: (val) =>
+                setViewFilters((prev) => ({ ...prev, reservationStatus: val })),
+            }}
             onSelectForCuttingPlan={(selected) => {
               setSelectedPlate(selected)
               setActiveSecondaryTab('NOVO_PLANO')

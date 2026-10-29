@@ -39,6 +39,21 @@ export interface MPDimensionalOperationalGridProps {
   onRefresh?: () => void
   onSelectForCuttingPlan?: (item: MPDimensionalItem) => void
   onSelectForMultiplePlan?: (item: MPDimensionalItem) => void
+  // Filtros controlados opcionalmente do MPCuttingPlansUnifiedPage
+  externalSearchTerm?: string
+  externalCenter?: string
+  externalDepot?: string
+  externalType?: string
+  externalSteel?: string
+  externalReservation?: string
+  onExternalFiltersChange?: {
+    setSearchTerm?: (val: string) => void
+    setFilterCenter?: (val: string) => void
+    setFilterDepot?: (val: string) => void
+    setFilterType?: (val: string) => void
+    setFilterSteel?: (val: string) => void
+    setFilterReservation?: (val: string) => void
+  }
 }
 
 export const MPDimensionalOperationalGrid: React.FC<MPDimensionalOperationalGridProps> = ({
@@ -49,14 +64,54 @@ export const MPDimensionalOperationalGrid: React.FC<MPDimensionalOperationalGrid
   onRefresh,
   onSelectForCuttingPlan,
   onSelectForMultiplePlan,
+  externalSearchTerm,
+  externalCenter,
+  externalDepot,
+  externalType,
+  externalSteel,
+  externalReservation,
+  onExternalFiltersChange,
 }) => {
   // Filtros
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterCenter, setFilterCenter] = useState('ALL')
-  const [filterDepot, setFilterDepot] = useState('ALL')
-  const [filterType, setFilterType] = useState('ALL')
-  const [filterSteel, setFilterSteel] = useState('ALL')
-  const [filterReservation, setFilterReservation] = useState('ALL')
+  const [localSearchTerm, setLocalSearchTerm] = useState('')
+  const [localFilterCenter, setLocalFilterCenter] = useState('ALL')
+  const [localFilterDepot, setLocalFilterDepot] = useState('ALL')
+  const [localFilterType, setLocalFilterType] = useState('ALL')
+  const [localFilterSteel, setLocalFilterSteel] = useState('ALL')
+  const [localFilterReservation, setLocalFilterReservation] = useState('ALL')
+
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : localSearchTerm
+  const filterCenter = externalCenter !== undefined ? externalCenter : localFilterCenter
+  const filterDepot = externalDepot !== undefined ? externalDepot : localFilterDepot
+  const filterType = externalType !== undefined ? externalType : localFilterType
+  const filterSteel = externalSteel !== undefined ? externalSteel : localFilterSteel
+  const filterReservation =
+    externalReservation !== undefined ? externalReservation : localFilterReservation
+
+  const setSearchTerm = (val: string) => {
+    setLocalSearchTerm(val)
+    onExternalFiltersChange?.setSearchTerm?.(val)
+  }
+  const setFilterCenter = (val: string) => {
+    setLocalFilterCenter(val)
+    onExternalFiltersChange?.setFilterCenter?.(val)
+  }
+  const setFilterDepot = (val: string) => {
+    setLocalFilterDepot(val)
+    onExternalFiltersChange?.setFilterDepot?.(val)
+  }
+  const setFilterType = (val: string) => {
+    setLocalFilterType(val)
+    onExternalFiltersChange?.setFilterType?.(val)
+  }
+  const setFilterSteel = (val: string) => {
+    setLocalFilterSteel(val)
+    onExternalFiltersChange?.setFilterSteel?.(val)
+  }
+  const setFilterReservation = (val: string) => {
+    setLocalFilterReservation(val)
+    onExternalFiltersChange?.setFilterReservation?.(val)
+  }
 
   // Ordenação
   const [sortField, setSortField] = useState<keyof MPDimensionalItem>('created')
