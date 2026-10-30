@@ -1230,6 +1230,7 @@ export interface MPSdcL2PlannedVsRealized {
   traffic_light: 'VERDE' | 'AMARELO' | 'LARANJA' | 'VERMELHO'
   operational_risk_summary?: string
   human_notes?: string
+  pool_code?: string
   is_official_sync?: boolean
   created?: string
   updated?: string

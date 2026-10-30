@@ -57,6 +57,11 @@ import {
   initialSdcFilters,
   parseDatePtBr,
 } from '@/components/mp-optimization/SdcFilterBar'
+import {
+  SdcPxRFilterBar,
+  SdcPxRFilterState,
+  initialSdcPxRFilters,
+} from '@/components/mp-optimization/SdcPxRFilterBar'
 import { SdcSendEmailModal } from '@/components/mp-optimization/SdcSendEmailModal'
 import { SdcHubNotificationModal } from '@/components/mp-optimization/SdcHubNotificationModal'
 import { formatTonsSdc } from '@/lib/number-format'
@@ -77,7 +82,7 @@ export const MPSidercentroSubpage: React.FC = () => {
   const [matrixRows, setMatrixRows] = useState<MPSdcSteelMatrixRow[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
-  // Filtros
+  // Filtros Globais e Locais
   const [filterText, setFilterText] = useState('')
   const [selectedPoolFilter, setSelectedPoolFilter] = useState('TODOS')
   const [selectedHorizon, setSelectedHorizon] = useState<'DIARIO' | 'SEMANAL' | 'MENSAL'>('SEMANAL')
@@ -94,6 +99,7 @@ export const MPSidercentroSubpage: React.FC = () => {
 
   // Novos Filtros Combináveis e Seleção
   const [activeFilters, setActiveFilters] = useState<SdcFilterState>(initialSdcFilters)
+  const [pxrFilters, setPxrFilters] = useState<SdcPxRFilterState>(initialSdcPxRFilters)
   const [selectedRecordKeys, setSelectedRecordKeys] = useState<string[]>([])
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const [isHubNotifModalOpen, setIsHubNotifModalOpen] = useState(false)
@@ -232,6 +238,69 @@ export const MPSidercentroSubpage: React.FC = () => {
     })
   }, [l2PxR, activeFilters])
 
+  // Filtragem dedicada EXCLUSIVA para a aba Previsto x Realizado L2
+  const pxrFilteredList = useMemo(() => {
+    return filteredL2PxR.filter((p) => {
+      // 1. Período: data inicial e final em disponibilidade/período
+      if (pxrFilters.startDate || pxrFilters.endDate) {
+        const start = parseDatePtBr(pxrFilters.startDate)
+        const end = parseDatePtBr(pxrFilters.endDate)
+        let rowDate: Date | null = null
+        if (p.availability_date) {
+          if (p.availability_date.includes('-')) {
+            const parts = p.availability_date.split('-')
+            if (parts.length === 3) {
+              rowDate = new Date(
+                parseInt(parts[0], 10),
+                parseInt(parts[1], 10) - 1,
+                parseInt(parts[2], 10),
+                12,
+                0,
+                0,
+              )
+            }
+          } else if (p.availability_date.includes('/')) {
+            rowDate = parseDatePtBr(p.availability_date)
+          }
+        }
+        if (rowDate && !isNaN(rowDate.getTime())) {
+          if (start && rowDate < start) return false
+          if (end && rowDate > end) return false
+        }
+      }
+
+      // 2. Aço pesquisável
+      if (pxrFilters.steel && p.steel_grade !== pxrFilters.steel) {
+        return false
+      }
+
+      // 3. Material pesquisável
+      if (pxrFilters.material && p.material_code !== pxrFilters.material) {
+        return false
+      }
+
+      // 4. Semáforo / Status
+      if (pxrFilters.trafficLight && pxrFilters.trafficLight !== 'TODOS') {
+        if (pxrFilters.trafficLight === 'LARANJA') {
+          if (p.traffic_light !== 'LARANJA' && p.traffic_light !== 'VERMELHO') return false
+        } else if (p.traffic_light !== pxrFilters.trafficLight) {
+          return false
+        }
+      }
+
+      // 5. Pool
+      if (pxrFilters.pool && pxrFilters.pool !== 'TODOS') {
+        if (pxrFilters.pool === 'SEM_POOL') {
+          if (p.pool_code) return false
+        } else if (p.pool_code !== pxrFilters.pool) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [filteredL2PxR, pxrFilters])
+
   // KPIs do Cockpit ATUALIZADOS com base nos dados efetivamente filtrados
   const cockpitKpis: MPSdcCockpitKpis = useMemo(() => {
     return mpSdcService.calculateCockpitKpis(filteredMatrixByAll, filteredL2PxR)
@@ -324,7 +393,7 @@ export const MPSidercentroSubpage: React.FC = () => {
     })
     toast({
       title: 'Parâmetro Atualizado',
-      description: `Estoque mínimo de ${saved.steel_grade} configurado para ${saved.min_stock_tons} t.`,
+      description: `Estoque mínimo de ${saved.steel_grade} configurado para ${formatTonsSdc(saved.min_stock_tons)}.`,
     })
   }
 
@@ -635,8 +704,9 @@ export const MPSidercentroSubpage: React.FC = () => {
                     </Badge>
                   </div>
                   <div className="text-[11px] text-slate-700">
-                    <strong>Déficit:</strong> {al.missing_quantity_tons} t &bull;{' '}
-                    <strong>Produção L2 necessária:</strong> {al.needed_l2_production_tons} t
+                    <strong>Déficit:</strong> {formatTonsSdc(al.missing_quantity_tons)} &bull;{' '}
+                    <strong>Produção L2 necessária:</strong>{' '}
+                    {formatTonsSdc(al.needed_l2_production_tons)}
                   </div>
                   <p className="text-[11px] text-slate-600 leading-tight bg-white/80 p-2 rounded border border-amber-200/60">
                     {al.recommended_action}
@@ -718,10 +788,61 @@ export const MPSidercentroSubpage: React.FC = () => {
           {/* TAB 1: MATRIZ DE ESTOQUE POR AÇO */}
           <TabsContent value="MATRIZ" className="m-0 space-y-3">
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+              {/* Barra de Ações em Massa (E-mail / Notificação HUB) quando houver seleção */}
+              <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-700">
+                    {selectedRecordKeys.length} de {visibleRowKeys.length} aço(s) selecionado(s)
+                  </span>
+                  {selectedRecordKeys.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedRecordKeys([])}
+                      className="h-6 px-2 text-[11px] text-slate-500 hover:text-slate-800"
+                    >
+                      Desmarcar todos
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={selectedRecordKeys.length === 0}
+                    onClick={() => setIsEmailModalOpen(true)}
+                    className="h-7 text-xs bg-white text-slate-700 border-slate-300 hover:bg-blue-50 hover:text-[#004C97] disabled:opacity-40"
+                  >
+                    <Mail className="w-3.5 h-3.5 mr-1 text-[#004C97]" />
+                    Enviar via e-mail ({selectedRecordKeys.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={selectedRecordKeys.length === 0}
+                    onClick={() => setIsHubNotifModalOpen(true)}
+                    className="h-7 text-xs bg-white text-slate-700 border-slate-300 hover:bg-blue-50 hover:text-[#004C97] disabled:opacity-40"
+                  >
+                    <Bell className="w-3.5 h-3.5 mr-1 text-[#004C97]" />
+                    Notificar no HUB ({selectedRecordKeys.length})
+                  </Button>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
+                      <th className="p-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isAllVisibleSelected}
+                          onChange={handleToggleSelectAll}
+                          aria-label="Selecionar todos os registros visíveis"
+                          className="rounded border-slate-300 text-[#004C97] focus:ring-[#004C97] cursor-pointer"
+                        />
+                      </th>
                       <th className="p-3 sticky left-0 bg-slate-50 z-10 shadow-xs">
                         Aço / Família
                       </th>
@@ -743,11 +864,24 @@ export const MPSidercentroSubpage: React.FC = () => {
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {filteredMatrixRows.map((row) => {
                       const isBelowMin = row.projected_balance_tons < row.min_stock_tons
+                      const rowKey = row.id || row.steel_grade
+                      const isSelected = selectedRecordKeys.includes(rowKey)
                       return (
                         <tr
                           key={row.steel_grade}
-                          className="hover:bg-slate-50/80 transition-colors"
+                          className={`hover:bg-slate-50/80 transition-colors ${
+                            isSelected ? 'bg-blue-50/30' : ''
+                          }`}
                         >
+                          <td className="p-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectRow(rowKey)}
+                              aria-label={`Selecionar ${row.steel_grade}`}
+                              className="rounded border-slate-300 text-[#004C97] focus:ring-[#004C97] cursor-pointer"
+                            />
+                          </td>
                           <td className="p-3 font-bold text-slate-900 sticky left-0 bg-white z-10 shadow-xs">
                             <div>{row.steel_grade}</div>
                             <span className="text-[10px] text-slate-500 font-normal">
@@ -755,43 +889,45 @@ export const MPSidercentroSubpage: React.FC = () => {
                             </span>
                           </td>
                           <td className="p-3 text-right font-mono text-slate-700">
-                            {row.stock_sdc_ds03_tons.toFixed(1)} t
+                            {formatTonsSdc(row.stock_sdc_ds03_tons)}
                           </td>
                           <td className="p-3 text-right font-mono text-blue-700 font-medium">
                             {row.stock_ciafal_eligible_tons > 0
-                              ? `+${row.stock_ciafal_eligible_tons.toFixed(1)} t`
+                              ? formatTonsSdc(row.stock_ciafal_eligible_tons, { includeSign: true })
                               : '-'}
                           </td>
                           <td className="p-3 text-right font-mono text-emerald-700 font-medium">
                             {row.stock_ks_tons + row.stock_usable_scrap_sdc_tons > 0
-                              ? `+${(row.stock_ks_tons + row.stock_usable_scrap_sdc_tons).toFixed(1)} t`
+                              ? formatTonsSdc(row.stock_ks_tons + row.stock_usable_scrap_sdc_tons, {
+                                  includeSign: true,
+                                })
                               : '-'}
                           </td>
                           <td className="p-3 text-right font-mono text-slate-600">
                             {row.expected_receipts_tons > 0
-                              ? `+${row.expected_receipts_tons.toFixed(1)} t`
+                              ? formatTonsSdc(row.expected_receipts_tons, { includeSign: true })
                               : '-'}
                           </td>
                           <td className="p-3 text-right font-mono font-bold text-[#004C97] bg-blue-50/30">
-                            {row.total_stock_tons.toFixed(1)} t
+                            {formatTonsSdc(row.total_stock_tons)}
                           </td>
                           <td className="p-3 text-right font-mono text-blue-700 font-bold">
                             {row.projected_l2_useful_tons > 0
-                              ? `+${row.projected_l2_useful_tons.toFixed(1)} t`
+                              ? formatTonsSdc(row.projected_l2_useful_tons, { includeSign: true })
                               : '-'}
                           </td>
                           <td className="p-3 text-right font-mono text-rose-700 font-bold">
-                            -{row.projected_consumption_sdc_tons.toFixed(1)} t
+                            {formatTonsSdc(-row.projected_consumption_sdc_tons)}
                           </td>
                           <td
                             className={`p-3 text-right font-mono font-black ${
                               isBelowMin ? 'text-amber-700 bg-amber-50/50' : 'text-slate-900'
                             }`}
                           >
-                            {row.projected_balance_tons.toFixed(1)} t
+                            {formatTonsSdc(row.projected_balance_tons)}
                           </td>
                           <td className="p-3 text-right font-mono text-slate-500 text-[11px]">
-                            {row.min_stock_tons.toFixed(1)} t
+                            {formatTonsSdc(row.min_stock_tons)}
                           </td>
                           <td className="p-3 text-center">
                             <Badge
@@ -878,8 +1014,8 @@ export const MPSidercentroSubpage: React.FC = () => {
                       <th className="p-3">Semana</th>
                       <th className="p-3">Aço / Classe</th>
                       <th className="p-3">Pool Vinculado</th>
-                      <th className="p-3 text-right">Previsto (t)</th>
-                      <th className="p-3 text-right">Realizado (t)</th>
+                      <th className="p-3 text-right">Previsto</th>
+                      <th className="p-3 text-right">Realizado</th>
                       <th className="p-3">Origem da Necessidade</th>
                       <th className="p-3">Ordem PCP / SAP</th>
                       <th className="p-3">Aços Compatíveis</th>
@@ -897,11 +1033,11 @@ export const MPSidercentroSubpage: React.FC = () => {
                         <td className="p-3 text-slate-600 font-mono text-[11px]">
                           {c.pool_code || '-'}
                         </td>
-                        <td className="p-3 text-right font-mono font-bold text-rose-700">
-                          {c.programmed_tons.toFixed(2)} t
+                        <td className="p-3 text-right font-mono font-bold text-rose-700 whitespace-nowrap">
+                          {formatTonsSdc(c.programmed_tons)}
                         </td>
-                        <td className="p-3 text-right font-mono text-slate-700">
-                          {c.realized_tons ? `${c.realized_tons.toFixed(2)} t` : '-'}
+                        <td className="p-3 text-right font-mono text-slate-700 whitespace-nowrap">
+                          {c.realized_tons ? formatTonsSdc(c.realized_tons) : '-'}
                         </td>
                         <td className="p-3 text-slate-600">{c.need_origin}</td>
                         <td className="p-3 font-mono text-blue-700 text-[11px]">
@@ -934,10 +1070,10 @@ export const MPSidercentroSubpage: React.FC = () => {
           {/* TAB 3: PREVISTO X REALIZADO L2 */}
           <TabsContent value="PXR_L2" className="m-0 space-y-3">
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
-                    Aderência da Produção L2 (PxR) & Impacto no Estoque SDC
+                    Aderência da Produção L2 (PxR) &amp; Impacto no Estoque SDC
                   </h3>
                   <span className="text-xs text-slate-500">
                     Cruzamento determinístico: Aderência percentual &times; Saldo físico real para
@@ -946,79 +1082,174 @@ export const MPSidercentroSubpage: React.FC = () => {
                 </div>
                 <Badge
                   variant="outline"
-                  className="bg-emerald-50 text-emerald-800 text-xs font-bold"
+                  className="bg-emerald-50 text-emerald-800 text-xs font-bold shrink-0"
                 >
                   Integração Programação L2
                 </Badge>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
+              {/* BARRA DE FILTROS DEDICADA DA ABA PREVISTO X REALIZADO L2 */}
+              <SdcPxRFilterBar
+                availableSteels={availableSteels}
+                availableMaterials={availableMaterials}
+                availablePools={pools}
+                activeFilters={pxrFilters}
+                onApplyFilters={(f) => setPxrFilters(f)}
+                onClearFilters={() => setPxrFilters(initialSdcPxRFilters)}
+                totalCount={filteredL2PxR.length}
+                filteredCount={pxrFilteredList.length}
+              />
+
+              {/* TABELA RESPONSIVA COM FORMATAÇÃO PADRONIZADA 3 CASAS DECIMAIS E UNIDADE "t" */}
+              <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                <table className="w-full text-xs text-left min-w-[760px]">
                   <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
-                      <th className="p-3">Período</th>
-                      <th className="p-3">Aço Produzido L2</th>
-                      <th className="p-3 text-right">Planejado L2</th>
-                      <th className="p-3 text-right">Realizado L2</th>
-                      <th className="p-3 text-right">Desvio</th>
-                      <th className="p-3 text-center">Aderência (%)</th>
-                      <th className="p-3 text-right font-bold text-[#004C97]">Disponível SDC</th>
-                      <th className="p-3">Impacto Real no Estoque SDC</th>
-                      <th className="p-3 text-center">Semáforo</th>
+                      <th className="p-3 w-28 whitespace-nowrap">Período</th>
+                      <th className="p-3 min-w-[140px]">Aço Produzido L2</th>
+                      <th className="p-3 text-right w-32 whitespace-nowrap">Planejado L2</th>
+                      <th className="p-3 text-right w-32 whitespace-nowrap">Realizado L2</th>
+                      <th className="p-3 text-right w-32 whitespace-nowrap">Desvio</th>
+                      <th className="p-3 text-center w-28 whitespace-nowrap">Aderência (%)</th>
+                      <th className="p-3 text-right w-36 whitespace-nowrap font-bold text-[#004C97]">
+                        Disponível SDC
+                      </th>
+                      <th className="p-3 min-w-[200px]">Impacto Real no Estoque SDC</th>
+                      <th className="p-3 text-center w-20 whitespace-nowrap">Semáforo</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    {l2PxR.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 font-mono font-bold text-slate-900">{p.period_ref}</td>
-                        <td className="p-3 font-bold text-slate-800">{p.steel_grade}</td>
-                        <td className="p-3 text-right font-mono text-slate-600">
-                          {p.planned_l2_tons.toFixed(1)} t
-                        </td>
-                        <td className="p-3 text-right font-mono font-bold text-slate-900">
-                          {p.realized_l2_tons.toFixed(1)} t
-                        </td>
-                        <td className="p-3 text-right font-mono text-slate-500">
-                          {p.deviation_tons >= 0
-                            ? `+${p.deviation_tons.toFixed(1)}`
-                            : p.deviation_tons.toFixed(1)}{' '}
-                          t
-                        </td>
-                        <td className="p-3 text-center font-mono font-bold">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[11px] ${
-                              p.adherence_pct >= 95
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : p.adherence_pct >= 80
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-rose-100 text-rose-800'
+                    {pxrFilteredList.map((p) => {
+                      const isPositiveDev = p.deviation_tons > 0
+                      const isNegativeDev = p.deviation_tons < 0
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                            {p.period_ref}
+                            {p.availability_date && (
+                              <span className="block text-[10px] text-slate-400 font-normal">
+                                {p.availability_date}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 font-bold text-slate-800">
+                            <div>{p.steel_grade}</div>
+                            {p.material_code && (
+                              <span className="block text-[10px] text-slate-500 font-normal truncate max-w-xs">
+                                {p.material_code}
+                                {p.material_description ? ` — ${p.material_description}` : ''}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right font-mono text-slate-600 whitespace-nowrap">
+                            {formatTonsSdc(p.planned_l2_tons)}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                            {formatTonsSdc(p.realized_l2_tons)}
+                          </td>
+                          <td
+                            className={`p-3 text-right font-mono whitespace-nowrap font-semibold ${
+                              isNegativeDev
+                                ? 'text-rose-700'
+                                : isPositiveDev
+                                  ? 'text-emerald-700'
+                                  : 'text-slate-500'
                             }`}
                           >
-                            {p.adherence_pct.toFixed(1)}%
-                          </span>
-                        </td>
-                        <td className="p-3 text-right font-mono font-black text-[#004C97]">
-                          +{p.useful_tons_for_sdc.toFixed(1)} t
-                        </td>
-                        <td className="p-3 text-slate-700 text-[11px] max-w-sm">
-                          {p.operational_risk_summary}
-                        </td>
-                        <td className="p-3 text-center">
-                          <div
-                            className={`w-3.5 h-3.5 rounded-full mx-auto ${
-                              p.traffic_light === 'VERDE'
-                                ? 'bg-emerald-500'
-                                : p.traffic_light === 'AMARELO'
-                                  ? 'bg-amber-400'
-                                  : p.traffic_light === 'LARANJA'
-                                    ? 'bg-orange-500'
-                                    : 'bg-rose-500'
-                            }`}
-                          />
+                            {formatTonsSdc(p.deviation_tons, { includeSign: true })}
+                          </td>
+                          <td className="p-3 text-center font-mono font-bold whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] ${
+                                p.adherence_pct >= 95
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : p.adherence_pct >= 80
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {p.adherence_pct.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 1,
+                                maximumFractionDigits: 1,
+                              })}
+                              %
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-mono font-black text-[#004C97] whitespace-nowrap">
+                            {formatTonsSdc(p.useful_tons_for_sdc, { includeSign: true })}
+                          </td>
+                          <td className="p-3 text-slate-700 text-[11px] leading-snug">
+                            {p.operational_risk_summary}
+                          </td>
+                          <td className="p-3 text-center whitespace-nowrap">
+                            <div
+                              title={`Semáforo: ${p.traffic_light}`}
+                              className={`w-3.5 h-3.5 rounded-full mx-auto ${
+                                p.traffic_light === 'VERDE'
+                                  ? 'bg-emerald-500 shadow-2xs shadow-emerald-400'
+                                  : p.traffic_light === 'AMARELO'
+                                    ? 'bg-amber-400 shadow-2xs shadow-amber-300'
+                                    : p.traffic_light === 'LARANJA'
+                                      ? 'bg-orange-500 shadow-2xs shadow-orange-400'
+                                      : 'bg-rose-500 shadow-2xs shadow-rose-400'
+                              }`}
+                            />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {pxrFilteredList.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-slate-400 text-xs">
+                          Nenhum registro L2 encontrado para os filtros selecionados.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
+                  {pxrFilteredList.length > 0 && (
+                    <tfoot className="bg-slate-50 border-t-2 border-slate-300 text-slate-800 font-bold">
+                      <tr>
+                        <td colSpan={2} className="p-3 font-semibold uppercase text-[11px]">
+                          Totais ({pxrFilteredList.length} registro(s))
+                        </td>
+                        <td className="p-3 text-right font-mono whitespace-nowrap">
+                          {formatTonsSdc(
+                            pxrFilteredList.reduce((acc, cur) => acc + cur.planned_l2_tons, 0),
+                          )}
+                        </td>
+                        <td className="p-3 text-right font-mono text-slate-900 whitespace-nowrap">
+                          {formatTonsSdc(
+                            pxrFilteredList.reduce((acc, cur) => acc + cur.realized_l2_tons, 0),
+                          )}
+                        </td>
+                        <td className="p-3 text-right font-mono whitespace-nowrap">
+                          {formatTonsSdc(
+                            pxrFilteredList.reduce((acc, cur) => acc + cur.deviation_tons, 0),
+                            { includeSign: true },
+                          )}
+                        </td>
+                        <td className="p-3 text-center font-mono whitespace-nowrap">
+                          {(
+                            pxrFilteredList.reduce((acc, cur) => acc + cur.adherence_pct, 0) /
+                            pxrFilteredList.length
+                          ).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
+                          %
+                        </td>
+                        <td className="p-3 text-right font-mono text-[#004C97] font-black whitespace-nowrap">
+                          {formatTonsSdc(
+                            pxrFilteredList.reduce((acc, cur) => acc + cur.useful_tons_for_sdc, 0),
+                            { includeSign: true },
+                          )}
+                        </td>
+                        <td colSpan={2} className="p-3 text-[11px] text-slate-500 font-normal">
+                          Disponibilidade acumulada na Linha 2
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>
@@ -1073,8 +1304,8 @@ export const MPSidercentroSubpage: React.FC = () => {
                           </div>
                           <span className="text-[11px] text-slate-500">
                             Saldo projetado:{' '}
-                            <strong>{r.projected_balance_tons.toFixed(1)} t</strong> (Mínimo:{' '}
-                            {r.min_stock_tons.toFixed(1)} t)
+                            <strong>{formatTonsSdc(r.projected_balance_tons)}</strong> (Mínimo:{' '}
+                            {formatTonsSdc(r.min_stock_tons)})
                           </span>
                         </div>
                       </div>
@@ -1094,7 +1325,7 @@ export const MPSidercentroSubpage: React.FC = () => {
                             Necessidade
                           </span>
                           <span className="font-mono font-bold text-rose-700 text-xs">
-                            {r.need_mp_tons > 0 ? `${r.need_mp_tons.toFixed(1)} t` : 'Sem déficit'}
+                            {r.need_mp_tons > 0 ? formatTonsSdc(r.need_mp_tons) : 'Sem déficit'}
                           </span>
                         </div>
 
@@ -1180,6 +1411,21 @@ export const MPSidercentroSubpage: React.FC = () => {
         isOpen={!!explainPayload}
         onClose={() => setExplainPayload(null)}
         payload={explainPayload}
+      />
+
+      {/* Modais de Envio de E-mail e Notificação HUB da Sidercentro */}
+      <SdcSendEmailModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        selectedRows={selectedRowsObjects}
+        activeFilters={activeFilters}
+      />
+
+      <SdcHubNotificationModal
+        isOpen={isHubNotifModalOpen}
+        onClose={() => setIsHubNotifModalOpen(false)}
+        selectedRows={selectedRowsObjects}
+        activeFilters={activeFilters}
       />
     </MPModuleLayout>
   )
