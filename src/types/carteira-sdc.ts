@@ -134,6 +134,14 @@ export interface ConfiguracaoVariacaoCarteiraSDC {
   variacaoPercentualMinima_pct: number // ex: 25 %
 }
 
+export interface EstoqueCentroDetalhe {
+  centro: string
+  descricao?: string
+  quantidade_t: number
+  unidade?: string
+  participacao_pct?: number
+}
+
 export interface EstoqueIndicadorSapRfc {
   quantidade_t: number | null // null se falha de integração
   unidade_original: string
@@ -144,12 +152,14 @@ export interface EstoqueIndicadorSapRfc {
   timestamp: string
   origem: string
   fonte_rfc: string
+  centros?: EstoqueCentroDetalhe[] | null // Detalhamento por centro SAP quando disponível na RFC
   detalhes_rfc?: {
     tabela_ou_bapi?: string
     campo_retorno?: string
     status_comunicacao?: string
     duracao_ms?: number
     material_count?: number
+    centros?: EstoqueCentroDetalhe[]
   }
 }
 

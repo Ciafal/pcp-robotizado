@@ -24,10 +24,12 @@ import {
   StatusCarteiraSDC,
   OrigemProducaoSDC,
   CarteiraSDCImportRow,
+  EstoqueCentroDetalhe,
 } from '@/types/carteira-sdc'
 import { CarteiraSDCEngine } from '@/services/carteira-sdc-engine'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { DetalheMaterialUnificadoModal } from './DetalheMaterialUnificadoModal'
+import { DetalheEstoquePorCentroModal } from './DetalheEstoquePorCentroModal'
 import {
   formatNumberPTBR,
   formatDatePTBR,
@@ -89,6 +91,39 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   const [isAbcOpen, setIsAbcOpen] = useState(false)
   const [isMinimoModalOpen, setIsMinimoModalOpen] = useState(false)
   const [destaqueMaterial, setDestaqueMaterial] = useState<string | null>(materialAncorado || null)
+
+  // Estado do Modal de Detalhamento de Estoque por Centro SAP
+  const [modalEstoqueCentro, setModalEstoqueCentro] = useState<{
+    isOpen: boolean
+    titulo: string
+    subtitulo?: string
+    origemInfo?: string
+    valorConsolidadoT: number | null | undefined
+    centros?: EstoqueCentroDetalhe[] | null
+  }>({
+    isOpen: false,
+    titulo: '',
+    subtitulo: '',
+    origemInfo: '',
+    valorConsolidadoT: null,
+    centros: null,
+  })
+
+  // Detalhamento de Estoque Total SDPL por centro (base de dados da Carteira SDC: WERKS = SDPL)
+  const centrosEstoqueTotalSdpl: EstoqueCentroDetalhe[] = useMemo(() => {
+    if (!itens || itens.length === 0) return []
+    // Como a carteira SDC opera no centro SDPL (Sidercentro), o estoque total SDPL consolida em SDPL
+    const totalSdpl = kpis?.estoque_total_t || 0
+    return [
+      {
+        centro: 'SDPL',
+        descricao: 'Sidercentro Laminação',
+        quantidade_t: totalSdpl,
+        unidade: 't',
+        participacao_pct: 100,
+      },
+    ]
+  }, [itens, kpis?.estoque_total_t])
 
   // Réplica oficial SAP do lote mínimo sincronizado via RFC
   const { replicaMap: replicaSapLoteMinimo } = useSapMaterialLoteMinimo()
@@ -352,10 +387,32 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         </div>
 
         {/* 2. Estoque Total SDPL */}
-        <div className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0">
-          <span className="text-[10px] uppercase font-bold text-emerald-700 block leading-tight">
-            Estoque Total SDPL
-          </span>
+        <div
+          onClick={() => {
+            setModalEstoqueCentro({
+              isOpen: true,
+              titulo: 'ESTOQUE TOTAL SDPL',
+              subtitulo: 'Centro WERKS = SDPL',
+              origemInfo: 'Base Operacional SDC',
+              valorConsolidadoT: kpis.estoque_total_t,
+              centros: centrosEstoqueTotalSdpl,
+            })
+          }}
+          className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 group"
+          data-testid="card-estoque-total-sdpl"
+          title="Clique para ver o detalhamento por centro SAP"
+        >
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-emerald-700 block leading-tight">
+              Estoque Total SDPL
+            </span>
+            <div
+              className="text-emerald-500/70 group-hover:text-emerald-700 transition-colors shrink-0"
+              title="Ver detalhamento por centro"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+            </div>
+          </div>
           <div className="flex items-baseline gap-1 mt-1">
             {isLoading ? (
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
@@ -368,33 +425,79 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               </>
             )}
           </div>
-          <span className="text-[10px] text-emerald-600 block mt-1">Centro WERKS = SDPL</span>
+          <div className="flex items-center justify-between text-[10px] text-emerald-600 mt-1">
+            <span>Centro WERKS = SDPL</span>
+            <span className="text-[9px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity underline">
+              Ver centros
+            </span>
+          </div>
         </div>
 
         {/* 3. ESTOQUE REMESSA (Centro CFPL via SAP RFC) */}
         <div
-          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 ${
+          onClick={() => {
+            const detalhe = kpis.estoque_remessa_cfpl
+            // Determinar array de centros vindo da RFC
+            const centrosRfc =
+              detalhe?.centros && Array.isArray(detalhe.centros)
+                ? detalhe.centros
+                : detalhe?.detalhes_rfc?.centros && Array.isArray(detalhe.detalhes_rfc.centros)
+                  ? detalhe.detalhes_rfc.centros
+                  : detalhe?.status === 'SUCESSO' &&
+                      typeof detalhe?.quantidade_t === 'number' &&
+                      detalhe.centro
+                    ? [
+                        {
+                          centro: detalhe.centro,
+                          descricao: 'Centro CFPL (Laminação/Remessa)',
+                          quantidade_t: detalhe.quantidade_t,
+                          unidade: detalhe.unidade_original || 't',
+                          participacao_pct: 100,
+                        },
+                      ]
+                    : null
+
+            setModalEstoqueCentro({
+              isOpen: true,
+              titulo: 'ESTOQUE REMESSA',
+              subtitulo: 'Centro SAP: CFPL',
+              origemInfo: 'SAP ECC • RFC',
+              valorConsolidadoT: detalhe?.quantidade_t,
+              centros: centrosRfc,
+            })
+          }}
+          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 cursor-pointer group ${
             kpis.estoque_remessa_cfpl?.status === 'INDISPONIVEL'
               ? 'border-amber-200 hover:border-amber-400'
               : 'border-sky-200 hover:border-sky-400'
           }`}
           data-testid="card-estoque-remessa"
+          title="Clique para ver o detalhamento por centro SAP"
         >
           <div className="flex items-center justify-between gap-1.5">
             <span className="text-[10px] uppercase font-bold text-[#004C97] leading-tight break-words">
               ESTOQUE REMESSA
             </span>
-            <div
-              className="text-slate-400 hover:text-[#004C97] cursor-help shrink-0"
-              title={`Estoque em remessa consultado no SAP ECC via RFC, considerando o centro CFPL.${
-                kpis.estoque_remessa_cfpl?.timestamp
-                  ? `\nÚltima sincronização: ${formatDatePTBR(kpis.estoque_remessa_cfpl.timestamp)}`
-                  : ''
-              }\nOrigem: SAP ECC\nCentro considerado: CFPL\nUnidade original: ${
-                kpis.estoque_remessa_cfpl?.unidade_original || 't'
-              }`}
-            >
-              <Info className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 shrink-0">
+              <div
+                className="text-sky-500/70 group-hover:text-[#004C97] transition-colors"
+                title="Ver detalhamento por centro"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+              </div>
+              <div
+                className="text-slate-400 hover:text-[#004C97] cursor-help"
+                onClick={(e) => e.stopPropagation()}
+                title={`Estoque em remessa consultado no SAP ECC via RFC, considerando o centro CFPL.${
+                  kpis.estoque_remessa_cfpl?.timestamp
+                    ? `\nÚltima sincronização: ${formatDatePTBR(kpis.estoque_remessa_cfpl.timestamp)}`
+                    : ''
+                }\nOrigem: SAP ECC\nCentro considerado: CFPL\nUnidade original: ${
+                  kpis.estoque_remessa_cfpl?.unidade_original || 't'
+                }`}
+              >
+                <Info className="w-3.5 h-3.5" />
+              </div>
             </div>
           </div>
           <div className="flex items-baseline gap-1 mt-1 min-h-[26px]">
@@ -419,35 +522,79 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               </>
             )}
           </div>
-          <span className="text-[10px] text-slate-500 block mt-1 font-medium">
-            Centro SAP: CFPL
-          </span>
+          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1 font-medium">
+            <span>Centro SAP: CFPL</span>
+            <span className="text-[9px] font-semibold text-[#004C97] opacity-0 group-hover:opacity-100 transition-opacity underline">
+              Ver centros
+            </span>
+          </div>
         </div>
 
         {/* 4. ESTOQUE ARMAZENADO CIAFAL (Via SAP ECC RFC) */}
         <div
-          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 ${
+          onClick={() => {
+            const detalhe = kpis.estoque_armazenado_ciafal
+            // Determinar array de centros vindo da RFC
+            const centrosRfc =
+              detalhe?.centros && Array.isArray(detalhe.centros)
+                ? detalhe.centros
+                : detalhe?.detalhes_rfc?.centros && Array.isArray(detalhe.detalhes_rfc.centros)
+                  ? detalhe.detalhes_rfc.centros
+                  : detalhe?.status === 'SUCESSO' &&
+                      typeof detalhe?.quantidade_t === 'number' &&
+                      detalhe.centro
+                    ? [
+                        {
+                          centro: detalhe.centro,
+                          descricao: 'Centro 1100 (CIAFAL Matriz)',
+                          quantidade_t: detalhe.quantidade_t,
+                          unidade: detalhe.unidade_original || 't',
+                          participacao_pct: 100,
+                        },
+                      ]
+                    : null
+
+            setModalEstoqueCentro({
+              isOpen: true,
+              titulo: 'ESTOQUE ARMAZENADO CIAFAL',
+              subtitulo: 'Operação SDC • Centro SAP 1100',
+              origemInfo: 'SAP ECC • RFC',
+              valorConsolidadoT: detalhe?.quantidade_t,
+              centros: centrosRfc,
+            })
+          }}
+          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 cursor-pointer group ${
             kpis.estoque_armazenado_ciafal?.status === 'INDISPONIVEL'
               ? 'border-amber-200 hover:border-amber-400'
               : 'border-blue-200 hover:border-blue-400'
           }`}
           data-testid="card-estoque-armazenado-ciafal"
+          title="Clique para ver o detalhamento por centro SAP"
         >
           <div className="flex items-center justify-between gap-1.5">
             <span className="text-[10px] uppercase font-bold text-blue-900 leading-tight break-words">
               ESTOQUE ARMAZENADO CIAFAL
             </span>
-            <div
-              className="text-slate-400 hover:text-[#004C97] cursor-help shrink-0"
-              title={`Estoque armazenado Ciafal consultado diretamente no SAP ECC via RFC.${
-                kpis.estoque_armazenado_ciafal?.timestamp
-                  ? `\nÚltima sincronização: ${formatDatePTBR(kpis.estoque_armazenado_ciafal.timestamp)}`
-                  : ''
-              }\nOrigem: SAP ECC • RFC\nCentro considerado: 1100\nUnidade original: ${
-                kpis.estoque_armazenado_ciafal?.unidade_original || 't'
-              }`}
-            >
-              <Info className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 shrink-0">
+              <div
+                className="text-blue-500/70 group-hover:text-blue-900 transition-colors"
+                title="Ver detalhamento por centro"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+              </div>
+              <div
+                className="text-slate-400 hover:text-[#004C97] cursor-help"
+                onClick={(e) => e.stopPropagation()}
+                title={`Estoque armazenado Ciafal consultado diretamente no SAP ECC via RFC.${
+                  kpis.estoque_armazenado_ciafal?.timestamp
+                    ? `\nÚltima sincronização: ${formatDatePTBR(kpis.estoque_armazenado_ciafal.timestamp)}`
+                    : ''
+                }\nOrigem: SAP ECC • RFC\nCentro considerado: 1100\nUnidade original: ${
+                  kpis.estoque_armazenado_ciafal?.unidade_original || 't'
+                }`}
+              >
+                <Info className="w-3.5 h-3.5" />
+              </div>
             </div>
           </div>
           <div className="flex items-baseline gap-1 mt-1 min-h-[26px]">
@@ -472,9 +619,12 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               </>
             )}
           </div>
-          <span className="text-[10px] text-slate-500 block mt-1 font-medium">
-            Fonte: SAP ECC &bull; RFC
-          </span>
+          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1 font-medium">
+            <span>Fonte: SAP ECC &bull; RFC</span>
+            <span className="text-[9px] font-semibold text-blue-900 opacity-0 group-hover:opacity-100 transition-opacity underline">
+              Ver centros
+            </span>
+          </div>
         </div>
 
         {/* 5. Déficit Atual */}
@@ -1206,6 +1356,23 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         onSelectMaterial={(mat) => {
           setBusca(mat)
         }}
+      />
+
+      {/* Modal de Detalhamento de Estoque por Centro SAP */}
+      <DetalheEstoquePorCentroModal
+        isOpen={modalEstoqueCentro.isOpen}
+        onClose={() =>
+          setModalEstoqueCentro((prev) => ({
+            ...prev,
+            isOpen: false,
+          }))
+        }
+        titulo={modalEstoqueCentro.titulo}
+        subtitulo={modalEstoqueCentro.subtitulo}
+        origemInfo={modalEstoqueCentro.origemInfo}
+        valorConsolidadoT={modalEstoqueCentro.valorConsolidadoT}
+        centros={modalEstoqueCentro.centros}
+        isLoading={isLoading}
       />
     </div>
   )

@@ -265,6 +265,9 @@ export class CarteiraSDCService {
                 : null,
             unidade_original: response.estoque_remessa_cfpl?.unidade_original || 't',
             centro: 'CFPL',
+            centros: Array.isArray(response.estoque_remessa_cfpl?.centros)
+              ? response.estoque_remessa_cfpl.centros
+              : null,
             status: 'SUCESSO',
             timestamp: response.estoque_remessa_cfpl?.timestamp || agoraIso,
             origem: 'SAP ECC',
@@ -279,6 +282,9 @@ export class CarteiraSDCService {
                 : null,
             unidade_original: response.estoque_armazenado_ciafal?.unidade_original || 't',
             centro: '1100',
+            centros: Array.isArray(response.estoque_armazenado_ciafal?.centros)
+              ? response.estoque_armazenado_ciafal.centros
+              : null,
             status: 'SUCESSO',
             timestamp: response.estoque_armazenado_ciafal?.timestamp || agoraIso,
             origem: 'SAP ECC',

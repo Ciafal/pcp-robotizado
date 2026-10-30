@@ -161,6 +161,21 @@ routerAdd(
               data.estoque_remessa_t !== undefined ? Number(data.estoque_remessa_t) : null,
             unidade_original: data.unidade_remessa || 'T',
             centro: 'CFPL',
+            centros: Array.isArray(data.estoque_remessa_centros)
+              ? data.estoque_remessa_centros.map((c) => ({
+                  centro: c.centro || c.werks || 'CFPL',
+                  descricao: c.descricao || c.nome || c.werks_desc || '',
+                  quantidade_t: Number(c.quantidade_t ?? c.qtd_t ?? c.labst_t ?? 0),
+                  unidade: c.unidade || 't',
+                }))
+              : Array.isArray(data.detalhes_remessa?.centros)
+                ? data.detalhes_remessa.centros.map((c) => ({
+                    centro: c.centro || c.werks || 'CFPL',
+                    descricao: c.descricao || c.nome || c.werks_desc || '',
+                    quantidade_t: Number(c.quantidade_t ?? c.qtd_t ?? 0),
+                    unidade: c.unidade || 't',
+                  }))
+                : null,
             status: 'SUCESSO',
             timestamp: nowIso,
             origem: 'SAP ECC',
@@ -172,6 +187,21 @@ routerAdd(
               data.estoque_armazenado_t !== undefined ? Number(data.estoque_armazenado_t) : null,
             unidade_original: data.unidade_armazenado || 'T',
             centro: '1100',
+            centros: Array.isArray(data.estoque_armazenado_centros)
+              ? data.estoque_armazenado_centros.map((c) => ({
+                  centro: c.centro || c.werks || '1100',
+                  descricao: c.descricao || c.nome || c.werks_desc || '',
+                  quantidade_t: Number(c.quantidade_t ?? c.qtd_t ?? c.labst_t ?? 0),
+                  unidade: c.unidade || 't',
+                }))
+              : Array.isArray(data.detalhes_armazenado?.centros)
+                ? data.detalhes_armazenado.centros.map((c) => ({
+                    centro: c.centro || c.werks || '1100',
+                    descricao: c.descricao || c.nome || c.werks_desc || '',
+                    quantidade_t: Number(c.quantidade_t ?? c.qtd_t ?? 0),
+                    unidade: c.unidade || 't',
+                  }))
+                : null,
             status: 'SUCESSO',
             timestamp: nowIso,
             origem: 'SAP ECC',

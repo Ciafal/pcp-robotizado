@@ -252,4 +252,177 @@ describe('Carteira SDC — Indicadores Estoque Remessa e Estoque Armazenado Ciaf
     )
     expect(achouArmazenado).toBe(true)
   })
+
+  // ==========================================
+  // CENÁRIOS DE DETALHAMENTO DE ESTOQUE POR CENTRO
+  // ==========================================
+
+  it('Cenário 6: Clicar no card "Estoque Total SDPL" abre o modal com detalhamento do centro SDPL conferindo com o consolidado', async () => {
+    render(
+      <CarteiraSDCView
+        itens={mockItens}
+        kpis={mockKpisBase}
+        dataAtualizacao={new Date().toISOString()}
+        analisesIA={[]}
+      />,
+    )
+
+    const cardTotalSdpl = screen.getByTestId('card-estoque-total-sdpl')
+    expect(cardTotalSdpl).toBeInTheDocument()
+    fireEvent.click(cardTotalSdpl)
+
+    // Modal deve abrir com o título e centro SDPL
+    const modal = await screen.findByTestId('modal-detalhamento-estoque-centro')
+    expect(modal).toBeInTheDocument()
+    expect(screen.getByText('ESTOQUE TOTAL SDPL')).toBeInTheDocument()
+    expect(screen.getByTestId('linha-centro-SDPL')).toBeInTheDocument()
+    expect(screen.getByText('Sidercentro Laminação')).toBeInTheDocument()
+
+    // Total confere com o consolidado
+    const totalConsolidado = screen.getByTestId('total-geral-centros')
+    expect(totalConsolidado).toHaveTextContent('6,840')
+
+    // Fecha o modal
+    const botaoFechar = screen.getByRole('button', { name: /Fechar/i })
+    fireEvent.click(botaoFechar)
+  })
+
+  it('Cenário 7: Clicar no card "ESTOQUE REMESSA" com centros retornados pelo SAP exibe múltiplos centros ordenados por quantidade decrescente com % e conferência de total', async () => {
+    const kpisComCentros: CarteiraSDCKpis = {
+      ...mockKpisBase,
+      estoque_remessa_cfpl: {
+        quantidade_t: 70.0,
+        unidade_original: 't',
+        centro: 'CFPL',
+        status: 'SUCESSO',
+        timestamp: new Date().toISOString(),
+        origem: 'SAP ECC',
+        fonte_rfc: 'SAP ECC • RFC',
+        centros: [
+          {
+            centro: 'CFPL',
+            descricao: 'Centro CFPL Laminação',
+            quantidade_t: 50.0,
+            unidade: 't',
+          },
+          {
+            centro: '1100',
+            descricao: 'Matriz CIAFAL Contagem',
+            quantidade_t: 20.0,
+            unidade: 't',
+          },
+        ],
+      },
+    }
+
+    render(
+      <CarteiraSDCView
+        itens={mockItens}
+        kpis={kpisComCentros}
+        dataAtualizacao={new Date().toISOString()}
+        analisesIA={[]}
+      />,
+    )
+
+    const cardRemessa = screen.getByTestId('card-estoque-remessa')
+    fireEvent.click(cardRemessa)
+
+    const modal = await screen.findByTestId('modal-detalhamento-estoque-centro')
+    expect(modal).toBeInTheDocument()
+    expect(screen.getByText('ESTOQUE REMESSA')).toBeInTheDocument()
+
+    // CFPL com 50 t (71,43 %) e 1100 com 20 t (28,57 %)
+    const linhaCfpl = screen.getByTestId('linha-centro-CFPL')
+    expect(linhaCfpl).toBeInTheDocument()
+    expect(linhaCfpl).toHaveTextContent('50,000')
+    expect(linhaCfpl).toHaveTextContent('71,43 %')
+
+    const linha1100 = screen.getByTestId('linha-centro-1100')
+    expect(linha1100).toBeInTheDocument()
+    expect(linha1100).toHaveTextContent('20,000')
+    expect(linha1100).toHaveTextContent('28,57 %')
+
+    // Total dos centros bate exatamente com o consolidado (70,000 t)
+    const totalGeral = screen.getByTestId('total-geral-centros')
+    expect(totalGeral).toHaveTextContent('70,000')
+    expect(screen.getByText('Conferido')).toBeInTheDocument()
+  })
+
+  it('Cenário 8: Clicar no card "ESTOQUE ARMAZENADO CIAFAL" exibe detalhamento do centro 1100 com 100% de participação', async () => {
+    const kpisArmazenado: CarteiraSDCKpis = {
+      ...mockKpisBase,
+      estoque_armazenado_ciafal: {
+        quantidade_t: 38.75,
+        unidade_original: 't',
+        centro: '1100',
+        status: 'SUCESSO',
+        timestamp: new Date().toISOString(),
+        origem: 'SAP ECC',
+        fonte_rfc: 'SAP ECC • RFC',
+      },
+    }
+
+    render(
+      <CarteiraSDCView
+        itens={mockItens}
+        kpis={kpisArmazenado}
+        dataAtualizacao={new Date().toISOString()}
+        analisesIA={[]}
+      />,
+    )
+
+    const cardArmazenado = screen.getByTestId('card-estoque-armazenado-ciafal')
+    fireEvent.click(cardArmazenado)
+
+    const modal = await screen.findByTestId('modal-detalhamento-estoque-centro')
+    expect(modal).toBeInTheDocument()
+    expect(screen.getByText('ESTOQUE ARMAZENADO CIAFAL')).toBeInTheDocument()
+    expect(screen.getByTestId('linha-centro-1100')).toBeInTheDocument()
+    expect(screen.getByTestId('total-geral-centros')).toHaveTextContent('38,750')
+  })
+
+  it('Cenário 9: Quando o SAP não retornar a quebra por centro (status INDISPONIVEL), exibe "Detalhamento por centro não disponível nesta consulta" sem números inventados', async () => {
+    const kpisSemQuebra: CarteiraSDCKpis = {
+      ...mockKpisBase,
+      estoque_remessa_cfpl: {
+        quantidade_t: null,
+        unidade_original: 't',
+        centro: 'CFPL',
+        status: 'INDISPONIVEL',
+        centros: null,
+        mensagem_erro: 'Não foi possível atualizar este indicador através da integração SAP/RFC.',
+        timestamp: new Date().toISOString(),
+        origem: 'SAP ECC',
+        fonte_rfc: 'SAP ECC • RFC',
+      },
+    }
+
+    render(
+      <CarteiraSDCView
+        itens={mockItens}
+        kpis={kpisSemQuebra}
+        dataAtualizacao={new Date().toISOString()}
+        analisesIA={[]}
+      />,
+    )
+
+    const cardRemessa = screen.getByTestId('card-estoque-remessa')
+    fireEvent.click(cardRemessa)
+
+    const aviso = await screen.findByTestId('aviso-detalhamento-indisponivel')
+    expect(aviso).toBeInTheDocument()
+    expect(
+      screen.getByText('Detalhamento por centro não disponível nesta consulta'),
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('tabela-detalhamento-centros')).not.toBeInTheDocument()
+  })
+
+  it('Cenário 10: Valores consolidados dos cards, cálculos de déficit/cobertura e callbacks de atualização continuam idênticos', () => {
+    const kpis = CarteiraSDCEngine.calcularKpis(mockItens)
+    // Valores de cálculo permanecem intocados
+    expect(kpis.estoque_total_t).toBe(6.84)
+    expect(kpis.carteira_total_t).toBe(26.0)
+    expect(kpis.deficit_atual_t).toBe(19.16)
+    expect(kpis.itens_com_deficit_count).toBe(1)
+  })
 })
