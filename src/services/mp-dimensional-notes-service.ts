@@ -369,7 +369,7 @@ export const mpMultipleCuttingPlansService = {
           record_id: targetPlanId,
           user_name: authorName,
           status: 'Falha',
-          outcome: 'ERROR',
+          outcome: 'FAILED',
           source: 'Sistema',
           details: {
             target_id: targetPlanId,
@@ -518,7 +518,7 @@ export const mpMultipleCuttingPlansService = {
           record_id: '',
           user_name: authorName,
           status: 'Falha',
-          outcome: 'ERROR',
+          outcome: 'FAILED',
           source: 'Sistema',
           details: {
             error: err.message,

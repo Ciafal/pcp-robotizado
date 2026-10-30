@@ -16,6 +16,7 @@ import {
   ChevronRight,
   ExternalLink,
   FileCheck2,
+  Eye,
 } from 'lucide-react'
 import {
   Dialog,
@@ -40,6 +41,7 @@ import {
   mpMultipleCuttingPlansService,
   MPMultipleCuttingPlanRecord,
 } from '@/services/mp-dimensional-notes-service'
+import { MPCuttingPlanViewerModal } from './MPCuttingPlanViewerModal'
 
 export interface MPMultipleCuttingPlanSectionProps {
   initialMaterial?: {
