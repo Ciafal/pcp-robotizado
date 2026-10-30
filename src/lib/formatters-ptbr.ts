@@ -176,6 +176,21 @@ export function formatPercentagePTBR(
 }
 
 /**
+ * Formata percentuais com duas casas decimais e espaço antes do % (padrão XX,XX %):
+ * Ex: formatPercentStandard(45) -> "45,00 %"
+ * Ex: formatPercentStandard(57.3) -> "57,30 %"
+ * Ex: formatPercentStandard(89.2) -> "89,20 %"
+ * Ex: formatPercentStandard(95) -> "95,00 %"
+ * Ex: formatPercentStandard(103.3) -> "103,30 %"
+ */
+export function formatPercentStandard(
+  valor: number | string | null | undefined,
+  fallback: string = '0,00 %',
+): string {
+  return formatPercentagePTBR(valor, 2, fallback)
+}
+
+/**
  * Formata moeda no padrão brasileiro: R$ 15.250,50
  */
 export function formatCurrencyPTBR(

@@ -99,9 +99,13 @@ export const LowStockBadge: React.FC<LowStockBadgeProps> = ({
   }
 
   if (calculatedStatus === 'CRITICO') {
-    const pct =
+    const pctValue =
       minStockTons && minStockTons > 0 && currentStockTons != null
-        ? ((currentStockTons / minStockTons) * 100).toFixed(0)
+        ? (currentStockTons / minStockTons) * 100
+        : null
+    const pctFormatted =
+      pctValue !== null
+        ? pctValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : null
 
     return (
@@ -117,15 +121,21 @@ export const LowStockBadge: React.FC<LowStockBadgeProps> = ({
           className={size === 'sm' ? 'w-3 h-3 text-rose-600' : 'w-3.5 h-3.5 text-rose-600'}
         />
         {showLabel && <span>Estoque Baixo</span>}
-        {pct && <span className="font-mono text-[9px] opacity-90">({pct}%)</span>}
+        {pctFormatted && (
+          <span className="font-mono text-[9px] opacity-90">({pctFormatted} %)</span>
+        )}
       </Badge>
     )
   }
 
   if (calculatedStatus === 'ATENCAO') {
-    const pct =
+    const pctValue =
       minStockTons && minStockTons > 0 && currentStockTons != null
-        ? ((currentStockTons / minStockTons) * 100).toFixed(0)
+        ? (currentStockTons / minStockTons) * 100
+        : null
+    const pctFormatted =
+      pctValue !== null
+        ? pctValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : null
 
     return (
@@ -141,7 +151,9 @@ export const LowStockBadge: React.FC<LowStockBadgeProps> = ({
           className={size === 'sm' ? 'w-3 h-3 text-amber-600' : 'w-3.5 h-3.5 text-amber-600'}
         />
         {showLabel && <span>Atenção</span>}
-        {pct && <span className="font-mono text-[9px] opacity-90">({pct}%)</span>}
+        {pctFormatted && (
+          <span className="font-mono text-[9px] opacity-90">({pctFormatted} %)</span>
+        )}
       </Badge>
     )
   }

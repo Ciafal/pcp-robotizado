@@ -64,7 +64,7 @@ import {
 } from '@/components/mp-optimization/SdcPxRFilterBar'
 import { SdcSendEmailModal } from '@/components/mp-optimization/SdcSendEmailModal'
 import { SdcHubNotificationModal } from '@/components/mp-optimization/SdcHubNotificationModal'
-import { formatTonsSdc } from '@/lib/number-format'
+import { formatTonsSdc, formatPercentStandard } from '@/lib/number-format'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Mail, Bell } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -492,7 +492,7 @@ export const MPSidercentroSubpage: React.FC = () => {
                 Aderência L2
               </span>
               <span className="font-mono font-extrabold text-[#004C97] text-xs">
-                {cockpitKpis.l2_adherence_pct}%
+                {formatPercentStandard(cockpitKpis.l2_adherence_pct)}
               </span>
             </div>
             <div className="h-5 w-[1px] bg-slate-300" />
@@ -1168,11 +1168,7 @@ export const MPSidercentroSubpage: React.FC = () => {
                                     : 'bg-rose-100 text-rose-800'
                               }`}
                             >
-                              {p.adherence_pct.toLocaleString('pt-BR', {
-                                minimumFractionDigits: 1,
-                                maximumFractionDigits: 1,
-                              })}
-                              %
+                              {formatPercentStandard(p.adherence_pct)}
                             </span>
                           </td>
                           <td className="p-3 text-right font-mono font-black text-[#004C97] whitespace-nowrap">
@@ -1229,14 +1225,10 @@ export const MPSidercentroSubpage: React.FC = () => {
                           )}
                         </td>
                         <td className="p-3 text-center font-mono whitespace-nowrap">
-                          {(
+                          {formatPercentStandard(
                             pxrFilteredList.reduce((acc, cur) => acc + cur.adherence_pct, 0) /
-                            pxrFilteredList.length
-                          ).toLocaleString('pt-BR', {
-                            minimumFractionDigits: 1,
-                            maximumFractionDigits: 1,
-                          })}
-                          %
+                              pxrFilteredList.length,
+                          )}
                         </td>
                         <td className="p-3 text-right font-mono text-[#004C97] font-black whitespace-nowrap">
                           {formatTonsSdc(

@@ -316,3 +316,177 @@ routerAdd('POST', '/backend/v1/mp-sidercentro/send-hub-notification', (e) => {
     recipients_count: recipients.length,
   })
 })
+
+// ============================================================================
+// CONSULTA RFC SAP: Rastreabilidade e Composição do Saldo por Material / Depósito
+// Endpoint: POST /backend/v1/mp-sidercentro/stock-traceability
+// Body: { material_code: string, steel_grade?: string, plant?: string }
+// Retorna os dados detalhados via RFC SAP (código, descrição, centro/depósito,
+// utilização livre, qualidade t, bloqueado t, etc.)
+// Registra log completo de auditoria em pcp_audit_logs.
+// ============================================================================
+routerAdd('POST', '/backend/v1/mp-sidercentro/stock-traceability', (e) => {
+  const authRecord = e.auth
+  const body = e.requestInfo().body || {}
+  const materialCode = (body.material_code || body.steel_grade || '').trim()
+  const steelGrade = (body.steel_grade || body.material_code || '').trim()
+  const plant = (body.plant || 'SDC1').trim()
+
+  let userEmail = 'sistema@ciafal.com.br'
+  let userName = 'Usuário PCP'
+  let userId = ''
+  let userRole = 'PCP_PROGRAMMER'
+
+  if (authRecord) {
+    userId = authRecord.id
+    userEmail = authRecord.getString('email') || userEmail
+    userName = authRecord.getString('name') || userEmail
+    userRole = authRecord.getString('role') || userRole
+  }
+
+  const now = new Date()
+  const nowIso = now.toISOString()
+  const yyyy = String(now.getFullYear())
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase()
+  const autoEventId = `LOG-PCP-TRACE-${yyyy}${mm}${dd}-${randomHex}`
+
+  // Helper para registrar log de auditoria append-only
+  const logAudit = (outcome, statusText, details) => {
+    try {
+      const auditCol = $app.findCollectionByNameOrId('pcp_audit_logs')
+      const auditRecord = new Record(auditCol)
+      auditRecord.set('event_id', autoEventId)
+      auditRecord.set('user_id', userId || null)
+      auditRecord.set('user_email', userEmail)
+      auditRecord.set('user_name', userName)
+      auditRecord.set('user_role', userRole)
+      auditRecord.set('login', userEmail.split('@')[0])
+      auditRecord.set('profile', userRole)
+      auditRecord.set('event_type', 'SCHEDULE_ACTION')
+      auditRecord.set('action', 'MP_SDC_STOCK_TRACEABILITY_QUERY')
+      auditRecord.set('resource', 'MP_SIDERCENTRO')
+      auditRecord.set('resource_id', materialCode)
+      auditRecord.set('scope', plant)
+      auditRecord.set('outcome', outcome)
+      auditRecord.set('status', statusText)
+      auditRecord.set('source', 'PCP Robotizado')
+      auditRecord.set('company', 'SIDERCENTRO_SDC')
+      auditRecord.set('line', 'L2')
+      auditRecord.set('center', plant)
+      auditRecord.set('module', 'Gestão de MP')
+      auditRecord.set('screen', 'MPSidercentroSubpage')
+      auditRecord.set('entity', 'MP_SDC_TRACEABILITY')
+      auditRecord.set(
+        'reason',
+        'Consulta de rastreabilidade e composição de saldo de MP Sidercentro via RFC SAP',
+      )
+      auditRecord.set('details', {
+        material_code: materialCode,
+        steel_grade: steelGrade,
+        plant: plant,
+        user: userName,
+        user_email: userEmail,
+        date_time: nowIso,
+        outcome: outcome,
+        ...details,
+      })
+      $app.save(auditRecord)
+    } catch (auditErr) {
+      console.warn('Erro ao gravar pcp_audit_logs para rastreabilidade MP SDC:', auditErr)
+    }
+  }
+
+  if (!materialCode) {
+    logAudit('FAILED', 'ERRO_PARAMETROS', { message: 'Código de material não informado' })
+    return e.json(400, {
+      success: false,
+      code: 'MISSING_MATERIAL_CODE',
+      message: 'Código de material é obrigatório para consulta de rastreabilidade.',
+    })
+  }
+
+  const sapGatewayUrl = $os.getenv('SAP_FCA_BASE_URL') || $os.getenv('SAP_RFC_GATEWAY_URL') || ''
+
+  // Se o gateway SAP não estiver provisionado via secrets no ambiente
+  if (!sapGatewayUrl) {
+    console.log(
+      `[PCP-SDC-TRACEABILITY] Consulta RFC SAP para material ${materialCode} solicitada por ${userEmail}, mas SAP_FCA_BASE_URL não está configurada.`,
+    )
+    logAudit('FAILED', 'SAP_RFC_NOT_CONFIGURED', {
+      rfc_gateway_configured: false,
+      message: 'Gateway RFC SAP não configurado no ambiente atual.',
+    })
+
+    return e.json(503, {
+      success: false,
+      code: 'SAP_RFC_NOT_CONFIGURED',
+      message: 'A integração com o gateway RFC do SAP não está configurada no ambiente atual.',
+      material_code: materialCode,
+      steel_grade: steelGrade,
+      timestamp: nowIso,
+    })
+  }
+
+  // Gateway configurado: chamada HTTP à RFC do SAP
+  try {
+    const rfcEndpoint = `${sapGatewayUrl}/rfc/material-traceability`
+    const res = $http.send({
+      url: rfcEndpoint,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'PCP-Robotizado',
+      },
+      body: JSON.stringify({
+        material_code: materialCode,
+        steel_grade: steelGrade,
+        plant: plant,
+      }),
+      timeout: 15,
+    })
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      const data = res.json || {}
+      logAudit('SUCCESS', 'SUCESSO', {
+        items_count: Array.isArray(data.items) ? data.items.length : 0,
+        response_status: res.statusCode,
+      })
+
+      return e.json(200, {
+        success: true,
+        material_code: data.material_code || materialCode,
+        material_description: data.material_description || '',
+        items: data.items || [],
+        timestamp: nowIso,
+      })
+    } else {
+      logAudit('FAILED', 'SAP_RFC_ERROR', {
+        status_code: res.statusCode,
+        response_raw: res.raw,
+      })
+
+      return e.json(503, {
+        success: false,
+        code: 'SAP_RFC_UNAVAILABLE',
+        message: 'O SAP retornou erro na consulta de rastreabilidade do material.',
+        material_code: materialCode,
+        status_code: res.statusCode,
+      })
+    }
+  } catch (netErr) {
+    console.warn(
+      `[PCP-SDC-TRACEABILITY] Exceção ao consultar RFC SAP para ${materialCode}:`,
+      netErr,
+    )
+    logAudit('FAILED', 'SAP_RFC_EXCEPTION', { exception: String(netErr) })
+
+    return e.json(503, {
+      success: false,
+      code: 'SAP_RFC_ERROR',
+      message: 'Não foi possível comunicar com o gateway SAP RFC no momento.',
+      material_code: materialCode,
+    })
+  }
+})

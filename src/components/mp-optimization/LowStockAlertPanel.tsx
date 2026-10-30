@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { formatNumberPtBr } from '@/lib/number-format'
+import { formatNumberPtBr, formatPercentStandard, formatTonsSdc } from '@/lib/number-format'
 import { SapEmptyState } from '@/components/mp-optimization/SapEmptyState'
 import { LowStockBadge, getLowStockStatus, LowStockStatus } from './LowStockBadge'
 
@@ -206,116 +206,143 @@ export const LowStockAlertPanel: React.FC<LowStockAlertPanelProps> = ({
           Nenhum material encontrado para o filtro aplicado.
         </div>
       ) : (
-        /* Lista Compacta de Materiais Críticos / Em Atenção */
-        <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden bg-white">
-          <div className="hidden sm:grid grid-cols-12 gap-2 bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
-            <div className="col-span-4">Material / Descrição</div>
-            <div className="col-span-2 text-right">Estoque Atual</div>
-            <div className="col-span-2 text-right">Estoque Mínimo</div>
-            <div className="col-span-1 text-center">% Mínimo</div>
-            <div className="col-span-1 text-center">Centro / Dep.</div>
-            <div className="col-span-2 text-center">Status / Ação</div>
-          </div>
-
-          {filteredItems.map((item, idx) => {
-            return (
-              <div
-                key={item.id || item.code}
-                data-testid={`low-stock-item-${item.code}`}
-                className="p-3 sm:py-2.5 sm:px-3 hover:bg-slate-50/80 transition-colors flex flex-col sm:grid sm:grid-cols-12 sm:items-center gap-2 text-xs"
-              >
-                {/* Coluna 1: Material e Descrição */}
-                <div className="sm:col-span-4 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold font-mono flex items-center justify-center shrink-0">
-                      {idx + 1}
-                    </span>
-                    <span className="font-extrabold text-slate-900 truncate">{item.code}</span>
-                    {item.poolCode && (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] font-mono px-1 py-0 h-4 bg-blue-50 text-[#004C97] border-blue-200"
-                      >
-                        {item.poolCode}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-500 truncate ml-7">{item.description}</p>
-                </div>
-
-                {/* Coluna 2: Estoque Atual (t, 3 casas pt-BR) */}
-                <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-1">
-                  <span className="sm:hidden text-slate-500 text-[11px]">Estoque Atual:</span>
-                  <span className="font-mono font-black text-slate-900 text-xs">
-                    {formatNumberPtBr(item.currentStockTons, {
-                      minimumFractionDigits: 3,
-                      maximumFractionDigits: 3,
-                    })}{' '}
-                    t
-                  </span>
-                </div>
-
-                {/* Coluna 3: Estoque Mínimo (t, 3 casas pt-BR) */}
-                <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-1">
-                  <span className="sm:hidden text-slate-500 text-[11px]">Mínimo:</span>
-                  <span className="font-mono text-slate-600 text-xs">
-                    {formatNumberPtBr(item.minStockTons, {
-                      minimumFractionDigits: 3,
-                      maximumFractionDigits: 3,
-                    })}{' '}
-                    t
-                  </span>
-                </div>
-
-                {/* Coluna 4: % do Mínimo */}
-                <div className="sm:col-span-1 flex items-center justify-between sm:justify-center">
-                  <span className="sm:hidden text-slate-500 text-[11px]">% do Mínimo:</span>
-                  <span
-                    className={`font-mono font-extrabold text-[11px] px-1.5 py-0.5 rounded ${
-                      item.pctOfMin < 100
-                        ? 'text-rose-700 bg-rose-50'
-                        : 'text-amber-700 bg-amber-50'
-                    }`}
+        /* Lista Compacta de Materiais Críticos / Em Atenção com rolagem interna própria */
+        <div className="border border-slate-200 rounded-lg bg-white overflow-hidden shadow-2xs">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-xs text-left min-w-[780px] border-collapse">
+              <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                <tr>
+                  <th
+                    scope="col"
+                    className="py-2.5 px-3 min-w-[200px] text-left text-[10px] uppercase tracking-wider"
                   >
-                    {item.pctOfMin.toFixed(1)}%
-                  </span>
-                </div>
-
-                {/* Coluna 5: Centro / Depósito */}
-                <div className="sm:col-span-1 flex items-center justify-between sm:justify-center text-slate-600 font-mono text-[11px]">
-                  <span className="sm:hidden text-slate-500 text-[11px]">Centro/Dep:</span>
-                  <span>
-                    {item.plantCenter || item.storageDeposit
-                      ? `${item.plantCenter || '-'}/${item.storageDeposit || '-'}`
-                      : '—'}
-                  </span>
-                </div>
-
-                {/* Coluna 6: Badge de Alerta + Ação Navegar para Detalhe */}
-                <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-2 pt-1 sm:pt-0">
-                  <LowStockBadge
-                    currentStockTons={item.currentStockTons}
-                    minStockTons={item.minStockTons}
-                    hasSapData={item.hasSapData ?? true}
-                    size="sm"
-                  />
-
-                  {onSelectMaterial && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onSelectMaterial(item)}
-                      className="h-7 px-2 text-xs font-semibold text-[#004C97] hover:bg-blue-50 hover:text-[#003870] gap-1 shrink-0"
-                      title={`Abrir detalhe do material ${item.code}`}
+                    Material / Descrição
+                  </th>
+                  <th
+                    scope="col"
+                    className="py-2.5 px-3 w-32 text-right text-[10px] uppercase tracking-wider whitespace-nowrap"
+                  >
+                    Estoque Atual
+                  </th>
+                  <th
+                    scope="col"
+                    className="py-2.5 px-3 w-32 text-right text-[10px] uppercase tracking-wider whitespace-nowrap"
+                  >
+                    Estoque Mínimo
+                  </th>
+                  <th
+                    scope="col"
+                    className="py-2.5 px-3 w-28 text-center text-[10px] uppercase tracking-wider whitespace-nowrap"
+                  >
+                    % Mínimo
+                  </th>
+                  <th
+                    scope="col"
+                    className="py-2.5 px-3 w-32 text-center text-[10px] uppercase tracking-wider whitespace-nowrap"
+                  >
+                    Centro / Dep.
+                  </th>
+                  <th
+                    scope="col"
+                    className="py-2.5 px-3 min-w-[220px] text-right text-[10px] uppercase tracking-wider whitespace-nowrap"
+                  >
+                    Status / Ação
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {filteredItems.map((item, idx) => {
+                  return (
+                    <tr
+                      key={item.id || item.code}
+                      data-testid={`low-stock-item-${item.code}`}
+                      className="hover:bg-slate-50/80 transition-colors"
                     >
-                      <span>Detalhar</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+                      {/* Coluna 1: Material e Descrição */}
+                      <td className="py-2.5 px-3 align-middle">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold font-mono flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="font-extrabold text-slate-900 truncate">
+                            {item.code}
+                          </span>
+                          {item.poolCode && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] font-mono px-1 py-0 h-4 bg-blue-50 text-[#004C97] border-blue-200 shrink-0"
+                            >
+                              {item.poolCode}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate ml-7 max-w-xs">
+                          {item.description}
+                        </p>
+                      </td>
+
+                      {/* Coluna 2: Estoque Atual (t, 3 casas pt-BR) */}
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 whitespace-nowrap align-middle">
+                        {formatTonsSdc(item.currentStockTons)}
+                      </td>
+
+                      {/* Coluna 3: Estoque Mínimo (t, 3 casas pt-BR) */}
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 whitespace-nowrap align-middle">
+                        {formatTonsSdc(item.minStockTons)}
+                      </td>
+
+                      {/* Coluna 4: % do Mínimo */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap align-middle">
+                        <span
+                          className={`font-mono font-extrabold text-[11px] px-2 py-0.5 rounded inline-block ${
+                            item.pctOfMin < 100
+                              ? 'text-rose-700 bg-rose-50 border border-rose-200'
+                              : 'text-amber-700 bg-amber-50 border border-amber-200'
+                          }`}
+                        >
+                          {formatPercentStandard(item.pctOfMin)}
+                        </span>
+                      </td>
+
+                      {/* Coluna 5: Centro / Depósito (com largura garantida e legível) */}
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-700 text-xs whitespace-nowrap align-middle">
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[11px]">
+                          {item.plantCenter || item.storageDeposit
+                            ? `${item.plantCenter || '-'}/${item.storageDeposit || '-'}`
+                            : '—'}
+                        </span>
+                      </td>
+
+                      {/* Coluna 6: Status / Ação (com largura suficiente, sem sobreposição, botão separado) */}
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap align-middle">
+                        <div className="inline-flex items-center justify-end gap-2.5">
+                          <LowStockBadge
+                            currentStockTons={item.currentStockTons}
+                            minStockTons={item.minStockTons}
+                            hasSapData={item.hasSapData ?? true}
+                            size="sm"
+                          />
+
+                          {onSelectMaterial && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onSelectMaterial(item)}
+                              className="h-7 px-2.5 text-xs font-semibold text-[#004C97] bg-white border-blue-200 hover:bg-blue-50 hover:text-[#003870] gap-1 shrink-0 shadow-2xs"
+                              title={`Abrir detalhe do material ${item.code}`}
+                            >
+                              <span>Detalhar</span>
+                              <ArrowRight className="w-3 h-3 text-[#004C97]" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

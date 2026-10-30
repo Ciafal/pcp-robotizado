@@ -151,7 +151,7 @@ describe('Funcionalidade Alerta de Estoque Baixo — PCP Robotizado', () => {
       const badge = screen.getByTestId('badge-estoque-baixo')
       expect(badge).toBeInTheDocument()
       expect(badge).toHaveTextContent(/Estoque Baixo/i)
-      expect(badge).toHaveTextContent(/50%/i)
+      expect(badge).toHaveTextContent(/50,00 %/i)
     })
 
     it('renderiza badge "Atenção" para material na faixa <= 10% acima do mínimo', () => {
@@ -159,7 +159,7 @@ describe('Funcionalidade Alerta de Estoque Baixo — PCP Robotizado', () => {
       const badge = screen.getByTestId('badge-atencao')
       expect(badge).toBeInTheDocument()
       expect(badge).toHaveTextContent(/Atenção/i)
-      expect(badge).toHaveTextContent(/105%/i)
+      expect(badge).toHaveTextContent(/105,00 %/i)
     })
 
     it('renderiza "Dado não disponível na integração SAP" e NUNCA zero quando sem dado SAP', () => {

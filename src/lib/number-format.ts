@@ -160,3 +160,32 @@ export function formatTonsSdc(
 
   return `${prefix}${formattedAbs} t`
 }
+
+/**
+ * FORMATAÇÃO PADRONIZADA DE PERCENTUAIS (EX: "XX,XX %"):
+ * Regra obrigatória:
+ * - Duas casas decimais fixas (ex: 45,00 % / 57,30 % / 89,20 % / 95,00 % / 103,30 %)
+ * - Vírgula decimal
+ * - Espaço antes do símbolo %
+ * - Se número entre 0 e 1 (ex.: 0.45), converter multiplicando por 100
+ */
+export function formatPercentStandard(
+  val: number | string | null | undefined,
+  fallback: string = '0,00 %',
+): string {
+  if (val === null || val === undefined || val === '') return fallback
+  const num = typeof val === 'number' ? val : parsePtBrNumber(val)
+  if (isNaN(num)) return fallback
+
+  let normalized = num
+  if (normalized > 0 && normalized < 1.0) {
+    normalized = normalized * 100
+  }
+
+  const formattedNum = normalized.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+
+  return `${formattedNum} %`
+}

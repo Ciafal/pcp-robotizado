@@ -863,6 +863,72 @@ export const mpSdcService = {
   /**
    * Gerar Alertas de Ruptura Projetada Automáticos
    */
+  /**
+   * Consulta Rastreabilidade e Composição de Saldo via RFC SAP
+   * Retorna os registros com código SAP, descrição, centro/depósito,
+   * utilização livre, qualidade t e bloqueado t.
+   */
+  async getStockTraceability(params: {
+    material_code: string
+    steel_grade?: string
+    plant?: string
+  }): Promise<{
+    success: boolean
+    material_code: string
+    material_description?: string
+    items: Array<{
+      source: string
+      plantCenterDeposit: string
+      freeUseTons: number | null
+      qualityTons: number | null
+      blockedTons: number | null
+      eligibility: string
+      rule: string
+      type: string
+    }>
+    code?: string
+    message?: string
+  }> {
+    try {
+      const res = await pb.send<{
+        success: boolean
+        material_code: string
+        material_description?: string
+        items: any[]
+        code?: string
+        message?: string
+      }>('/backend/v1/mp-sidercentro/stock-traceability', {
+        method: 'POST',
+        body: params,
+      })
+
+      return {
+        success: Boolean(res.success),
+        material_code: res.material_code || params.material_code,
+        material_description: res.material_description,
+        items: Array.isArray(res.items) ? res.items : [],
+        code: res.code,
+        message: res.message,
+      }
+    } catch (err: any) {
+      console.warn('[MP-SDC-SERVICE] Falha ao consultar rastreabilidade via RFC SAP:', err)
+      return {
+        success: false,
+        material_code: params.material_code,
+        items: [],
+        code:
+          err?.status === 503
+            ? err?.data?.code || 'SAP_RFC_NOT_CONFIGURED'
+            : err?.status === 400
+              ? 'BAD_REQUEST'
+              : 'SAP_RFC_ERROR',
+        message:
+          err?.data?.message ||
+          'Não foi possível carregar os dados de rastreabilidade no momento. Tente novamente.',
+      }
+    }
+  },
+
   generateRuptureAlerts(matrixRows: MPSdcSteelMatrixRow[]): MPSdcRuptureAlert[] {
     const alerts: MPSdcRuptureAlert[] = []
 
