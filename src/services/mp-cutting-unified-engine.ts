@@ -491,7 +491,7 @@ export function motorOtimizacaoCorte(
     const leftoverDetails = classifyLeftovers({
       leftoverLengthMm: solution.totalLeftoverLengthMm,
       linearMassKgM,
-      minReusableLengthMm,
+      minReusableLengthMm: minReusableLeftoverMm,
     })
 
     // Perda de corte metálica (serra + esquadrejamento + desponta)
@@ -555,44 +555,73 @@ export function motorOtimizacaoCorte(
   })
 
   // Mapeia para o tipo padronizado MPCuttingScenarioItem para compatibilidade com a grade de cards existente
-  const comparativeScenariosGrid: MPCuttingScenarioItem[] = scenarios.map((scen) => ({
-    id: scen.id,
-    name: scen.name,
-    cutting_type: planType,
-    status: 'VIÁVEL',
-    yield_pct: scen.yieldPct,
-    used_weight_kg: scen.usedWeightTons * 1000,
-    target_weight_kg: scen.totalInputWeightTons * 1000,
-    calculated_weight_kg: scen.usedWeightTons * 1000,
-    min_allowed_weight_kg: scen.usedWeightTons * 980,
-    max_allowed_weight_kg: scen.usedWeightTons * 1020,
-    deviation_kg: (scen.usedWeightTons - scen.totalInputWeightTons) * 1000,
-    deviation_pct: Number(
-      scen.totalInputWeightTons > 0
-        ? (
-            ((scen.usedWeightTons - scen.totalInputWeightTons) / scen.totalInputWeightTons) *
-            100
-          ).toFixed(2)
-        : '0',
-    ),
-    cutting_loss_kg: scen.scrapWeightTons * 1000,
-    produced_quantity: scen.piecesProducedCount,
-    demand_fulfillment_pct: scen.demandFulfillmentPct,
-    used_standard_code: `${planType === 'MULTIPLOS' || planType === 'MULTIPLO' ? 'MULT' : 'BLC'}-${materialCode}`,
-    used_standard_description: `${scen.classification} (${calculationMode})`,
-    composition: {
-      blocks_count: resolvedBlocks.length,
-      blocks_weight_total_kg: totalGrossWeightKg,
-      leftover_weight_kg: scen.leftoverWeightTons * 1000,
-      leftover_pct: Number(
+  const comparativeScenariosGrid: MPCuttingScenarioItem[] = scenarios.map((scen) => {
+    const inputWeightKg = scen.totalInputWeightTons * 1000
+    const usedWeightKg = scen.usedWeightTons * 1000
+    const leftoverKg = scen.leftoverWeightTons * 1000
+    const scrapKg = scen.scrapWeightTons * 1000
+    const yieldPct = scen.yieldPct
+
+    return {
+      id: scen.id,
+      name: scen.name,
+      cutting_type: planType === 'MULTIPLO' ? 'MULTIPLOS' : 'BLOCOS',
+      status: 'VIÁVEL' as const,
+      yield_pct: yieldPct,
+      input_weight_kg: inputWeightKg,
+      used_weight_kg: usedWeightKg,
+      used_weight_pct: yieldPct,
+      target_weight_kg: inputWeightKg,
+      calculated_weight_kg: usedWeightKg,
+      estimated_leftover_kg: leftoverKg,
+      cutting_loss_kg: scrapKg,
+      min_allowed_weight_kg: usedWeightKg * 0.98,
+      max_allowed_weight_kg: usedWeightKg * 1.02,
+      deviation_kg: (scen.usedWeightTons - scen.totalInputWeightTons) * 1000,
+      deviation_pct: Number(
         scen.totalInputWeightTons > 0
-          ? ((scen.leftoverWeightTons / scen.totalInputWeightTons) * 100).toFixed(2)
+          ? (
+              ((scen.usedWeightTons - scen.totalInputWeightTons) / scen.totalInputWeightTons) *
+              100
+            ).toFixed(2)
           : '0',
       ),
-      cuts_count: scen.cutsCount,
-      technical_justification: scen.technicalJustification,
-    },
-  }))
+      produced_quantity: scen.piecesProducedCount,
+      demand_fulfillment_pct: scen.demandFulfillmentPct,
+      used_standard_code: `${planType === 'MULTIPLO' ? 'MULT' : 'BLC'}-${materialCode}`,
+      used_standard_description: `${scen.classification} (${calculationMode})`,
+      composition: {
+        pieces_count: scen.piecesProducedCount,
+        piece_nominal_weight_kg:
+          scen.piecesProducedCount > 0 ? usedWeightKg / scen.piecesProducedCount : 0,
+        total_cuts_count: scen.cutsCount,
+        linear_mass_kg_m: linearMassKgM,
+        distribution: scen.allocatedDemands.map((d, idx) => ({
+          item_index: idx + 1,
+          item_type: 'BLOCO' as const,
+          target_kg: d.estimatedWeightTons * 1000,
+          calculated_kg: d.estimatedWeightTons * 1000,
+          tolerance_range_kg: '± 2,0%',
+          status: 'CONFORME' as const,
+          calculated_length_mm: d.lengthMm,
+          dimension_display: `${d.lengthMm} mm (x${d.quantity})`,
+          application: d.demandId,
+        })),
+        satisfied_restrictions: [
+          `Kerf de serra considerado: ${sawKerfMm} mm`,
+          `Desponta e esquadrejamento: ${squaringLossMm + endCropLossMm} mm`,
+          `Margem técnica de processo: ${marginMm} mm`,
+        ],
+        industrial_alerts:
+          scen.leftoverWeightTons > 0
+            ? [
+                `Sobra aproveitável gerada: ${formatNumberPtBr(scen.leftoverWeightTons, 3)} t (${scen.leftoverDetails.destinationLabel})`,
+              ]
+            : [],
+        technical_justification: scen.technicalJustification,
+      },
+    }
+  })
 
   const bestScenario = scenarios[0]
 
