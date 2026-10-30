@@ -44,6 +44,8 @@ interface MPCuttingScenarioDetailModalProps {
   onClose: () => void
   scenario: MPCuttingScenarioItem | null
   criterionName?: string
+  onSelectScenario?: (scenario: MPCuttingScenarioItem) => void
+  isSelected?: boolean
 }
 
 export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModalProps> = ({
@@ -51,6 +53,8 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
   onClose,
   scenario,
   criterionName = 'Melhor Rendimento e Equilíbrio',
+  onSelectScenario,
+  isSelected,
 }) => {
   // Estado local para expansão da tabela de corte consolidada / detalhada (chamado incondicionalmente no topo)
   const [expandedStandards, setExpandedStandards] = useState<Record<string, boolean>>({})

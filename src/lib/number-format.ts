@@ -162,6 +162,42 @@ export function formatTonsSdc(
 }
 
 /**
+ * Retorna apenas o valor numérico em pt-BR com exatamente 3 casas decimais (ex.: "66,340", "0,000")
+ * para composição com a tag <span className="...">t</span> ou uso em cards.
+ */
+export function formatTonsSdcValue(
+  val: number | string | null | undefined,
+  options?: {
+    includeSign?: boolean
+    fallback?: string
+  },
+): string {
+  const fallback = options?.fallback ?? '0,000'
+  if (val === null || val === undefined || val === '') return fallback
+
+  const num = typeof val === 'number' ? val : parsePtBrNumber(val)
+  if (isNaN(num)) return fallback
+
+  const isNegative = num < 0
+  const isPositive = num > 0
+  const absNum = Math.abs(num)
+
+  const formattedAbs = absNum.toLocaleString('pt-BR', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  })
+
+  let prefix = ''
+  if (isNegative) {
+    prefix = '-'
+  } else if (isPositive && options?.includeSign) {
+    prefix = '+'
+  }
+
+  return `${prefix}${formattedAbs}`
+}
+
+/**
  * FORMATAÇÃO PADRONIZADA DE PERCENTUAIS (EX: "XX,XX %"):
  * Regra obrigatória:
  * - Duas casas decimais fixas (ex: 45,00 % / 57,30 % / 89,20 % / 95,00 % / 103,30 %)

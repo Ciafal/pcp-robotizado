@@ -87,14 +87,14 @@ describe('Carteira SDC — Indicadores Estoque Remessa e Estoque Armazenado Ciaf
     const cardRemessa = screen.getByTestId('card-estoque-remessa')
     expect(cardRemessa).toBeInTheDocument()
     expect(cardRemessa).toHaveTextContent('ESTOQUE REMESSA')
-    expect(cardRemessa).toHaveTextContent('25,40')
+    expect(cardRemessa).toHaveTextContent('25,400')
     expect(cardRemessa).toHaveTextContent('Centro SAP: CFPL')
 
     // Verifica card ESTOQUE ARMAZENADO CIAFAL
     const cardArmazenado = screen.getByTestId('card-estoque-armazenado-ciafal')
     expect(cardArmazenado).toBeInTheDocument()
     expect(cardArmazenado).toHaveTextContent('ESTOQUE ARMAZENADO CIAFAL')
-    expect(cardArmazenado).toHaveTextContent('38,75')
+    expect(cardArmazenado).toHaveTextContent('38,750')
     expect(cardArmazenado).toHaveTextContent('Fonte: SAP ECC • RFC')
   })
 
@@ -132,11 +132,11 @@ describe('Carteira SDC — Indicadores Estoque Remessa e Estoque Armazenado Ciaf
     )
 
     const cardRemessa = screen.getByTestId('card-estoque-remessa')
-    expect(cardRemessa).toHaveTextContent('0,00')
+    expect(cardRemessa).toHaveTextContent('0,000')
     expect(cardRemessa).not.toHaveTextContent('Dados SAP indisponíveis')
 
     const cardArmazenado = screen.getByTestId('card-estoque-armazenado-ciafal')
-    expect(cardArmazenado).toHaveTextContent('0,00')
+    expect(cardArmazenado).toHaveTextContent('0,000')
     expect(cardArmazenado).not.toHaveTextContent('Dados SAP indisponíveis')
   })
 
@@ -177,11 +177,11 @@ describe('Carteira SDC — Indicadores Estoque Remessa e Estoque Armazenado Ciaf
 
     const cardRemessa = screen.getByTestId('card-estoque-remessa')
     expect(cardRemessa).toHaveTextContent('Dados SAP indisponíveis')
-    expect(cardRemessa).not.toHaveTextContent('0,00')
+    expect(cardRemessa).not.toHaveTextContent('0,000')
 
     const cardArmazenado = screen.getByTestId('card-estoque-armazenado-ciafal')
     expect(cardArmazenado).toHaveTextContent('Dados SAP indisponíveis')
-    expect(cardArmazenado).not.toHaveTextContent('0,00')
+    expect(cardArmazenado).not.toHaveTextContent('0,000')
   })
 
   // Cenário 4: Atualizar SAP dispara callback de sincronização

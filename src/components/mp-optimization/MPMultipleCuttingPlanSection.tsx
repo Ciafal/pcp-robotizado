@@ -1596,8 +1596,8 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
           isOpen={Boolean(detailScenarioModalData)}
           onClose={() => setDetailScenarioModalData(null)}
           scenario={detailScenarioModalData}
-          onSelectScenario={(scen) => {
-            handleSelectScenario(scen)
+          onSelectScenario={(scen: any) => {
+            handleSelectScenario(scen as any)
             setDetailScenarioModalData(null)
           }}
           isSelected={detailScenarioModalData.id === selectedScenarioId}

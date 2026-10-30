@@ -100,6 +100,47 @@ export function formatTons3Decimals(
   return `${prefix}${numStr} t`
 }
 
+/**
+ * Retorna o valor numérico em toneladas com exatamente 3 casas decimais (ex: "66,340", "0,000")
+ */
+export function formatTons3DecimalsValue(
+  valor: number | string | null | undefined,
+  options?: { includeSign?: boolean; fallback?: string },
+): string {
+  const fallback = options?.fallback ?? '0,000'
+  if (valor === null || valor === undefined || valor === '') return fallback
+  let raw = valor
+  if (typeof raw === 'string') {
+    const cleaned = raw.replace(/[^\d.,-]/g, '').trim()
+    if (cleaned.includes('.') && cleaned.includes(',')) {
+      raw = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'))
+    } else if (cleaned.includes(',')) {
+      raw = parseFloat(cleaned.replace(',', '.'))
+    } else {
+      raw = parseFloat(cleaned)
+    }
+  }
+  if (isNaN(raw as number)) return fallback
+
+  const num = raw as number
+  const isNegative = num < 0
+  const isPositive = num > 0
+  const absNum = Math.abs(num)
+  const numStr = absNum.toLocaleString(PTBR_LOCALE, {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  })
+
+  let prefix = ''
+  if (isNegative) {
+    prefix = '-'
+  } else if (isPositive && options?.includeSign) {
+    prefix = '+'
+  }
+
+  return `${prefix}${numStr}`
+}
+
 export function formatQuantity(
   valor: number | string | null | undefined,
   unidade: 't' | 'kg' | 't/h' | 'mm' | 'm' | string = 't',

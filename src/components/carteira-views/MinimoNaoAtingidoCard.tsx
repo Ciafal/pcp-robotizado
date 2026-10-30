@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, ArrowRight, HelpCircle } from 'lucide-react'
 import { MinimoNaoAtingidoSummary } from '@/services/carteira-minimo-nao-atingido-engine'
-import { formatNumberPTBR } from '@/lib/formatters-ptbr'
+import { formatNumberPTBR, formatTons3DecimalsValue } from '@/lib/formatters-ptbr'
 
 interface MinimoNaoAtingidoCardProps {
   summary: MinimoNaoAtingidoSummary
@@ -84,9 +84,9 @@ export const MinimoNaoAtingidoCard: React.FC<MinimoNaoAtingidoCardProps> = ({
                 <span>
                   Faltam{' '}
                   <strong className="text-amber-800 font-mono">
-                    {formatNumberPTBR(total_toneladas_faltantes, 2)} t
+                    {formatTons3DecimalsValue(total_toneladas_faltantes)} t
                   </strong>{' '}
-                  (carteira: {formatNumberPTBR(total_toneladas_carteira_afetada, 2)} t)
+                  (carteira: {formatTons3DecimalsValue(total_toneladas_carteira_afetada)} t)
                 </span>
               ) : (
                 <span className="text-emerald-700 font-medium">Todos com mínimo SAP atingido</span>

@@ -28,7 +28,12 @@ import {
 import { CarteiraSDCEngine } from '@/services/carteira-sdc-engine'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { DetalheMaterialUnificadoModal } from './DetalheMaterialUnificadoModal'
-import { formatNumberPTBR, formatDatePTBR, formatPercentagePTBR } from '@/lib/formatters-ptbr'
+import {
+  formatNumberPTBR,
+  formatDatePTBR,
+  formatPercentagePTBR,
+  formatTons3DecimalsValue,
+} from '@/lib/formatters-ptbr'
 import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engine'
 import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
@@ -316,17 +321,17 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* 9 CARDS EXECUTIVOS NO TOPO — Grid Responsivo Balanceado */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9 gap-2.5">
+      {/* 9 CARDS EXECUTIVOS NO TOPO — Grid Responsivo Equilibrado e Sem Cortes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9 gap-2.5">
         {/* 1. Carteira Total SDC */}
         <div
           onClick={() => {
             setFiltroStatus('TODOS')
             setApenasComDeficit(false)
           }}
-          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between"
+          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-slate-500 block">
+          <span className="text-[10px] uppercase font-bold text-slate-500 block leading-tight">
             Carteira Total SDC
           </span>
           <div className="flex items-baseline gap-1 mt-1">
@@ -334,8 +339,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
             ) : (
               <>
-                <strong className="text-base sm:text-lg font-bold font-mono text-slate-900">
-                  {formatNumberPTBR(kpis.carteira_total_t, 2)}
+                <strong className="text-base sm:text-lg font-bold font-mono text-slate-900 tracking-tight">
+                  {formatTons3DecimalsValue(kpis.carteira_total_t)}
                 </strong>
                 <span className="text-xs font-semibold text-slate-500">t</span>
               </>
@@ -347,8 +352,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         </div>
 
         {/* 2. Estoque Total SDPL */}
-        <div className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between">
-          <span className="text-[10px] uppercase font-bold text-emerald-700 block">
+        <div className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0">
+          <span className="text-[10px] uppercase font-bold text-emerald-700 block leading-tight">
             Estoque Total SDPL
           </span>
           <div className="flex items-baseline gap-1 mt-1">
@@ -356,8 +361,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
             ) : (
               <>
-                <strong className="text-base sm:text-lg font-bold font-mono text-emerald-700">
-                  {formatNumberPTBR(kpis.estoque_total_t, 2)}
+                <strong className="text-base sm:text-lg font-bold font-mono text-emerald-700 tracking-tight">
+                  {formatTons3DecimalsValue(kpis.estoque_total_t)}
                 </strong>
                 <span className="text-xs font-semibold text-emerald-600">t</span>
               </>
@@ -368,15 +373,15 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
         {/* 3. ESTOQUE REMESSA (Centro CFPL via SAP RFC) */}
         <div
-          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between ${
+          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 ${
             kpis.estoque_remessa_cfpl?.status === 'INDISPONIVEL'
               ? 'border-amber-200 hover:border-amber-400'
               : 'border-sky-200 hover:border-sky-400'
           }`}
           data-testid="card-estoque-remessa"
         >
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] uppercase font-bold text-[#004C97] truncate">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-[#004C97] leading-tight break-words">
               ESTOQUE REMESSA
             </span>
             <div
@@ -399,7 +404,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               kpis.estoque_remessa_cfpl?.quantidade_t === null ||
               kpis.estoque_remessa_cfpl?.quantidade_t === undefined ? (
               <div
-                className="flex items-center gap-1 text-[11px] font-bold text-amber-700 leading-tight"
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-800 leading-snug py-0.5"
                 title="Não foi possível atualizar este indicador através da integração SAP/RFC."
               >
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
@@ -407,8 +412,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               </div>
             ) : (
               <>
-                <strong className="text-base sm:text-lg font-bold font-mono text-[#004C97]">
-                  {formatNumberPTBR(kpis.estoque_remessa_cfpl.quantidade_t, 2)}
+                <strong className="text-base sm:text-lg font-bold font-mono text-[#004C97] tracking-tight">
+                  {formatTons3DecimalsValue(kpis.estoque_remessa_cfpl.quantidade_t)}
                 </strong>
                 <span className="text-xs font-semibold text-[#004C97]">t</span>
               </>
@@ -421,15 +426,15 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
         {/* 4. ESTOQUE ARMAZENADO CIAFAL (Via SAP ECC RFC) */}
         <div
-          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between ${
+          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 ${
             kpis.estoque_armazenado_ciafal?.status === 'INDISPONIVEL'
               ? 'border-amber-200 hover:border-amber-400'
               : 'border-blue-200 hover:border-blue-400'
           }`}
           data-testid="card-estoque-armazenado-ciafal"
         >
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] uppercase font-bold text-blue-900 truncate">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-blue-900 leading-tight break-words">
               ESTOQUE ARMAZENADO CIAFAL
             </span>
             <div
@@ -452,7 +457,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               kpis.estoque_armazenado_ciafal?.quantidade_t === null ||
               kpis.estoque_armazenado_ciafal?.quantidade_t === undefined ? (
               <div
-                className="flex items-center gap-1 text-[11px] font-bold text-amber-700 leading-tight"
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-800 leading-snug py-0.5"
                 title="Não foi possível atualizar este indicador através da integração SAP/RFC."
               >
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
@@ -460,8 +465,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               </div>
             ) : (
               <>
-                <strong className="text-base sm:text-lg font-bold font-mono text-blue-900">
-                  {formatNumberPTBR(kpis.estoque_armazenado_ciafal.quantidade_t, 2)}
+                <strong className="text-base sm:text-lg font-bold font-mono text-blue-900 tracking-tight">
+                  {formatTons3DecimalsValue(kpis.estoque_armazenado_ciafal.quantidade_t)}
                 </strong>
                 <span className="text-xs font-semibold text-blue-800">t</span>
               </>
@@ -475,13 +480,13 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         {/* 5. Déficit Atual */}
         <div
           onClick={() => setApenasComDeficit((prev) => !prev)}
-          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all flex flex-col justify-between ${
+          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 ${
             apenasComDeficit
               ? 'bg-rose-50 border-rose-400 ring-1 ring-rose-400'
               : 'bg-white border-rose-200 hover:border-rose-400'
           }`}
         >
-          <span className="text-[10px] uppercase font-bold text-rose-700 block">
+          <span className="text-[10px] uppercase font-bold text-rose-700 block leading-tight">
             Déficit Atual (-)
           </span>
           <div className="flex items-baseline gap-1 mt-1">
@@ -489,8 +494,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
             ) : (
               <>
-                <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
-                  {formatNumberPTBR(kpis.deficit_atual_t, 2)}
+                <strong className="text-base sm:text-lg font-bold font-mono text-rose-700 tracking-tight">
+                  {formatTons3DecimalsValue(kpis.deficit_atual_t)}
                 </strong>
                 <span className="text-xs font-semibold text-rose-600">t</span>
               </>
@@ -502,9 +507,9 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         {/* 6. Itens com Déficit */}
         <div
           onClick={() => setApenasComDeficit(true)}
-          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between"
+          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-rose-700 block">
+          <span className="text-[10px] uppercase font-bold text-rose-700 block leading-tight">
             Itens com Déficit
           </span>
           <div className="flex items-baseline gap-1 mt-1">
@@ -512,7 +517,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
             ) : (
               <>
-                <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
+                <strong className="text-base sm:text-lg font-bold font-mono text-rose-700 tracking-tight">
                   {kpis.itens_com_deficit_count}
                 </strong>
                 <span className="text-xs font-semibold text-rose-600">itens</span>
@@ -525,13 +530,13 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         {/* 7. Em Produção */}
         <div
           onClick={() => setApenasEmProducao((prev) => !prev)}
-          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all flex flex-col justify-between ${
+          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 ${
             apenasEmProducao
               ? 'bg-indigo-50 border-indigo-400 ring-1 ring-indigo-400'
               : 'bg-white border-indigo-200 hover:border-indigo-400'
           }`}
         >
-          <span className="text-[10px] uppercase font-bold text-indigo-700 block">
+          <span className="text-[10px] uppercase font-bold text-indigo-700 block leading-tight">
             Em Produção (t)
           </span>
           <div className="flex items-baseline gap-1 mt-1">
@@ -539,8 +544,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
             ) : (
               <>
-                <strong className="text-base sm:text-lg font-bold font-mono text-indigo-700">
-                  {formatNumberPTBR(kpis.em_producao_total_t, 2)}
+                <strong className="text-base sm:text-lg font-bold font-mono text-indigo-700 tracking-tight">
+                  {formatTons3DecimalsValue(kpis.em_producao_total_t)}
                 </strong>
                 <span className="text-xs font-semibold text-indigo-600">t</span>
               </>
@@ -552,9 +557,9 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         {/* 8. Cobertura Programada */}
         <div
           onClick={() => setFiltroStatus('COBERTURA PROGRAMADA')}
-          className="p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between"
+          className="p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-[#004C97] block">
+          <span className="text-[10px] uppercase font-bold text-[#004C97] block leading-tight">
             Cobertura Programada
           </span>
           <div className="flex items-baseline gap-1 mt-1">
@@ -562,7 +567,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
             ) : (
               <>
-                <strong className="text-base sm:text-lg font-bold font-mono text-[#004C97]">
+                <strong className="text-base sm:text-lg font-bold font-mono text-[#004C97] tracking-tight">
                   {kpis.itens_cobertura_programada_count}
                 </strong>
                 <span className="text-xs font-semibold text-[#004C97]">itens</span>
@@ -575,9 +580,9 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         {/* 9. Itens Críticos */}
         <div
           onClick={() => setFiltroStatus('CRÍTICO')}
-          className="p-3 bg-white rounded-xl border border-amber-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between"
+          className="p-3 bg-white rounded-xl border border-amber-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-amber-800 block">
+          <span className="text-[10px] uppercase font-bold text-amber-800 block leading-tight">
             Itens Críticos
           </span>
           <div className="flex items-baseline gap-1 mt-1">
@@ -585,7 +590,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
             ) : (
               <>
-                <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
+                <strong className="text-base sm:text-lg font-bold font-mono text-rose-700 tracking-tight">
                   {kpis.itens_criticos_count}
                 </strong>
                 <span className="text-xs font-semibold text-rose-600">itens</span>
@@ -993,18 +998,18 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
                       {/* Carteira (t) */}
                       <td className="p-2.5 text-right font-mono font-bold text-slate-900">
-                        {formatNumberPTBR(it.carteira_t, 2)}
+                        {formatTons3DecimalsValue(it.carteira_t)}
                       </td>
 
                       {/* Estoque Total (t) */}
                       <td className="p-2.5 text-right font-mono font-semibold text-slate-800">
-                        {formatNumberPTBR(it.estoque_total_t, 2)}
+                        {formatTons3DecimalsValue(it.estoque_total_t)}
                         {(it.estoque_bloqueado_t || 0) > 0 && (
                           <span
                             className="block text-[9px] text-rose-600 font-normal"
                             title="Estoque bloqueado"
                           >
-                            (bloq: {formatNumberPTBR(it.estoque_bloqueado_t || 0, 2)})
+                            (bloq: {formatTons3DecimalsValue(it.estoque_bloqueado_t || 0)})
                           </span>
                         )}
                       </td>
@@ -1016,18 +1021,18 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                         }`}
                       >
                         {it.saldo_t > 0
-                          ? `+${formatNumberPTBR(it.saldo_t, 2)}`
-                          : formatNumberPTBR(it.saldo_t, 2)}
+                          ? `+${formatTons3DecimalsValue(it.saldo_t)}`
+                          : formatTons3DecimalsValue(it.saldo_t)}
                       </td>
 
                       {/* Programado (t) */}
                       <td className="p-2.5 text-right font-mono text-slate-700">
-                        {formatNumberPTBR(it.programado_t, 2)}
+                        {formatTons3DecimalsValue(it.programado_t)}
                       </td>
 
                       {/* Em Produção (t) */}
                       <td className="p-2.5 text-right font-mono font-semibold text-indigo-700">
-                        {formatNumberPTBR(it.em_producao_t, 2)}
+                        {formatTons3DecimalsValue(it.em_producao_t)}
                       </td>
 
                       {/* Saldo Projetado (t) */}
@@ -1037,8 +1042,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                         }`}
                       >
                         {it.saldo_projetado_t > 0
-                          ? `+${formatNumberPTBR(it.saldo_projetado_t, 2)}`
-                          : formatNumberPTBR(it.saldo_projetado_t, 2)}
+                          ? `+${formatTons3DecimalsValue(it.saldo_projetado_t)}`
+                          : formatTons3DecimalsValue(it.saldo_projetado_t)}
                       </td>
 
                       {/* Cobertura (%) */}
@@ -1094,7 +1099,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                             <>
                               <td className="p-2.5 text-right font-mono text-slate-700">
                                 {resTemp.mediaDiariaFaturamentoT
-                                  ? formatNumberPTBR(resTemp.mediaDiariaFaturamentoT, 2)
+                                  ? formatTons3DecimalsValue(resTemp.mediaDiariaFaturamentoT)
                                   : 'N/D'}
                               </td>
                               <td className="p-2.5 text-right font-mono font-bold text-slate-800">
