@@ -425,4 +425,222 @@ describe('Carteira SDC — Indicadores Estoque Remessa e Estoque Armazenado Ciaf
     expect(kpis.deficit_atual_t).toBe(19.16)
     expect(kpis.itens_com_deficit_count).toBe(1)
   })
+
+  // ==========================================
+  // CENÁRIOS DE FILTROS NO DETALHAMENTO DE ESTOQUE POR CENTRO
+  // ==========================================
+
+  it('Cenário 11: Filtro por código ou descrição do centro refina a lista e exibe Total Filtrado com contagem e remove selo Conferido', async () => {
+    const kpisComMultiplosCentros: CarteiraSDCKpis = {
+      ...mockKpisBase,
+      estoque_remessa_cfpl: {
+        quantidade_t: 100.0,
+        unidade_original: 't',
+        centro: 'CFPL',
+        status: 'SUCESSO',
+        timestamp: new Date().toISOString(),
+        origem: 'SAP ECC',
+        fonte_rfc: 'SAP ECC • RFC',
+        centros: [
+          {
+            centro: 'CFPL',
+            descricao: 'Centro CFPL Laminação',
+            quantidade_t: 60.0,
+            unidade: 't',
+          },
+          {
+            centro: '1100',
+            descricao: 'Matriz CIAFAL Contagem',
+            quantidade_t: 30.0,
+            unidade: 't',
+          },
+          {
+            centro: '1200',
+            descricao: 'Filial Betim Ciafal',
+            quantidade_t: 10.0,
+            unidade: 't',
+          },
+        ],
+      },
+    }
+
+    render(
+      <CarteiraSDCView
+        itens={mockItens}
+        kpis={kpisComMultiplosCentros}
+        dataAtualizacao={new Date().toISOString()}
+        analisesIA={[]}
+      />,
+    )
+
+    const cardRemessa = screen.getByTestId('card-estoque-remessa')
+    fireEvent.click(cardRemessa)
+
+    const modal = await screen.findByTestId('modal-detalhamento-estoque-centro')
+    expect(modal).toBeInTheDocument()
+
+    // Inicialmente: 3 centros, total 100,000 t e selo Conferido
+    expect(screen.getByTestId('linha-centro-CFPL')).toBeInTheDocument()
+    expect(screen.getByTestId('linha-centro-1100')).toBeInTheDocument()
+    expect(screen.getByTestId('linha-centro-1200')).toBeInTheDocument()
+    expect(screen.getByTestId('selo-conferido')).toBeInTheDocument()
+    expect(screen.getByTestId('total-geral-centros')).toHaveTextContent('100,000')
+
+    // Digita "Betim" no input de busca por centro
+    const inputBusca = screen.getByTestId('input-busca-centro')
+    fireEvent.change(inputBusca, { target: { value: 'Betim' } })
+
+    // Agora apenas a linha 1200 deve estar visível
+    expect(screen.getByTestId('linha-centro-1200')).toBeInTheDocument()
+    expect(screen.queryByTestId('linha-centro-CFPL')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('linha-centro-1100')).not.toBeInTheDocument()
+
+    // O total do rodapé agora mostra o Total Filtrado (10,000)
+    expect(screen.getByTestId('total-geral-centros')).toHaveTextContent('10,000')
+    // O rótulo da tabela explicita o Total Filtrado
+    expect(screen.getByText('Total Filtrado (1 centros)')).toBeInTheDocument()
+    // O selo Conferido desaparece e surge o badge de contagem de subconjunto
+    expect(screen.queryByTestId('selo-conferido')).not.toBeInTheDocument()
+    expect(screen.getByTestId('badge-total-filtrado-contagem')).toHaveTextContent(
+      'Subconjunto: 1 centro(s)',
+    )
+    expect(screen.getByTestId('btn-limpar-filtros-centro')).toBeInTheDocument()
+  })
+
+  it('Cenário 12: Limpar filtros restaura todos os centros, o total consolidado e o selo Conferido', async () => {
+    const kpisComMultiplosCentros: CarteiraSDCKpis = {
+      ...mockKpisBase,
+      estoque_remessa_cfpl: {
+        quantidade_t: 100.0,
+        unidade_original: 't',
+        centro: 'CFPL',
+        status: 'SUCESSO',
+        timestamp: new Date().toISOString(),
+        origem: 'SAP ECC',
+        fonte_rfc: 'SAP ECC • RFC',
+        centros: [
+          {
+            centro: 'CFPL',
+            descricao: 'Centro CFPL Laminação',
+            quantidade_t: 60.0,
+            unidade: 't',
+          },
+          {
+            centro: '1100',
+            descricao: 'Matriz CIAFAL Contagem',
+            quantidade_t: 30.0,
+            unidade: 't',
+          },
+          {
+            centro: '1200',
+            descricao: 'Filial Betim Ciafal',
+            quantidade_t: 10.0,
+            unidade: 't',
+          },
+        ],
+      },
+    }
+
+    render(
+      <CarteiraSDCView
+        itens={mockItens}
+        kpis={kpisComMultiplosCentros}
+        dataAtualizacao={new Date().toISOString()}
+        analisesIA={[]}
+      />,
+    )
+
+    const cardRemessa = screen.getByTestId('card-estoque-remessa')
+    fireEvent.click(cardRemessa)
+
+    await screen.findByTestId('modal-detalhamento-estoque-centro')
+
+    // Aplica filtro de valor mínimo (ex: >= 50 t)
+    const selectValor = screen.getByTestId('select-filtro-valor-minimo')
+    fireEvent.change(selectValor, { target: { value: 'MIN_10' } })
+
+    // Centros com < 10 t não aparecem (se houver) ou filtra por participação
+    const selectPart = screen.getByTestId('select-filtro-participacao')
+    fireEvent.change(selectPart, { target: { value: 'MIN_50_PCT' } }) // seletor tem MIN_10_PCT
+    fireEvent.change(selectPart, { target: { value: 'MIN_10_PCT' } })
+
+    // Filtra por busca "1100"
+    const inputBusca = screen.getByTestId('input-busca-centro')
+    fireEvent.change(inputBusca, { target: { value: '1100' } })
+
+    expect(screen.getByTestId('linha-centro-1100')).toBeInTheDocument()
+    expect(screen.queryByTestId('linha-centro-CFPL')).not.toBeInTheDocument()
+
+    // Clica em "Limpar filtros"
+    const btnLimpar = screen.getByTestId('btn-limpar-filtros-centro')
+    fireEvent.click(btnLimpar)
+
+    // Todos os centros voltam
+    expect(screen.getByTestId('linha-centro-CFPL')).toBeInTheDocument()
+    expect(screen.getByTestId('linha-centro-1100')).toBeInTheDocument()
+    expect(screen.getByTestId('linha-centro-1200')).toBeInTheDocument()
+
+    // Total volta a ser 100,000 t e selo Conferido reaparece
+    expect(screen.getByTestId('total-geral-centros')).toHaveTextContent('100,000')
+    expect(screen.getByTestId('selo-conferido')).toBeInTheDocument()
+    expect(screen.queryByTestId('btn-limpar-filtros-centro')).not.toBeInTheDocument()
+  })
+
+  it('Cenário 13: Aplicar filtros no modal de centros NÃO altera o valor consolidado do card na Carteira SDC', async () => {
+    const kpisComMultiplosCentros: CarteiraSDCKpis = {
+      ...mockKpisBase,
+      estoque_remessa_cfpl: {
+        quantidade_t: 100.0,
+        unidade_original: 't',
+        centro: 'CFPL',
+        status: 'SUCESSO',
+        timestamp: new Date().toISOString(),
+        origem: 'SAP ECC',
+        fonte_rfc: 'SAP ECC • RFC',
+        centros: [
+          {
+            centro: 'CFPL',
+            descricao: 'Centro CFPL Laminação',
+            quantidade_t: 60.0,
+            unidade: 't',
+          },
+          {
+            centro: '1100',
+            descricao: 'Matriz CIAFAL Contagem',
+            quantidade_t: 40.0,
+            unidade: 't',
+          },
+        ],
+      },
+    }
+
+    render(
+      <CarteiraSDCView
+        itens={mockItens}
+        kpis={kpisComMultiplosCentros}
+        dataAtualizacao={new Date().toISOString()}
+        analisesIA={[]}
+      />,
+    )
+
+    const cardRemessa = screen.getByTestId('card-estoque-remessa')
+    expect(cardRemessa).toHaveTextContent('100,000')
+
+    fireEvent.click(cardRemessa)
+
+    await screen.findByTestId('modal-detalhamento-estoque-centro')
+
+    // Filtra apenas o centro 1100
+    const inputBusca = screen.getByTestId('input-busca-centro')
+    fireEvent.change(inputBusca, { target: { value: '1100' } })
+
+    expect(screen.getByTestId('total-geral-centros')).toHaveTextContent('40,000')
+
+    // Fecha o modal
+    const btnFechar = screen.getByRole('button', { name: /Fechar/i })
+    fireEvent.click(btnFechar)
+
+    // O card na tela principal CONTINUA com o valor original consolidado de 100,000 t
+    expect(cardRemessa).toHaveTextContent('100,000')
+  })
 })
