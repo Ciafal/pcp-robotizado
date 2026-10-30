@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Boxes,
-  Database,
   Layers,
   CalendarRange,
   TrendingDown,
@@ -17,7 +16,6 @@ import {
   ShieldCheck,
   Sparkles,
   Sliders,
-  FileSpreadsheet,
   ArrowRight,
   Eye,
   CheckCircle2,
@@ -190,22 +188,6 @@ export const MPSidercentroSubpage: React.FC = () => {
       activeTopic="materia-prima-sidercentro"
       headerActions={
         <div className="flex items-center gap-1.5 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsLegacyModalOpen(true)}
-            className="h-7 px-2.5 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 mr-1 text-[#004C97]" /> Comparar c/ Legado
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSourcesModalOpen(true)}
-            className="h-7 px-2.5 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-          >
-            <Database className="w-3.5 h-3.5 mr-1 text-slate-600" /> Fontes & Depósitos
-          </Button>
           <Button
             variant="outline"
             size="sm"
