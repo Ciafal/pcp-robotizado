@@ -319,6 +319,15 @@ function solveCuttingStockProblem(params: {
  * 4. MOTOR CENTRAL UNIFICADO DE OTIMIZAÇÃO (motorOtimizacaoCorte)
  * Executa os cálculos e gera exatamente os 6 cenários padronizados do PCP Robotizado
  */
+/**
+ * Alias explícito solicitado pela especificação técnica para geração dos 6 cenários comparativos unificados
+ */
+export function generate6UnifiedComparativeScenarios(
+  input: UnifiedOptimizationInput,
+): UnifiedCuttingOptimizationResult {
+  return motorOtimizacaoCorte(input)
+}
+
 export function motorOtimizacaoCorte(
   input: UnifiedOptimizationInput,
 ): UnifiedCuttingOptimizationResult {

@@ -234,6 +234,46 @@ export const mpMultipleCuttingPlansService = {
     }
   },
 
+  async deletePlan(
+    id: string,
+    options?: { justification?: string; actionUser?: string },
+  ): Promise<{ success: boolean }> {
+    const user = pb.authStore.record
+    const authorName = options?.actionUser || user?.name || user?.email || 'Engenharia PCP'
+    try {
+      const existing = await pb
+        .collection('mp_multiple_cutting_plans')
+        .getOne<MPMultipleCuttingPlanRecord>(id)
+        .catch(() => null)
+      await pb.collection('mp_multiple_cutting_plans').delete(id)
+
+      await pcpAuditService
+        .recordLog({
+          event_type: 'Exclusão',
+          action: 'EXCLUIR_PLANO_CORTE',
+          module: 'Gestão de MP',
+          screen: 'Planos de Corte',
+          entity: 'mp_multiple_cutting_plans',
+          record_id: id,
+          user_name: authorName,
+          status: 'Concluída',
+          outcome: 'SUCCESS',
+          source: 'Usuário',
+          details: {
+            plan_code: existing?.plan_code || '',
+            version: existing?.version || 1,
+            justification: options?.justification || 'Exclusão de plano de corte pelo usuário',
+          },
+        })
+        .catch(() => null)
+
+      return { success: true }
+    } catch (err: any) {
+      console.error('[mpMultipleCuttingPlansService] Erro ao excluir plano:', err)
+      throw err
+    }
+  },
+
   async getVersionsByPlanCode(planCode: string): Promise<MPMultipleCuttingPlanRecord[]> {
     try {
       return await pb
