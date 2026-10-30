@@ -67,10 +67,73 @@ vi.mock('@/services/pcp-raw-material-inventory-service', () => ({
   },
 }))
 
+const mockGetFullList = vi.fn().mockImplementation((options?: any) => {
+  return Promise.resolve([])
+})
+
 vi.mock('@/lib/pocketbase/client', () => ({
   pb: {
-    collection: vi.fn().mockReturnValue({
-      getFullList: vi.fn().mockResolvedValue([]),
+    collection: vi.fn().mockImplementation((name: string) => {
+      if (name === 'pcp_production_orders') {
+        return {
+          getFullList: vi.fn().mockResolvedValue([
+            {
+              id: 'ord-101',
+              op_number: '4500012342',
+              empresa_code: 'CIAFAL',
+              centro_code: 'SEML1',
+              linha_code: 'L1',
+              material_code: 'TUB-IND-5050',
+              material_description: 'Tubo Industrial Quadrado 50x50x2,00 mm',
+              steel_grade: 'SAE 1012',
+              gauge_dimension: '50x50 mm',
+              programming_type: 'Laminação',
+              quantity_planned_tons: 140,
+              quantity_produced_tons: 114.24,
+              quantity_posted_tons: 110,
+              quantity_sap_tons: 110,
+              balance_tons: 25.76,
+              yield_planned_pct: 94,
+              yield_realized_pct: 91.5,
+              status_op: 'EM_PRODUCAO',
+              status_mes: 'EM_EXECUCAO',
+              status_sap: 'CONFIRMADA_PARCIAL',
+              status_fechamento: 'PENDENTE_DE_FECHAMENTO',
+              has_pendency: true,
+              deviation_reason: 'Produção 18,4% abaixo do previsto por instabilidade no forno',
+              operator_leader: 'Carlos Mendes',
+            },
+            {
+              id: 'ord-102',
+              op_number: 'OP-2025-0892',
+              empresa_code: 'CIAFAL',
+              centro_code: 'ENDL1',
+              linha_code: 'L1',
+              material_code: 'TUB-RED-6025',
+              material_description: 'Tubo Redondo 60,30x2,65 mm',
+              steel_grade: 'SAE 1020',
+              gauge_dimension: 'Ø 60,30 mm',
+              programming_type: 'Endireitadeira',
+              quantity_planned_tons: 85,
+              quantity_produced_tons: 85,
+              quantity_posted_tons: 85,
+              quantity_sap_tons: 85,
+              balance_tons: 0,
+              yield_planned_pct: 95,
+              yield_realized_pct: 95.2,
+              status_op: 'ENCERRADA',
+              status_mes: 'FINALIZADO_OPERADOR',
+              status_sap: 'FECHADA_TECNICAMENTE',
+              status_fechamento: 'FECHADA',
+              has_pendency: false,
+              operator_leader: 'Julio Cesar',
+            },
+          ]),
+        }
+      }
+      return {
+        getFullList: mockGetFullList,
+      }
     }),
     authStore: {
       isValid: true,
@@ -78,8 +141,67 @@ vi.mock('@/lib/pocketbase/client', () => ({
     },
   },
   default: {
-    collection: vi.fn().mockReturnValue({
-      getFullList: vi.fn().mockResolvedValue([]),
+    collection: vi.fn().mockImplementation((name: string) => {
+      if (name === 'pcp_production_orders') {
+        return {
+          getFullList: vi.fn().mockResolvedValue([
+            {
+              id: 'ord-101',
+              op_number: '4500012342',
+              empresa_code: 'CIAFAL',
+              centro_code: 'SEML1',
+              linha_code: 'L1',
+              material_code: 'TUB-IND-5050',
+              material_description: 'Tubo Industrial Quadrado 50x50x2,00 mm',
+              steel_grade: 'SAE 1012',
+              gauge_dimension: '50x50 mm',
+              programming_type: 'Laminação',
+              quantity_planned_tons: 140,
+              quantity_produced_tons: 114.24,
+              quantity_posted_tons: 110,
+              quantity_sap_tons: 110,
+              balance_tons: 25.76,
+              yield_planned_pct: 94,
+              yield_realized_pct: 91.5,
+              status_op: 'EM_PRODUCAO',
+              status_mes: 'EM_EXECUCAO',
+              status_sap: 'CONFIRMADA_PARCIAL',
+              status_fechamento: 'PENDENTE_DE_FECHAMENTO',
+              has_pendency: true,
+              deviation_reason: 'Produção 18,4% abaixo do previsto por instabilidade no forno',
+              operator_leader: 'Carlos Mendes',
+            },
+            {
+              id: 'ord-102',
+              op_number: 'OP-2025-0892',
+              empresa_code: 'CIAFAL',
+              centro_code: 'ENDL1',
+              linha_code: 'L1',
+              material_code: 'TUB-RED-6025',
+              material_description: 'Tubo Redondo 60,30x2,65 mm',
+              steel_grade: 'SAE 1020',
+              gauge_dimension: 'Ø 60,30 mm',
+              programming_type: 'Endireitadeira',
+              quantity_planned_tons: 85,
+              quantity_produced_tons: 85,
+              quantity_posted_tons: 85,
+              quantity_sap_tons: 85,
+              balance_tons: 0,
+              yield_planned_pct: 95,
+              yield_realized_pct: 95.2,
+              status_op: 'ENCERRADA',
+              status_mes: 'FINALIZADO_OPERADOR',
+              status_sap: 'FECHADA_TECNICAMENTE',
+              status_fechamento: 'FECHADA',
+              has_pendency: false,
+              operator_leader: 'Julio Cesar',
+            },
+          ]),
+        }
+      }
+      return {
+        getFullList: mockGetFullList,
+      }
     }),
     authStore: {
       isValid: true,
@@ -133,7 +255,53 @@ describe('PcpResumoGeralPage — Dashboard de Resumo Geral', () => {
       expect(screen.getByText(/Resumo Geral — PCP Robotizado/i)).toBeInTheDocument()
     })
 
-    // Volume programado sem weekly_schedules carregadas deve exibir estado honesto
+    // Volume planejado ou L2 sem registros carregados deve exibir estado honesto
     expect(screen.getAllByText(/Dado não disponível/i).length).toBeGreaterThan(0)
+  })
+
+  it('integra dados reais de produção da collection pcp_production_orders com toneladas formatadas (3 decimais pt-BR)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/pcp/resumo-geral']}>
+        <PcpResumoGeralPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/Controle de Produção Fabril/i)).toBeInTheDocument()
+    })
+
+    // Volume produzido real: 114.24 + 85 = 199.240 t
+    // Total planejado: 140 + 85 = 225.000 t
+    expect(screen.getByText('199,240 t')).toBeInTheDocument()
+    expect(screen.getByText('225,000 t')).toBeInTheDocument()
+
+    // Ordens na seção de produção
+    expect(screen.getByText(/OP 4500012342/i)).toBeInTheDocument()
+    expect(screen.getByText(/OP OP-2025-0892/i)).toBeInTheDocument()
+
+    // Contadores de status de ordens
+    expect(screen.getByText('Total Ordens')).toBeInTheDocument()
+    expect(screen.getByText('Em Execução')).toBeInTheDocument()
+    expect(screen.getByText('Concluídas')).toBeInTheDocument()
+
+    // Navegações diretas do controle de produção
+    expect(screen.getByText('Ver Todas as Ordens')).toBeInTheDocument()
+    expect(screen.getByText('Indicadores de Produção')).toBeInTheDocument()
+    expect(screen.getByText('Torre de Controle')).toBeInTheDocument()
+  })
+
+  it('permite navegar diretamente para a tela de ordens de produção ao clicar no card', async () => {
+    render(
+      <MemoryRouter initialEntries={['/pcp/resumo-geral']}>
+        <PcpResumoGeralPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/Controle de Produção Fabril/i)).toBeInTheDocument()
+    })
+
+    const opCard = screen.getByText(/OP 4500012342/i).closest('[role="button"]')
+    expect(opCard).toBeInTheDocument()
   })
 })

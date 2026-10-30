@@ -15,6 +15,10 @@ import {
   TrendingUp,
   ChevronRight,
   Filter,
+  Factory,
+  CheckCircle,
+  PlayCircle,
+  ClipboardList,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -45,6 +49,46 @@ interface WeeklyScheduleItem {
   material_description?: string
 }
 
+export interface ProductionOrderRecord {
+  id: string
+  op_number?: string
+  empresa_code?: string
+  centro_code?: string
+  linha_code?: string
+  work_center?: string
+  material_code?: string
+  material_description?: string
+  family_code?: string
+  steel_grade?: string
+  gauge_dimension?: string
+  product_name?: string
+  mrp_planner?: string
+  programming_type?: string
+  quantity_planned_tons?: number
+  quantity_produced_tons?: number
+  quantity_posted_tons?: number
+  quantity_sap_tons?: number
+  balance_tons?: number
+  yield_planned_pct?: number
+  yield_realized_pct?: number
+  planned_start_date?: string
+  planned_end_date?: string
+  real_start_date?: string
+  real_end_date?: string
+  status_op?: string
+  status_mes?: string
+  status_sap?: string
+  status_fechamento?: string
+  visual_status?: string
+  ai_risk_score?: string
+  ai_risk_reason?: string
+  has_pendency?: boolean
+  has_deviation?: boolean
+  deviation_reason?: string
+  last_posting_at?: string
+  operator_leader?: string
+}
+
 export function PcpResumoGeralPage() {
   const navigate = useNavigate()
 
@@ -60,6 +104,7 @@ export function PcpResumoGeralPage() {
   const [cuttingPlans, setCuttingPlans] = useState<MPMultipleCuttingPlanRecord[]>([])
   const [inventoryOrders, setInventoryOrders] = useState<MPInventoryHeader[]>([])
   const [weeklySchedules, setWeeklySchedules] = useState<WeeklyScheduleItem[]>([])
+  const [productionOrders, setProductionOrders] = useState<ProductionOrderRecord[]>([])
   const [lastSyncTime, setLastSyncTime] = useState<string>('')
 
   // Carregamento consolidado das coleções reais
@@ -67,29 +112,37 @@ export function PcpResumoGeralPage() {
     try {
       setFetchError(null)
 
-      const [matrixRes, l2Res, plansRes, inventoryRes, schedulesRes] = await Promise.allSettled([
-        // 1. Matriz de Estoque SDC
-        mpSdcService.getSteelMatrixRows(),
-        // 2. Previsto x Realizado L2 da SDC
-        pb
-          .collection('mp_sdc_l2_planned_vs_realized')
-          .getFullList<MPSdcL2PlannedVsRealized>({ sort: '-created' })
-          .catch(async () => {
-            return await mpSdcService.getL2PlannedVsRealized()
-          }),
-        // 3. Planos de Corte Reais
-        mpMultipleCuttingPlansService.listPlans(),
-        // 4. Ordens de Inventário de MP
-        rawMaterialInventoryService.listInventoryOrders(),
-        // 5. Programações semanais ativas
-        pb
-          .collection('weekly_schedules')
-          .getFullList<WeeklyScheduleItem>({
-            filter: 'lifecycle_stage = "PROGRAMADO" || status = "DRAFT"',
-            sort: '-created',
-          })
-          .catch(() => []),
-      ])
+      const [matrixRes, l2Res, plansRes, inventoryRes, schedulesRes, ordersRes] =
+        await Promise.allSettled([
+          // 1. Matriz de Estoque SDC
+          mpSdcService.getSteelMatrixRows(),
+          // 2. Previsto x Realizado L2 da SDC
+          pb
+            .collection('mp_sdc_l2_planned_vs_realized')
+            .getFullList<MPSdcL2PlannedVsRealized>({ sort: '-created' })
+            .catch(async () => {
+              return await mpSdcService.getL2PlannedVsRealized()
+            }),
+          // 3. Planos de Corte Reais
+          mpMultipleCuttingPlansService.listPlans(),
+          // 4. Ordens de Inventário de MP
+          rawMaterialInventoryService.listInventoryOrders(),
+          // 5. Programações semanais ativas
+          pb
+            .collection('weekly_schedules')
+            .getFullList<WeeklyScheduleItem>({
+              filter: 'lifecycle_stage = "PROGRAMADO" || status = "DRAFT"',
+              sort: '-created',
+            })
+            .catch(() => []),
+          // 6. Ordens de Produção Reais
+          pb
+            .collection('pcp_production_orders')
+            .getFullList<ProductionOrderRecord>({
+              sort: '-created',
+            })
+            .catch(() => []),
+        ])
 
       // 1. Matriz SDC
       if (matrixRes.status === 'fulfilled' && Array.isArray(matrixRes.value)) {
@@ -124,6 +177,13 @@ export function PcpResumoGeralPage() {
         setWeeklySchedules(schedulesRes.value)
       } else {
         setWeeklySchedules([])
+      }
+
+      // 6. Ordens de Produção
+      if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value)) {
+        setProductionOrders(ordersRes.value)
+      } else {
+        setProductionOrders([])
       }
 
       setLastSyncTime(
@@ -317,7 +377,7 @@ export function PcpResumoGeralPage() {
   }, [inventoryOrders])
 
   // Cálculos Agregados de Programação Semanal & L2
-  const productionStats = useMemo(() => {
+  const scheduleStats = useMemo(() => {
     const filteredSchedules =
       selectedLineFilter === 'TODAS'
         ? weeklySchedules
@@ -361,6 +421,96 @@ export function PcpResumoGeralPage() {
       avgL2Adherence,
     }
   }, [weeklySchedules, sdcL2Data, selectedLineFilter])
+
+  // Cálculos Agregados de Produção Real (pcp_production_orders)
+  const productionRealStats = useMemo(() => {
+    const filteredOrders =
+      selectedLineFilter === 'TODAS'
+        ? productionOrders
+        : productionOrders.filter(
+            (o) => (o.linha_code || '').toUpperCase() === selectedLineFilter.toUpperCase(),
+          )
+
+    if (!filteredOrders || filteredOrders.length === 0) {
+      return {
+        hasData: false,
+        totalOrders: 0,
+        inExecutionCount: 0,
+        completedCount: 0,
+        pendingClosingCount: 0,
+        withPendencyCount: 0,
+        totalPlannedTons: null as number | null,
+        totalProducedTons: null as number | null,
+        totalSapTons: null as number | null,
+        balanceTons: null as number | null,
+        overallAdherencePct: null as number | null,
+        avgYieldRealizedPct: null as number | null,
+        recentOrders: [] as ProductionOrderRecord[],
+      }
+    }
+
+    let inExecution = 0
+    let completed = 0
+    let pendingClosing = 0
+    let withPendency = 0
+
+    let plannedTonsSum = 0
+    let producedTonsSum = 0
+    let sapTonsSum = 0
+    let balanceTonsSum = 0
+
+    let yieldSum = 0
+    let yieldCount = 0
+
+    for (const ord of filteredOrders) {
+      const stOp = (ord.status_op || '').toUpperCase()
+      const stFech = (ord.status_fechamento || '').toUpperCase()
+      const stMes = (ord.status_mes || '').toUpperCase()
+
+      if (stOp === 'EM_PRODUCAO' || stMes === 'EM_EXECUCAO') {
+        inExecution += 1
+      }
+      if (stOp === 'ENCERRADA' || stOp === 'CONCLUIDA_FISICAMENTE' || stFech === 'FECHADA') {
+        completed += 1
+      }
+      if (stOp === 'AGUARDANDO_FECHAMENTO' || stFech === 'PENDENTE_DE_FECHAMENTO') {
+        pendingClosing += 1
+      }
+      if (ord.has_pendency) {
+        withPendency += 1
+      }
+
+      plannedTonsSum += Number(ord.quantity_planned_tons) || 0
+      producedTonsSum += Number(ord.quantity_produced_tons) || 0
+      sapTonsSum += Number(ord.quantity_sap_tons) || 0
+      balanceTonsSum += Number(ord.balance_tons) || 0
+
+      if (typeof ord.yield_realized_pct === 'number' && ord.yield_realized_pct > 0) {
+        yieldSum += ord.yield_realized_pct
+        yieldCount += 1
+      }
+    }
+
+    const adherence =
+      plannedTonsSum > 0 ? Number(((producedTonsSum / plannedTonsSum) * 100).toFixed(1)) : null
+    const avgYield = yieldCount > 0 ? Number((yieldSum / yieldCount).toFixed(1)) : null
+
+    return {
+      hasData: true,
+      totalOrders: filteredOrders.length,
+      inExecutionCount: inExecution,
+      completedCount: completed,
+      pendingClosingCount: pendingClosing,
+      withPendencyCount: withPendency,
+      totalPlannedTons: plannedTonsSum,
+      totalProducedTons: producedTonsSum,
+      totalSapTons: sapTonsSum,
+      balanceTons: balanceTonsSum,
+      overallAdherencePct: adherence,
+      avgYieldRealizedPct: avgYield,
+      recentOrders: filteredOrders.slice(0, 4),
+    }
+  }, [productionOrders, selectedLineFilter])
 
   // Skeleton de Carregamento Inicial
   if (isLoading) {
@@ -563,16 +713,16 @@ export function PcpResumoGeralPage() {
           </CardContent>
         </Card>
 
-        {/* KPI 5: Volume Programado */}
+        {/* KPI 5: Produção Realizada (pcp_production_orders) */}
         <Card className="border-slate-200 shadow-xs hover:border-[#004C97]/40 transition-colors">
           <CardContent className="p-4 space-y-1.5">
             <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-              <span>Volume Programado</span>
-              <Activity className="w-4 h-4 text-emerald-600" />
+              <span>Produção Realizada</span>
+              <Factory className="w-4 h-4 text-[#004C97]" />
             </div>
             <div className="text-xl font-bold text-slate-900 tracking-tight">
-              {productionStats.totalPlannedTons !== null ? (
-                formatTons3Decimals(productionStats.totalPlannedTons)
+              {productionRealStats.totalProducedTons !== null ? (
+                formatTons3Decimals(productionRealStats.totalProducedTons)
               ) : (
                 <span className="text-xs font-normal text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                   Dado não disponível
@@ -580,9 +730,9 @@ export function PcpResumoGeralPage() {
               )}
             </div>
             <p className="text-[11px] text-slate-500">
-              {productionStats.schedulesCount > 0
-                ? `${productionStats.schedulesCount} lotes na programação ativa`
-                : 'Sem lotes programados no filtro'}
+              {productionRealStats.totalOrders > 0
+                ? `${productionRealStats.totalOrders} ordens • ${productionRealStats.inExecutionCount} em execução`
+                : 'Nenhuma ordem registrada'}
             </p>
           </CardContent>
         </Card>
@@ -986,17 +1136,17 @@ export function PcpResumoGeralPage() {
           </div>
         </Card>
 
-        {/* PAINEL 4: PRODUÇÃO & PREVISTO X REALIZADO L2 */}
+        {/* PAINEL 4: PROGRAMAÇÃO SEMANAL & PREVISTO X REALIZADO L2 */}
         <Card className="border-slate-200 shadow-xs flex flex-col justify-between">
           <div>
             <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between space-y-0">
               <div className="space-y-1">
                 <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Activity className="w-4 h-4 text-emerald-600" />
-                  Produção & Previsto x Realizado L2
+                  Programação Semanal & Previsto x Realizado L2
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-500">
-                  Aderência das campanhas, balanceamento fabril e apontamentos MES.
+                  Aderência das campanhas, balanceamento fabril e sequenciamento semanal.
                 </CardDescription>
               </div>
               <Button
@@ -1010,30 +1160,30 @@ export function PcpResumoGeralPage() {
             </CardHeader>
 
             <CardContent className="p-4 space-y-4">
-              {productionStats.hasL2Data ? (
+              {scheduleStats.hasL2Data ? (
                 <>
                   <div className="grid grid-cols-3 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200/80 text-center">
                     <div>
                       <div className="text-[11px] text-slate-500">Planejado L2</div>
                       <div className="text-sm font-bold text-slate-800">
-                        {productionStats.l2PlannedTotal !== null
-                          ? formatTons3Decimals(productionStats.l2PlannedTotal)
+                        {scheduleStats.l2PlannedTotal !== null
+                          ? formatTons3Decimals(scheduleStats.l2PlannedTotal)
                           : 'Dado não disponível'}
                       </div>
                     </div>
                     <div>
                       <div className="text-[11px] text-slate-500">Realizado L2</div>
                       <div className="text-sm font-bold text-emerald-700">
-                        {productionStats.l2RealizedTotal !== null
-                          ? formatTons3Decimals(productionStats.l2RealizedTotal)
+                        {scheduleStats.l2RealizedTotal !== null
+                          ? formatTons3Decimals(scheduleStats.l2RealizedTotal)
                           : 'Dado não disponível'}
                       </div>
                     </div>
                     <div>
                       <div className="text-[11px] text-slate-500">Aderência Média</div>
                       <div className="text-sm font-bold text-slate-800">
-                        {productionStats.avgL2Adherence !== null
-                          ? `${formatNumberPTBR(productionStats.avgL2Adherence, 1)}%`
+                        {scheduleStats.avgL2Adherence !== null
+                          ? `${formatNumberPTBR(scheduleStats.avgL2Adherence, 1)}%`
                           : 'Dado não disponível'}
                       </div>
                     </div>
@@ -1081,14 +1231,14 @@ export function PcpResumoGeralPage() {
                     <div className="font-bold text-[#004C97] flex items-center justify-between">
                       <span>Programação Ativa L1 / L2</span>
                       <Badge variant="outline" className="text-[10px] bg-white">
-                        {productionStats.schedulesCount} lotes
+                        {scheduleStats.schedulesCount} lotes
                       </Badge>
                     </div>
                     <p className="text-slate-600">
                       Volume total alocado na malha:{' '}
                       <strong className="text-slate-900">
-                        {productionStats.totalPlannedTons !== null
-                          ? formatTons3Decimals(productionStats.totalPlannedTons)
+                        {scheduleStats.totalPlannedTons !== null
+                          ? formatTons3Decimals(scheduleStats.totalPlannedTons)
                           : 'Dado não disponível'}
                       </strong>
                     </p>
@@ -1143,6 +1293,382 @@ export function PcpResumoGeralPage() {
         </Card>
       </div>
 
+      {/* SEÇÃO PRINCIPAL DE PRODUÇÃO (DADOS REAIS: ORDENS, EXECUÇÃO E APONTAMENTOS) */}
+      <Card className="border-slate-200 shadow-xs" data-testid="secao-producao-resumo">
+        <CardHeader className="pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-[#004C97]/10 text-[#004C97]">
+                <Factory className="w-4 h-4" />
+              </span>
+              <CardTitle className="text-lg font-bold text-slate-900">
+                Controle de Produção Fabril
+              </CardTitle>
+              <Badge
+                variant="outline"
+                className="bg-blue-50 text-blue-700 border-blue-200 text-[11px]"
+              >
+                Dados de Produção Reais
+              </Badge>
+            </div>
+            <CardDescription className="text-xs text-slate-500">
+              Ordens de produção no chão de fábrica, execução física MES, integração SAP ZPPT010 e
+              pendências.
+            </CardDescription>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/pcp/controle-producao/ordens')}
+              className="text-xs text-[#004C97] border-[#004C97]/30 hover:bg-blue-50 gap-1.5 font-semibold"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              Ver Todas as Ordens
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/pcp/controle-producao/indicadores')}
+              className="text-xs text-slate-700 border-slate-300 hover:bg-slate-50 gap-1.5 font-medium"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-slate-500" />
+              Indicadores de Produção
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => navigate('/pcp/controle-producao')}
+              className="text-xs bg-[#004C97] hover:bg-[#003d7a] text-white gap-1.5 font-semibold"
+            >
+              Torre de Controle <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-5 space-y-5">
+          {!productionRealStats.hasData ? (
+            <SapEmptyState
+              title="Dado não disponível"
+              description="Nenhuma ordem de produção cadastrada ou integrada nas coleções reais do PCP para o filtro selecionado."
+              actionLabel="Abrir Ordens de Produção"
+              onAction={() => navigate('/pcp/controle-producao/ordens')}
+            />
+          ) : (
+            <>
+              {/* KPIS ESPECÍFICOS DE PRODUÇÃO */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                {/* 1. Total de Ordens */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate('/pcp/controle-producao/ordens')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      navigate('/pcp/controle-producao/ordens')
+                    }
+                  }}
+                  className="bg-white p-3 rounded-xl border border-slate-200 hover:border-[#004C97] hover:shadow-xs transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
+                    <span>Total Ordens</span>
+                    <ClipboardList className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#004C97]" />
+                  </div>
+                  <div className="text-lg font-bold text-slate-900 group-hover:text-[#004C97]">
+                    {productionRealStats.totalOrders}
+                  </div>
+                  <div className="text-[10px] text-slate-400 flex items-center gap-0.5 mt-0.5">
+                    <span>Ver carteira OP</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </div>
+
+                {/* 2. Em Execução */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate('/pcp/controle-producao/ordens')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      navigate('/pcp/controle-producao/ordens')
+                    }
+                  }}
+                  className="bg-blue-50/50 p-3 rounded-xl border border-blue-200/80 hover:border-blue-400 hover:shadow-xs transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-blue-700 font-medium mb-1">
+                    <span>Em Execução</span>
+                    <PlayCircle className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div className="text-lg font-bold text-blue-900">
+                    {productionRealStats.inExecutionCount}
+                  </div>
+                  <div className="text-[10px] text-blue-600 flex items-center gap-0.5 mt-0.5">
+                    <span>No chão de fábrica</span>
+                  </div>
+                </div>
+
+                {/* 3. Concluídas */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate('/pcp/controle-producao/historico')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      navigate('/pcp/controle-producao/historico')
+                    }
+                  }}
+                  className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-200/80 hover:border-emerald-400 hover:shadow-xs transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-emerald-700 font-medium mb-1">
+                    <span>Concluídas</span>
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  </div>
+                  <div className="text-lg font-bold text-emerald-900">
+                    {productionRealStats.completedCount}
+                  </div>
+                  <div className="text-[10px] text-emerald-600 flex items-center gap-0.5 mt-0.5">
+                    <span>Histórico concluído</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </div>
+
+                {/* 4. Pendências de Fechamento */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate('/pcp/controle-producao/checklist-fechamento')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      navigate('/pcp/controle-producao/checklist-fechamento')
+                    }
+                  }}
+                  className="bg-amber-50/50 p-3 rounded-xl border border-amber-200/80 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-amber-700 font-medium mb-1">
+                    <span>Pendente Fechar</span>
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  </div>
+                  <div className="text-lg font-bold text-amber-900">
+                    {productionRealStats.pendingClosingCount}
+                  </div>
+                  <div className="text-[10px] text-amber-700 flex items-center gap-0.5 mt-0.5">
+                    <span>{productionRealStats.withPendencyCount} com divergência</span>
+                  </div>
+                </div>
+
+                {/* 5. Aderência Previsto x Realizado */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate('/pcp/controle-producao/comparativo')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      navigate('/pcp/controle-producao/comparativo')
+                    }
+                  }}
+                  className="bg-white p-3 rounded-xl border border-slate-200 hover:border-[#004C97] hover:shadow-xs transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
+                    <span>Aderência P x R</span>
+                    <TrendingUp className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#004C97]" />
+                  </div>
+                  <div className="text-lg font-bold text-slate-900 group-hover:text-[#004C97]">
+                    {productionRealStats.overallAdherencePct !== null
+                      ? `${formatNumberPTBR(productionRealStats.overallAdherencePct, 1)}%`
+                      : 'Dado não disponível'}
+                  </div>
+                  <div className="text-[10px] text-slate-400 flex items-center gap-0.5 mt-0.5">
+                    <span>Ver comparativo</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </div>
+
+                {/* 6. Rendimento Médio */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate('/pcp/controle-producao/indicadores')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      navigate('/pcp/controle-producao/indicadores')
+                    }
+                  }}
+                  className="bg-white p-3 rounded-xl border border-slate-200 hover:border-[#004C97] hover:shadow-xs transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
+                    <span>Rendimento Médio</span>
+                    <Activity className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#004C97]" />
+                  </div>
+                  <div className="text-lg font-bold text-slate-900 group-hover:text-[#004C97]">
+                    {productionRealStats.avgYieldRealizedPct !== null
+                      ? `${formatNumberPTBR(productionRealStats.avgYieldRealizedPct, 1)}%`
+                      : 'Dado não disponível'}
+                  </div>
+                  <div className="text-[10px] text-slate-400 flex items-center gap-0.5 mt-0.5">
+                    <span>Média realizada</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </div>
+              </div>
+
+              {/* BARRA DE BALANÇO DE TONELADAS (PREVISTO vs REALIZADO vs SAP) */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-slate-500 font-medium">Volume Planejado</span>
+                  <div className="text-base font-bold text-slate-900">
+                    {productionRealStats.totalPlannedTons !== null
+                      ? formatTons3Decimals(productionRealStats.totalPlannedTons)
+                      : 'Dado não disponível'}
+                  </div>
+                  <span className="text-[10px] text-slate-400">Total acumulado nas ordens</span>
+                </div>
+
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-emerald-700 font-medium">
+                    Volume Produzido (Físico MES)
+                  </span>
+                  <div className="text-base font-bold text-emerald-800">
+                    {productionRealStats.totalProducedTons !== null
+                      ? formatTons3Decimals(productionRealStats.totalProducedTons)
+                      : 'Dado não disponível'}
+                  </div>
+                  <span className="text-[10px] text-slate-400">Pesagem real de balança/MES</span>
+                </div>
+
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-[#004C97] font-medium">
+                    Integrado SAP (ZPPT010)
+                  </span>
+                  <div className="text-base font-bold text-[#004C97]">
+                    {productionRealStats.totalSapTons !== null
+                      ? formatTons3Decimals(productionRealStats.totalSapTons)
+                      : 'Dado não disponível'}
+                  </div>
+                  <span className="text-[10px] text-slate-400">Confirmado no ERP</span>
+                </div>
+
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-amber-700 font-medium">Saldo Restante</span>
+                  <div className="text-base font-bold text-amber-800">
+                    {productionRealStats.balanceTons !== null
+                      ? formatTons3Decimals(productionRealStats.balanceTons)
+                      : 'Dado não disponível'}
+                  </div>
+                  <span className="text-[10px] text-slate-400">A produzir / apontar</span>
+                </div>
+              </div>
+
+              {/* LISTA DE ORDENS RECENTES COM NAVEGAÇÃO DIRETA */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                  <span className="flex items-center gap-1.5">
+                    <ClipboardList className="w-3.5 h-3.5 text-[#004C97]" />
+                    Ordens de Produção em Acompanhamento:
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-normal">
+                    Exibindo as mais recentes • Clique para abrir detalhes
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {productionRealStats.recentOrders.map((ord) => (
+                    <div
+                      key={ord.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() =>
+                        navigate(`/pcp/controle-producao/ordens/${ord.op_number || ord.id}`)
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          navigate(`/pcp/controle-producao/ordens/${ord.op_number || ord.id}`)
+                        }
+                      }}
+                      className="p-3 bg-white rounded-xl border border-slate-200 hover:border-[#004C97] hover:shadow-xs transition-all text-xs space-y-2 cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-[#004C97] group-hover:underline">
+                            OP {ord.op_number || '-'}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] py-0 px-1 bg-slate-50">
+                            Linha {ord.linha_code || 'L1'}
+                          </Badge>
+                          {ord.programming_type && (
+                            <span className="text-[10px] text-slate-400">
+                              {ord.programming_type}
+                            </span>
+                          )}
+                        </div>
+
+                        <Badge
+                          className={`text-[10px] font-medium ${
+                            ord.status_op === 'ENCERRADA' ||
+                            ord.status_op === 'CONCLUIDA_FISICAMENTE'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : ord.status_op === 'EM_PRODUCAO'
+                                ? 'bg-blue-100 text-blue-800'
+                                : ord.status_op === 'AGUARDANDO_FECHAMENTO'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {ord.status_op || 'PROGRAMADA'}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <div className="font-medium text-slate-900 truncate">
+                          {ord.material_description || ord.material_code}
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
+                          {ord.steel_grade && <span>Aço: {ord.steel_grade}</span>}
+                          {ord.gauge_dimension && <span>• Bitola: {ord.gauge_dimension}</span>}
+                          {ord.operator_leader && <span>• Líder: {ord.operator_leader}</span>}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
+                        <div className="text-slate-600">
+                          Prev:{' '}
+                          <span className="font-semibold text-slate-800">
+                            {formatTons3Decimals(ord.quantity_planned_tons || 0)}
+                          </span>{' '}
+                          | Real:{' '}
+                          <span className="font-semibold text-emerald-700">
+                            {formatTons3Decimals(ord.quantity_produced_tons || 0)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-slate-500 group-hover:text-[#004C97] font-medium">
+                          <span>Acessar OP</span>
+                          <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                        </div>
+                      </div>
+
+                      {ord.has_pendency && ord.deviation_reason && (
+                        <div className="p-1.5 bg-amber-50 rounded border border-amber-200/80 text-[10px] text-amber-800 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                          <span className="truncate">{ord.deviation_reason}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       {/* RODAPÉ INFORMATIVO COM LINKS DIRETOS PARA MÓDULOS */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1155,7 +1681,7 @@ export function PcpResumoGeralPage() {
           <span className="text-[11px] text-slate-400">CIAFAL Wilson Santos S/A</span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
           <Button
             variant="outline"
             size="sm"
@@ -1191,6 +1717,24 @@ export function PcpResumoGeralPage() {
           >
             <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
             Carteira SDC
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/pcp/controle-producao/ordens')}
+            className="text-xs justify-start gap-1.5 h-9 bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+          >
+            <Factory className="w-3.5 h-3.5 text-[#004C97]" />
+            Ordens de Produção
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/pcp/controle-producao/indicadores')}
+            className="text-xs justify-start gap-1.5 h-9 bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-[#004C97]" />
+            Indicadores Produção
           </Button>
         </div>
       </div>
