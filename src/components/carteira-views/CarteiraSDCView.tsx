@@ -16,6 +16,7 @@ import {
   Sparkles,
   BarChart3,
   RefreshCw,
+  Info,
 } from 'lucide-react'
 import {
   CarteiraSDCItem,
@@ -47,6 +48,7 @@ interface CarteiraSDCViewProps {
   analisesIA: string[]
   materialAncorado?: string
   abrirDetalheAncorado?: boolean
+  isLoading?: boolean
   onAtualizarItens?: (itens: CarteiraSDCItem[]) => void
   onOpenDetalheSDC?: (item: CarteiraSDCItem) => void
   onAtualizarSap?: () => void
@@ -60,6 +62,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   analisesIA,
   materialAncorado,
   abrirDetalheAncorado = false,
+  isLoading = false,
   onAtualizarItens,
   onOpenDetalheSDC,
   onAtualizarSap,
@@ -313,48 +316,166 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* 7 CARDS EXECUTIVOS NO TOPO */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+      {/* 9 CARDS EXECUTIVOS NO TOPO — Grid Responsivo Balanceado */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9 gap-2.5">
         {/* 1. Carteira Total SDC */}
         <div
           onClick={() => {
             setFiltroStatus('TODOS')
             setApenasComDeficit(false)
           }}
-          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between"
         >
           <span className="text-[10px] uppercase font-bold text-slate-500 block">
             Carteira Total SDC
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-slate-900">
-              {formatNumberPTBR(kpis.carteira_total_t, 2)}
-            </strong>
-            <span className="text-xs font-semibold text-slate-500">t</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            {isLoading ? (
+              <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
+            ) : (
+              <>
+                <strong className="text-base sm:text-lg font-bold font-mono text-slate-900">
+                  {formatNumberPTBR(kpis.carteira_total_t, 2)}
+                </strong>
+                <span className="text-xs font-semibold text-slate-500">t</span>
+              </>
+            )}
           </div>
-          <span className="text-[10px] text-slate-400 block mt-0.5">
+          <span className="text-[10px] text-slate-400 block mt-1">
             {kpis.total_itens} itens analisados
           </span>
         </div>
 
-        {/* 2. Estoque Total */}
-        <div className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all">
+        {/* 2. Estoque Total SDPL */}
+        <div className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between">
           <span className="text-[10px] uppercase font-bold text-emerald-700 block">
             Estoque Total SDPL
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-emerald-700">
-              {formatNumberPTBR(kpis.estoque_total_t, 2)}
-            </strong>
-            <span className="text-xs font-semibold text-emerald-600">t</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            {isLoading ? (
+              <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
+            ) : (
+              <>
+                <strong className="text-base sm:text-lg font-bold font-mono text-emerald-700">
+                  {formatNumberPTBR(kpis.estoque_total_t, 2)}
+                </strong>
+                <span className="text-xs font-semibold text-emerald-600">t</span>
+              </>
+            )}
           </div>
-          <span className="text-[10px] text-emerald-600 block mt-0.5">Centro WERKS = SDPL</span>
+          <span className="text-[10px] text-emerald-600 block mt-1">Centro WERKS = SDPL</span>
         </div>
 
-        {/* 3. Déficit Atual */}
+        {/* 3. ESTOQUE REMESSA (Centro CFPL via SAP RFC) */}
+        <div
+          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between ${
+            kpis.estoque_remessa_cfpl?.status === 'INDISPONIVEL'
+              ? 'border-amber-200 hover:border-amber-400'
+              : 'border-sky-200 hover:border-sky-400'
+          }`}
+          data-testid="card-estoque-remessa"
+        >
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] uppercase font-bold text-[#004C97] truncate">
+              ESTOQUE REMESSA
+            </span>
+            <div
+              className="text-slate-400 hover:text-[#004C97] cursor-help shrink-0"
+              title={`Estoque em remessa consultado no SAP ECC via RFC, considerando o centro CFPL.${
+                kpis.estoque_remessa_cfpl?.timestamp
+                  ? `\nÚltima sincronização: ${formatDatePTBR(kpis.estoque_remessa_cfpl.timestamp)}`
+                  : ''
+              }\nOrigem: SAP ECC\nCentro considerado: CFPL\nUnidade original: ${
+                kpis.estoque_remessa_cfpl?.unidade_original || 't'
+              }`}
+            >
+              <Info className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1 mt-1 min-h-[26px]">
+            {isLoading ? (
+              <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
+            ) : kpis.estoque_remessa_cfpl?.status === 'INDISPONIVEL' ||
+              kpis.estoque_remessa_cfpl?.quantidade_t === null ||
+              kpis.estoque_remessa_cfpl?.quantidade_t === undefined ? (
+              <div
+                className="flex items-center gap-1 text-[11px] font-bold text-amber-700 leading-tight"
+                title="Não foi possível atualizar este indicador através da integração SAP/RFC."
+              >
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                <span>Dados SAP indisponíveis</span>
+              </div>
+            ) : (
+              <>
+                <strong className="text-base sm:text-lg font-bold font-mono text-[#004C97]">
+                  {formatNumberPTBR(kpis.estoque_remessa_cfpl.quantidade_t, 2)}
+                </strong>
+                <span className="text-xs font-semibold text-[#004C97]">t</span>
+              </>
+            )}
+          </div>
+          <span className="text-[10px] text-slate-500 block mt-1 font-medium">
+            Centro SAP: CFPL
+          </span>
+        </div>
+
+        {/* 4. ESTOQUE ARMAZENADO CIAFAL (Via SAP ECC RFC) */}
+        <div
+          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between ${
+            kpis.estoque_armazenado_ciafal?.status === 'INDISPONIVEL'
+              ? 'border-amber-200 hover:border-amber-400'
+              : 'border-blue-200 hover:border-blue-400'
+          }`}
+          data-testid="card-estoque-armazenado-ciafal"
+        >
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] uppercase font-bold text-blue-900 truncate">
+              ESTOQUE ARMAZENADO CIAFAL
+            </span>
+            <div
+              className="text-slate-400 hover:text-[#004C97] cursor-help shrink-0"
+              title={`Estoque armazenado Ciafal consultado diretamente no SAP ECC via RFC.${
+                kpis.estoque_armazenado_ciafal?.timestamp
+                  ? `\nÚltima sincronização: ${formatDatePTBR(kpis.estoque_armazenado_ciafal.timestamp)}`
+                  : ''
+              }\nOrigem: SAP ECC • RFC\nCentro considerado: 1100\nUnidade original: ${
+                kpis.estoque_armazenado_ciafal?.unidade_original || 't'
+              }`}
+            >
+              <Info className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1 mt-1 min-h-[26px]">
+            {isLoading ? (
+              <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
+            ) : kpis.estoque_armazenado_ciafal?.status === 'INDISPONIVEL' ||
+              kpis.estoque_armazenado_ciafal?.quantidade_t === null ||
+              kpis.estoque_armazenado_ciafal?.quantidade_t === undefined ? (
+              <div
+                className="flex items-center gap-1 text-[11px] font-bold text-amber-700 leading-tight"
+                title="Não foi possível atualizar este indicador através da integração SAP/RFC."
+              >
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                <span>Dados SAP indisponíveis</span>
+              </div>
+            ) : (
+              <>
+                <strong className="text-base sm:text-lg font-bold font-mono text-blue-900">
+                  {formatNumberPTBR(kpis.estoque_armazenado_ciafal.quantidade_t, 2)}
+                </strong>
+                <span className="text-xs font-semibold text-blue-800">t</span>
+              </>
+            )}
+          </div>
+          <span className="text-[10px] text-slate-500 block mt-1 font-medium">
+            Fonte: SAP ECC &bull; RFC
+          </span>
+        </div>
+
+        {/* 5. Déficit Atual */}
         <div
           onClick={() => setApenasComDeficit((prev) => !prev)}
-          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all ${
+          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all flex flex-col justify-between ${
             apenasComDeficit
               ? 'bg-rose-50 border-rose-400 ring-1 ring-rose-400'
               : 'bg-white border-rose-200 hover:border-rose-400'
@@ -363,36 +484,48 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           <span className="text-[10px] uppercase font-bold text-rose-700 block">
             Déficit Atual (-)
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
-              {formatNumberPTBR(kpis.deficit_atual_t, 2)}
-            </strong>
-            <span className="text-xs font-semibold text-rose-600">t</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            {isLoading ? (
+              <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
+            ) : (
+              <>
+                <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
+                  {formatNumberPTBR(kpis.deficit_atual_t, 2)}
+                </strong>
+                <span className="text-xs font-semibold text-rose-600">t</span>
+              </>
+            )}
           </div>
-          <span className="text-[10px] text-rose-600 block mt-0.5">Soma saldos negativos</span>
+          <span className="text-[10px] text-rose-600 block mt-1">Soma saldos negativos</span>
         </div>
 
-        {/* 4. Itens com Déficit */}
+        {/* 6. Itens com Déficit */}
         <div
           onClick={() => setApenasComDeficit(true)}
-          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between"
         >
           <span className="text-[10px] uppercase font-bold text-rose-700 block">
             Itens com Déficit
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
-              {kpis.itens_com_deficit_count}
-            </strong>
-            <span className="text-xs font-semibold text-rose-600">itens</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            {isLoading ? (
+              <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
+            ) : (
+              <>
+                <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
+                  {kpis.itens_com_deficit_count}
+                </strong>
+                <span className="text-xs font-semibold text-rose-600">itens</span>
+              </>
+            )}
           </div>
-          <span className="text-[10px] text-rose-600 block mt-0.5">Necessitam cobertura</span>
+          <span className="text-[10px] text-rose-600 block mt-1">Necessitam cobertura</span>
         </div>
 
-        {/* 5. Em Produção */}
+        {/* 7. Em Produção */}
         <div
           onClick={() => setApenasEmProducao((prev) => !prev)}
-          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all ${
+          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all flex flex-col justify-between ${
             apenasEmProducao
               ? 'bg-indigo-50 border-indigo-400 ring-1 ring-indigo-400'
               : 'bg-white border-indigo-200 hover:border-indigo-400'
@@ -401,47 +534,65 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           <span className="text-[10px] uppercase font-bold text-indigo-700 block">
             Em Produção (t)
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-indigo-700">
-              {formatNumberPTBR(kpis.em_producao_total_t, 2)}
-            </strong>
-            <span className="text-xs font-semibold text-indigo-600">t</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            {isLoading ? (
+              <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
+            ) : (
+              <>
+                <strong className="text-base sm:text-lg font-bold font-mono text-indigo-700">
+                  {formatNumberPTBR(kpis.em_producao_total_t, 2)}
+                </strong>
+                <span className="text-xs font-semibold text-indigo-600">t</span>
+              </>
+            )}
           </div>
-          <span className="text-[10px] text-indigo-600 block mt-0.5">Processo em andamento</span>
+          <span className="text-[10px] text-indigo-600 block mt-1">Processo em andamento</span>
         </div>
 
-        {/* 6. Cobertura Programada */}
+        {/* 8. Cobertura Programada */}
         <div
           onClick={() => setFiltroStatus('COBERTURA PROGRAMADA')}
-          className="p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between"
         >
           <span className="text-[10px] uppercase font-bold text-[#004C97] block">
             Cobertura Programada
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-[#004C97]">
-              {kpis.itens_cobertura_programada_count}
-            </strong>
-            <span className="text-xs font-semibold text-[#004C97]">itens</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            {isLoading ? (
+              <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
+            ) : (
+              <>
+                <strong className="text-base sm:text-lg font-bold font-mono text-[#004C97]">
+                  {kpis.itens_cobertura_programada_count}
+                </strong>
+                <span className="text-xs font-semibold text-[#004C97]">itens</span>
+              </>
+            )}
           </div>
-          <span className="text-[10px] text-slate-500 block mt-0.5">Saldo proj. ≥ 0</span>
+          <span className="text-[10px] text-slate-500 block mt-1">Saldo proj. ≥ 0</span>
         </div>
 
-        {/* 7. Itens Críticos */}
+        {/* 9. Itens Críticos */}
         <div
           onClick={() => setFiltroStatus('CRÍTICO')}
-          className="p-3 bg-white rounded-xl border border-amber-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-amber-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between"
         >
           <span className="text-[10px] uppercase font-bold text-amber-800 block">
             Itens Críticos
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
-              {kpis.itens_criticos_count}
-            </strong>
-            <span className="text-xs font-semibold text-rose-600">itens</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            {isLoading ? (
+              <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
+            ) : (
+              <>
+                <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
+                  {kpis.itens_criticos_count}
+                </strong>
+                <span className="text-xs font-semibold text-rose-600">itens</span>
+              </>
+            )}
           </div>
-          <span className="text-[10px] text-rose-600 block mt-0.5">Sem prog / Sem estoque</span>
+          <span className="text-[10px] text-rose-600 block mt-1">Sem prog / Sem estoque</span>
         </div>
       </div>
 

@@ -134,6 +134,25 @@ export interface ConfiguracaoVariacaoCarteiraSDC {
   variacaoPercentualMinima_pct: number // ex: 25 %
 }
 
+export interface EstoqueIndicadorSapRfc {
+  quantidade_t: number | null // null se falha de integração
+  unidade_original: string
+  centro: string
+  deposito?: string
+  status: 'SUCESSO' | 'INDISPONIVEL' | 'CARREGANDO'
+  mensagem_erro?: string
+  timestamp: string
+  origem: string
+  fonte_rfc: string
+  detalhes_rfc?: {
+    tabela_ou_bapi?: string
+    campo_retorno?: string
+    status_comunicacao?: string
+    duracao_ms?: number
+    material_count?: number
+  }
+}
+
 export interface CarteiraSDCKpis {
   carteira_total_t: number
   estoque_total_t: number
@@ -143,6 +162,8 @@ export interface CarteiraSDCKpis {
   itens_cobertura_programada_count: number
   itens_criticos_count: number
   total_itens: number
+  estoque_remessa_cfpl?: EstoqueIndicadorSapRfc
+  estoque_armazenado_ciafal?: EstoqueIndicadorSapRfc
 }
 
 export interface CarteiraSDCImportRow {

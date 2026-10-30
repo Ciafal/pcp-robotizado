@@ -154,8 +154,10 @@ export const AnaliseCarteiraPage: React.FC = () => {
         setErroConsultaSap(rfcRes.mensagem || 'Não foi possível consultar a carteira no SAP.')
       }
 
-      // 3. Carregar Carteira SDC (WERKS = SDPL)
-      const resSDC = await CarteiraSDCService.carregarCarteiraSDC()
+      // 3. Carregar Carteira SDC (WERKS = SDPL) com mesmo ciclo de sincronização
+      const resSDC = await CarteiraSDCService.carregarCarteiraSDC({
+        forceRefresh: bypassCache,
+      })
       setItensSDC(resSDC.itens)
       setKpisSDC(resSDC.kpis)
       setAnalisesIASDC(resSDC.analisesIA)
@@ -501,6 +503,7 @@ export const AnaliseCarteiraPage: React.FC = () => {
             analisesIA={analisesIASDC}
             materialAncorado={materialParam}
             abrirDetalheAncorado={Boolean(materialParam)}
+            isLoading={isLoading}
             onAtualizarItens={(novos) => setItensSDC(novos)}
             onOpenDetalheSDC={(sdc) => {
               setMaterialSDCSelecionado(sdc)

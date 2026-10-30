@@ -11,8 +11,10 @@ import {
   AlertaCarteiraSDC,
   StatusAlertaSDC,
   ConfiguracaoVariacaoCarteiraSDC,
+  EstoqueIndicadorSapRfc,
 } from '@/types/carteira-sdc'
 import { CarteiraSDCEngine } from './carteira-sdc-engine'
+import { kgToTons } from '@/utils/number-br-formatters'
 
 // Base Real Homologada SDC (Centro SDPL) com o caso contratual do usuário:
 // C1000A360600: Carteira 26,00 t, Estoque 6,84 t -> Déficit 19,16 t
@@ -226,15 +228,184 @@ const ITENS_BASE_HOMOLOGADA_SDC: Array<Parameters<typeof CarteiraSDCEngine.calcu
 
 export class CarteiraSDCService {
   /**
-   * Carrega os dados da Carteira SDC com filtro estrito de WERKS = 'SDPL'
+   * Consulta os estoques especiais da Carteira SDC via SAP ECC RFC:
+   * - ESTOQUE REMESSA (Centro CFPL)
+   * - ESTOQUE ARMAZENADO CIAFAL (Operação SDC)
+   *
+   * Reutiliza a infraestrutura existente de chamadas RFC do HUB.
+   * Se a RFC não estiver configurada ou falhar, retorna status 'INDISPONIVEL'
+   * com mensagem oficial e nunca substitui ausência por número fictício.
    */
-  public static async carregarCarteiraSDC(): Promise<{
+  public static async consultarEstoquesEspeciaisSapRfc(opcoes?: {
+    forceRefresh?: boolean
+  }): Promise<{
+    estoqueRemessaCfpl: EstoqueIndicadorSapRfc
+    estoqueArmazenadoCiafal: EstoqueIndicadorSapRfc
+  }> {
+    const agoraIso = new Date().toISOString()
+    const inicioMs = Date.now()
+
+    // 1. Tentar consultar endpoint RFC oficial de backend
+    try {
+      const response = await pb.send('/backend/v1/pcp/sap/sdc-special-stocks', {
+        method: 'POST',
+        body: {
+          indicador: 'AMBOS',
+          forceRefresh: Boolean(opcoes?.forceRefresh),
+        },
+      })
+
+      if (response && response.success) {
+        return {
+          estoqueRemessaCfpl: {
+            quantidade_t:
+              response.estoque_remessa_cfpl?.quantidade_t !== null &&
+              response.estoque_remessa_cfpl?.quantidade_t !== undefined
+                ? Number(response.estoque_remessa_cfpl.quantidade_t)
+                : null,
+            unidade_original: response.estoque_remessa_cfpl?.unidade_original || 't',
+            centro: 'CFPL',
+            status: 'SUCESSO',
+            timestamp: response.estoque_remessa_cfpl?.timestamp || agoraIso,
+            origem: 'SAP ECC',
+            fonte_rfc: 'SAP ECC • RFC',
+            detalhes_rfc: response.estoque_remessa_cfpl?.detalhes_rfc,
+          },
+          estoqueArmazenadoCiafal: {
+            quantidade_t:
+              response.estoque_armazenado_ciafal?.quantidade_t !== null &&
+              response.estoque_armazenado_ciafal?.quantidade_t !== undefined
+                ? Number(response.estoque_armazenado_ciafal.quantidade_t)
+                : null,
+            unidade_original: response.estoque_armazenado_ciafal?.unidade_original || 't',
+            centro: '1100',
+            status: 'SUCESSO',
+            timestamp: response.estoque_armazenado_ciafal?.timestamp || agoraIso,
+            origem: 'SAP ECC',
+            fonte_rfc: 'SAP ECC • RFC',
+            detalhes_rfc: response.estoque_armazenado_ciafal?.detalhes_rfc,
+          },
+        }
+      }
+    } catch (errApi: any) {
+      // Endpoint retornou erro 503 (não configurado/indisponível) ou erro de rede
+      const duracao = Date.now() - inicioMs
+      console.info(
+        `[CarteiraSDC] Endpoint /backend/v1/pcp/sap/sdc-special-stocks retornou ${errApi?.status || 'indisponível'}.`,
+      )
+
+      // Registrar auditoria local de tentativa RFC em pcp_audit_logs
+      try {
+        const auth = pb.authStore.model
+        if (auth && pb.collection) {
+          await pb.collection('pcp_audit_logs').create({
+            user_id: auth.id || '',
+            user_email: auth.email || 'pcp.admin@ciafal.com.br',
+            user_name: auth.name || 'Usuário PCP',
+            user_role: (auth as any).role || 'PCP_PROGRAMMER',
+            event_type: 'SCHEDULE_ACTION',
+            action: 'RFC_SDC_SPECIAL_STOCKS_FRONTEND_QUERY',
+            resource: 'SAP_ECC_RFC',
+            resource_id: 'SDC_SPECIAL_STOCKS',
+            outcome: 'FAILED',
+            module: 'CARTEIRA_SDC',
+            screen: 'Carteira SDC',
+            details: {
+              duracao_ms: duracao,
+              centros: ['CFPL', '1100'],
+              status: 'INDISPONIVEL',
+              erro: errApi?.message || 'RFC_UNAVAILABLE',
+              timestamp: agoraIso,
+            },
+          })
+        }
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
+    // 2. Se a RFC ainda não expõe algum dado, o ponto de integração fica estruturado e configurável
+    // e o indicador exibe "Dados SAP indisponíveis", NUNCA 0,00 t fictício.
+    return {
+      estoqueRemessaCfpl: {
+        quantidade_t: null,
+        unidade_original: 't',
+        centro: 'CFPL',
+        status: 'INDISPONIVEL',
+        mensagem_erro: 'Não foi possível atualizar este indicador através da integração SAP/RFC.',
+        timestamp: agoraIso,
+        origem: 'SAP ECC',
+        fonte_rfc: 'SAP ECC • RFC',
+        detalhes_rfc: {
+          tabela_ou_bapi: 'BAPI_MATERIAL_STOCK_REQ_GET / MB52 RFC',
+          campo_retorno: 'TRANSIT_STOCK / SPECIAL_STOCK_W',
+          status_comunicacao: 'SAP_RFC_NOT_CONFIGURED',
+        },
+      },
+      estoqueArmazenadoCiafal: {
+        quantidade_t: null,
+        unidade_original: 't',
+        centro: '1100',
+        status: 'INDISPONIVEL',
+        mensagem_erro: 'Não foi possível atualizar este indicador através da integração SAP/RFC.',
+        timestamp: agoraIso,
+        origem: 'SAP ECC',
+        fonte_rfc: 'SAP ECC • RFC',
+        detalhes_rfc: {
+          tabela_ou_bapi: 'BAPI_MATERIAL_STOCK_REQ_GET / MB52 RFC',
+          campo_retorno: 'STORAGE_STOCK / LABST',
+          status_comunicacao: 'SAP_RFC_NOT_CONFIGURED',
+        },
+      },
+    }
+  }
+
+  /**
+   * Converte unidade qualquer para toneladas seguindo padrão corporativo
+   */
+  public static normalizarQuantidadeToneladas(
+    quantidade: number | null | undefined,
+    unidadeOrigem: string = 't',
+  ): number | null {
+    if (quantidade === null || quantidade === undefined || isNaN(quantidade)) {
+      return null
+    }
+    const u = (unidadeOrigem || 't').trim().toLowerCase()
+    if (u === 't' || u === 'ton' || u === 'tonelada' || u === 'toneladas') {
+      return Number(quantidade.toFixed(3))
+    }
+    if (u === 'kg' || u === 'kilo' || u === 'quilograma') {
+      const emTons = kgToTons(quantidade)
+      return emTons !== null ? Number(emTons.toFixed(3)) : null
+    }
+    // Padrão corporativo para unidade desconhecida
+    return Number(quantidade.toFixed(3))
+  }
+
+  /**
+   * Carrega os dados da Carteira SDC com filtro estrito de WERKS = 'SDPL'
+   * e consulta estoques especiais no mesmo ciclo de sincronização
+   */
+  public static async carregarCarteiraSDC(opcoes?: {
+    forceRefresh?: boolean
+    estoqueRemessaForcado?: EstoqueIndicadorSapRfc
+    estoqueArmazenadoForcado?: EstoqueIndicadorSapRfc
+  }): Promise<{
     itens: CarteiraSDCItem[]
     kpis: CarteiraSDCKpis
     fonteAtual: 'Carga QAS' | 'SAP ECC'
     dataAtualizacao: string
     analisesIA: string[]
   }> {
+    // Consulta em paralelo os estoques especiais SAP RFC
+    const consultaEstoquesPromise =
+      opcoes?.estoqueRemessaForcado && opcoes?.estoqueArmazenadoForcado
+        ? Promise.resolve({
+            estoqueRemessaCfpl: opcoes.estoqueRemessaForcado,
+            estoqueArmazenadoCiafal: opcoes.estoqueArmazenadoForcado,
+          })
+        : this.consultarEstoquesEspeciaisSapRfc({ forceRefresh: opcoes?.forceRefresh })
+
     try {
       // Tenta buscar no PocketBase na coleção de carteira_items com filtro WERKS/centro = 'SDPL'
       const records = await pb.collection('carteira_items').getFullList({
@@ -264,7 +435,14 @@ export class CarteiraSDCService {
         )
 
         const kpis = CarteiraSDCEngine.calcularKpis(itensCalculados)
-        const analisesIA = CarteiraSDCEngine.gerarAnalisesIA(itensCalculados)
+        const estoquesEspeciais = await consultaEstoquesPromise
+        kpis.estoque_remessa_cfpl = estoquesEspeciais.estoqueRemessaCfpl
+        kpis.estoque_armazenado_ciafal = estoquesEspeciais.estoqueArmazenadoCiafal
+
+        const analisesIA = CarteiraSDCEngine.gerarAnalisesIA(itensCalculados, {
+          estoqueRemessaCfpl: estoquesEspeciais.estoqueRemessaCfpl,
+          estoqueArmazenadoCiafal: estoquesEspeciais.estoqueArmazenadoCiafal,
+        })
 
         return {
           itens: itensCalculados,
@@ -283,7 +461,14 @@ export class CarteiraSDCService {
       CarteiraSDCEngine.calcularItem(raw),
     )
     const kpis = CarteiraSDCEngine.calcularKpis(itensCalculados)
-    const analisesIA = CarteiraSDCEngine.gerarAnalisesIA(itensCalculados)
+    const estoquesEspeciais = await consultaEstoquesPromise
+    kpis.estoque_remessa_cfpl = estoquesEspeciais.estoqueRemessaCfpl
+    kpis.estoque_armazenado_ciafal = estoquesEspeciais.estoqueArmazenadoCiafal
+
+    const analisesIA = CarteiraSDCEngine.gerarAnalisesIA(itensCalculados, {
+      estoqueRemessaCfpl: estoquesEspeciais.estoqueRemessaCfpl,
+      estoqueArmazenadoCiafal: estoquesEspeciais.estoqueArmazenadoCiafal,
+    })
 
     return {
       itens: itensCalculados,

@@ -313,8 +313,16 @@ export class CarteiraSDCEngine {
 
   /**
    * Gera análises IA automáticas fiéis aos dados reais da Carteira SDC
+   * Sem alterar regras de cálculo atuais: a IA não assume que estoque em remessa
+   * está imediatamente disponível nem que estoque armazenado é utilizável sem regra industrial/logística.
    */
-  public static gerarAnalisesIA(itens: CarteiraSDCItem[]): string[] {
+  public static gerarAnalisesIA(
+    itens: CarteiraSDCItem[],
+    contextoEstoques?: {
+      estoqueRemessaCfpl?: { quantidade_t: number | null; status: string }
+      estoqueArmazenadoCiafal?: { quantidade_t: number | null; status: string }
+    },
+  ): string[] {
     const analises: string[] = []
 
     // 1. Exemplo do usuário obrigatório:
@@ -375,6 +383,31 @@ export class CarteiraSDCEngine {
     if (entries.length > 0) {
       analises.push(
         `Concentração de Déficit: A família "${entries[0][0]}" concentra o maior volume de déficit na Sidercentro (${formatNumberPTBR(entries[0][1], 2)} t). Alinhar campanha industrial com a coordenação fabril.`,
+      )
+    }
+
+    // 6. Contexto de Estoques Especiais SDC (Sem alterar cálculo de déficit)
+    if (
+      contextoEstoques?.estoqueRemessaCfpl &&
+      contextoEstoques.estoqueRemessaCfpl.status === 'SUCESSO' &&
+      contextoEstoques.estoqueRemessaCfpl.quantidade_t !== null &&
+      contextoEstoques.estoqueRemessaCfpl.quantidade_t > 0
+    ) {
+      const remessaT = formatNumberPTBR(contextoEstoques.estoqueRemessaCfpl.quantidade_t, 2)
+      analises.push(
+        `Existem ${remessaT} t em remessa no centro CFPL. Este volume não está sendo considerado como estoque disponível no cálculo atual de déficit.`,
+      )
+    }
+
+    if (
+      contextoEstoques?.estoqueArmazenadoCiafal &&
+      contextoEstoques.estoqueArmazenadoCiafal.status === 'SUCESSO' &&
+      contextoEstoques.estoqueArmazenadoCiafal.quantidade_t !== null &&
+      contextoEstoques.estoqueArmazenadoCiafal.quantidade_t > 0
+    ) {
+      const armazenadoT = formatNumberPTBR(contextoEstoques.estoqueArmazenadoCiafal.quantidade_t, 2)
+      analises.push(
+        `Estoque Armazenado Ciafal: ${armazenadoT} t registradas na operação SDC via SAP RFC. O saldo permanece controlado de forma segregada ao estoque físico de laminação.`,
       )
     }
 
