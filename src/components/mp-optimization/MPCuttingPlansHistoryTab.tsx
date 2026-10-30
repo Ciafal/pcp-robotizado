@@ -487,6 +487,7 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
                   Rendimento (%)
                 </th>
                 <th className="p-3 text-center">Versão</th>
+                <th className="p-3">Programação Múltiplo KS</th>
                 <th className="p-3">Status</th>
                 <th className="p-3">Responsável</th>
                 <th className="p-3 text-center">Ações</th>
@@ -567,6 +568,30 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
                         <Badge className="bg-blue-50 text-[#004C97] border-blue-200 font-mono text-[10px]">
                           v0{plan.version || 1}
                         </Badge>
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        {(plan as any).is_programmed || (plan as any).programming_id ? (
+                          <div className="space-y-0.5">
+                            <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 font-mono text-[10px]">
+                              {(plan as any).programming_id || 'Programado'}
+                            </Badge>
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              {(plan as any).programmed_center_code || 'MULTIPLOKS'} &bull;{' '}
+                              {(plan as any).programmed_date
+                                ? new Date((plan as any).programmed_date).toLocaleDateString(
+                                    'pt-BR',
+                                  )
+                                : '-'}
+                            </div>
+                          </div>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="border-slate-300 text-slate-500 text-[10px]"
+                          >
+                            Pendente PCP
+                          </Badge>
+                        )}
                       </td>
                       <td className="p-3 whitespace-nowrap">
                         <MPCuttingPlanStatusBadge status={plan.status} />

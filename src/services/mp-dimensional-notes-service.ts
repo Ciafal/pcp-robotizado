@@ -74,6 +74,12 @@ export interface MPMultipleCuttingPlanRecord {
   ai_technical_justification?: string
   allocated_applications_json?: any
   multiples_summary_json?: any
+  selected_scenario_id?: string
+  selected_scenario_json?: any
+  is_programmed?: boolean
+  programming_id?: string
+  programmed_date?: string
+  programmed_center_code?: string
   status?: MPCuttingPlanStatus | string
   status_justification?: string
   status_updated_at?: string

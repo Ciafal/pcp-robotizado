@@ -42,6 +42,14 @@ import {
   MPMultipleCuttingPlanRecord,
 } from '@/services/mp-dimensional-notes-service'
 import { MPCuttingPlanViewerModal } from './MPCuttingPlanViewerModal'
+import { MPMultipleCuttingMatrixTable } from './MPMultipleCuttingMatrixTable'
+import { MPMultiploKSProgrammingModal } from './MPMultiploKSProgrammingModal'
+import { MPCuttingScenarioDetailModal } from './MPCuttingScenarioDetailModal'
+import {
+  generate6UnifiedComparativeScenarios,
+  UnifiedScenarioResult,
+  BlockDimensionalEntity,
+} from '@/services/mp-cutting-unified-engine'
 
 export interface MPMultipleCuttingPlanSectionProps {
   initialMaterial?: {
@@ -116,6 +124,20 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
   const [calculatedParamsHash, setCalculatedParamsHash] = useState<string | null>(null)
   const [savedPlanRecord, setSavedPlanRecord] = useState<MPMultipleCuttingPlanRecord | null>(null)
   const [savedPlanCode, setSavedPlanCode] = useState<string | null>(null)
+
+  // Estados dos 6 Cenários Comparativos e Matriz de Múltiplos
+  const [isGeneratingScenarios, setIsGeneratingScenarios] = useState(false)
+  const [scenariosList, setScenariosList] = useState<UnifiedScenarioResult[]>([])
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('mp_multiple_selected_scenario_id') || 'SCEN-01'
+    } catch {
+      return 'SCEN-01'
+    }
+  })
+  const [detailScenarioModalData, setDetailScenarioModalData] =
+    useState<UnifiedScenarioResult | null>(null)
+  const [isProgrammingModalOpen, setIsProgrammingModalOpen] = useState(false)
 
   // Modal de Confirmação Rico pós-salvamento
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
@@ -197,6 +219,158 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
       active = false
     }
   }, [materialCode, gaugeDimension, centerCode])
+
+  // Entidade de bloco dimensional para o motor unificado
+  const blockEntity: BlockDimensionalEntity = useMemo(() => {
+    return {
+      blockNumber: `BLOCO-${materialCode}-${batchNumber || 'LT'}`,
+      thicknessMm,
+      widthMm,
+      lengthMm,
+      weightKg: blockWeightKg,
+      marginMm: 0,
+      steelGrade,
+    }
+  }, [materialCode, batchNumber, thicknessMm, widthMm, lengthMm, blockWeightKg, steelGrade])
+
+  // Salva no localStorage para persistir a seleção do cenário ao navegar/recarregar
+  const handleSelectScenario = (scen: UnifiedScenarioResult) => {
+    if (scen.viabilityStatus === 'INVIÁVEL' || scen.status === 'INVIÁVEL') {
+      toast({
+        title: 'Cenário Inviável',
+        description: 'Não é permitido selecionar um cenário classificado como inviável.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setSelectedScenarioId(scen.id)
+    try {
+      localStorage.setItem('mp_multiple_selected_scenario_id', scen.id)
+    } catch {
+      // Ignora erro de storage local
+    }
+
+    toast({
+      title: 'Cenário Selecionado com Sucesso',
+      description: `${scen.name} (${formatNumberPtBr(scen.yieldPct, 2)}% rendimento) definido como plano para programação produtiva.`,
+    })
+  }
+
+  // FUNCIONALIDADE 1: BOTÃO "GERAR CENÁRIOS"
+  const handleGenerateScenarios = () => {
+    // 1. Validação do material selecionado
+    if (!materialCode.trim()) {
+      toast({
+        title: 'Material Não Selecionado',
+        description: 'Informe o código do material SAP no Bloco A antes de gerar cenários.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 2. Validação dimensional e peso
+    if (blockWeightTons <= 0 || lengthMm <= 0 || linearMassKgM <= 0) {
+      toast({
+        title: 'Dimensões Inválidas',
+        description:
+          'Peso do bloco, comprimento e massa linear devem ser maiores que zero no Bloco B.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 3. Validação das aplicações industriais selecionadas
+    const activeCandidates = candidates.filter((c) => selectedApps[c.id] ?? true)
+    if (activeCandidates.length === 0) {
+      toast({
+        title: 'Aplicações Ausentes',
+        description:
+          'Selecione ao menos 1 aplicação industrial compatível no Bloco C antes de gerar cenários.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 4. Converter candidatos ativos em CutPieceDemand
+    const demands = activeCandidates.map((c) => ({
+      id: c.application_code || c.id,
+      label: `${c.application_name} (${c.product_code})`,
+      lengthMm: c.target_length_mm,
+      requestedQty: appDesiredQty[c.id] ?? c.available_demand_qty,
+      priority: appPriorities[c.id] ?? c.priority_order,
+    }))
+
+    setIsGeneratingScenarios(true)
+
+    try {
+      // Executa o motor central unificado generate6UnifiedComparativeScenarios
+      const optResultUnified = generate6UnifiedComparativeScenarios({
+        planType: 'MULTIPLO',
+        companyCode: 'CIAFAL',
+        centerCode: centerCode || 'MULTIPLOKS',
+        materialCode,
+        steelGrade,
+        calculationMode: 'INDIVIDUALIZADO',
+        blocks: [blockEntity],
+        demands,
+        parameters: {
+          sawKerfMm,
+          squaringLossMm,
+          endCropLossMm,
+          marginMm: 0,
+          linearMassKgM,
+          minReusableLeftoverMm: 800,
+        },
+      })
+
+      const scenarios = optResultUnified.scenarios || []
+      setScenariosList(scenarios)
+
+      // Identifica o melhor cenário recomendado pelo motor
+      const recommended = scenarios.find((s) => s.isRecommended) || scenarios[0]
+      if (
+        recommended &&
+        (!selectedScenarioId || !scenarios.some((s) => s.id === selectedScenarioId))
+      ) {
+        setSelectedScenarioId(recommended.id)
+        try {
+          localStorage.setItem('mp_multiple_selected_scenario_id', recommended.id)
+        } catch {
+          // ignore
+        }
+      }
+
+      toast({
+        title: '6 Cenários Comparativos Gerados',
+        description: `Matriz de Múltiplos calculada com sucesso. Cenário recomendado: ${recommended?.name || 'Cenário 1'}.`,
+      })
+    } catch (err: any) {
+      console.error('Erro ao gerar cenários comparativos:', err)
+      toast({
+        title: 'Falha na Geração de Cenários',
+        description: err.message || 'Erro durante a execução do motor de cenários.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsGeneratingScenarios(false)
+    }
+  }
+
+  // Cenário selecionado no momento
+  const currentSelectedScenario = useMemo(() => {
+    return (
+      scenariosList.find((s) => s.id === selectedScenarioId) ||
+      scenariosList.find((s) => s.isRecommended) ||
+      scenariosList[0] ||
+      null
+    )
+  }, [scenariosList, selectedScenarioId])
+
+  // Melhor cenário recomendado
+  const bestRecommendedScenario = useMemo(() => {
+    return scenariosList.find((s) => s.isRecommended) || scenariosList[0] || null
+  }, [scenariosList])
 
   // Botão "Otimizar Plano de Corte Múltiplo" - REUTILIZA integralmente o motor existente!
   const handleOptimize = () => {
@@ -403,7 +577,11 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
           endCropLossMm,
           cuts_count: optResult.cuts_count,
           cut_losses_length_mm: optResult.cut_losses_length_mm,
+          selected_scenario_id: selectedScenarioId,
+          selected_scenario: currentSelectedScenario,
         },
+        selected_scenario_id: selectedScenarioId,
+        selected_scenario_json: currentSelectedScenario,
         // Salvar/atualizar não altera status automaticamente
         status: savedPlanRecord?.status || 'Rascunho',
         created_by_user_name: savedPlanRecord?.created_by_user_name || currentAuthor,
@@ -493,14 +671,37 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
               Consultar Histórico
             </Button>
           )}
+
           <Button
             type="button"
             onClick={handleOptimize}
             disabled={isOptimizing}
-            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-2 shadow-xs"
+            variant="outline"
+            className="text-xs font-bold gap-2 border-blue-200 text-[#004C97] hover:bg-blue-50"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            {isOptimizing ? 'Otimizando Corte...' : 'Otimizar Plano de Corte Múltiplo'}
+            {isOptimizing ? 'Otimizando...' : 'Otimizar Plano de Corte Múltiplo'}
+          </Button>
+
+          {/* FUNCIONALIDADE 1: BOTÃO GERAR CENÁRIOS */}
+          <Button
+            type="button"
+            onClick={handleGenerateScenarios}
+            disabled={isGeneratingScenarios}
+            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-2 shadow-xs"
+          >
+            <Sliders className="w-3.5 h-3.5 text-blue-200" />
+            {isGeneratingScenarios ? 'Gerando Cenários...' : 'Gerar Cenários'}
+          </Button>
+
+          {/* FUNCIONALIDADE 3: BOTÃO PROGRAMAR NO MÚLTIPLO KS */}
+          <Button
+            type="button"
+            onClick={() => setIsProgrammingModalOpen(true)}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold gap-2 shadow-xs"
+          >
+            <Building2 className="w-3.5 h-3.5 text-emerald-200" />
+            Programar
           </Button>
         </div>
       </div>
@@ -694,6 +895,303 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
           </div>
         </div>
       </div>
+
+      {/* FUNCIONALIDADE 2: MATRIZ DOS 6 CENÁRIOS DE CORTE MÚLTIPLO GERADOS */}
+      {scenariosList.length > 0 && (
+        <div className="space-y-4">
+          {/* Painel de Destaque: MELHOR CENÁRIO RECOMENDADO PELO PCP */}
+          {bestRecommendedScenario && (
+            <div className="bg-gradient-to-r from-blue-900 via-[#004C97] to-slate-900 rounded-xl p-4 sm:p-5 text-white shadow-md space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-400/20 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-500/20 text-amber-300">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-amber-300">
+                      MELHOR CENÁRIO RECOMENDADO PELO PCP
+                    </span>
+                    <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                      {bestRecommendedScenario.name}
+                      <Badge className="bg-amber-400/20 text-amber-300 border-amber-300/30 text-[10px]">
+                        Recomendado IA
+                      </Badge>
+                      {bestRecommendedScenario.id === selectedScenarioId && (
+                        <Badge className="bg-emerald-500 text-white text-[10px] font-bold">
+                          Atualmente Selecionado
+                        </Badge>
+                      )}
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDetailScenarioModalData(bestRecommendedScenario)}
+                    className="h-8 text-xs font-bold text-white border-white/30 bg-white/10 hover:bg-white/20 gap-1.5"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    Detalhar Cenário
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleSelectScenario(bestRecommendedScenario)}
+                    className={`h-8 text-xs font-bold gap-1.5 shadow-xs transition-all ${
+                      bestRecommendedScenario.id === selectedScenarioId
+                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                        : 'bg-white text-[#004C97] hover:bg-blue-50'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {bestRecommendedScenario.id === selectedScenarioId
+                      ? 'Cenário Selecionado'
+                      : 'Selecionar Cenário'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Indicadores do Cenário Recomendado */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+                <div className="bg-white/10 p-2.5 rounded-lg backdrop-blur-xs">
+                  <span className="text-[10px] text-blue-200 uppercase font-semibold block">
+                    Rendimento Metálico
+                  </span>
+                  <span className="text-base sm:text-lg font-black font-mono text-emerald-300 block mt-0.5">
+                    {formatNumberPtBr(bestRecommendedScenario.yieldPct, 2)}%
+                  </span>
+                </div>
+
+                <div className="bg-white/10 p-2.5 rounded-lg backdrop-blur-xs">
+                  <span className="text-[10px] text-blue-200 uppercase font-semibold block">
+                    Peso Unitário Calculado
+                  </span>
+                  <span className="text-base sm:text-lg font-black font-mono text-white block mt-0.5">
+                    {formatNumberPtBr(bestRecommendedScenario.calculatedUnitWeightKg, 1)} kg
+                  </span>
+                </div>
+
+                <div className="bg-white/10 p-2.5 rounded-lg backdrop-blur-xs">
+                  <span className="text-[10px] text-blue-200 uppercase font-semibold block">
+                    Desvio do Padrão
+                  </span>
+                  <span
+                    className={`text-base sm:text-lg font-black font-mono block mt-0.5 ${
+                      Math.abs(bestRecommendedScenario.deviationStandardPct) <= 2
+                        ? 'text-emerald-300'
+                        : 'text-amber-300'
+                    }`}
+                  >
+                    {bestRecommendedScenario.deviationStandardPct > 0 ? '+' : ''}
+                    {formatNumberPtBr(bestRecommendedScenario.deviationStandardPct, 2)}%
+                  </span>
+                </div>
+
+                <div className="bg-white/10 p-2.5 rounded-lg backdrop-blur-xs">
+                  <span className="text-[10px] text-blue-200 uppercase font-semibold block">
+                    Perda Total (Kerf/Refile)
+                  </span>
+                  <span className="text-base sm:text-lg font-black font-mono text-rose-300 block mt-0.5">
+                    {formatNumberPtBr(bestRecommendedScenario.totalScrapWeightTons, 3)} t
+                  </span>
+                </div>
+
+                <div className="bg-white/10 p-2.5 rounded-lg backdrop-blur-xs">
+                  <span className="text-[10px] text-blue-200 uppercase font-semibold block">
+                    Atendimento Demanda
+                  </span>
+                  <span className="text-base sm:text-lg font-black font-mono text-blue-200 block mt-0.5">
+                    {formatNumberPtBr(bestRecommendedScenario.demandAdherencePct, 1)}%
+                  </span>
+                </div>
+
+                <div className="bg-white/10 p-2.5 rounded-lg backdrop-blur-xs">
+                  <span className="text-[10px] text-blue-200 uppercase font-semibold block">
+                    Quantidade Produzida
+                  </span>
+                  <span className="text-base sm:text-lg font-black font-mono text-amber-300 block mt-0.5">
+                    {bestRecommendedScenario.producedPiecesCount} peças
+                  </span>
+                </div>
+              </div>
+
+              {/* Justificativa de IA */}
+              <div className="p-3 bg-white/10 rounded-lg text-xs flex items-start gap-2 border border-white/10">
+                <Sparkles className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <strong className="text-amber-300 block">Justificativa da IA:</strong>
+                  <p className="text-blue-100 text-[11px] leading-relaxed">
+                    {bestRecommendedScenario.aiJustification}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cards Comparativos dos 6 Cenários */}
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                <Sliders className="w-4 h-4 text-[#004C97]" />
+                Matriz dos 6 Cenários de Corte Múltiplo Gerados
+              </h3>
+              <span className="text-[11px] text-slate-500">
+                Selecione o cenário desejado para visualizar a composição detalhada e enviar para
+                programação
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {scenariosList.map((scen) => {
+                const isSelected = scen.id === selectedScenarioId
+                const isViable = scen.viabilityStatus === 'VIÁVEL'
+
+                return (
+                  <div
+                    key={scen.id}
+                    onClick={() => isViable && handleSelectScenario(scen)}
+                    className={`rounded-xl border p-3.5 transition-all cursor-pointer relative flex flex-col justify-between gap-3 ${
+                      isSelected
+                        ? 'border-[#004C97] bg-blue-50/50 shadow-sm ring-2 ring-[#004C97]/30'
+                        : isViable
+                          ? 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs'
+                          : 'border-red-200 bg-red-50/30 opacity-75 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-mono text-slate-500 uppercase font-semibold">
+                            Cenário #{scen.scenarioNumber} &bull; {scen.cuttingType}
+                          </span>
+                          <h4 className="text-xs font-bold text-slate-900 leading-snug">
+                            {scen.name}
+                          </h4>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1">
+                          {scen.isRecommended && (
+                            <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[9px] font-bold">
+                              RECOMENDADO IA
+                            </Badge>
+                          )}
+                          <Badge
+                            className={`text-[9px] font-bold ${
+                              isViable
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-red-50 text-red-800 border-red-300'
+                            }`}
+                          >
+                            {isViable ? 'VIÁVEL' : 'INVIÁVEL'}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-100">
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">Rendimento:</span>
+                          <strong className="text-emerald-700 font-mono text-xs">
+                            {formatNumberPtBr(scen.yieldPct, 2)}%
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">
+                            Peças Produzidas:
+                          </span>
+                          <strong className="text-slate-900 font-mono text-xs">
+                            {scen.producedPiecesCount} un
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">Peso Utilizado:</span>
+                          <span className="text-slate-800 font-mono font-semibold">
+                            {formatNumberPtBr(scen.usedWeightTons, 3)} t
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">Perda de Corte:</span>
+                          <span className="text-rose-700 font-mono font-semibold">
+                            {formatNumberPtBr(scen.totalScrapWeightTons, 3)} t
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">Sobra Reaprov.:</span>
+                          <span className="text-blue-900 font-mono font-semibold">
+                            {formatNumberPtBr(scen.leftoverWeightTons, 3)} t
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">Atend. Demanda:</span>
+                          <span className="text-slate-800 font-mono font-semibold">
+                            {formatNumberPtBr(scen.demandAdherencePct, 1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDetailScenarioModalData(scen)
+                        }}
+                        className="h-7 text-[11px] text-[#004C97] hover:bg-blue-50 font-semibold px-2"
+                      >
+                        Detalhar
+                      </Button>
+
+                      {isSelected ? (
+                        <Badge className="bg-[#004C97] text-white text-[10px] font-bold px-2.5 py-1">
+                          SELECIONADO
+                        </Badge>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!isViable}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSelectScenario(scen)
+                          }}
+                          className="h-7 text-[11px] bg-slate-100 text-slate-800 hover:bg-[#004C97] hover:text-white font-semibold px-2.5"
+                        >
+                          Selecionar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* MATRIZ DETALHADA DO CENÁRIO SELECIONADO */}
+          {currentSelectedScenario && (
+            <MPMultipleCuttingMatrixTable
+              scenario={currentSelectedScenario}
+              block={blockEntity}
+              materialCode={materialCode}
+              heatNumber={heatNumber}
+              batchNumber={batchNumber}
+              supplierName={supplierName}
+              steelGrade={steelGrade}
+              candidates={candidates}
+              sawKerfMm={sawKerfMm}
+              squaringLossMm={squaringLossMm}
+              endCropLossMm={endCropLossMm}
+              linearMassKgM={linearMassKgM}
+              onProgramDirect={() => setIsProgrammingModalOpen(true)}
+            />
+          )}
+        </div>
+      )}
 
       {/* BLOCO C: APLICAÇÕES INDUSTRIAIS CADASTRADAS (Grade de compatibilidade) */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
@@ -1081,6 +1579,38 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
           onClose={() => setSelectedPlanForViewer(null)}
           plan={selectedPlanForViewer}
           onSelectVersion={(v) => setSelectedPlanForViewer(v)}
+        />
+      )}
+
+      {/* POPUP RESPONSIVO DE DETALHAMENTO DO CENÁRIO */}
+      {detailScenarioModalData && (
+        <MPCuttingScenarioDetailModal
+          isOpen={Boolean(detailScenarioModalData)}
+          onClose={() => setDetailScenarioModalData(null)}
+          scenario={detailScenarioModalData}
+          onSelectScenario={(scen) => {
+            handleSelectScenario(scen)
+            setDetailScenarioModalData(null)
+          }}
+          isSelected={detailScenarioModalData.id === selectedScenarioId}
+        />
+      )}
+
+      {/* MODAL AMPLO E RESPONSIVO DE PROGRAMAÇÃO PARA O CENTRO MÚLTIPLO KS */}
+      {isProgrammingModalOpen && (
+        <MPMultiploKSProgrammingModal
+          isOpen={isProgrammingModalOpen}
+          onClose={() => setIsProgrammingModalOpen(false)}
+          preSelectedPlan={savedPlanRecord}
+          onSuccess={(res) => {
+            toast({
+              title: 'Programação Concluída com Sucesso',
+              description: `Programação nº ${res.scheduleCode} gerada para o centro ${res.centerCode}.`,
+            })
+            if (onOpenHistory) {
+              onOpenHistory()
+            }
+          }}
         />
       )}
     </div>
