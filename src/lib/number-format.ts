@@ -163,7 +163,7 @@ export function formatTonsSdc(
 
 /**
  * Retorna apenas o valor numérico em pt-BR com exatamente 3 casas decimais (ex.: "66,340", "0,000")
- * para composição com a tag <span className="...">t</span> ou uso em cards.
+ * para composição com a tag <span className="...">t</span> ou uso em cards da Carteira SDC.
  */
 export function formatTonsSdcValue(
   val: number | string | null | undefined,
