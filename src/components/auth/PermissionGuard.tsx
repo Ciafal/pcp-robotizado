@@ -202,6 +202,14 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('cancelados'),
   )
 
+  // Rota canônica de Resumo Geral (/pcp/resumo-geral)
+  const isResumoGeralRoute = Boolean(
+    currentPathname === '/pcp/resumo-geral' ||
+    currentPathname.startsWith('/pcp/resumo-geral') ||
+    currentHash.includes('resumo-geral') ||
+    windowPath.includes('resumo-geral'),
+  )
+
   // Rota canônica de Reuniões PCP (/pcp/reunioes, /pcp/reunioes/configuracoes e aliases)
   const isReuniaoPcpRoute = Boolean(
     permission === 'pcp.meeting.view' ||
@@ -330,6 +338,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // Conjunto canônico unificado de rotas e permissões com bypass imediato e fallback de cold-start
   const isBypassOrOperationalFallbackRoute = Boolean(
+    isResumoGeralRoute ||
     isDadosIbgeRoute ||
     isInventarioMpRoute ||
     isAproveitamentoMpForaPadraoRoute ||

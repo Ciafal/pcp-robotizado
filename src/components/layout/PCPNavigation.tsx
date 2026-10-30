@@ -102,6 +102,13 @@ const navSections: NavSectionItem[] = [
     icon: LayoutDashboard,
   },
   {
+    title: 'Resumo Geral',
+    href: '/pcp/resumo-geral',
+    icon: BarChart3,
+    badge: 'Novo',
+    permission: 'pcp.schedule.view',
+  },
+  {
     title: 'Gestão de Estoques',
     href: '/pcp/estoques',
     icon: Layers,
@@ -745,6 +752,13 @@ export const officialNavGroups: NavGroup[] = [
     groupTitle: 'PRINCIPAL',
     items: [
       { title: 'Principal', href: '/pcp/cockpit', icon: LayoutDashboard },
+      {
+        title: 'Resumo Geral',
+        href: '/pcp/resumo-geral',
+        icon: BarChart3,
+        badge: 'Novo',
+        permission: 'pcp.schedule.view',
+      },
       {
         title: 'Torre de Controle',
         href: '/pcp/sequenciamento/torre-controle',
