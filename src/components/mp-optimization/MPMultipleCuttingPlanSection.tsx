@@ -404,7 +404,8 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
           cuts_count: optResult.cuts_count,
           cut_losses_length_mm: optResult.cut_losses_length_mm,
         },
-        status: savedPlanRecord ? 'EM_REVISAO' : 'RASCUNHO',
+        // Salvar/atualizar não altera status automaticamente
+        status: savedPlanRecord?.status || 'Rascunho',
         created_by_user_name: savedPlanRecord?.created_by_user_name || currentAuthor,
         responsible_user_name: currentAuthor,
         plan_type: 'multiplo',

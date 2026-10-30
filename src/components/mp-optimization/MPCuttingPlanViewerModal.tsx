@@ -30,13 +30,18 @@ import { formatNumberPtBr } from '@/lib/number-format'
 import {
   mpMultipleCuttingPlansService,
   MPMultipleCuttingPlanRecord,
+  MPCuttingPlanStatus,
 } from '@/services/mp-dimensional-notes-service'
+import { useAuth } from '@/contexts/AuthContext'
+import { MPCuttingPlanStatusBadge, normalizeCuttingPlanStatus } from './MPCuttingPlanStatusBadge'
+import { MPCuttingPlanStatusTransitionModal } from './MPCuttingPlanStatusTransitionModal'
 
 interface MPCuttingPlanViewerModalProps {
   isOpen: boolean
   onClose: () => void
   plan: MPMultipleCuttingPlanRecord
   onSelectVersion?: (versionPlan: MPMultipleCuttingPlanRecord) => void
+  onStatusUpdated?: (updatedPlan: MPMultipleCuttingPlanRecord) => void
 }
 
 export const MPCuttingPlanViewerModal: React.FC<MPCuttingPlanViewerModalProps> = ({
@@ -44,11 +49,50 @@ export const MPCuttingPlanViewerModal: React.FC<MPCuttingPlanViewerModalProps> =
   onClose,
   plan,
   onSelectVersion,
+  onStatusUpdated,
 }) => {
+  const { user } = useAuth()
+  const userRole = (user?.role || 'PRODUCTION_VIEWER').toUpperCase()
+
   const [activeTab, setActiveTab] = useState<'details' | 'versions' | 'compare'>('details')
   const [versionHistory, setVersionHistory] = useState<MPMultipleCuttingPlanRecord[]>([])
   const [isLoadingVersions, setIsLoadingVersions] = useState(false)
   const [compareTarget, setCompareTarget] = useState<MPMultipleCuttingPlanRecord | null>(null)
+
+  // Modal de Transição de Status
+  const [isTransitionOpen, setIsTransitionOpen] = useState(false)
+  const [targetStatusToChange, setTargetStatusToChange] = useState<MPCuttingPlanStatus | null>(null)
+
+  // Permissões RBAC para ações de status:
+  const canApprove =
+    userRole === 'PCP_ADMIN' ||
+    userRole === 'ADMIN' ||
+    userRole === 'ADMINISTRADOR' ||
+    userRole === 'PCP_PROGRAMMER' ||
+    userRole === 'LINE_MANAGER' ||
+    userRole === 'SUPERVISOR'
+
+  const canRelease =
+    userRole === 'PCP_ADMIN' ||
+    userRole === 'ADMIN' ||
+    userRole === 'ADMINISTRADOR' ||
+    userRole === 'PCP_PROGRAMMER'
+
+  const canExecute =
+    userRole === 'PCP_ADMIN' ||
+    userRole === 'ADMIN' ||
+    userRole === 'ADMINISTRADOR' ||
+    userRole === 'PCP_PROGRAMMER' ||
+    userRole === 'LINE_MANAGER'
+
+  const canCancel =
+    userRole === 'PCP_ADMIN' ||
+    userRole === 'ADMIN' ||
+    userRole === 'ADMINISTRADOR' ||
+    userRole === 'PCP_PROGRAMMER' ||
+    userRole === 'LINE_MANAGER'
+
+  const currentStatusNorm = normalizeCuttingPlanStatus(plan?.status)
 
   useEffect(() => {
     if (isOpen && plan?.plan_code) {
@@ -121,16 +165,7 @@ export const MPCuttingPlanViewerModal: React.FC<MPCuttingPlanViewerModalProps> =
                     <Badge className="bg-blue-100 text-[#004C97] border-blue-300 font-mono text-xs">
                       v0{plan.version || 1}
                     </Badge>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] font-bold ${
-                        plan.status === 'APROVADO'
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {plan.status || 'RASCUNHO'}
-                    </Badge>
+                    <MPCuttingPlanStatusBadge status={plan.status} />
                   </div>
                   <DialogDescription className="text-xs text-slate-500">
                     Tipo: <strong>{plan.plan_type || 'MÚLTIPLO'}</strong> &bull; Responsável:{' '}
@@ -145,6 +180,65 @@ export const MPCuttingPlanViewerModal: React.FC<MPCuttingPlanViewerModalProps> =
             </div>
 
             <div className="flex items-center gap-2 print:hidden">
+              {/* Botões de Transição Direta no Topo do Visualizador */}
+              {(currentStatusNorm === 'Rascunho' || currentStatusNorm === 'Em Revisão') &&
+                canApprove && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      setTargetStatusToChange('Aprovado')
+                      setIsTransitionOpen(true)
+                    }}
+                    className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold"
+                  >
+                    Aprovar Plano
+                  </Button>
+                )}
+
+              {currentStatusNorm === 'Aprovado' && canRelease && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setTargetStatusToChange('Liberado')
+                    setIsTransitionOpen(true)
+                  }}
+                  className="bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold"
+                >
+                  Liberar para Execução
+                </Button>
+              )}
+
+              {currentStatusNorm === 'Liberado' && canExecute && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setTargetStatusToChange('Executado')
+                    setIsTransitionOpen(true)
+                  }}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold"
+                >
+                  Marcar como Executado
+                </Button>
+              )}
+
+              {currentStatusNorm !== 'Cancelado' && canCancel && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setTargetStatusToChange('Cancelado')
+                    setIsTransitionOpen(true)
+                  }}
+                  className="text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50"
+                >
+                  Cancelar Plano
+                </Button>
+              )}
+
               <Button
                 type="button"
                 variant="outline"
@@ -556,6 +650,27 @@ export const MPCuttingPlanViewerModal: React.FC<MPCuttingPlanViewerModalProps> =
             )}
           </Tabs>
         </div>
+
+        {/* Modal de Transição de Status acionado no Visualizador */}
+        {isTransitionOpen && targetStatusToChange && (
+          <MPCuttingPlanStatusTransitionModal
+            isOpen={isTransitionOpen}
+            onClose={() => {
+              setIsTransitionOpen(false)
+              setTargetStatusToChange(null)
+            }}
+            plan={plan}
+            targetStatus={targetStatusToChange}
+            onSuccess={(updated) => {
+              if (onStatusUpdated) {
+                onStatusUpdated(updated)
+              }
+              if (onSelectVersion) {
+                onSelectVersion(updated)
+              }
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )

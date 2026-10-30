@@ -31,7 +31,11 @@ import { formatNumberPtBr } from '@/lib/number-format'
 import {
   mpMultipleCuttingPlansService,
   MPMultipleCuttingPlanRecord,
+  MPCuttingPlanStatus,
 } from '@/services/mp-dimensional-notes-service'
+import { useAuth } from '@/contexts/AuthContext'
+import { MPCuttingPlanStatusBadge, normalizeCuttingPlanStatus } from './MPCuttingPlanStatusBadge'
+import { MPCuttingPlanStatusTransitionModal } from './MPCuttingPlanStatusTransitionModal'
 import { MPCuttingPlanViewerModal } from './MPCuttingPlanViewerModal'
 
 interface MPCuttingPlansHistoryTabProps {
@@ -43,9 +47,48 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
 }) => {
   const [plans, setPlans] = useState<MPMultipleCuttingPlanRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const { user } = useAuth()
+  const userRole = (user?.role || 'PRODUCTION_VIEWER').toUpperCase()
+
   const [selectedPlanForModal, setSelectedPlanForModal] =
     useState<MPMultipleCuttingPlanRecord | null>(null)
   const [isViewerModalOpen, setIsViewerModalOpen] = useState(false)
+
+  // Modal de Transição de Status
+  const [transitionModalPlan, setTransitionModalPlan] =
+    useState<MPMultipleCuttingPlanRecord | null>(null)
+  const [transitionTargetStatus, setTransitionTargetStatus] = useState<MPCuttingPlanStatus | null>(
+    null,
+  )
+
+  // Permissões RBAC para ações de status:
+  const canApprove =
+    userRole === 'PCP_ADMIN' ||
+    userRole === 'ADMIN' ||
+    userRole === 'ADMINISTRADOR' ||
+    userRole === 'PCP_PROGRAMMER' ||
+    userRole === 'LINE_MANAGER' ||
+    userRole === 'SUPERVISOR'
+
+  const canRelease =
+    userRole === 'PCP_ADMIN' ||
+    userRole === 'ADMIN' ||
+    userRole === 'ADMINISTRADOR' ||
+    userRole === 'PCP_PROGRAMMER'
+
+  const canExecute =
+    userRole === 'PCP_ADMIN' ||
+    userRole === 'ADMIN' ||
+    userRole === 'ADMINISTRADOR' ||
+    userRole === 'PCP_PROGRAMMER' ||
+    userRole === 'LINE_MANAGER'
+
+  const canCancel =
+    userRole === 'PCP_ADMIN' ||
+    userRole === 'ADMIN' ||
+    userRole === 'ADMINISTRADOR' ||
+    userRole === 'PCP_PROGRAMMER' ||
+    userRole === 'LINE_MANAGER'
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState('')
@@ -104,8 +147,8 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
       if (centerFilter !== 'ALL' && p.center_code !== centerFilter) return false
       if (lineFilter !== 'ALL' && p.line_code !== lineFilter) return false
       if (statusFilter !== 'ALL') {
-        const normStatus = (p.status || 'RASCUNHO').toUpperCase()
-        if (normStatus !== statusFilter) return false
+        const planNorm = normalizeCuttingPlanStatus(p.status)
+        if (planNorm !== statusFilter) return false
       }
       if (typeFilter !== 'ALL') {
         const normType = (p.plan_type || 'multiplo').toLowerCase()
@@ -323,12 +366,12 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Todos os Status</SelectItem>
-                <SelectItem value="RASCUNHO">Rascunho</SelectItem>
-                <SelectItem value="EM_REVISAO">Em Revisão</SelectItem>
-                <SelectItem value="APROVADO">Aprovado</SelectItem>
-                <SelectItem value="LIBERADO">Liberado</SelectItem>
-                <SelectItem value="EXECUTADO">Executado</SelectItem>
-                <SelectItem value="CANCELADO">Cancelado</SelectItem>
+                <SelectItem value="Rascunho">Rascunho</SelectItem>
+                <SelectItem value="Em Revisão">Em Revisão</SelectItem>
+                <SelectItem value="Aprovado">Aprovado</SelectItem>
+                <SelectItem value="Liberado">Liberado</SelectItem>
+                <SelectItem value="Executado">Executado</SelectItem>
+                <SelectItem value="Cancelado">Cancelado</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -526,18 +569,7 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
                         </Badge>
                       </td>
                       <td className="p-3 whitespace-nowrap">
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] font-bold ${
-                            plan.status === 'APROVADO'
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                              : plan.status === 'EM_REVISAO'
-                                ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                : 'bg-slate-100 text-slate-700 border-slate-300'
-                          }`}
-                        >
-                          {plan.status || 'RASCUNHO'}
-                        </Badge>
+                        <MPCuttingPlanStatusBadge status={plan.status} />
                       </td>
                       <td className="p-3 whitespace-nowrap text-slate-600 text-[11px]">
                         {plan.responsible_user_name || plan.created_by_user_name || '-'}
@@ -555,6 +587,85 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
                             <Eye className="w-3.5 h-3.5" />
                             Visualizar
                           </Button>
+
+                          {/* Ações de Transição Rápida conforme o status e permissão */}
+                          {(() => {
+                            const normSt = normalizeCuttingPlanStatus(plan.status)
+
+                            if ((normSt === 'Rascunho' || normSt === 'Em Revisão') && canApprove) {
+                              return (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setTransitionModalPlan(plan)
+                                    setTransitionTargetStatus('Aprovado')
+                                  }}
+                                  className="h-7 px-2 text-[11px] font-bold text-[#004C97] border-blue-200 hover:bg-blue-50"
+                                  title="Aprovar Plano de Corte"
+                                >
+                                  Aprovar
+                                </Button>
+                              )
+                            }
+
+                            if (normSt === 'Aprovado' && canRelease) {
+                              return (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setTransitionModalPlan(plan)
+                                    setTransitionTargetStatus('Liberado')
+                                  }}
+                                  className="h-7 px-2 text-[11px] font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                                  title="Liberar para Execução"
+                                >
+                                  Liberar
+                                </Button>
+                              )
+                            }
+
+                            if (normSt === 'Liberado' && canExecute) {
+                              return (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setTransitionModalPlan(plan)
+                                    setTransitionTargetStatus('Executado')
+                                  }}
+                                  className="h-7 px-2 text-[11px] font-bold text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                                  title="Confirmar Execução Operacional"
+                                >
+                                  Executar
+                                </Button>
+                              )
+                            }
+
+                            return null
+                          })()}
+
+                          {/* Botão de Cancelar se ainda não cancelado e usuário com permissão */}
+                          {normalizeCuttingPlanStatus(plan.status) !== 'Cancelado' && canCancel && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setTransitionModalPlan(plan)
+                                setTransitionTargetStatus('Cancelado')
+                              }}
+                              className="h-7 px-1.5 text-xs text-rose-600 hover:bg-rose-50"
+                              title="Cancelar Plano (com justificativa)"
+                            >
+                              Cancelar
+                            </Button>
+                          )}
+
                           {onSelectPlanToEdit && (
                             <Button
                               type="button"
@@ -629,6 +740,26 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
         </div>
       </div>
 
+      {/* MODAL DE TRANSIÇÃO DE STATUS */}
+      {transitionModalPlan && transitionTargetStatus && (
+        <MPCuttingPlanStatusTransitionModal
+          isOpen={Boolean(transitionModalPlan && transitionTargetStatus)}
+          onClose={() => {
+            setTransitionModalPlan(null)
+            setTransitionTargetStatus(null)
+          }}
+          plan={transitionModalPlan}
+          targetStatus={transitionTargetStatus}
+          onSuccess={(updated) => {
+            // Atualiza imediatamente na lista local
+            setPlans((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)))
+            if (selectedPlanForModal?.id === updated.id) {
+              setSelectedPlanForModal((p) => (p ? { ...p, ...updated } : null))
+            }
+          }}
+        />
+      )}
+
       {/* POPUP AMPLO E RESPONSIVO DE VISUALIZAÇÃO COM VERSÕES E PDF */}
       {selectedPlanForModal && (
         <MPCuttingPlanViewerModal
@@ -636,6 +767,10 @@ export const MPCuttingPlansHistoryTab: React.FC<MPCuttingPlansHistoryTabProps> =
           onClose={() => setIsViewerModalOpen(false)}
           plan={selectedPlanForModal}
           onSelectVersion={(v) => setSelectedPlanForModal(v)}
+          onStatusUpdated={(updated) => {
+            setPlans((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)))
+            setSelectedPlanForModal(updated)
+          }}
         />
       )}
     </div>

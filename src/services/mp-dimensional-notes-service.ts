@@ -16,6 +16,34 @@ export interface MPDimensionalInventoryNote {
   updated?: string
 }
 
+export type MPCuttingPlanStatus =
+  | 'Rascunho'
+  | 'Em Revisão'
+  | 'Aprovado'
+  | 'Liberado'
+  | 'Executado'
+  | 'Cancelado'
+
+export const MP_CUTTING_PLAN_OFFICIAL_STATUSES: MPCuttingPlanStatus[] = [
+  'Rascunho',
+  'Em Revisão',
+  'Aprovado',
+  'Liberado',
+  'Executado',
+  'Cancelado',
+]
+
+export interface MPCuttingPlanStatusHistoryEntry {
+  from_status: MPCuttingPlanStatus | string
+  to_status: MPCuttingPlanStatus
+  timestamp: string
+  user_id?: string
+  user_name: string
+  user_role?: string
+  justification?: string
+  operational_confirmation?: boolean
+}
+
 export interface MPMultipleCuttingPlanRecord {
   id?: string
   plan_code: string
@@ -46,10 +74,14 @@ export interface MPMultipleCuttingPlanRecord {
   ai_technical_justification?: string
   allocated_applications_json?: any
   multiples_summary_json?: any
-  status?: string
+  status?: MPCuttingPlanStatus | string
+  status_justification?: string
+  status_updated_at?: string
+  status_updated_by?: string
+  status_history_json?: MPCuttingPlanStatusHistoryEntry[] | any
   created_by_user_name?: string
   version?: number
-  plan_type?: 'MULTIPLO' | 'BLOCOS' | string
+  plan_type?: 'MULTIPLO' | 'BLOCOS' | 'multiplo' | 'blocos' | string
   parent_plan_id?: string
   is_latest?: boolean
   version_notes?: string
@@ -217,6 +249,71 @@ export const mpMultipleCuttingPlansService = {
   },
 
   /**
+   * Executa a transição de status de forma segura chamando o endpoint do servidor
+   * /backend/v1/pcp/cutting-plans/transition-status que valida permissões RBAC,
+   * regras da máquina de estados, justificativa obrigatória e confirmação operacional.
+   */
+  async transitionStatus(params: {
+    planId: string
+    targetStatus: MPCuttingPlanStatus
+    justification?: string
+    operationalConfirmation?: boolean
+  }): Promise<{
+    success: boolean
+    plan?: MPMultipleCuttingPlanRecord
+    message?: string
+    error?: string
+  }> {
+    const { planId, targetStatus, justification, operationalConfirmation } = params
+
+    // Validação no cliente antes do envio
+    if (!planId) {
+      throw new Error('ID do plano é obrigatório para alteração de status.')
+    }
+
+    if (targetStatus === 'Cancelado' && (!justification || justification.trim().length < 5)) {
+      throw new Error(
+        'Justificativa obrigatória não informada. Para cancelar um plano de corte é obrigatório fornecer uma justificativa clara (mínimo de 5 caracteres).',
+      )
+    }
+
+    if (targetStatus === 'Executado' && !operationalConfirmation) {
+      throw new Error('Confirmação operacional obrigatória para marcar o plano como Executado.')
+    }
+
+    try {
+      const response = await pb.send<{
+        success: boolean
+        plan: MPMultipleCuttingPlanRecord
+        message: string
+        error?: string
+      }>('/backend/v1/pcp/cutting-plans/transition-status', {
+        method: 'POST',
+        body: {
+          plan_id: planId,
+          target_status: targetStatus,
+          justification: justification?.trim(),
+          operational_confirmation: operationalConfirmation,
+        },
+      })
+
+      if (response && response.success) {
+        return response
+      }
+
+      throw new Error(response?.error || 'Falha ao alterar status do plano no servidor.')
+    } catch (serverErr: any) {
+      // Se for erro retornado pelo PocketBase (ex: 403 / 400 com payload JSON)
+      const errorMsg =
+        serverErr?.data?.error ||
+        serverErr?.response?.error ||
+        serverErr?.message ||
+        'Erro ao processar transição de status no servidor.'
+      throw new Error(errorMsg)
+    }
+  },
+
+  /**
    * Atualiza um plano existente gerando uma nova versão imutável (version + 1).
    * Desativa a flag is_latest do anterior e grava log de auditoria no sistema central do PCP.
    */
@@ -313,7 +410,9 @@ export const mpMultipleCuttingPlansService = {
         responsible_user_name: authorName,
         created_by_user_name: existing.created_by_user_name || authorName,
         audit_history_json: updatedAudit,
-        status: existing.status === 'APROVADO' ? 'EM_REVISAO' : existing.status || 'RASCUNHO',
+        // Salvar/atualizar um plano NUNCA altera automaticamente o status para Executado nem qualquer outro:
+        // Mantém exatamente o status atual existente do plano
+        status: existing.status || 'Rascunho',
       }
 
       // Limpa chaves gerenciadas pelo sistema para não enviar ao create
@@ -465,7 +564,10 @@ export const mpMultipleCuttingPlansService = {
         responsible_user_name: authorName,
         created_by_user_name: authorName,
         audit_history_json: initialAudit,
-        status: planData.status || 'RASCUNHO',
+        // Plano novo inicia sempre com status oficial Rascunho
+        status: planData.status || 'Rascunho',
+        status_updated_at: nowIso,
+        status_updated_by: authorName,
       }
 
       delete (newRecordPayload as any).created
