@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Settings, ShieldCheck, Plus, Check, Trash2 } from 'lucide-react'
 import { MPSdcMinStockParameter } from '@/types/mp-optimization'
+import { formatTonsSdc } from '@/lib/number-format'
 
 interface SdcParametersModalProps {
   isOpen: boolean
@@ -210,10 +211,10 @@ export const SdcParametersModal: React.FC<SdcParametersModalProps> = ({
                   <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="p-3 font-bold text-slate-900">{p.steel_grade}</td>
                     <td className="p-3 text-right font-mono font-bold text-[#004C97]">
-                      {p.min_stock_tons.toFixed(1)} t
+                      {formatTonsSdc(p.min_stock_tons)}
                     </td>
                     <td className="p-3 text-right font-mono text-slate-600">
-                      {p.reorder_point_tons ? `${p.reorder_point_tons.toFixed(1)} t` : '-'}
+                      {p.reorder_point_tons ? formatTonsSdc(p.reorder_point_tons) : '-'}
                     </td>
                     <td className="p-3 text-slate-700">{p.responsible_name}</td>
                     <td className="p-3 text-slate-500 text-[11px] max-w-xs truncate">

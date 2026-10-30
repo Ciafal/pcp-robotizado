@@ -237,6 +237,8 @@ export const initialSdcMinStockParameters: MPSdcMinStockParameter[] = [
 export const initialSdcDailyConsumptions: MPSdcDailyConsumption[] = [
   {
     id: 'cns-1',
+    material_code: 'MP-AC-001',
+    material_description: 'Bobina de Aço Carbono Comercial AC 1.20mm',
     consumption_date: '2026-08-24',
     week_ref: 'W35',
     steel_grade: 'AC',
@@ -255,6 +257,8 @@ export const initialSdcDailyConsumptions: MPSdcDailyConsumption[] = [
   },
   {
     id: 'cns-2',
+    material_code: 'MP-CLD-005',
+    material_description: 'Tira Conformação Especial D 1.80mm',
     consumption_date: '2026-08-25',
     week_ref: 'W35',
     steel_grade: 'Classe D',
@@ -271,6 +275,8 @@ export const initialSdcDailyConsumptions: MPSdcDailyConsumption[] = [
   },
   {
     id: 'cns-3',
+    material_code: 'MP-CLA-002',
+    material_description: 'Bobina Estrutural Classe A 2.00mm',
     consumption_date: '2026-08-26',
     week_ref: 'W35',
     steel_grade: 'Classe A',
@@ -288,6 +294,8 @@ export const initialSdcDailyConsumptions: MPSdcDailyConsumption[] = [
   },
   {
     id: 'cns-4',
+    material_code: 'MP-1020-006',
+    material_description: 'Laminado Redondo SAE 1020 Nobre',
     consumption_date: '2026-08-27',
     week_ref: 'W35',
     steel_grade: '1020',
@@ -305,6 +313,8 @@ export const initialSdcDailyConsumptions: MPSdcDailyConsumption[] = [
   },
   {
     id: 'cns-5',
+    material_code: 'MP-FX-008',
+    material_description: 'Fita de Corte e Perfil Fino FX',
     consumption_date: '2026-08-28',
     week_ref: 'W35',
     steel_grade: 'FX',
@@ -319,6 +329,8 @@ export const initialSdcDailyConsumptions: MPSdcDailyConsumption[] = [
   },
   {
     id: 'cns-6',
+    material_code: 'MP-1045-007',
+    material_description: 'Barra Forjada SAE 1045 Tratado',
     consumption_date: '2026-08-29',
     week_ref: 'W35',
     steel_grade: '1045',
@@ -336,6 +348,8 @@ export const initialSdcDailyConsumptions: MPSdcDailyConsumption[] = [
 export const initialSdcL2PxR: MPSdcL2PlannedVsRealized[] = [
   {
     id: 'pxr-1',
+    material_code: 'MP-AC-001',
+    material_description: 'Bobina de Aço Carbono Comercial AC 1.20mm',
     period_ref: 'W35',
     steel_grade: 'AC',
     planned_l2_tons: 200.0,
@@ -354,6 +368,8 @@ export const initialSdcL2PxR: MPSdcL2PlannedVsRealized[] = [
   },
   {
     id: 'pxr-2',
+    material_code: 'MP-CLA-002',
+    material_description: 'Bobina Estrutural Classe A 2.00mm',
     period_ref: 'W35',
     steel_grade: 'Classe A',
     planned_l2_tons: 120.0,
@@ -371,6 +387,8 @@ export const initialSdcL2PxR: MPSdcL2PlannedVsRealized[] = [
   },
   {
     id: 'pxr-3',
+    material_code: 'MP-1020-006',
+    material_description: 'Laminado Redondo SAE 1020 Nobre',
     period_ref: 'W35',
     steel_grade: '1020',
     planned_l2_tons: 80.0,
@@ -388,6 +406,8 @@ export const initialSdcL2PxR: MPSdcL2PlannedVsRealized[] = [
   },
   {
     id: 'pxr-4',
+    material_code: 'MP-1045-007',
+    material_description: 'Barra Forjada SAE 1045 Tratado',
     period_ref: 'W35',
     steel_grade: '1045',
     planned_l2_tons: 50.0,
@@ -407,6 +427,9 @@ export const initialSdcL2PxR: MPSdcL2PlannedVsRealized[] = [
 
 export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
   {
+    id: 'mat-sdc-ac',
+    material_code: 'MP-AC-001',
+    material_description: 'Bobina de Aço Carbono Comercial AC 1.20mm',
     steel_grade: 'AC',
     steel_class: 'Comercial',
     pool_code: 'POOL_AC_B',
@@ -431,6 +454,9 @@ export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
     drilldown_batches_count: 14,
   },
   {
+    id: 'mat-sdc-cla',
+    material_code: 'MP-CLA-002',
+    material_description: 'Bobina Estrutural Classe A 2.00mm',
     steel_grade: 'Classe A',
     steel_class: 'Estrutural A',
     pool_code: 'POOL_A_C',
@@ -455,6 +481,9 @@ export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
     drilldown_batches_count: 8,
   },
   {
+    id: 'mat-sdc-clb',
+    material_code: 'MP-CLB-003',
+    material_description: 'Chapa Grossa Comercial B 3.15mm',
     steel_grade: 'Classe B',
     steel_class: 'Comercial B',
     pool_code: 'POOL_AC_B',
@@ -479,6 +508,9 @@ export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
     drilldown_batches_count: 6,
   },
   {
+    id: 'mat-sdc-clc',
+    material_code: 'MP-CLC-004',
+    material_description: 'Bobina Alta Resistência Classe C 2.50mm',
     steel_grade: 'Classe C',
     steel_class: 'Alta Resistência C',
     pool_code: 'POOL_A_C',
@@ -503,6 +535,9 @@ export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
     drilldown_batches_count: 4,
   },
   {
+    id: 'mat-sdc-cld',
+    material_code: 'MP-CLD-005',
+    material_description: 'Tira Conformação Especial D 1.80mm',
     steel_grade: 'Classe D',
     steel_class: 'Especial D',
     stock_sdc_ds03_tons: 40.0,
@@ -525,6 +560,9 @@ export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
     drilldown_batches_count: 3,
   },
   {
+    id: 'mat-sdc-1020',
+    material_code: 'MP-1020-006',
+    material_description: 'Laminado Redondo SAE 1020 Nobre',
     steel_grade: '1020',
     steel_class: 'SAE 1020 Nobre',
     pool_code: 'POOL_AC_1020',
@@ -549,6 +587,9 @@ export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
     drilldown_batches_count: 5,
   },
   {
+    id: 'mat-sdc-1045',
+    material_code: 'MP-1045-007',
+    material_description: 'Barra Forjada SAE 1045 Tratado',
     steel_grade: '1045',
     steel_class: 'SAE 1045 Tratado',
     stock_sdc_ds03_tons: 32.0,
@@ -571,6 +612,9 @@ export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
     drilldown_batches_count: 2,
   },
   {
+    id: 'mat-sdc-fx',
+    material_code: 'MP-FX-008',
+    material_description: 'Fita de Corte e Perfil Fino FX',
     steel_grade: 'FX',
     steel_class: 'Fita e Perfil Fino',
     stock_sdc_ds03_tons: 18.0,
@@ -593,6 +637,9 @@ export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
     drilldown_batches_count: 2,
   },
   {
+    id: 'mat-sdc-if',
+    material_code: 'MP-IF-009',
+    material_description: 'Chapa Estampagem Profunda Interstitial Free IF',
     steel_grade: 'IF',
     steel_class: 'Interstitial Free',
     pool_code: 'POOL_AC_IF_Z',
@@ -617,6 +664,9 @@ export const initialSdcSteelMatrixRows: MPSdcSteelMatrixRow[] = [
     drilldown_batches_count: 1,
   },
   {
+    id: 'mat-sdc-1522',
+    material_code: 'MP-1522-010',
+    material_description: 'Bobina Microligada Especial 1522',
     steel_grade: '1522',
     steel_class: 'Especial 1522',
     stock_sdc_ds03_tons: 14.0,

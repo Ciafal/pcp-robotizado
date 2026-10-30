@@ -23,6 +23,7 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { MPSdcSteelMatrixRow } from '@/types/mp-optimization'
+import { formatTonsSdc } from '@/lib/number-format'
 
 interface SdcSimulationModalProps {
   isOpen: boolean
@@ -64,7 +65,7 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
   const altSteelRelief = useAlternativeSteel ? 25 : 0 // 25t transferidas de pool alternativo
 
   const simBalance = Number(
-    (baseStock + simL2 + simReceipt - (simCons - altSteelRelief)).toFixed(2),
+    (baseStock + simL2 + simReceipt - (simCons - altSteelRelief)).toFixed(3),
   )
   const dailyRate = simCons > 0 ? simCons / 30 : 1
   const simCoverage = Math.max(
@@ -155,7 +156,7 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                   <Layers className="w-3.5 h-3.5 text-blue-600" /> Produção L2 (&plusmn; t)
                 </span>
                 <span className="text-[11px] font-mono font-bold text-[#004C97]">
-                  {l2ProductionDelta >= 0 ? `+${l2ProductionDelta}` : l2ProductionDelta} t
+                  {formatTonsSdc(l2ProductionDelta, { includeSign: true })}
                 </span>
               </div>
               <input
@@ -168,9 +169,9 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                 className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#004C97]"
               />
               <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                <span>-50 t</span>
-                <span>Base ({baseL2} t)</span>
-                <span>+100 t</span>
+                <span>-50,000 t</span>
+                <span>Base ({formatTonsSdc(baseL2)})</span>
+                <span>+100,000 t</span>
               </div>
             </div>
 
@@ -207,7 +208,7 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                   <TrendingDown className="w-3.5 h-3.5 text-rose-600" /> Consumo SDC (&plusmn; t)
                 </span>
                 <span className="text-[11px] font-mono font-bold text-rose-700">
-                  {sdcConsumptionDelta >= 0 ? `+${sdcConsumptionDelta}` : sdcConsumptionDelta} t
+                  {formatTonsSdc(sdcConsumptionDelta, { includeSign: true })}
                 </span>
               </div>
               <input
@@ -220,9 +221,9 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                 className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-rose-600"
               />
               <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                <span>-30 t</span>
-                <span>Base ({baseCons} t)</span>
-                <span>+60 t</span>
+                <span>-30,000 t</span>
+                <span>Base ({formatTonsSdc(baseCons)})</span>
+                <span>+60,000 t</span>
               </div>
             </div>
 
@@ -234,7 +235,7 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                   Transferência
                 </span>
                 <span className="text-[11px] font-mono font-bold text-emerald-700">
-                  +{extraReceiptTons} t
+                  {formatTonsSdc(extraReceiptTons, { includeSign: true })}
                 </span>
               </div>
               <input
@@ -247,9 +248,9 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                 className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
               />
               <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                <span>0 t</span>
-                <span>40 t</span>
-                <span>+80 t</span>
+                <span>0,000 t</span>
+                <span>40,000 t</span>
+                <span>+80,000 t</span>
               </div>
             </div>
 
@@ -258,7 +259,7 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-800">Estoque Mínimo Desejado</span>
                 <span className="text-[11px] font-mono font-bold text-slate-700">
-                  {minStockTons} t
+                  {formatTonsSdc(minStockTons)}
                 </span>
               </div>
               <Input
@@ -294,10 +295,7 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                 Comparativo de Impacto Operacional
               </span>
               <span className="text-[11px] text-slate-500 font-mono">
-                Delta:{' '}
-                {simBalance >= baseBalance
-                  ? `+${(simBalance - baseBalance).toFixed(1)} t`
-                  : `${(simBalance - baseBalance).toFixed(1)} t`}
+                Delta: {formatTonsSdc(simBalance - baseBalance, { includeSign: true })}
               </span>
             </div>
 
@@ -316,25 +314,25 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                   <div className="flex justify-between py-1 border-b border-slate-200">
                     <span className="text-slate-600">Estoque Inicial Total:</span>
                     <span className="font-mono font-bold text-slate-900">
-                      {baseStock.toFixed(1)} t
+                      {formatTonsSdc(baseStock)}
                     </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-200">
                     <span className="text-slate-600">Produção L2 Útil:</span>
                     <span className="font-mono text-blue-700 font-bold">
-                      +{baseL2.toFixed(1)} t
+                      {formatTonsSdc(baseL2, { includeSign: true })}
                     </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-200">
                     <span className="text-slate-600">Consumo Programado SDC:</span>
                     <span className="font-mono text-rose-700 font-bold">
-                      -{baseCons.toFixed(1)} t
+                      {formatTonsSdc(-baseCons)}
                     </span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-slate-300 bg-slate-100/70 px-2 rounded">
                     <span className="font-bold text-slate-800">Saldo Projetado:</span>
                     <span className="font-mono font-extrabold text-slate-900">
-                      {baseBalance.toFixed(1)} t
+                      {formatTonsSdc(baseBalance)}
                     </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-200">
@@ -364,17 +362,19 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                   <div className="flex justify-between py-1 border-b border-blue-100">
                     <span className="text-slate-600">Estoque Inicial + Entradas:</span>
                     <span className="font-mono font-bold text-slate-900">
-                      {(baseStock + simL2 + simReceipt).toFixed(1)} t
+                      {formatTonsSdc(baseStock + simL2 + simReceipt)}
                     </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-blue-100">
                     <span className="text-slate-600">Produção L2 Ajustada:</span>
-                    <span className="font-mono text-blue-700 font-bold">+{simL2.toFixed(1)} t</span>
+                    <span className="font-mono text-blue-700 font-bold">
+                      {formatTonsSdc(simL2, { includeSign: true })}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-blue-100">
                     <span className="text-slate-600">Consumo Efetivo (c/ Pool):</span>
                     <span className="font-mono text-rose-700 font-bold">
-                      -{(simCons - altSteelRelief).toFixed(1)} t
+                      {formatTonsSdc(-(simCons - altSteelRelief))}
                     </span>
                   </div>
                   <div
@@ -385,7 +385,7 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                     }`}
                   >
                     <span className="font-bold">Saldo Projetado Simulado:</span>
-                    <span className="font-mono font-extrabold">{simBalance.toFixed(1)} t</span>
+                    <span className="font-mono font-extrabold">{formatTonsSdc(simBalance)}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-blue-100">
                     <span className="text-slate-600">Cobertura Ajustada:</span>
@@ -398,7 +398,7 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
                         simNeed > 0 ? 'text-rose-700' : 'text-emerald-700'
                       }`}
                     >
-                      {simNeed > 0 ? `${simNeed.toFixed(1)} t adicionais` : 'Sem necessidade'}
+                      {simNeed > 0 ? formatTonsSdc(simNeed) : '0,000 t (Atendida)'}
                     </span>
                   </div>
                 </div>

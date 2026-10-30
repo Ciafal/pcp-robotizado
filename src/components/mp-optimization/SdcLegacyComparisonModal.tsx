@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { FileSpreadsheet, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { MPSdcProjectionEngine } from '@/services/mp-sdc-projection-engine'
+import { formatTonsSdc } from '@/lib/number-format'
 
 interface SdcLegacyComparisonModalProps {
   isOpen: boolean
@@ -83,12 +84,12 @@ export const SdcLegacyComparisonModal: React.FC<SdcLegacyComparisonModalProps> =
                     <td className="p-3 text-slate-600">{item.dimensionOrTopic}</td>
                     <td className="p-3 text-right font-mono text-slate-700">
                       {typeof item.excelLegacyValue === 'number'
-                        ? `${item.excelLegacyValue.toFixed(1)} t`
+                        ? formatTonsSdc(item.excelLegacyValue)
                         : item.excelLegacyValue}
                     </td>
                     <td className="p-3 text-right font-mono font-bold text-[#004C97]">
                       {typeof item.systemCalculatedValue === 'number'
-                        ? `${item.systemCalculatedValue.toFixed(1)} t`
+                        ? formatTonsSdc(item.systemCalculatedValue)
                         : item.systemCalculatedValue}
                     </td>
                     <td className="p-3 text-center font-mono text-emerald-700 font-bold">

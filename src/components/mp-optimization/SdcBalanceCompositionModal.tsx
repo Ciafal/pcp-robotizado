@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Layers, CheckCircle2, FileSpreadsheet } from 'lucide-react'
 import { MPSdcSteelMatrixRow } from '@/types/mp-optimization'
+import { formatTonsSdc } from '@/lib/number-format'
 
 interface SdcBalanceCompositionModalProps {
   isOpen: boolean
@@ -99,7 +100,7 @@ export const SdcBalanceCompositionModal: React.FC<SdcBalanceCompositionModalProp
               variant="outline"
               className="bg-blue-50 text-[#004C97] border-blue-300 text-xs font-bold font-mono"
             >
-              Total: {row.total_stock_tons.toFixed(2)} t
+              Total: {formatTonsSdc(row.total_stock_tons)}
             </Badge>
           </div>
         </DialogHeader>
@@ -120,7 +121,7 @@ export const SdcBalanceCompositionModal: React.FC<SdcBalanceCompositionModalProp
                 Saldo Projetado
               </span>
               <span className="text-sm font-bold text-[#004C97] font-mono">
-                {row.projected_balance_tons.toFixed(2)} t
+                {formatTonsSdc(row.projected_balance_tons)}
               </span>
             </div>
             <div>
@@ -128,7 +129,7 @@ export const SdcBalanceCompositionModal: React.FC<SdcBalanceCompositionModalProp
                 Estoque Mínimo
               </span>
               <span className="text-sm font-bold text-slate-700 font-mono">
-                {row.min_stock_tons.toFixed(2)} t
+                {formatTonsSdc(row.min_stock_tons)}
               </span>
             </div>
             <div>
@@ -170,7 +171,7 @@ export const SdcBalanceCompositionModal: React.FC<SdcBalanceCompositionModalProp
                       </Badge>
                     </td>
                     <td className="p-3 text-right font-mono font-bold text-[#004C97]">
-                      {it.tons > 0 ? `${it.tons.toFixed(2)} t` : '-'}
+                      {it.tons > 0 ? formatTonsSdc(it.tons) : '-'}
                     </td>
                     <td className="p-3 text-slate-700">
                       <span className="flex items-center gap-1">

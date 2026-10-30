@@ -115,3 +115,48 @@ export function calculatePiecesFromTons(
   const rounded = Math.round(raw * 1000000) / 1000000
   return Math.ceil(rounded)
 }
+
+/**
+ * PADRÃO OFICIAL CENTRALIZADO PARA TONELADAS NA TELA SIDERCENTRO E PCP:
+ * - Unidade estrita: "t" (espaço entre número e unidade)
+ * - 3 casas decimais obrigatórias
+ * - Separador de milhar: "."
+ * - Separador decimal: ","
+ * - Opção de sinal explícito (+ / -) quando solicitado
+ * Ex:
+ * 881.5 -> "881,500 t"
+ * 1010 -> "+1.010,000 t" (com includeSign=true)
+ * -782 -> "-782,000 t"
+ */
+export function formatTonsSdc(
+  val: number | string | null | undefined,
+  options?: {
+    includeSign?: boolean
+    fallback?: string
+  },
+): string {
+  const fallback = options?.fallback ?? '0,000 t'
+  if (val === null || val === undefined || val === '') return fallback
+
+  const num = typeof val === 'number' ? val : parsePtBrNumber(val)
+  if (isNaN(num)) return fallback
+
+  const isNegative = num < 0
+  const isPositive = num > 0
+  const absNum = Math.abs(num)
+
+  // Formatação pt-BR com exatamente 3 casas decimais
+  const formattedAbs = absNum.toLocaleString('pt-BR', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  })
+
+  let prefix = ''
+  if (isNegative) {
+    prefix = '-'
+  } else if (isPositive && options?.includeSign) {
+    prefix = '+'
+  }
+
+  return `${prefix}${formattedAbs} t`
+}

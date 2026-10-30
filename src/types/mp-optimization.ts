@@ -1190,6 +1190,8 @@ export interface MPSdcMinStockParameter {
 
 export interface MPSdcDailyConsumption {
   id: string
+  material_code?: string
+  material_description?: string
   consumption_date: string
   week_ref: string // 'W34'
   steel_grade: string
@@ -1212,7 +1214,9 @@ export interface MPSdcDailyConsumption {
 
 export interface MPSdcL2PlannedVsRealized {
   id: string
-  period_ref: string // 'W34', '2026-08'
+  material_code?: string
+  material_description?: string
+  period_ref: string
   steel_grade: string
   steel_class?: string
   planned_l2_tons: number
@@ -1232,6 +1236,9 @@ export interface MPSdcL2PlannedVsRealized {
 }
 
 export interface MPSdcSteelMatrixRow {
+  id?: string
+  material_code?: string
+  material_description?: string
   steel_grade: string // 'AC', 'Classe A', 'Classe B', 'Classe C', 'Classe D', 'Classe Z', 'FX', '1522', '1524', '1020', '1045', 'IF', 'Total'
   steel_class: string
   pool_code?: string

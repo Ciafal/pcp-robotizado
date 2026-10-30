@@ -51,6 +51,17 @@ import {
   LowStockAlertPanel,
   LowStockAlertItem,
 } from '@/components/mp-optimization/LowStockAlertPanel'
+import {
+  SdcFilterBar,
+  SdcFilterState,
+  initialSdcFilters,
+  parseDatePtBr,
+} from '@/components/mp-optimization/SdcFilterBar'
+import { SdcSendEmailModal } from '@/components/mp-optimization/SdcSendEmailModal'
+import { SdcHubNotificationModal } from '@/components/mp-optimization/SdcHubNotificationModal'
+import { formatTonsSdc } from '@/lib/number-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Mail, Bell } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 export const MPSidercentroSubpage: React.FC = () => {
@@ -81,50 +92,162 @@ export const MPSidercentroSubpage: React.FC = () => {
   const [isLegacyModalOpen, setIsLegacyModalOpen] = useState(false)
   const [explainPayload, setExplainPayload] = useState<any>(null)
 
+  // Novos Filtros Combináveis e Seleção
+  const [activeFilters, setActiveFilters] = useState<SdcFilterState>(initialSdcFilters)
+  const [selectedRecordKeys, setSelectedRecordKeys] = useState<string[]>([])
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
+  const [isHubNotifModalOpen, setIsHubNotifModalOpen] = useState(false)
+  const [hasLoadError, setHasLoadError] = useState(false)
+
   // Carregar Dados
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true)
-      try {
-        const [s, p, m, c, l, mx] = await Promise.all([
-          mpSdcService.getStockSources(),
-          mpSdcService.getPools(),
-          mpSdcService.getMinStockParameters(),
-          mpSdcService.getDailyConsumptions(),
-          mpSdcService.getL2PlannedVsRealized(),
-          mpSdcService.getSteelMatrixRows(),
-        ])
-        setSources(s)
-        setPools(p)
-        setMinParameters(m)
-        setDailyConsumptions(c)
-        setL2PxR(l)
-        setMatrixRows(mx)
-      } catch (err) {
-        console.warn('Erro ao carregar dados SDC:', err)
-      } finally {
-        setIsLoading(false)
-      }
+  const loadData = async () => {
+    setIsLoading(true)
+    setHasLoadError(false)
+    try {
+      const [s, p, m, c, l, mx] = await Promise.all([
+        mpSdcService.getStockSources(),
+        mpSdcService.getPools(),
+        mpSdcService.getMinStockParameters(),
+        mpSdcService.getDailyConsumptions(),
+        mpSdcService.getL2PlannedVsRealized(),
+        mpSdcService.getSteelMatrixRows(),
+      ])
+      setSources(s)
+      setPools(p)
+      setMinParameters(m)
+      setDailyConsumptions(c)
+      setL2PxR(l)
+      setMatrixRows(mx)
+    } catch (err) {
+      console.warn('Erro ao carregar dados SDC:', err)
+      setHasLoadError(true)
+    } finally {
+      setIsLoading(false)
     }
+  }
+
+  useEffect(() => {
     loadData()
   }, [])
 
-  // KPIs do Cockpit
+  // Aços e Materiais disponíveis derivados diretamente dos dados carregados
+  const availableSteels = useMemo(() => {
+    const setSt = new Set<string>()
+    matrixRows.forEach((r) => {
+      if (r.steel_grade) setSt.add(r.steel_grade)
+    })
+    dailyConsumptions.forEach((c) => {
+      if (c.steel_grade) setSt.add(c.steel_grade)
+    })
+    l2PxR.forEach((p) => {
+      if (p.steel_grade) setSt.add(p.steel_grade)
+    })
+    return Array.from(setSt).sort()
+  }, [matrixRows, dailyConsumptions, l2PxR])
+
+  const availableMaterials = useMemo(() => {
+    const map = new Map<string, string>()
+    matrixRows.forEach((r) => {
+      if (r.material_code) {
+        map.set(r.material_code, r.material_description || r.steel_class || r.steel_grade)
+      }
+    })
+    dailyConsumptions.forEach((c) => {
+      if (c.material_code) {
+        map.set(c.material_code, c.material_description || c.steel_grade)
+      }
+    })
+    l2PxR.forEach((p) => {
+      if (p.material_code) {
+        map.set(p.material_code, p.material_description || p.steel_grade)
+      }
+    })
+    return Array.from(map.entries()).map(([code, description]) => ({ code, description }))
+  }, [matrixRows, dailyConsumptions, l2PxR])
+
+  // Helper de filtragem por período de datas (dd/mm/aaaa)
+  const isDateInFilter = (dateStr?: string | null): boolean => {
+    if (!activeFilters.startDate && !activeFilters.endDate) return true
+    if (!dateStr) return true
+    const start = parseDatePtBr(activeFilters.startDate)
+    const end = parseDatePtBr(activeFilters.endDate)
+    let itemDate: Date | null = null
+
+    // Aceita tanto YYYY-MM-DD quanto DD/MM/AAAA
+    if (dateStr.includes('-')) {
+      const parts = dateStr.split('-')
+      if (parts.length === 3) {
+        itemDate = new Date(
+          parseInt(parts[0], 10),
+          parseInt(parts[1], 10) - 1,
+          parseInt(parts[2], 10),
+          12,
+          0,
+          0,
+        )
+      }
+    } else if (dateStr.includes('/')) {
+      itemDate = parseDatePtBr(dateStr)
+    }
+
+    if (!itemDate || isNaN(itemDate.getTime())) return true
+    if (start && itemDate < start) return false
+    if (end && itemDate > end) return false
+    return true
+  }
+
+  // EFETIVA FILTRAGEM DOS DADOS: Matriz de Estoque, Consumos Diários e PxR L2
+  const filteredMatrixByAll = useMemo(() => {
+    return matrixRows.filter((r) => {
+      // Filtro Aço
+      if (activeFilters.steel && r.steel_grade !== activeFilters.steel) {
+        return false
+      }
+      // Filtro Material
+      if (activeFilters.material && r.material_code !== activeFilters.material) {
+        return false
+      }
+      // Filtro Data (se houver data de cobertura ou horizonte)
+      if (r.chronological_coverage_date && !isDateInFilter(r.chronological_coverage_date)) {
+        return false
+      }
+      return true
+    })
+  }, [matrixRows, activeFilters])
+
+  const filteredDailyConsumptions = useMemo(() => {
+    return dailyConsumptions.filter((c) => {
+      if (activeFilters.steel && c.steel_grade !== activeFilters.steel) return false
+      if (activeFilters.material && c.material_code !== activeFilters.material) return false
+      if (c.consumption_date && !isDateInFilter(c.consumption_date)) return false
+      return true
+    })
+  }, [dailyConsumptions, activeFilters])
+
+  const filteredL2PxR = useMemo(() => {
+    return l2PxR.filter((p) => {
+      if (activeFilters.steel && p.steel_grade !== activeFilters.steel) return false
+      if (activeFilters.material && p.material_code !== activeFilters.material) return false
+      return true
+    })
+  }, [l2PxR, activeFilters])
+
+  // KPIs do Cockpit ATUALIZADOS com base nos dados efetivamente filtrados
   const cockpitKpis: MPSdcCockpitKpis = useMemo(() => {
-    return mpSdcService.calculateCockpitKpis(matrixRows, l2PxR)
-  }, [matrixRows, l2PxR])
+    return mpSdcService.calculateCockpitKpis(filteredMatrixByAll, filteredL2PxR)
+  }, [filteredMatrixByAll, filteredL2PxR])
 
-  // Alertas de Ruptura
+  // Alertas de Ruptura ATUALIZADOS com base nos dados filtrados
   const ruptureAlerts: MPSdcRuptureAlert[] = useMemo(() => {
-    return mpSdcService.generateRuptureAlerts(matrixRows)
-  }, [matrixRows])
+    return mpSdcService.generateRuptureAlerts(filteredMatrixByAll)
+  }, [filteredMatrixByAll])
 
-  // Itens de Alerta de Estoque Baixo & Atenção derivados da Matriz SDC
+  // Itens de Alerta de Estoque Baixo & Atenção derivados da Matriz Filtrada
   const lowStockAlertItems: LowStockAlertItem[] = useMemo(() => {
-    return matrixRows.map((r) => ({
+    return filteredMatrixByAll.map((r) => ({
       id: `sdc-alert-${r.steel_grade}`,
       code: r.steel_grade,
-      description: `${r.steel_class} • Saldo: ${r.projected_balance_tons.toFixed(1)} t`,
+      description: `${r.steel_class} • Saldo: ${formatTonsSdc(r.projected_balance_tons)}`,
       currentStockTons: r.projected_balance_tons,
       minStockTons: r.min_stock_tons,
       plantCenter: 'SDC1',
@@ -135,22 +258,57 @@ export const MPSidercentroSubpage: React.FC = () => {
       poolCode: r.pool_code,
       rawRowData: r,
     }))
-  }, [matrixRows])
+  }, [filteredMatrixByAll])
 
-  // Linhas Filtradas da Matriz
+  // Linhas Filtradas da Matriz (combinando filtros superiores + busca local da tabela + pool)
   const filteredMatrixRows = useMemo(() => {
-    return matrixRows.filter((r) => {
+    return filteredMatrixByAll.filter((r) => {
       const matchText =
         !filterText ||
         r.steel_grade.toLowerCase().includes(filterText.toLowerCase()) ||
-        r.steel_class.toLowerCase().includes(filterText.toLowerCase())
+        r.steel_class.toLowerCase().includes(filterText.toLowerCase()) ||
+        (r.material_code && r.material_code.toLowerCase().includes(filterText.toLowerCase())) ||
+        (r.material_description &&
+          r.material_description.toLowerCase().includes(filterText.toLowerCase()))
       const matchPool =
         selectedPoolFilter === 'TODOS' ||
         (r.pool_code && r.pool_code === selectedPoolFilter) ||
         (!r.pool_code && selectedPoolFilter === 'SEM_POOL')
       return matchText && matchPool
     })
-  }, [matrixRows, filterText, selectedPoolFilter])
+  }, [filteredMatrixByAll, filterText, selectedPoolFilter])
+
+  // GESTÃO DE SELEÇÃO: Individual, Múltipla e "Selecionar Todos os Registros Visíveis"
+  // A seleção considera somente os registros resultantes dos filtros ativos.
+  const visibleRowKeys = useMemo(() => {
+    return filteredMatrixRows.map((r) => r.id || r.steel_grade)
+  }, [filteredMatrixRows])
+
+  // Ao alterar filtros, limpar seleção que não pertença mais aos visíveis
+  useEffect(() => {
+    setSelectedRecordKeys((prev) => prev.filter((k) => visibleRowKeys.includes(k)))
+  }, [visibleRowKeys])
+
+  const isAllVisibleSelected =
+    visibleRowKeys.length > 0 && visibleRowKeys.every((k) => selectedRecordKeys.includes(k))
+
+  const handleToggleSelectAll = () => {
+    if (isAllVisibleSelected) {
+      setSelectedRecordKeys([])
+    } else {
+      setSelectedRecordKeys([...visibleRowKeys])
+    }
+  }
+
+  const handleToggleSelectRow = (rowKey: string) => {
+    setSelectedRecordKeys((prev) =>
+      prev.includes(rowKey) ? prev.filter((k) => k !== rowKey) : [...prev, rowKey],
+    )
+  }
+
+  const selectedRowsObjects = useMemo(() => {
+    return filteredMatrixRows.filter((r) => selectedRecordKeys.includes(r.id || r.steel_grade))
+  }, [filteredMatrixRows, selectedRecordKeys])
 
   // Salvar Parâmetro Mínimo
   const handleSaveMinParam = async (param: Partial<MPSdcMinStockParameter>) => {
@@ -280,133 +438,168 @@ export const MPSidercentroSubpage: React.FC = () => {
           </div>
         </div>
 
-        {/* COCKPIT DE CARDS EXECUTIVOS */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {/* Card 1: Estoque SDC */}
-          <Card className="bg-white border-slate-200 shadow-xs">
-            <CardContent className="p-3.5 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase text-slate-500">
-                  Estoque SDC (DS03)
-                </span>
-                <Boxes className="w-3.5 h-3.5 text-[#004C97]" />
-              </div>
-              <div className="text-lg font-black text-slate-900 font-mono">
-                {cockpitKpis.stock_sdc_tons.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} t
-              </div>
-              <span className="text-[10px] text-slate-500 block">
-                Material físico exclusivo SDC
-              </span>
-            </CardContent>
-          </Card>
+        {/* 1. NOVA ÁREA DE FILTROS RESPONSIVA NO TOPO DA ANÁLISE */}
+        <SdcFilterBar
+          availableSteels={availableSteels}
+          availableMaterials={availableMaterials}
+          activeFilters={activeFilters}
+          onApplyFilters={(f) => setActiveFilters(f)}
+          onClearFilters={() => setActiveFilters(initialSdcFilters)}
+          totalCount={matrixRows.length}
+          filteredCount={filteredMatrixRows.length}
+        />
 
-          {/* Card 2: CIAFAL Elegível */}
-          <Card className="bg-white border-slate-200 shadow-xs">
-            <CardContent className="p-3.5 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase text-slate-500">
-                  CIAFAL Elegível (DP04)
-                </span>
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-              </div>
-              <div className="text-lg font-black text-blue-700 font-mono">
-                +
-                {cockpitKpis.stock_ciafal_eligible_tons.toLocaleString('pt-BR', {
-                  minimumFractionDigits: 1,
-                })}{' '}
-                t
-              </div>
-              <span className="text-[10px] text-slate-500 block">Autorizado por regra técnica</span>
-            </CardContent>
-          </Card>
+        {/* ESTADO DE ERRO COM BOTÃO TENTAR NOVAMENTE */}
+        {hasLoadError && (
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-xs text-rose-800">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>Ocorreu um erro ao carregar os dados de Sidercentro. Tente novamente.</span>
+            </div>
+            <Button
+              size="sm"
+              onClick={loadData}
+              className="h-7 text-xs bg-rose-700 hover:bg-rose-800 text-white font-bold"
+            >
+              <RefreshCw className="w-3 h-3 mr-1" /> Tentar novamente
+            </Button>
+          </div>
+        )}
 
-          {/* Card 3: Sucata + KS */}
-          <Card className="bg-white border-slate-200 shadow-xs">
-            <CardContent className="p-3.5 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase text-slate-500">
-                  KS + Sucata Utilizável
-                </span>
-                <Layers className="w-3.5 h-3.5 text-emerald-600" />
-              </div>
-              <div className="text-lg font-black text-emerald-700 font-mono">
-                +
-                {(cockpitKpis.stock_ks_eligible_tons + cockpitKpis.stock_usable_scrap_tons).toFixed(
-                  1,
-                )}{' '}
-                t
-              </div>
-              <span className="text-[10px] text-slate-500 block">
-                Reclassificado p/ aproveitamento
-              </span>
-            </CardContent>
-          </Card>
+        {/* ESTADO DE CARREGANDO (SKELETON SEM ALTERAR O LAYOUT) */}
+        {isLoading && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Card key={i} className="bg-white border-slate-200 shadow-xs">
+                <CardContent className="p-3.5 space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-6 w-28" />
+                  <Skeleton className="h-2 w-32" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
-          {/* Card 4: Produção L2 */}
-          <Card className="bg-white border-slate-200 shadow-xs">
-            <CardContent className="p-3.5 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase text-slate-500">
-                  Produção Prevista L2
+        {/* COCKPIT DE CARDS EXECUTIVOS (VALORES PADRONIZADOS EM TONELADAS "t" 3 CASAS) */}
+        {!isLoading && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Card 1: Estoque SDC */}
+            <Card className="bg-white border-slate-200 shadow-xs">
+              <CardContent className="p-3.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    Estoque SDC (DS03)
+                  </span>
+                  <Boxes className="w-3.5 h-3.5 text-[#004C97]" />
+                </div>
+                <div className="text-lg font-black text-slate-900 font-mono">
+                  {formatTonsSdc(cockpitKpis.stock_sdc_tons)}
+                </div>
+                <span className="text-[10px] text-slate-500 block">
+                  Material físico exclusivo SDC
                 </span>
-                <TrendingUp className="w-3.5 h-3.5 text-[#004C97]" />
-              </div>
-              <div className="text-lg font-black text-[#004C97] font-mono">
-                +
-                {cockpitKpis.projected_l2_prod_tons.toLocaleString('pt-BR', {
-                  minimumFractionDigits: 1,
-                })}{' '}
-                t
-              </div>
-              <span className="text-[10px] text-slate-500 block">Alimentação útil programada</span>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Card 5: Consumo Programado SDC */}
-          <Card className="bg-white border-slate-200 shadow-xs">
-            <CardContent className="p-3.5 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase text-slate-500">
-                  Consumo Programado SDC
+            {/* Card 2: CIAFAL Elegível */}
+            <Card className="bg-white border-slate-200 shadow-xs">
+              <CardContent className="p-3.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    CIAFAL Elegível (DP04)
+                  </span>
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+                <div className="text-lg font-black text-blue-700 font-mono">
+                  {formatTonsSdc(cockpitKpis.stock_ciafal_eligible_tons, { includeSign: true })}
+                </div>
+                <span className="text-[10px] text-slate-500 block">
+                  Autorizado por regra técnica
                 </span>
-                <TrendingDown className="w-3.5 h-3.5 text-rose-600" />
-              </div>
-              <div className="text-lg font-black text-rose-700 font-mono">
-                -
-                {cockpitKpis.programmed_sdc_consumption_tons.toLocaleString('pt-BR', {
-                  minimumFractionDigits: 1,
-                })}{' '}
-                t
-              </div>
-              <span className="text-[10px] text-slate-500 block">
-                Ordens oficiais de corte e dobra
-              </span>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Card 6: Saldo Projetado & Cobertura */}
-          <Card className="bg-blue-50/40 border-blue-200 shadow-xs">
-            <CardContent className="p-3.5 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase text-[#004C97]">
-                  Saldo Projetado
+            {/* Card 3: Sucata + KS */}
+            <Card className="bg-white border-slate-200 shadow-xs">
+              <CardContent className="p-3.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    KS + Sucata Utilizável
+                  </span>
+                  <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                </div>
+                <div className="text-lg font-black text-emerald-700 font-mono">
+                  {formatTonsSdc(
+                    cockpitKpis.stock_ks_eligible_tons + cockpitKpis.stock_usable_scrap_tons,
+                    {
+                      includeSign: true,
+                    },
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-500 block">
+                  Reclassificado p/ aproveitamento
                 </span>
-                <Badge className="bg-[#004C97] text-white text-[9px] px-1 py-0 font-bold">
-                  {cockpitKpis.avg_coverage_days}d
-                </Badge>
-              </div>
-              <div className="text-lg font-black text-slate-900 font-mono">
-                {cockpitKpis.projected_balance_tons.toLocaleString('pt-BR', {
-                  minimumFractionDigits: 1,
-                })}{' '}
-                t
-              </div>
-              <span className="text-[10px] text-slate-600 block">
-                {cockpitKpis.steels_below_min_count} aços abaixo do mínimo
-              </span>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+
+            {/* Card 4: Produção L2 */}
+            <Card className="bg-white border-slate-200 shadow-xs">
+              <CardContent className="p-3.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    Produção Prevista L2
+                  </span>
+                  <TrendingUp className="w-3.5 h-3.5 text-[#004C97]" />
+                </div>
+                <div className="text-lg font-black text-[#004C97] font-mono">
+                  {formatTonsSdc(cockpitKpis.projected_l2_prod_tons, { includeSign: true })}
+                </div>
+                <span className="text-[10px] text-slate-500 block">
+                  Alimentação útil programada
+                </span>
+              </CardContent>
+            </Card>
+
+            {/* Card 5: Consumo Programado SDC */}
+            <Card className="bg-white border-slate-200 shadow-xs">
+              <CardContent className="p-3.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    Consumo Programado SDC
+                  </span>
+                  <TrendingDown className="w-3.5 h-3.5 text-rose-600" />
+                </div>
+                <div className="text-lg font-black text-rose-700 font-mono">
+                  {formatTonsSdc(-cockpitKpis.programmed_sdc_consumption_tons)}
+                </div>
+                <span className="text-[10px] text-slate-500 block">
+                  Ordens oficiais de corte e dobra
+                </span>
+              </CardContent>
+            </Card>
+
+            {/* Card 6: Saldo Projetado & Cobertura */}
+            <Card className="bg-blue-50/40 border-blue-200 shadow-xs">
+              <CardContent className="p-3.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase text-[#004C97]">
+                    Saldo Projetado
+                  </span>
+                  <Badge className="bg-[#004C97] text-white text-[9px] px-1 py-0 font-bold">
+                    {cockpitKpis.avg_coverage_days}d
+                  </Badge>
+                </div>
+                <div className="text-lg font-black text-slate-900 font-mono">
+                  {formatTonsSdc(cockpitKpis.projected_balance_tons)}
+                </div>
+                <span className="text-[10px] text-slate-600 block">
+                  {cockpitKpis.steels_below_min_count} aços abaixo do mínimo
+                </span>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* ALERTAS DE RUPTURA PROJETADA (AUTOMÁTICOS) */}
         {ruptureAlerts.length > 0 && (
