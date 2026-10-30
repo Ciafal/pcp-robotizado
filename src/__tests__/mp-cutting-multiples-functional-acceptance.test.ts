@@ -52,15 +52,33 @@ describe('Aceitação Funcional Obrigatória — Plano de Corte Múltiplo (Teste
   // TESTE A — GERAR CENÁRIOS
   describe('Teste A — Gerar Cenários e Matriz de Múltiplos', () => {
     it('deve gerar 6 cenários comparativos reais com balanços dimensionais e de massa respeitados', () => {
-      const scenarios = generate6UnifiedComparativeScenarios({
-        block: sampleBlock,
-        demands: sampleDemands,
-        sawKerfMm: 5,
-        squaringLossMm: 10,
-        endCropLossMm: 15,
-        marginMm: 0,
-        linearMassKgM: 13.2,
+      const cutDemands = sampleDemands.map((d) => ({
+        id: d.demandId,
+        label: d.description,
+        lengthMm: d.lengthMm,
+        requestedQty: d.desiredQuantity,
+        priority: d.priority,
+      }))
+
+      const result = generate6UnifiedComparativeScenarios({
+        planType: 'MULTIPLO',
+        companyCode: 'CIAFAL',
+        centerCode: 'MULTIPLOKS',
+        materialCode: '10000452',
+        steelGrade: sampleBlock.steelGrade,
+        calculationMode: 'INDIVIDUALIZADO',
+        blocks: [sampleBlock],
+        demands: cutDemands,
+        parameters: {
+          sawKerfMm: 5,
+          squaringLossMm: 10,
+          endCropLossMm: 15,
+          marginMm: 0,
+          linearMassKgM: 13.2,
+        },
       })
+
+      const scenarios = result.scenarios
 
       // 1. Gera 6 cenários comparativos
       expect(scenarios).toHaveLength(6)
@@ -99,15 +117,33 @@ describe('Aceitação Funcional Obrigatória — Plano de Corte Múltiplo (Teste
     })
 
     it('deve permitir selecionar um cenário viável e manter persistência da seleção', () => {
-      const scenarios = generate6UnifiedComparativeScenarios({
-        block: sampleBlock,
-        demands: sampleDemands,
-        sawKerfMm: 5,
-        squaringLossMm: 10,
-        endCropLossMm: 15,
-        marginMm: 0,
-        linearMassKgM: 13.2,
+      const cutDemands = sampleDemands.map((d) => ({
+        id: d.demandId,
+        label: d.description,
+        lengthMm: d.lengthMm,
+        requestedQty: d.desiredQuantity,
+        priority: d.priority,
+      }))
+
+      const result = generate6UnifiedComparativeScenarios({
+        planType: 'MULTIPLO',
+        companyCode: 'CIAFAL',
+        centerCode: 'MULTIPLOKS',
+        materialCode: '10000452',
+        steelGrade: sampleBlock.steelGrade,
+        calculationMode: 'INDIVIDUALIZADO',
+        blocks: [sampleBlock],
+        demands: cutDemands,
+        parameters: {
+          sawKerfMm: 5,
+          squaringLossMm: 10,
+          endCropLossMm: 15,
+          marginMm: 0,
+          linearMassKgM: 13.2,
+        },
       })
+
+      const scenarios = result.scenarios
 
       const viableScenario = scenarios.find((s) => s.viabilityStatus === 'VIÁVEL')
       expect(viableScenario).toBeDefined()

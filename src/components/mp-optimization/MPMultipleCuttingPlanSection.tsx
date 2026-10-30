@@ -17,6 +17,7 @@ import {
   ExternalLink,
   FileCheck2,
   Eye,
+  Building2,
 } from 'lucide-react'
 import {
   Dialog,
@@ -128,6 +129,7 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
   // Estados dos 6 Cenários Comparativos e Matriz de Múltiplos
   const [isGeneratingScenarios, setIsGeneratingScenarios] = useState(false)
   const [scenariosList, setScenariosList] = useState<UnifiedScenarioResult[]>([])
+  const [scenariosGridList, setScenariosGridList] = useState<any[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>(() => {
     try {
       return localStorage.getItem('mp_multiple_selected_scenario_id') || 'SCEN-01'
@@ -135,8 +137,7 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
       return 'SCEN-01'
     }
   })
-  const [detailScenarioModalData, setDetailScenarioModalData] =
-    useState<UnifiedScenarioResult | null>(null)
+  const [detailScenarioModalData, setDetailScenarioModalData] = useState<any | null>(null)
   const [isProgrammingModalOpen, setIsProgrammingModalOpen] = useState(false)
 
   // Modal de Confirmação Rico pós-salvamento
@@ -326,6 +327,7 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
 
       const scenarios = optResultUnified.scenarios || []
       setScenariosList(scenarios)
+      setScenariosGridList(optResultUnified.comparativeScenariosGrid || [])
 
       // Identifica o melhor cenário recomendado pelo motor
       const recommended = scenarios.find((s) => s.isRecommended) || scenarios[0]
@@ -930,7 +932,12 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setDetailScenarioModalData(bestRecommendedScenario)}
+                    onClick={() => {
+                      const gridItem = scenariosGridList.find(
+                        (g) => g.id === bestRecommendedScenario.id,
+                      )
+                      setDetailScenarioModalData(gridItem || bestRecommendedScenario)
+                    }}
                     className="h-8 text-xs font-bold text-white border-white/30 bg-white/10 hover:bg-white/20 gap-1.5"
                   >
                     <Eye className="w-3.5 h-3.5" />
@@ -1140,7 +1147,8 @@ export const MPMultipleCuttingPlanSection: React.FC<MPMultipleCuttingPlanSection
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
-                          setDetailScenarioModalData(scen)
+                          const gridItem = scenariosGridList.find((g) => g.id === scen.id)
+                          setDetailScenarioModalData(gridItem || scen)
                         }}
                         className="h-7 text-[11px] text-[#004C97] hover:bg-blue-50 font-semibold px-2"
                       >

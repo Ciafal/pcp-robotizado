@@ -45,7 +45,7 @@ export interface CutPieceDemand {
 }
 
 export interface BlockDimensionalEntity {
-  id: string
+  id?: string
   blockNumber: string
   heatNumber?: string
   batchNumber?: string
@@ -53,9 +53,20 @@ export interface BlockDimensionalEntity {
   widthMm: number
   lengthMm: number
   weightKg: number
-  linearMassKgM: number
+  linearMassKgM?: number
+  marginMm?: number
+  steelGrade?: string
   origin?: 'SAP' | 'HOMOLOGACAO'
   status?: string
+}
+
+export interface DemandPieceEntity {
+  demandId: string
+  description?: string
+  lengthMm: number
+  desiredQuantity: number
+  priority?: number
+  idealWeightKg?: number
 }
 
 export interface LeftoverClassificationResult {
@@ -91,6 +102,7 @@ export interface UnifiedOptimizationInput {
 export interface UnifiedScenarioResult {
   id: string
   scenarioIndex: number // 1 a 6
+  scenarioNumber?: number
   name: string
   classification: string
   isRecommended: boolean
@@ -99,13 +111,21 @@ export interface UnifiedScenarioResult {
   usedWeightTons: number
   leftoverWeightTons: number
   scrapWeightTons: number
+  totalScrapWeightTons?: number
   totalAvailableLengthM: number
   usedLengthM: number
   usableLeftoverLengthM: number
   scrapLengthM: number
   cutsCount: number
   piecesProducedCount: number
+  producedPiecesCount?: number
   demandFulfillmentPct: number
+  demandAdherencePct?: number
+  calculatedUnitWeightKg?: number
+  deviationStandardPct?: number
+  cuttingType?: string
+  status?: string
+  aiJustification?: string
   allocatedDemands: {
     demandId: string
     lengthMm: number
@@ -537,9 +557,15 @@ export function motorOtimizacaoCorte(
       ? `Recomendado pelo motor central CIAFAL: Rendimento metálico de ${formatNumberPtBr(yieldPct, 2)}% com aproveitamento de ${formatNumberPtBr(usedWeightTons, 3)} t, ${piecesProducedCount} peças produzidas em ${solution.totalCutsCount} cortes (kerf ${sawKerfMm} mm). Sobra reaproveitável: ${formatNumberPtBr(leftoverDetails.reusableWeightTons, 3)} t com destino: ${leftoverDetails.destinationLabel}.`
       : `${cfg.desc} Rendimento de ${formatNumberPtBr(yieldPct, 2)}% com perda de processo de ${formatNumberPtBr(totalScrapTons, 3)} t.`
 
+    const unitWeightKg =
+      piecesProducedCount > 0
+        ? Number(((usedWeightTons * 1000) / piecesProducedCount).toFixed(1))
+        : 0
+
     scenarios.push({
       id: cfg.id,
       scenarioIndex: cfg.index,
+      scenarioNumber: cfg.index,
       name: cfg.name,
       classification: cfg.classification,
       isRecommended,
@@ -548,13 +574,21 @@ export function motorOtimizacaoCorte(
       usedWeightTons,
       leftoverWeightTons: leftoverDetails.reusableWeightTons,
       scrapWeightTons: totalScrapTons,
+      totalScrapWeightTons: totalScrapTons,
       totalAvailableLengthM: Number((totalEffectiveAvailableLengthMm / 1000).toFixed(2)),
       usedLengthM: Number(usedLengthM.toFixed(2)),
       usableLeftoverLengthM: Number((leftoverDetails.reusableLengthMm / 1000).toFixed(2)),
       scrapLengthM: Number((leftoverDetails.scrapLengthMm / 1000).toFixed(2)),
       cutsCount: solution.totalCutsCount,
       piecesProducedCount,
+      producedPiecesCount: piecesProducedCount,
       demandFulfillmentPct,
+      demandAdherencePct: demandFulfillmentPct,
+      calculatedUnitWeightKg: unitWeightKg,
+      deviationStandardPct: 0,
+      cuttingType: planType === 'MULTIPLO' ? 'Múltiplos' : 'Blocos',
+      status: 'VIÁVEL',
+      aiJustification: technicalJustification,
       allocatedDemands,
       leftoverDetails,
       technicalJustification,
