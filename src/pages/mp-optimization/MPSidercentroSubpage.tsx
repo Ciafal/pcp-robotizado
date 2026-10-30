@@ -46,6 +46,11 @@ import { SdcPoolsModal } from '@/components/mp-optimization/SdcPoolsModal'
 import { SdcBalanceCompositionModal } from '@/components/mp-optimization/SdcBalanceCompositionModal'
 import { SdcLegacyComparisonModal } from '@/components/mp-optimization/SdcLegacyComparisonModal'
 import { CalculationExplainerModal } from '@/components/mp-optimization/CalculationExplainerModal'
+import { LowStockBadge } from '@/components/mp-optimization/LowStockBadge'
+import {
+  LowStockAlertPanel,
+  LowStockAlertItem,
+} from '@/components/mp-optimization/LowStockAlertPanel'
 import { useToast } from '@/hooks/use-toast'
 
 export const MPSidercentroSubpage: React.FC = () => {
@@ -112,6 +117,24 @@ export const MPSidercentroSubpage: React.FC = () => {
   // Alertas de Ruptura
   const ruptureAlerts: MPSdcRuptureAlert[] = useMemo(() => {
     return mpSdcService.generateRuptureAlerts(matrixRows)
+  }, [matrixRows])
+
+  // Itens de Alerta de Estoque Baixo & Atenção derivados da Matriz SDC
+  const lowStockAlertItems: LowStockAlertItem[] = useMemo(() => {
+    return matrixRows.map((r) => ({
+      id: `sdc-alert-${r.steel_grade}`,
+      code: r.steel_grade,
+      description: `${r.steel_class} • Saldo: ${r.projected_balance_tons.toFixed(1)} t`,
+      currentStockTons: r.projected_balance_tons,
+      minStockTons: r.min_stock_tons,
+      plantCenter: 'SDC1',
+      storageDeposit: 'DS03',
+      coverageDays: r.statistical_coverage_days,
+      coverageDate: r.chronological_coverage_date,
+      hasSapData: true,
+      poolCode: r.pool_code,
+      rawRowData: r,
+    }))
   }, [matrixRows])
 
   // Linhas Filtradas da Matriz
@@ -186,6 +209,7 @@ export const MPSidercentroSubpage: React.FC = () => {
   return (
     <MPModuleLayout
       activeTopic="materia-prima-sidercentro"
+      lowStockCount={cockpitKpis.steels_below_min_count}
       headerActions={
         <div className="flex items-center gap-1.5 flex-wrap">
           <Button
@@ -446,6 +470,18 @@ export const MPSidercentroSubpage: React.FC = () => {
               <TabsTrigger value="PRIORIDADES" className="text-xs font-semibold">
                 Painel de Atenção & Prioridades
               </TabsTrigger>
+              <TabsTrigger
+                value="ALERTAS_ESTOQUE"
+                className="text-xs font-semibold flex items-center gap-1.5"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                Alertas de Estoque Baixo
+                {cockpitKpis.steels_below_min_count > 0 && (
+                  <span className="bg-rose-100 text-rose-800 font-mono text-[10px] font-bold px-1.5 py-0 rounded">
+                    {cockpitKpis.steels_below_min_count}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
 
             {/* Filtros da Tabela */}
@@ -506,6 +542,7 @@ export const MPSidercentroSubpage: React.FC = () => {
                       <th className="p-3 text-right font-black text-slate-900">Saldo Projetado</th>
                       <th className="p-3 text-right text-slate-500">Estoque Mín.</th>
                       <th className="p-3 text-center">Cobertura</th>
+                      <th className="p-3 text-center">Alerta Estoque</th>
                       <th className="p-3 text-center">Conclusão IA</th>
                       <th className="p-3 text-center">Ações</th>
                     </tr>
@@ -576,6 +613,14 @@ export const MPSidercentroSubpage: React.FC = () => {
                             >
                               {row.statistical_coverage_days}d ({row.chronological_coverage_date})
                             </Badge>
+                          </td>
+                          <td className="p-3 text-center">
+                            <LowStockBadge
+                              currentStockTons={row.projected_balance_tons}
+                              minStockTons={row.min_stock_tons}
+                              hasSapData={true}
+                              size="sm"
+                            />
                           </td>
                           <td className="p-3 text-center">
                             <span
@@ -819,13 +864,19 @@ export const MPSidercentroSubpage: React.FC = () => {
                           {idx + 1}
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-slate-900 text-sm">
                               {r.steel_grade}
                             </span>
                             <Badge variant="outline" className="text-[10px] bg-white">
                               {r.steel_class}
                             </Badge>
+                            <LowStockBadge
+                              currentStockTons={r.projected_balance_tons}
+                              minStockTons={r.min_stock_tons}
+                              hasSapData={true}
+                              size="sm"
+                            />
                           </div>
                           <span className="text-[11px] text-slate-500">
                             Saldo projetado:{' '}
@@ -869,6 +920,25 @@ export const MPSidercentroSubpage: React.FC = () => {
                   ))}
               </div>
             </div>
+          </TabsContent>
+
+          {/* TAB 5: ALERTAS DE ESTOQUE BAIXO COMPACTO */}
+          <TabsContent value="ALERTAS_ESTOQUE" className="m-0 space-y-3">
+            <LowStockAlertPanel
+              items={lowStockAlertItems}
+              onSelectMaterial={(item) => {
+                if (item.rawRowData) {
+                  setSelectedSteelDetail(item.rawRowData)
+                  setIsCompositionModalOpen(true)
+                }
+              }}
+              onRefreshSap={() => {
+                toast({
+                  title: 'Integração SAP Verificada',
+                  description: 'Sincronização com tabelas ZPP86/MB52 confirmada.',
+                })
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>

@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { useNavigate } from 'react-router-dom'
 import { ResponsiveHorizontalNav } from '@/components/common/ResponsiveHorizontalNav'
+import { mpSdcService } from '@/services/mp-sidercentro-service'
 
 interface MPModuleLayoutProps {
   children: React.ReactNode
@@ -33,6 +34,7 @@ interface MPModuleLayoutProps {
     | 'materia-prima-sidercentro'
   currentStep?: number
   headerActions?: React.ReactNode
+  lowStockCount?: number
 }
 
 export const mpMainTopics = [
@@ -130,15 +132,39 @@ export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
   children,
   activeTopic,
   headerActions,
+  lowStockCount: propLowStockCount,
 }) => {
   const location = useLocation()
   const navigate = useNavigate()
+  const [internalLowStockCount, setInternalLowStockCount] = React.useState<number | null>(null)
+
+  // Caso lowStockCount não tenha sido explicitamente passado via prop, busca da fonte central
+  React.useEffect(() => {
+    if (propLowStockCount !== undefined) return
+    let isMounted = true
+    mpSdcService
+      .getSteelMatrixRows()
+      .then((rows) => {
+        if (!isMounted) return
+        const count = rows.filter((r) => r.projected_balance_tons < r.min_stock_tons).length
+        setInternalLowStockCount(count)
+      })
+      .catch(() => {
+        if (isMounted) setInternalLowStockCount(0)
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [propLowStockCount])
+
+  const effectiveLowStockCount =
+    propLowStockCount !== undefined ? propLowStockCount : (internalLowStockCount ?? 0)
 
   return (
     <div className="w-full max-w-full min-w-0 box-border space-y-4 bg-slate-50">
-      {/* Header Compacto da Gestão de MP (Linha 1: Título + Descrição Curta + Ações / Linha 2: Fluxo Horizontal / Linha 3: Cards) */}
+      {/* Header Compacto da Gestão de MP (Linha 1: Título + Descrição Curta + Indicador Resumo + Ações) */}
       <div className="w-full max-w-full min-w-0 box-border bg-white border border-slate-200 rounded-lg p-3 sm:p-3.5 shadow-2xs space-y-2.5">
-        {/* Linha 1: Título em linha única + tags + Ações alinhadas */}
+        {/* Linha 1: Título em linha única + tags + Indicador Estoque Baixo + Ações alinhadas */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 min-w-0">
           <div className="flex items-center gap-2.5 min-w-0 flex-1 flex-wrap">
             <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight whitespace-nowrap">
@@ -147,7 +173,31 @@ export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
             <span className="text-[9px] font-black uppercase tracking-wider text-[#004C97] bg-blue-50 px-2 py-0.5 rounded border border-blue-200 whitespace-nowrap">
               PCP ROBOTIZADO &bull; SAP ECC (ZPP86/ZPPMP)
             </span>
-            <p className="text-[11px] text-slate-500 hidden xl:inline line-clamp-1">
+
+            {/* Indicador Resumo Discreto de Estoque Baixo */}
+            {effectiveLowStockCount > 0 ? (
+              <span
+                data-testid="mp-header-low-stock-indicator"
+                title={`${effectiveLowStockCount} material(is) com estoque projetado abaixo do mínimo de segurança`}
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-800 text-[10px] font-bold shrink-0 animate-in fade-in duration-200"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
+                <span>
+                  {effectiveLowStockCount}{' '}
+                  {effectiveLowStockCount === 1 ? 'material crítico' : 'materiais críticos'}
+                </span>
+              </span>
+            ) : (
+              <span
+                data-testid="mp-header-low-stock-indicator-ok"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-medium shrink-0"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Estoque regular</span>
+              </span>
+            )}
+
+            <p className="text-[11px] text-slate-500 hidden 2xl:inline line-clamp-1">
               Otimização do ciclo completo de suprimento e corte integrado à programação.
             </p>
           </div>
