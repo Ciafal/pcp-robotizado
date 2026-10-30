@@ -30,6 +30,7 @@ import { CarteiraSDCEngine } from '@/services/carteira-sdc-engine'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { DetalheMaterialUnificadoModal } from './DetalheMaterialUnificadoModal'
 import { DetalheEstoquePorCentroModal } from './DetalheEstoquePorCentroModal'
+import { DetalheCardSDCModal, TipoCardSDC } from './DetalheCardSDCModal'
 import {
   formatNumberPTBR,
   formatDatePTBR,
@@ -108,6 +109,22 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
     valorConsolidadoT: null,
     centros: null,
   })
+
+  // Estado do Modal Amplo de Detalhamento Específico para os 10 cards da Carteira SDC
+  const [modalCardSDC, setModalCardSDC] = useState<{
+    isOpen: boolean
+    tipoCard: TipoCardSDC
+  }>({
+    isOpen: false,
+    tipoCard: 'CARTEIRA_TOTAL',
+  })
+
+  const handleAbrirDetalheCard = (tipo: TipoCardSDC) => {
+    setModalCardSDC({
+      isOpen: true,
+      tipoCard: tipo,
+    })
+  }
 
   // Detalhamento de Estoque Total SDPL por centro (base de dados da Carteira SDC: WERKS = SDPL)
   const centrosEstoqueTotalSdpl: EstoqueCentroDetalhe[] = useMemo(() => {
@@ -360,15 +377,28 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9 gap-2.5">
         {/* 1. Carteira Total SDC */}
         <div
-          onClick={() => {
-            setFiltroStatus('TODOS')
-            setApenasComDeficit(false)
+          onClick={() => handleAbrirDetalheCard('CARTEIRA_TOTAL')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleAbrirDetalheCard('CARTEIRA_TOTAL')
+            }
           }}
-          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0"
+          tabIndex={0}
+          role="button"
+          aria-label="Detalhamento da Carteira Total SDC"
+          data-testid="card-carteira-total-sdc"
+          title="Clique para abrir o detalhamento analítico da Carteira Total SDC"
+          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-[#004C97] hover:shadow-md cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 group focus:outline-none focus:ring-2 focus:ring-[#004C97]"
         >
-          <span className="text-[10px] uppercase font-bold text-slate-500 block leading-tight">
-            Carteira Total SDC
-          </span>
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-slate-600 group-hover:text-[#004C97] block leading-tight transition-colors">
+              Carteira Total SDC
+            </span>
+            <div className="text-slate-400 group-hover:text-[#004C97] transition-colors shrink-0">
+              <Eye className="w-3.5 h-3.5" />
+            </div>
+          </div>
           <div className="flex items-baseline gap-1 mt-1">
             {isLoading ? (
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
@@ -398,7 +428,23 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               centros: centrosEstoqueTotalSdpl,
             })
           }}
-          className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 group"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setModalEstoqueCentro({
+                isOpen: true,
+                titulo: 'ESTOQUE TOTAL SDPL',
+                subtitulo: 'Centro WERKS = SDPL',
+                origemInfo: 'Base Operacional SDC',
+                valorConsolidadoT: kpis.estoque_total_t,
+                centros: centrosEstoqueTotalSdpl,
+              })
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-label="Detalhamento do Estoque Total SDPL por centro"
+          className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-500 hover:shadow-md cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 group focus:outline-none focus:ring-2 focus:ring-emerald-500"
           data-testid="card-estoque-total-sdpl"
           title="Clique para ver o detalhamento por centro SAP"
         >
@@ -466,7 +512,43 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               centros: centrosRfc,
             })
           }}
-          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 cursor-pointer group ${
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              const detalhe = kpis.estoque_remessa_cfpl
+              const centrosRfc =
+                detalhe?.centros && Array.isArray(detalhe.centros)
+                  ? detalhe.centros
+                  : detalhe?.detalhes_rfc?.centros && Array.isArray(detalhe.detalhes_rfc.centros)
+                    ? detalhe.detalhes_rfc.centros
+                    : detalhe?.status === 'SUCESSO' &&
+                        typeof detalhe?.quantidade_t === 'number' &&
+                        detalhe.centro
+                      ? [
+                          {
+                            centro: detalhe.centro,
+                            descricao: 'Centro CFPL (Laminação/Remessa)',
+                            quantidade_t: detalhe.quantidade_t,
+                            unidade: detalhe.unidade_original || 't',
+                            participacao_pct: 100,
+                          },
+                        ]
+                      : null
+
+              setModalEstoqueCentro({
+                isOpen: true,
+                titulo: 'ESTOQUE REMESSA',
+                subtitulo: 'Centro SAP: CFPL',
+                origemInfo: 'SAP ECC • RFC',
+                valorConsolidadoT: detalhe?.quantidade_t,
+                centros: centrosRfc,
+              })
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-label="Detalhamento do Estoque Remessa por centro SAP"
+          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-[#004C97] hover:shadow-md ${
             kpis.estoque_remessa_cfpl?.status === 'INDISPONIVEL'
               ? 'border-amber-200 hover:border-amber-400'
               : 'border-sky-200 hover:border-sky-400'
@@ -563,7 +645,43 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               centros: centrosRfc,
             })
           }}
-          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 cursor-pointer group ${
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              const detalhe = kpis.estoque_armazenado_ciafal
+              const centrosRfc =
+                detalhe?.centros && Array.isArray(detalhe.centros)
+                  ? detalhe.centros
+                  : detalhe?.detalhes_rfc?.centros && Array.isArray(detalhe.detalhes_rfc.centros)
+                    ? detalhe.detalhes_rfc.centros
+                    : detalhe?.status === 'SUCESSO' &&
+                        typeof detalhe?.quantidade_t === 'number' &&
+                        detalhe.centro
+                      ? [
+                          {
+                            centro: detalhe.centro,
+                            descricao: 'Centro 1100 (CIAFAL Matriz)',
+                            quantidade_t: detalhe.quantidade_t,
+                            unidade: detalhe.unidade_original || 't',
+                            participacao_pct: 100,
+                          },
+                        ]
+                      : null
+
+              setModalEstoqueCentro({
+                isOpen: true,
+                titulo: 'ESTOQUE ARMAZENADO CIAFAL',
+                subtitulo: 'Operação SDC • Centro SAP 1100',
+                origemInfo: 'SAP ECC • RFC',
+                valorConsolidadoT: detalhe?.quantidade_t,
+                centros: centrosRfc,
+              })
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-label="Detalhamento do Estoque Armazenado Ciafal por centro SAP"
+          className={`p-3 bg-white rounded-xl border shadow-xs transition-all flex flex-col justify-between min-w-0 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-[#004C97] hover:shadow-md ${
             kpis.estoque_armazenado_ciafal?.status === 'INDISPONIVEL'
               ? 'border-amber-200 hover:border-amber-400'
               : 'border-blue-200 hover:border-blue-400'
@@ -629,16 +747,28 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
         {/* 5. Déficit Atual */}
         <div
-          onClick={() => setApenasComDeficit((prev) => !prev)}
-          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 ${
-            apenasComDeficit
-              ? 'bg-rose-50 border-rose-400 ring-1 ring-rose-400'
-              : 'bg-white border-rose-200 hover:border-rose-400'
-          }`}
+          onClick={() => handleAbrirDetalheCard('DEFICIT_ATUAL')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleAbrirDetalheCard('DEFICIT_ATUAL')
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-label="Detalhamento do Déficit Atual"
+          data-testid="card-deficit-atual"
+          title="Clique para abrir o detalhamento analítico do Déficit Atual"
+          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-500 hover:shadow-md cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 group focus:outline-none focus:ring-2 focus:ring-rose-500"
         >
-          <span className="text-[10px] uppercase font-bold text-rose-700 block leading-tight">
-            Déficit Atual (-)
-          </span>
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-rose-700 block leading-tight">
+              Déficit Atual (-)
+            </span>
+            <div className="text-rose-400 group-hover:text-rose-700 transition-colors shrink-0">
+              <Eye className="w-3.5 h-3.5" />
+            </div>
+          </div>
           <div className="flex items-baseline gap-1 mt-1">
             {isLoading ? (
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
@@ -656,12 +786,28 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
         {/* 6. Itens com Déficit */}
         <div
-          onClick={() => setApenasComDeficit(true)}
-          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0"
+          onClick={() => handleAbrirDetalheCard('ITENS_COM_DEFICIT')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleAbrirDetalheCard('ITENS_COM_DEFICIT')
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-label="Detalhamento dos Itens com Déficit"
+          data-testid="card-itens-com-deficit"
+          title="Clique para abrir o detalhamento analítico dos Itens com Déficit"
+          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-500 hover:shadow-md cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 group focus:outline-none focus:ring-2 focus:ring-rose-500"
         >
-          <span className="text-[10px] uppercase font-bold text-rose-700 block leading-tight">
-            Itens com Déficit
-          </span>
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-rose-700 block leading-tight">
+              Itens com Déficit
+            </span>
+            <div className="text-rose-400 group-hover:text-rose-700 transition-colors shrink-0">
+              <Eye className="w-3.5 h-3.5" />
+            </div>
+          </div>
           <div className="flex items-baseline gap-1 mt-1">
             {isLoading ? (
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
@@ -679,16 +825,28 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
         {/* 7. Em Produção */}
         <div
-          onClick={() => setApenasEmProducao((prev) => !prev)}
-          className={`p-3 rounded-xl border cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 ${
-            apenasEmProducao
-              ? 'bg-indigo-50 border-indigo-400 ring-1 ring-indigo-400'
-              : 'bg-white border-indigo-200 hover:border-indigo-400'
-          }`}
+          onClick={() => handleAbrirDetalheCard('EM_PRODUCAO')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleAbrirDetalheCard('EM_PRODUCAO')
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-label="Detalhamento dos materiais Em Produção"
+          data-testid="card-em-producao"
+          title="Clique para abrir o detalhamento analítico de Em Produção"
+          className="p-3 bg-white rounded-xl border border-indigo-200 hover:border-indigo-500 hover:shadow-md cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 group focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
-          <span className="text-[10px] uppercase font-bold text-indigo-700 block leading-tight">
-            Em Produção (t)
-          </span>
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-indigo-700 block leading-tight">
+              Em Produção (t)
+            </span>
+            <div className="text-indigo-400 group-hover:text-indigo-700 transition-colors shrink-0">
+              <Eye className="w-3.5 h-3.5" />
+            </div>
+          </div>
           <div className="flex items-baseline gap-1 mt-1">
             {isLoading ? (
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
@@ -706,12 +864,28 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
         {/* 8. Cobertura Programada */}
         <div
-          onClick={() => setFiltroStatus('COBERTURA PROGRAMADA')}
-          className="p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0"
+          onClick={() => handleAbrirDetalheCard('COBERTURA_PROGRAMADA')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleAbrirDetalheCard('COBERTURA_PROGRAMADA')
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-label="Detalhamento da Cobertura Programada"
+          data-testid="card-cobertura-programada"
+          title="Clique para abrir o detalhamento analítico da Cobertura Programada"
+          className="p-3 bg-white rounded-xl border border-blue-200 hover:border-[#004C97] hover:shadow-md cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 group focus:outline-none focus:ring-2 focus:ring-[#004C97]"
         >
-          <span className="text-[10px] uppercase font-bold text-[#004C97] block leading-tight">
-            Cobertura Programada
-          </span>
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-[#004C97] block leading-tight">
+              Cobertura Programada
+            </span>
+            <div className="text-blue-400 group-hover:text-[#004C97] transition-colors shrink-0">
+              <Eye className="w-3.5 h-3.5" />
+            </div>
+          </div>
           <div className="flex items-baseline gap-1 mt-1">
             {isLoading ? (
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
@@ -729,12 +903,28 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
         {/* 9. Itens Críticos */}
         <div
-          onClick={() => setFiltroStatus('CRÍTICO')}
-          className="p-3 bg-white rounded-xl border border-amber-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0"
+          onClick={() => handleAbrirDetalheCard('ITENS_CRITICOS')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleAbrirDetalheCard('ITENS_CRITICOS')
+            }
+          }}
+          tabIndex={0}
+          role="button"
+          aria-label="Detalhamento dos Itens Críticos"
+          data-testid="card-itens-criticos"
+          title="Clique para abrir o detalhamento analítico dos Itens Críticos"
+          className="p-3 bg-white rounded-xl border border-amber-200 hover:border-rose-500 hover:shadow-md cursor-pointer shadow-xs transition-all flex flex-col justify-between min-w-0 group focus:outline-none focus:ring-2 focus:ring-rose-500"
         >
-          <span className="text-[10px] uppercase font-bold text-amber-800 block leading-tight">
-            Itens Críticos
-          </span>
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-[10px] uppercase font-bold text-amber-800 block leading-tight">
+              Itens Críticos
+            </span>
+            <div className="text-amber-400 group-hover:text-rose-700 transition-colors shrink-0">
+              <Eye className="w-3.5 h-3.5" />
+            </div>
+          </div>
           <div className="flex items-baseline gap-1 mt-1">
             {isLoading ? (
               <div className="h-6 w-20 bg-slate-200 animate-pulse rounded" />
@@ -752,10 +942,13 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
       </div>
 
       {/* Card Executivo 'Mínimo não atingido' Carteira SDC */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5"
+        data-testid="card-minimo-nao-atingido-container"
+      >
         <MinimoNaoAtingidoCard
           summary={resumoMinimoSDC}
-          onClick={() => setIsMinimoModalOpen(true)}
+          onClick={() => handleAbrirDetalheCard('MINIMO_NAO_ATINGIDO')}
         />
       </div>
 
@@ -1373,6 +1566,28 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         valorConsolidadoT={modalEstoqueCentro.valorConsolidadoT}
         centros={modalEstoqueCentro.centros}
         isLoading={isLoading}
+      />
+
+      {/* Modal Amplo de Detalhamento Específico para TODOS os Cards da Carteira SDC */}
+      <DetalheCardSDCModal
+        isOpen={modalCardSDC.isOpen}
+        onClose={() =>
+          setModalCardSDC((prev) => ({
+            ...prev,
+            isOpen: false,
+          }))
+        }
+        tipoCard={modalCardSDC.tipoCard}
+        itens={itens}
+        kpis={kpis}
+        dataAtualizacao={dataAtualizacao}
+        resumoMinimo={resumoMinimoSDC}
+        centrosEstoqueSdpl={centrosEstoqueTotalSdpl}
+        isLoading={isLoading}
+        onAtualizarSap={onAtualizarSap}
+        onSelectMaterial={(mat) => {
+          setBusca(mat)
+        }}
       />
     </div>
   )
