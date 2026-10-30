@@ -3,7 +3,7 @@
  * Conexão com PocketBase, sincronização SAP ECC / PCP Robotizado e contingência oficial homologada.
  */
 
-import pb from '@/lib/pocketbase/client'
+import { pb } from '@/lib/pocketbase/client'
 import {
   MPSdcStockSource,
   MPSdcPool,
