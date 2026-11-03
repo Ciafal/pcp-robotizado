@@ -4,18 +4,20 @@
  * Serviço de Gerenciamento das Famílias Técnicas da Ficha Mestra Expandida
  * Coleção: line_product_families
  *
- * Vínculos:
- * - Centro / Linha de Produção (Centro -> várias Famílias)
- * - Cilindro associado e Código de Equipamento SAP PM (RFC)
- * - Faixa de Matéria-Prima admissível (diâmetro mín / máx em mm, pt-BR)
- * - Múltiplas bitolas associadas à família (comprimento mín / máx em mm, pt-BR)
- * - Auditoria completa em pcp_audit_logs (append-only)
+ * Diretrizes do usuário:
+ * - Campos removidos: Cilindro e Quantidade de bitolas (qtd de bitolas agora é calculada dinamicamente pelas bitolas vinculadas).
+ * - Campos mantidos: Família; Código do Equipamento PM; Diâmetro mín. MP (mm); Diâmetro máx. MP (mm); Status Ativo/Inativo.
+ * - Novos campos: Comprimento mín. MP (m) e Comprimento máx. MP (m) com validação:
+ *   comprimento_min_mp >= 0, comprimento_max_mp >= 0, comprimento_min_mp <= comprimento_max_mp.
+ *   Bloqueio: "O comprimento mínimo da matéria-prima não pode ser maior que o comprimento máximo."
+ * - Bitolas dentro da Família: múltiplas bitolas com Bitola, Descrição, Status (Ativa/Inativa), Ações (Editar, Remover).
+ * - Bloqueio de duplicidade de bitola: "Esta bitola já pertence a esta família."
+ * - Auditoria completa em pcp_audit_logs (criação, edição, ativação/inativação, inclusão/remoção de bitola, alteração de limites mín/máx).
  */
 
 import { pb } from '@/lib/pocketbase/client'
 import { formatPtBrNumber, parsePtBrNumber } from '@/lib/number-format'
 import { formatBrNumber, parseBrNumber } from '@/utils/number-br-formatters'
-import { OFFICIAL_CYLINDER_SETS } from '@/services/roll-shop-service'
 
 /**
  * Interface de uma bitola vinculada à Família
@@ -23,8 +25,9 @@ import { OFFICIAL_CYLINDER_SETS } from '@/services/roll-shop-service'
 export interface LineFamilyGauge {
   id?: string
   bitola: string
-  min_length_mm: number
-  max_length_mm: number
+  description?: string
+  active?: boolean
+  deleted?: boolean
 }
 
 /**
@@ -40,16 +43,21 @@ export interface LineProductFamily {
   family_name: string
   family_code?: string
 
-  cylinder_code: string
-  cylinder_name?: string
-  pm_equipment_code: string
+  pm_equipment_code?: string
   pm_equipment_name?: string
 
+  // Parâmetros de Matéria-Prima
   min_mp_diameter_mm: number
   max_mp_diameter_mm: number
+  comprimento_min_mp: number // unidade: m (metros)
+  comprimento_max_mp: number // unidade: m (metros)
 
   gauges_json: LineFamilyGauge[]
-  gauges_count: number
+  gauges_count: number // Calculada automaticamente a partir de gauges_json
+
+  // Campos legados mantidos para retrocompatibilidade opcional sem uso em UI
+  cylinder_code?: string
+  cylinder_name?: string
 
   active: boolean
   notes?: string
@@ -77,20 +85,28 @@ export interface LineFamilyFormData {
   center_name?: string
 
   family_name: string
-  cylinder_code: string
-  pm_equipment_code: string
+  pm_equipment_code?: string
+  pm_equipment_name?: string
 
-  // Faixas MP (em mm) - aceita string pt-BR ("130,00") ou número
+  // Faixa de diâmetro MP (mm)
   min_mp_diameter_mm: string | number
   max_mp_diameter_mm: string | number
+
+  // Faixa de comprimento MP (m)
+  comprimento_min_mp: string | number
+  comprimento_max_mp: string | number
 
   // Lista de bitolas da família
   gauges: Array<{
     id?: string
     bitola: string
-    min_length_mm: string | number
-    max_length_mm: string | number
+    description?: string
+    active?: boolean
+    deleted?: boolean
   }>
+
+  // Legado opcional
+  cylinder_code?: string
 
   active?: boolean
   notes?: string
@@ -99,78 +115,14 @@ export interface LineFamilyFormData {
 export interface LineFamilyValidationErrors {
   general?: string
   family_name?: string
-  cylinder_code?: string
   pm_equipment_code?: string
   min_mp_diameter_mm?: string
   max_mp_diameter_mm?: string
+  comprimento_min_mp?: string
+  comprimento_max_mp?: string
   gauges?: string
-  gauge_errors?: Record<number, { bitola?: string; min_length_mm?: string; max_length_mm?: string }>
+  gauge_errors?: Record<number, { bitola?: string; description?: string }>
 }
-
-/**
- * Opção de Cilindro com seu respectivo Equipamento SAP PM
- */
-export interface CylinderOption {
-  code: string
-  name: string
-  pmEquipmentCode: string
-  pmEquipmentName: string
-}
-
-/**
- * Catálogo padrão de cilindros da laminação/indústria e seus códigos SAP PM vinculados
- * (Compatível com roll-shop-service e pronto para substituição transparente por RFC SAP PM)
- */
-export const OFFICIAL_LINE_CYLINDERS: CylinderOption[] = [
-  {
-    code: 'CJ-L1-TQ-50',
-    name: 'Jogo Conformador Tubo Quadrado 50x50 mm',
-    pmEquipmentCode: 'PM-EQ-100291',
-    pmEquipmentName: 'Gaiola Desbastadora & Acabamento G1-G4 PM',
-  },
-  {
-    code: 'CJ-L1-TR-6030',
-    name: 'Jogo Cilindros Tubo Retangular 60x30 mm',
-    pmEquipmentCode: 'PM-EQ-100292',
-    pmEquipmentName: 'Laminador Trio & Calibrador Final PM',
-  },
-  {
-    code: 'CJ-L1-PU-150',
-    name: 'Jogo de Rolos Perfil U 150x50 mm Heavy Duty',
-    pmEquipmentCode: 'PM-EQ-100293',
-    pmEquipmentName: 'Trem Contínuo Gaiolas 1-6 Heavy Duty PM',
-  },
-  {
-    code: 'CJ-L1-RED-635',
-    name: 'Cilindros Desbaste e Acabamento Redondo Ø 63.5 mm',
-    pmEquipmentCode: 'PM-EQ-100294',
-    pmEquipmentName: 'Acabador Barra Redonda & Desbastador PM',
-  },
-  {
-    code: 'CJ-L1-CAN-204',
-    name: 'Cilindros Cantoneira 2" x 1/4"',
-    pmEquipmentCode: 'PM-EQ-100295',
-    pmEquipmentName: 'Gaiola Laminadora Cantoneiras PM',
-  },
-  {
-    code: 'CJ-L1-QUAD-50',
-    name: 'Cilindros Barra Quadrada 50 mm',
-    pmEquipmentCode: 'PM-EQ-100296',
-    pmEquipmentName: 'Gaiola Laminadora Barras Quadradas PM',
-  },
-  {
-    code: 'CJ-L2-PERF-200',
-    name: 'Jogo de Cilindros Perfis Médios 200 mm',
-    pmEquipmentCode: 'PM-EQ-100297',
-    pmEquipmentName: 'Mesa de Alimentação e Desbaste L2 PM',
-  },
-  {
-    code: 'CJ-L2-CORTE-EMB',
-    name: 'Conjunto de Cilindros Tracionadores Acabamento',
-    pmEquipmentCode: 'PM-EQ-100298',
-    pmEquipmentName: 'Endireitadeira e Tracionador L2 PM',
-  },
-]
 
 /**
  * Converte valor flexível (string pt-BR com vírgula ou número) para float number
@@ -189,8 +141,8 @@ export function parseDimension(value: string | number | undefined | null): numbe
 }
 
 /**
- * Formata dimensão em mm no padrão brasileiro oficial:
- * 130,00 mm — vírgula decimal, ponto de milhar, nunca ponto decimal solto.
+ * Formata dimensão de diâmetro em mm no padrão brasileiro:
+ * 130,00 mm — vírgula decimal, espaço entre número e unidade.
  */
 export function formatMm(value: number | undefined | null, decimals = 2): string {
   if (value === undefined || value === null || isNaN(value)) return '0,00 mm'
@@ -198,8 +150,16 @@ export function formatMm(value: number | undefined | null, decimals = 2): string
 }
 
 /**
- * Formata comprimento inteiro em mm no padrão brasileiro com separador de milhar:
- * ex: 6000 -> 6.000 mm, 12000 -> 12.000 mm
+ * Formata comprimento em metros (m) no padrão brasileiro:
+ * 6,00 m — vírgula decimal, espaço entre número e unidade m.
+ */
+export function formatMeters(value: number | undefined | null, decimals = 2): string {
+  if (value === undefined || value === null || isNaN(value)) return '0,00 m'
+  return `${formatBrNumber(value, decimals)} m`
+}
+
+/**
+ * Helper de compatibilidade legado (se algum módulo antigo ainda chamar formatLengthMm)
  */
 export function formatLengthMm(value: number | undefined | null): string {
   if (value === undefined || value === null || isNaN(value)) return '0 mm'
@@ -208,30 +168,11 @@ export function formatLengthMm(value: number | undefined | null): string {
 
 export const lineProductFamiliesService = {
   /**
-   * Obtém opções de cilindros disponíveis
-   */
-  getCylinderOptions(): CylinderOption[] {
-    return OFFICIAL_LINE_CYLINDERS
-  },
-
-  /**
-   * Localiza equipamento PM respectivo a um cilindro
-   */
-  findEquipmentByCylinder(cylinderCode: string): CylinderOption | undefined {
-    return OFFICIAL_LINE_CYLINDERS.find(
-      (c) => c.code.toLowerCase() === (cylinderCode || '').trim().toLowerCase(),
-    )
-  },
-
-  /**
    * Valida os campos do formulário de Família
    */
   validateFormData(data: LineFamilyFormData): LineFamilyValidationErrors {
     const errors: LineFamilyValidationErrors = {}
-    const gaugeErrors: Record<
-      number,
-      { bitola?: string; min_length_mm?: string; max_length_mm?: string }
-    > = {}
+    const gaugeErrors: Record<number, { bitola?: string; description?: string }> = {}
 
     if (!data.line_id || !data.center_code?.trim()) {
       errors.general = 'Identificação da Linha / Centro é obrigatória.'
@@ -241,71 +182,71 @@ export const lineProductFamiliesService = {
       errors.family_name = 'Nome da Família é obrigatório.'
     }
 
-    if (!data.cylinder_code || !data.cylinder_code.trim()) {
-      errors.cylinder_code = 'Selecione o Cilindro.'
-    }
+    // Diâmetros de MP (mm)
+    const minMpDiam = parseDimension(data.min_mp_diameter_mm)
+    const maxMpDiam = parseDimension(data.max_mp_diameter_mm)
 
-    if (!data.pm_equipment_code || !data.pm_equipment_code.trim()) {
-      errors.pm_equipment_code = 'Informe o Código do Equipamento PM.'
-    }
-
-    // Validações da Faixa de MP (diâmetro mín / máx)
-    const minMp = parseDimension(data.min_mp_diameter_mm)
-    const maxMp = parseDimension(data.max_mp_diameter_mm)
-
-    if (minMp === null) {
+    if (minMpDiam === null) {
       errors.min_mp_diameter_mm = 'Informe o Diâmetro mínimo da MP em mm.'
-    } else if (minMp <= 0) {
+    } else if (minMpDiam <= 0) {
       errors.min_mp_diameter_mm = 'Diâmetro mínimo da MP deve ser maior que zero.'
     }
 
-    if (maxMp === null) {
+    if (maxMpDiam === null) {
       errors.max_mp_diameter_mm = 'Informe o Diâmetro máximo da MP em mm.'
-    } else if (maxMp <= 0) {
+    } else if (maxMpDiam <= 0) {
       errors.max_mp_diameter_mm = 'Diâmetro máximo da MP deve ser maior que zero.'
     }
 
-    if (minMp !== null && maxMp !== null && minMp > 0 && maxMp > 0 && minMp > maxMp) {
+    if (
+      minMpDiam !== null &&
+      maxMpDiam !== null &&
+      minMpDiam > 0 &&
+      maxMpDiam > 0 &&
+      minMpDiam > maxMpDiam
+    ) {
       errors.min_mp_diameter_mm = 'Diâmetro mínimo não pode ser maior que o diâmetro máximo.'
       errors.max_mp_diameter_mm = 'Diâmetro máximo não pode ser menor que o diâmetro mínimo.'
     }
 
-    // Validações das Bitolas da Família
-    if (!data.gauges || data.gauges.length === 0) {
-      errors.gauges = 'Adicione pelo menos uma bitola para a família.'
-    } else {
+    // Comprimentos de MP (m) - Item 3 e 4 do prompt
+    const minComp = parseDimension(data.comprimento_min_mp)
+    const maxComp = parseDimension(data.comprimento_max_mp)
+
+    if (minComp === null) {
+      errors.comprimento_min_mp = 'Informe o Comprimento mín. MP (m).'
+    } else if (minComp < 0) {
+      errors.comprimento_min_mp = 'O comprimento mínimo não pode ser negativo.'
+    }
+
+    if (maxComp === null) {
+      errors.comprimento_max_mp = 'Informe o Comprimento máx. MP (m).'
+    } else if (maxComp < 0) {
+      errors.comprimento_max_mp = 'O comprimento máximo não pode ser negativo.'
+    }
+
+    if (minComp !== null && maxComp !== null && minComp >= 0 && maxComp >= 0 && minComp > maxComp) {
+      const msg =
+        'O comprimento mínimo da matéria-prima não pode ser maior que o comprimento máximo.'
+      errors.comprimento_min_mp = msg
+      errors.comprimento_max_mp = msg
+    }
+
+    // Validações das Bitolas da Família (sem duplicidade)
+    if (data.gauges && data.gauges.length > 0) {
       const bitolaSet = new Set<string>()
 
       data.gauges.forEach((g, index) => {
-        const itemErr: { bitola?: string; min_length_mm?: string; max_length_mm?: string } = {}
+        if (g.deleted) return // Ignorar vínculos já excluídos logicamente
+        const itemErr: { bitola?: string; description?: string } = {}
 
         const cleanBitola = (g.bitola || '').trim().toUpperCase()
         if (!cleanBitola) {
           itemErr.bitola = 'Bitola é obrigatória.'
         } else if (bitolaSet.has(cleanBitola)) {
-          itemErr.bitola = `Bitola "${cleanBitola}" duplicada na mesma família.`
+          itemErr.bitola = 'Esta bitola já pertence a esta família.'
         } else {
           bitolaSet.add(cleanBitola)
-        }
-
-        const minLen = parseDimension(g.min_length_mm)
-        const maxLen = parseDimension(g.max_length_mm)
-
-        if (minLen === null) {
-          itemErr.min_length_mm = 'Comprimento mínimo é obrigatório.'
-        } else if (minLen <= 0) {
-          itemErr.min_length_mm = 'Comprimento mínimo deve ser maior que zero.'
-        }
-
-        if (maxLen === null) {
-          itemErr.max_length_mm = 'Comprimento máximo é obrigatório.'
-        } else if (maxLen <= 0) {
-          itemErr.max_length_mm = 'Comprimento máximo deve ser maior que zero.'
-        }
-
-        if (minLen !== null && maxLen !== null && minLen > 0 && maxLen > 0 && minLen > maxLen) {
-          itemErr.min_length_mm = 'Comprimento mín não pode ser maior que o máx.'
-          itemErr.max_length_mm = 'Comprimento máx não pode ser menor que o mín.'
         }
 
         if (Object.keys(itemErr).length > 0) {
@@ -316,7 +257,7 @@ export const lineProductFamiliesService = {
       if (Object.keys(gaugeErrors).length > 0) {
         errors.gauge_errors = gaugeErrors
         if (!errors.gauges) {
-          errors.gauges = 'Existem bitolas com dados inválidos ou incompletos.'
+          errors.gauges = 'Existem bitolas com dados inválidos ou duplicados na família.'
         }
       }
     }
@@ -366,13 +307,17 @@ export const lineProductFamiliesService = {
         sort: 'family_name',
       })
 
-      return list.map((item) => ({
-        ...item,
-        gauges_json: Array.isArray(item.gauges_json) ? item.gauges_json : [],
-        gauges_count: Array.isArray(item.gauges_json)
-          ? item.gauges_json.length
-          : item.gauges_count || 0,
-      }))
+      return list.map((item) => {
+        const rawGauges = Array.isArray(item.gauges_json) ? item.gauges_json : []
+        const activeGauges = rawGauges.filter((g) => !g.deleted)
+        return {
+          ...item,
+          comprimento_min_mp: item.comprimento_min_mp != null ? Number(item.comprimento_min_mp) : 0,
+          comprimento_max_mp: item.comprimento_max_mp != null ? Number(item.comprimento_max_mp) : 0,
+          gauges_json: rawGauges,
+          gauges_count: activeGauges.length,
+        }
+      })
     } catch (err) {
       console.warn('Erro ao listar famílias da linha:', err)
       return []
@@ -386,9 +331,9 @@ export const lineProductFamiliesService = {
     const errors = this.validateFormData(data)
     if (Object.keys(errors).length > 0) {
       const firstMsg =
+        errors.comprimento_min_mp ||
+        errors.comprimento_max_mp ||
         errors.family_name ||
-        errors.cylinder_code ||
-        errors.pm_equipment_code ||
         errors.min_mp_diameter_mm ||
         errors.max_mp_diameter_mm ||
         errors.gauges ||
@@ -397,7 +342,7 @@ export const lineProductFamiliesService = {
       throw new Error(String(firstMsg))
     }
 
-    // Valida duplicidade
+    // Valida duplicidade de nome da família no centro
     const isDuplicate = await this.checkDuplicate({
       lineId: data.line_id,
       centerCode: data.center_code,
@@ -409,17 +354,21 @@ export const lineProductFamiliesService = {
       throw new Error(`A família "${data.family_name.trim()}" já está cadastrada para este centro.`)
     }
 
-    const minMp = parseDimension(data.min_mp_diameter_mm) ?? 0
-    const maxMp = parseDimension(data.max_mp_diameter_mm) ?? 0
+    const minMpDiam = parseDimension(data.min_mp_diameter_mm) ?? 0
+    const maxMpDiam = parseDimension(data.max_mp_diameter_mm) ?? 0
+    const minCompMp = parseDimension(data.comprimento_min_mp) ?? 0
+    const maxCompMp = parseDimension(data.comprimento_max_mp) ?? 0
 
-    const normalizedGauges: LineFamilyGauge[] = data.gauges.map((g, idx) => ({
+    // Normaliza bitolas associadas preservando status e id
+    const normalizedGauges: LineFamilyGauge[] = (data.gauges || []).map((g, idx) => ({
       id: g.id || `gauge-${Date.now()}-${idx}`,
       bitola: g.bitola.trim(),
-      min_length_mm: parseDimension(g.min_length_mm) ?? 0,
-      max_length_mm: parseDimension(g.max_length_mm) ?? 0,
+      description: g.description ? g.description.trim() : undefined,
+      active: g.active !== false,
+      deleted: Boolean(g.deleted),
     }))
 
-    const cylinder = this.findEquipmentByCylinder(data.cylinder_code)
+    const activeGaugesCount = normalizedGauges.filter((g) => !g.deleted).length
 
     const currentUser = pb.authStore.record || pb.authStore.model
     const userId = currentUser?.id || null
@@ -446,14 +395,14 @@ export const lineProductFamiliesService = {
       center_name: data.center_name?.trim() || '',
       family_name: data.family_name.trim(),
       family_code: data.family_name.trim().toUpperCase().replace(/\s+/g, '_'),
-      cylinder_code: data.cylinder_code.trim(),
-      cylinder_name: cylinder?.name || data.cylinder_code.trim(),
-      pm_equipment_code: data.pm_equipment_code.trim(),
-      pm_equipment_name: cylinder?.pmEquipmentName || data.pm_equipment_code.trim(),
-      min_mp_diameter_mm: Number(minMp.toFixed(2)),
-      max_mp_diameter_mm: Number(maxMp.toFixed(2)),
+      pm_equipment_code: (data.pm_equipment_code || '').trim(),
+      pm_equipment_name: (data.pm_equipment_name || data.pm_equipment_code || '').trim(),
+      min_mp_diameter_mm: Number(minMpDiam.toFixed(2)),
+      max_mp_diameter_mm: Number(maxMpDiam.toFixed(2)),
+      comprimento_min_mp: Number(minCompMp.toFixed(2)),
+      comprimento_max_mp: Number(maxCompMp.toFixed(2)),
       gauges_json: normalizedGauges,
-      gauges_count: normalizedGauges.length,
+      gauges_count: activeGaugesCount,
       active: data.active !== false,
       notes: (data.notes || '').trim(),
       deleted: false,
@@ -478,19 +427,16 @@ export const lineProductFamiliesService = {
       saved = await pb.collection('line_product_families').create<LineProductFamily>(payload)
     }
 
-    // Auditoria append-only em pcp_audit_logs
+    // Auditoria append-only em pcp_audit_logs com rastreio de alterações antes/depois (+/-/~ logs)
     try {
       const diffList: string[] = []
       if (previousRecord) {
         if (previousRecord.family_name !== saved.family_name) {
-          diffList.push(`Família: "${previousRecord.family_name}" → "${saved.family_name}"`)
-        }
-        if (previousRecord.cylinder_code !== saved.cylinder_code) {
-          diffList.push(`Cilindro: "${previousRecord.cylinder_code}" → "${saved.cylinder_code}"`)
+          diffList.push(`~ Família: "${previousRecord.family_name}" → "${saved.family_name}"`)
         }
         if (previousRecord.pm_equipment_code !== saved.pm_equipment_code) {
           diffList.push(
-            `Equipamento PM: "${previousRecord.pm_equipment_code}" → "${saved.pm_equipment_code}"`,
+            `~ Código Equipamento PM: "${previousRecord.pm_equipment_code || '—'}" → "${saved.pm_equipment_code || '—'}"`,
           )
         }
         if (
@@ -498,17 +444,48 @@ export const lineProductFamiliesService = {
           previousRecord.max_mp_diameter_mm !== saved.max_mp_diameter_mm
         ) {
           diffList.push(
-            `Faixa MP: [${formatMm(previousRecord.min_mp_diameter_mm)} - ${formatMm(previousRecord.max_mp_diameter_mm)}] → [${formatMm(saved.min_mp_diameter_mm)} - ${formatMm(saved.max_mp_diameter_mm)}]`,
+            `~ Diâmetro MP: [${formatMm(previousRecord.min_mp_diameter_mm)} - ${formatMm(previousRecord.max_mp_diameter_mm)}] → [${formatMm(saved.min_mp_diameter_mm)} - ${formatMm(saved.max_mp_diameter_mm)}]`,
+          )
+        }
+        if (
+          previousRecord.comprimento_min_mp !== saved.comprimento_min_mp ||
+          previousRecord.comprimento_max_mp !== saved.comprimento_max_mp
+        ) {
+          diffList.push(
+            `~ Comprimento MP: [${formatMeters(previousRecord.comprimento_min_mp)} - ${formatMeters(previousRecord.comprimento_max_mp)}] → [${formatMeters(saved.comprimento_min_mp)} - ${formatMeters(saved.comprimento_max_mp)}]`,
           )
         }
         if (previousRecord.active !== saved.active) {
           diffList.push(
-            `Status: ${previousRecord.active ? 'Ativa' : 'Inativa'} → ${saved.active ? 'Ativa' : 'Inativa'}`,
+            `~ Status: ${previousRecord.active ? 'Ativa' : 'Inativa'} → ${saved.active ? 'Ativa' : 'Inativa'}`,
           )
         }
-        if (previousRecord.gauges_count !== saved.gauges_count) {
-          diffList.push(`Qtd Bitolas: ${previousRecord.gauges_count} → ${saved.gauges_count}`)
-        }
+
+        // Auditoria das bitolas (+/-/~ bitolas)
+        const prevBitolas = (previousRecord.gauges_json || []).filter((g) => !g.deleted)
+        const newBitolas = (saved.gauges_json || []).filter((g) => !g.deleted)
+        const prevSet = new Set(prevBitolas.map((g) => g.bitola))
+        const newSet = new Set(newBitolas.map((g) => g.bitola))
+
+        newBitolas.forEach((g) => {
+          if (!prevSet.has(g.bitola)) {
+            diffList.push(
+              `+ Bitola adicionada: "${g.bitola}"${g.description ? ` (${g.description})` : ''}`,
+            )
+          }
+        })
+        prevBitolas.forEach((g) => {
+          if (!newSet.has(g.bitola)) {
+            diffList.push(`- Bitola removida/inativada: "${g.bitola}"`)
+          }
+        })
+      } else {
+        diffList.push(`+ Família criada: "${saved.family_name}"`)
+        ;(saved.gauges_json || [])
+          .filter((g) => !g.deleted)
+          .forEach((g) => {
+            diffList.push(`+ Bitola associada: "${g.bitola}"`)
+          })
       }
 
       await pb.collection('pcp_audit_logs').create({
@@ -534,11 +511,12 @@ export const lineProductFamiliesService = {
           line_id: saved.line_id,
           center_code: saved.center_code,
           family_name: saved.family_name,
-          cylinder_code: saved.cylinder_code,
           pm_equipment_code: saved.pm_equipment_code,
           min_mp_diameter_mm: saved.min_mp_diameter_mm,
           max_mp_diameter_mm: saved.max_mp_diameter_mm,
-          gauges_count: saved.gauges_count,
+          comprimento_min_mp: saved.comprimento_min_mp,
+          comprimento_max_mp: saved.comprimento_max_mp,
+          gauges_count: activeGaugesCount,
           gauges: saved.gauges_json,
           active: saved.active,
           diff_descriptions: diffList,
@@ -550,7 +528,10 @@ export const lineProductFamiliesService = {
       console.warn('Falha na gravação de auditoria da família:', auditErr)
     }
 
-    return saved
+    return {
+      ...saved,
+      gauges_count: activeGaugesCount,
+    }
   },
 
   /**
@@ -596,6 +577,9 @@ export const lineProductFamiliesService = {
         status: newActive ? 'Ativa' : 'Inativa',
         reason: `${newActive ? 'Ativação' : 'Inativação'} da família "${updated.family_name}"`,
         details: {
+          diff_descriptions: [
+            `~ Status da Família: ${previousRecord?.active ? 'Ativa' : 'Inativa'} → ${newActive ? 'Ativa' : 'Inativa'}`,
+          ],
           previous_active: previousRecord?.active,
           new_active: newActive,
         },
@@ -657,6 +641,7 @@ export const lineProductFamiliesService = {
         status: 'Excluído',
         reason: reason || 'Exclusão lógica de família técnica',
         details: {
+          diff_descriptions: [`- Exclusão lógica da família "${updated.family_name}"`],
           previous_value: previousRecord,
           deleted_at: payload.deleted_at,
           deleted_by: userName,

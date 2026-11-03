@@ -4,17 +4,12 @@
  * Painel da sub-aba "Famílias" da Ficha Mestra Expandida
  * Integrado à collection line_product_families
  *
- * Recursos:
- * - Colunas: Família | Cilindro | Código do equipamento PM | Diâmetro mínimo MP | Diâmetro máximo MP | Quantidade de bitolas | Status Ativa-Inativa | Ações Visualizar-Editar-Inativar
- * - Botão "+ Adicionar família"
- * - Pesquisa por família
- * - Filtro Ativa/Inativa/Todas
- * - Atualização da lista (botão refresh)
- * - Estado vazio amigável
- * - Loading suave
- * - Tratamento de erro amigável (sem stack trace ou SQL)
- * - Modal de visualização rápida / detalhe
- * - Modal de confirmação de inativação / exclusão lógica
+ * Reestruturações atendidas:
+ * - REMOÇÃO de "Cilindro" e "Quantidade de bitolas" digitada manualmente.
+ * - Tabela: | Família | Código Equipamento PM | Diâmetro mín. MP | Diâmetro máx. MP | Comprimento mín. MP | Comprimento máx. MP | Status | Ações |
+ * - Responsividade completa: sem rolagem horizontal da página inteira, sem quebra de palavra letra por letra,
+ *   rolagem horizontal contida apenas no container da tabela e cards responsivos para mobile.
+ * - Valores formatados em pt-BR com vírgula decimal e espaço entre número e unidade (m e mm).
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
@@ -27,15 +22,12 @@ import {
   Layers,
   Plus,
   Search,
-  Filter,
   RefreshCw,
   Edit2,
-  Trash2,
   Eye,
   CheckCircle2,
   Power,
   SlidersHorizontal,
-  Wrench,
   AlertCircle,
   HelpCircle,
   Disc,
@@ -52,7 +44,7 @@ import {
   lineProductFamiliesService,
   LineProductFamily,
   formatMm,
-  formatLengthMm,
+  formatMeters,
 } from '@/services/line-product-families-service'
 import { LineFamilyModal } from '@/components/line-master/LineFamilyModal'
 
@@ -116,24 +108,17 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
     loadData()
   }, [loadData])
 
-  // Filtragem
+  // Filtragem (sem filtros de Cilindro ou Quantidade de bitolas)
   const filteredFamilies = useMemo(() => {
     return families.filter((f) => {
       // Filtro de status
       if (filterStatus === 'ATIVAS' && !f.active) return false
       if (filterStatus === 'INATIVAS' && f.active) return false
 
-      // Busca textual por nome da família, cilindro ou código PM
+      // Busca textual por nome da família ou código PM
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase()
-        const text = [
-          f.family_name,
-          f.cylinder_code,
-          f.cylinder_name,
-          f.pm_equipment_code,
-          f.pm_equipment_name,
-          f.notes,
-        ]
+        const text = [f.family_name, f.pm_equipment_code, f.pm_equipment_name, f.notes]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
@@ -197,7 +182,7 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
   }
 
   return (
-    <div className="space-y-4" data-testid="panel-line-product-families">
+    <div className="space-y-4 max-w-full overflow-hidden" data-testid="panel-line-product-families">
       {/* Cards de Resumo Operacional */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
         <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
@@ -242,12 +227,12 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
       </div>
 
       {/* Card Principal de Listagem */}
-      <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+      <Card className="bg-white border-slate-200 text-slate-900 shadow-sm max-w-full">
         <CardHeader className="p-4 pb-3 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#004C97]" />
-              Famílias Técnicas de Produtos (Ficha Mestra)
+            <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+              <Layers className="w-4 h-4 text-[#004C97] shrink-0" />
+              <span>Famílias Técnicas de Produtos (Ficha Mestra)</span>
               <Badge
                 variant="outline"
                 className="text-[10px] bg-blue-50 text-[#004C97] border-blue-200 font-bold"
@@ -256,12 +241,12 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
               </Badge>
             </CardTitle>
             <CardDescription className="text-xs text-slate-500 pt-0.5">
-              Agrupamento técnico de produtos/bitolas com cilindro de conformação, equipamento SAP
-              PM e faixa de MP.
+              Parâmetros de matéria-prima (diâmetro e comprimento em metros) e bitolas associadas à
+              família.
             </CardDescription>
           </div>
 
-          <div className="flex items-center gap-2 self-start md:self-auto">
+          <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
             <Button
               size="sm"
               variant="outline"
@@ -310,12 +295,12 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
           {/* Barra de Filtros e Pesquisa */}
           <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
             {/* Pesquisa por Família */}
-            <div className="relative flex-1 min-w-[220px]">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Pesquisar por família, cilindro, código PM..."
+                placeholder="Pesquisar por família ou código PM..."
                 className="h-8 pl-8 text-xs bg-white border-slate-300"
                 data-testid="input-search-families"
               />
@@ -353,7 +338,7 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
             )}
           </div>
 
-          {/* Visualização em Cards no Celular / Tabela no Desktop */}
+          {/* Visualização em Cards no Mobile */}
           <div className="block md:hidden space-y-3" data-testid="mobile-families-cards">
             {isLoading ? (
               <div className="p-6 text-center text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
@@ -368,7 +353,7 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
                 data-testid="mobile-empty-families"
               >
                 <Layers className="w-7 h-7 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-600">Nenhuma família cadastrada</p>
+                <p className="text-xs font-semibold text-slate-600">Nenhuma família encontrada</p>
               </div>
             ) : (
               filteredFamilies.map((fam) => (
@@ -378,7 +363,9 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
                   data-testid={`mobile-family-card-${fam.id}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 text-sm">{fam.family_name}</span>
+                    <span className="font-bold text-slate-900 text-sm break-words">
+                      {fam.family_name}
+                    </span>
                     <Badge
                       variant="outline"
                       className={`text-[10px] font-bold ${
@@ -393,23 +380,28 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
 
                   <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-100">
                     <div>
-                      <span className="text-slate-500 block">Cilindro:</span>
-                      <span className="font-semibold text-slate-800">{fam.cylinder_code}</span>
+                      <span className="text-slate-500 block">Código Equipamento PM:</span>
+                      <span className="font-mono text-slate-800">
+                        {fam.pm_equipment_code || '—'}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block">Equipamento PM:</span>
-                      <span className="font-mono text-slate-800">{fam.pm_equipment_code}</span>
+                      <span className="text-slate-500 block">Bitolas vinculadas:</span>
+                      <span className="font-bold text-[#004C97]">
+                        {fam.gauges_count} {fam.gauges_count === 1 ? 'bitola' : 'bitolas'}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block">Faixa MP:</span>
-                      <span className="font-mono text-[#004C97] font-semibold">
+                      <span className="text-slate-500 block">Diâmetro MP (mm):</span>
+                      <span className="font-mono text-slate-800 font-semibold">
                         {formatMm(fam.min_mp_diameter_mm)} a {formatMm(fam.max_mp_diameter_mm)}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block">Bitolas:</span>
-                      <span className="font-bold text-slate-800">
-                        {fam.gauges_count} {fam.gauges_count === 1 ? 'bitola' : 'bitolas'}
+                      <span className="text-slate-500 block">Comprimento MP (m):</span>
+                      <span className="font-mono text-slate-800 font-semibold">
+                        {formatMeters(fam.comprimento_min_mp)} a{' '}
+                        {formatMeters(fam.comprimento_max_mp)}
                       </span>
                     </div>
                   </div>
@@ -449,19 +441,19 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
             )}
           </div>
 
-          {/* Tabela de Famílias no Desktop com rolagem interna */}
+          {/* Tabela de Famílias no Desktop com Rolagem Horizontal Interna Controlada */}
           <div className="hidden md:block overflow-x-auto rounded border border-slate-200">
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
                 <tr>
-                  <th className="p-2.5">Família</th>
-                  <th className="p-2.5">Cilindro</th>
-                  <th className="p-2.5">Código do equipamento PM</th>
-                  <th className="p-2.5">Diâmetro mínimo MP</th>
-                  <th className="p-2.5">Diâmetro máximo MP</th>
-                  <th className="p-2.5 text-center">Quantidade de bitolas</th>
-                  <th className="p-2.5 text-center">Status</th>
-                  <th className="p-2.5 text-right">Ações</th>
+                  <th className="p-2.5 whitespace-nowrap min-w-[150px]">Família</th>
+                  <th className="p-2.5 whitespace-nowrap min-w-[160px]">Código Equipamento PM</th>
+                  <th className="p-2.5 whitespace-nowrap min-w-[130px]">Diâmetro mín. MP</th>
+                  <th className="p-2.5 whitespace-nowrap min-w-[130px]">Diâmetro máx. MP</th>
+                  <th className="p-2.5 whitespace-nowrap min-w-[145px]">Comprimento mín. MP</th>
+                  <th className="p-2.5 whitespace-nowrap min-w-[145px]">Comprimento máx. MP</th>
+                  <th className="p-2.5 text-center whitespace-nowrap w-20">Status</th>
+                  <th className="p-2.5 text-right whitespace-nowrap w-24">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
@@ -487,7 +479,7 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
                         <p className="text-xs text-slate-500">
                           {searchTerm || filterStatus !== 'TODAS'
                             ? 'Tente ajustar os termos de pesquisa ou alternar o filtro de status.'
-                            : 'Cadastre a primeira família técnica com cilindro, código PM e bitolas associadas.'}
+                            : 'Cadastre a primeira família técnica com código PM, diâmetros, comprimentos e bitolas associadas.'}
                         </p>
                         {!searchTerm && filterStatus === 'ATIVAS' && (
                           <Button
@@ -511,7 +503,7 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
                       data-testid={`family-row-${fam.id}`}
                     >
                       {/* Família */}
-                      <td className="p-2.5 font-bold text-slate-900">
+                      <td className="p-2.5 font-bold text-slate-900 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
                           <span>{fam.family_name}</span>
                           {fam.notes && (
@@ -525,50 +517,42 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
                         </div>
                       </td>
 
-                      {/* Cilindro */}
-                      <td className="p-2.5">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-800">{fam.cylinder_code}</span>
-                          {fam.cylinder_name && (
-                            <span className="text-[10px] text-slate-500 truncate max-w-[180px]">
-                              {fam.cylinder_name}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
                       {/* Código do equipamento PM */}
-                      <td className="p-2.5">
-                        <Badge
-                          variant="outline"
-                          className="font-mono text-[11px] bg-slate-50 text-slate-800 border-slate-300"
-                        >
-                          {fam.pm_equipment_code}
-                        </Badge>
+                      <td className="p-2.5 whitespace-nowrap">
+                        {fam.pm_equipment_code ? (
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-[11px] bg-slate-50 text-slate-800 border-slate-300"
+                          >
+                            {fam.pm_equipment_code}
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400 italic">—</span>
+                        )}
                       </td>
 
                       {/* Diâmetro mínimo MP */}
-                      <td className="p-2.5 font-mono text-[11px] text-slate-800">
+                      <td className="p-2.5 font-mono text-[11px] text-slate-800 whitespace-nowrap">
                         {formatMm(fam.min_mp_diameter_mm, 2)}
                       </td>
 
                       {/* Diâmetro máximo MP */}
-                      <td className="p-2.5 font-mono text-[11px] text-slate-800">
+                      <td className="p-2.5 font-mono text-[11px] text-slate-800 whitespace-nowrap">
                         {formatMm(fam.max_mp_diameter_mm, 2)}
                       </td>
 
-                      {/* Quantidade de bitolas */}
-                      <td className="p-2.5 text-center">
-                        <Badge
-                          variant="secondary"
-                          className="font-mono text-xs font-bold bg-blue-50 text-[#004C97] hover:bg-blue-100"
-                        >
-                          {fam.gauges_count} {fam.gauges_count === 1 ? 'bitola' : 'bitolas'}
-                        </Badge>
+                      {/* Comprimento mínimo MP (m) */}
+                      <td className="p-2.5 font-mono text-[11px] text-[#004C97] font-semibold whitespace-nowrap">
+                        {formatMeters(fam.comprimento_min_mp, 2)}
+                      </td>
+
+                      {/* Comprimento máximo MP (m) */}
+                      <td className="p-2.5 font-mono text-[11px] text-[#004C97] font-semibold whitespace-nowrap">
+                        {formatMeters(fam.comprimento_max_mp, 2)}
                       </td>
 
                       {/* Status */}
-                      <td className="p-2.5 text-center">
+                      <td className="p-2.5 text-center whitespace-nowrap">
                         <Badge
                           variant="outline"
                           className={`text-[10px] font-bold ${
@@ -680,34 +664,41 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
                 {/* Bloco de Informações */}
                 <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <div>
-                    <span className="text-slate-500 font-medium block">Cilindro:</span>
-                    <span className="font-bold text-slate-800">{viewingFamily.cylinder_code}</span>
-                    <span className="text-[11px] text-slate-500 block truncate">
-                      {viewingFamily.cylinder_name}
-                    </span>
-                  </div>
-                  <div>
                     <span className="text-slate-500 font-medium block">Equipamento SAP PM:</span>
                     <span className="font-mono font-bold text-slate-800">
-                      {viewingFamily.pm_equipment_code}
+                      {viewingFamily.pm_equipment_code || '—'}
                     </span>
-                    <span className="text-[11px] text-slate-500 block truncate">
-                      {viewingFamily.pm_equipment_name}
+                    {viewingFamily.pm_equipment_name && (
+                      <span className="text-[11px] text-slate-500 block truncate">
+                        {viewingFamily.pm_equipment_name}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium block">
+                      Total de Bitolas Vinculadas:
+                    </span>
+                    <span className="font-bold text-[#004C97]">
+                      {viewingFamily.gauges_count}{' '}
+                      {viewingFamily.gauges_count === 1 ? 'bitola' : 'bitolas'}
                     </span>
                   </div>
                   <div>
                     <span className="text-slate-500 font-medium block">
-                      Faixa de MP Admissível:
+                      Faixa de Diâmetro MP (mm):
                     </span>
-                    <span className="font-mono font-bold text-[#004C97]">
+                    <span className="font-mono font-bold text-slate-800">
                       {formatMm(viewingFamily.min_mp_diameter_mm)} a{' '}
                       {formatMm(viewingFamily.max_mp_diameter_mm)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 font-medium block">Total de Bitolas:</span>
-                    <span className="font-bold text-slate-800">
-                      {viewingFamily.gauges_count} cadastradas
+                    <span className="text-slate-500 font-medium block">
+                      Faixa de Comprimento MP (m):
+                    </span>
+                    <span className="font-mono font-bold text-[#004C97]">
+                      {formatMeters(viewingFamily.comprimento_min_mp)} a{' '}
+                      {formatMeters(viewingFamily.comprimento_max_mp)}
                     </span>
                   </div>
                 </div>
@@ -716,7 +707,8 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
                 <div className="space-y-2">
                   <h5 className="font-bold text-slate-800 flex items-center gap-1.5">
                     <SlidersHorizontal className="w-3.5 h-3.5 text-[#004C97]" />
-                    Bitolas da Família e Comprimentos
+                    Bitolas da Família ({viewingFamily.gauges_json.filter((g) => !g.deleted).length}
+                    )
                   </h5>
                   <div className="overflow-x-auto rounded border border-slate-200">
                     <table className="w-full text-left text-xs text-slate-700">
@@ -724,23 +716,48 @@ export const LineProductFamiliesPanel: React.FC<LineProductFamiliesPanelProps> =
                         <tr>
                           <th className="p-2 w-10 text-center">#</th>
                           <th className="p-2">Bitola</th>
-                          <th className="p-2">Comprimento Mínimo</th>
-                          <th className="p-2">Comprimento Máximo</th>
+                          <th className="p-2">Descrição</th>
+                          <th className="p-2 w-20 text-center">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {viewingFamily.gauges_json.map((g, i) => (
-                          <tr key={g.id || i} className="hover:bg-slate-50">
-                            <td className="p-2 text-center text-slate-400 font-mono">{i + 1}</td>
-                            <td className="p-2 font-bold text-slate-900">{g.bitola}</td>
-                            <td className="p-2 font-mono text-slate-700">
-                              {formatLengthMm(g.min_length_mm)}
-                            </td>
-                            <td className="p-2 font-mono text-slate-700">
-                              {formatLengthMm(g.max_length_mm)}
+                        {viewingFamily.gauges_json.filter((g) => !g.deleted).length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-3 text-center text-slate-400 italic">
+                              Nenhuma bitola vinculada a esta família.
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          viewingFamily.gauges_json
+                            .filter((g) => !g.deleted)
+                            .map((g, i) => (
+                              <tr key={g.id || i} className="hover:bg-slate-50">
+                                <td className="p-2 text-center text-slate-400 font-mono">
+                                  {i + 1}
+                                </td>
+                                <td className="p-2 font-bold text-slate-900 font-mono">
+                                  {g.bitola}
+                                </td>
+                                <td className="p-2 text-slate-600">
+                                  {g.description || (
+                                    <span className="text-slate-400 italic">—</span>
+                                  )}
+                                </td>
+                                <td className="p-2 text-center">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] font-bold ${
+                                      g.active
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                        : 'bg-slate-100 text-slate-500 border-slate-300'
+                                    }`}
+                                  >
+                                    {g.active ? 'Ativa' : 'Inativa'}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))
+                        )}
                       </tbody>
                     </table>
                   </div>
