@@ -511,6 +511,10 @@ class RawMaterialRestrictionsService {
           new_values: params.newValues || null,
           timestamp: new Date().toISOString(),
         },
+        changes: {
+          anterior: params.previousValues || null,
+          posterior: params.newValues || null,
+        },
       })
     } catch (err) {
       console.warn('[RawMaterialRestrictionsService] Falha silenciosa ao registrar auditoria:', err)
