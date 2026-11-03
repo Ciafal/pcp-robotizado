@@ -116,6 +116,7 @@ export interface ProductionLine {
     | 'INACTIVE'
     | 'CONFIGURING'
   is_active?: boolean
+  resource_type?: ResourceType
   programming_type?: ProgrammingType | string
   programming_stages?: (ProgrammingType | string)[]
   shifts_summary?: string[]
@@ -902,4 +903,78 @@ export interface MasterSheetCompletenessResult {
   blocks: Record<MasterSheetBlockKey, MasterSheetBlockCompleteness>
   pendencies: CompletenessItem[]
   calculatedAt: string
+}
+
+/**
+ * Avalia se uma linha/centro de produção é elegível para um determinado tipo de programação.
+ * Regras aditivas normalizadas (trim + case-insensitive):
+ *  (a) pType === selectedProgrammingType
+ *  (b) pType === 'Múltiplo' e o tipo selecionado está em programming_stages
+ *  (c) resource_type da linha normalizado === 'rework' E tipo selecionado normalizado === 'retrabalho'
+ */
+export function isLineEligibleForProgrammingType(
+  line:
+    | ProductionLine
+    | {
+        id?: string
+        is_active?: boolean
+        status?: string
+        programming_type?: string
+        programming_stages?: (string | ProgrammingType)[]
+        resource_type?: string
+      },
+  selectedProgrammingType: string | null | undefined,
+  currentLineOverview?: LineOverviewData | null,
+): boolean {
+  if (!selectedProgrammingType) return false
+
+  const active = line.is_active !== false && line.status !== 'INACTIVE'
+  if (!active) return false
+
+  const normSelected = String(selectedProgrammingType).trim().toLowerCase()
+  if (normSelected === 'all' || normSelected === 'todos') return true
+
+  // Extrai pType e pStages com fallback do overview se for a mesma linha
+  const isCurrentOverviewLine = Boolean(
+    line.id && currentLineOverview?.line?.id && line.id === currentLineOverview.line.id,
+  )
+  const pTypeRaw =
+    (isCurrentOverviewLine ? currentLineOverview?.master?.programming_type : undefined) ||
+    line.programming_type ||
+    'Laminação'
+  const normPType = String(pTypeRaw).trim().toLowerCase()
+
+  const stagesRaw = Array.isArray(
+    (isCurrentOverviewLine ? currentLineOverview?.master?.programming_stages : undefined) ||
+      line.programming_stages,
+  )
+    ? (isCurrentOverviewLine ? currentLineOverview?.master?.programming_stages : undefined) ||
+      line.programming_stages
+    : []
+
+  const normStages = (stagesRaw || []).map((s) => String(s).trim().toLowerCase())
+
+  const resourceTypeRaw =
+    (isCurrentOverviewLine ? currentLineOverview?.master?.resource_type : undefined) ||
+    line.resource_type
+  const normResourceType = resourceTypeRaw ? String(resourceTypeRaw).trim().toLowerCase() : ''
+
+  // (a) pType === selecionado
+  if (normPType === normSelected) {
+    return true
+  }
+
+  // (b) pType === 'Múltiplo' e o tipo está nas etapas
+  if (normPType === 'múltiplo' || normPType === 'multiplo') {
+    if (normStages.includes(normSelected)) {
+      return true
+    }
+  }
+
+  // (c) resource_type normalizado === 'rework' E tipo selecionado normalizado === 'retrabalho'
+  if (normResourceType === 'rework' && normSelected === 'retrabalho') {
+    return true
+  }
+
+  return false
 }

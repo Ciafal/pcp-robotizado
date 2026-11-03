@@ -112,6 +112,8 @@ export const lineMasterService = {
         return {
           ...l,
           is_derived: Boolean(l.is_derived),
+          resource_type: activeMaster?.resource_type ?? l.resource_type,
+          programming_stages: activeMaster?.programming_stages ?? l.programming_stages,
           programming_type: resolvedProgrammingType,
           shifts_summary: lineShifts,
           crews_summary: lineCrews,

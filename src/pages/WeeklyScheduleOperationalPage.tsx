@@ -87,6 +87,7 @@ import {
   ProductionLine,
   ProgrammingType,
   PROGRAMMING_TYPES_CATALOG,
+  isLineEligibleForProgrammingType,
 } from '@/types/line-master'
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
@@ -184,6 +185,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   // Dados Carregados da Ficha Mestre e Linhas Cadastradas
   const [lines, setLines] = useState<ProductionLine[]>([])
+  const [isLoadingLines, setIsLoadingLines] = useState<boolean>(true)
+  const [linesLoadError, setLinesLoadError] = useState<string | null>(null)
   const [currentLineOverview, setCurrentLineOverview] = useState<LineOverviewData | null>(null)
   const [officialMaterials, setOfficialMaterials] = useState<OfficialMaterialOption[]>([])
   const [rawMaterialContext, setRawMaterialContext] = useState<RawMaterialEngineContext>({})
@@ -539,19 +542,27 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }, [items, activeSourceDerivationRules])
 
   // 1. Carrega Linhas Produtivas Cadastradas Oficialmente
-  useEffect(() => {
-    const fetchLines = async () => {
-      try {
-        const lineList = await lineMasterService.listLines()
-        if (lineList && lineList.length > 0) {
-          setLines(lineList)
-        }
-      } catch (err) {
-        console.error('Erro ao buscar linhas produtivas:', err)
+  const fetchLines = useCallback(async () => {
+    setIsLoadingLines(true)
+    setLinesLoadError(null)
+    try {
+      const lineList = await lineMasterService.listLines()
+      if (lineList && lineList.length > 0) {
+        setLines(lineList)
+      } else {
+        setLines([])
       }
+    } catch (err: any) {
+      console.error('Erro ao buscar linhas produtivas:', err)
+      setLinesLoadError(err?.message || 'Falha ao carregar linhas produtivas.')
+    } finally {
+      setIsLoadingLines(false)
     }
-    fetchLines()
   }, [])
+
+  useEffect(() => {
+    fetchLines()
+  }, [fetchLines])
 
   // 2. Carrega Ficha Mestre da Linha Selecionada e Materiais Oficiais
   const loadLineData = useCallback(
@@ -922,7 +933,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     setSelectedScheduleItem(initial[1])
   }
 
-  // Validações de Linha Inativa e Configuração Completa da Ficha Mestra
+  // Validações de Linha Selecionada, Linha Inativa e Configuração Completa da Ficha Mestra
+  const hasSelectedLine = Boolean(selectedLineCode && currentLineOverview?.line)
   const isLineActive = currentLineOverview?.line
     ? currentLineOverview.line.is_active !== false
     : false
@@ -962,33 +974,12 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     return deficits
   }, [selectedLineCode, currentLineOverview])
 
-  // Linhas Elegíveis filtradas por Tipo de Programação e Linha Ativa (ITEM 1 e ITEM 2)
+  // Linhas Elegíveis filtradas por Tipo de Programação e Linha Ativa (Regra centralizada isLineEligibleForProgrammingType)
   const eligibleLines = useMemo(() => {
-    return lines.filter((line) => {
-      // Linha ativa
-      const active = line.is_active !== false && line.status !== 'INACTIVE'
-      if (!active) return false
-
-      // Se filtro for "ALL" / Todos
-      if (selectedProgrammingType === 'ALL') return true
-
-      // Fonte única de verdade: line_masters.programming_type com fallback para lines.programming_type
-      const overviewForLine = line.id === currentLineOverview?.line.id ? currentLineOverview : null
-      const pType =
-        overviewForLine?.master?.programming_type || line.programming_type || 'Laminação'
-      const pStages = Array.isArray(
-        overviewForLine?.master?.programming_stages || line.programming_stages,
-      )
-        ? overviewForLine?.master?.programming_stages || line.programming_stages
-        : []
-
-      if (pType === selectedProgrammingType) return true
-      if (pType === 'Múltiplo' && (pStages as string[]).includes(selectedProgrammingType)) {
-        return true
-      }
-      return false
-    })
-  }, [lines, selectedProgrammingType])
+    return lines.filter((line) =>
+      isLineEligibleForProgrammingType(line, selectedProgrammingType, currentLineOverview),
+    )
+  }, [lines, selectedProgrammingType, currentLineOverview])
 
   // Quando o Tipo de Programação mudar, se a linha atual não for mais elegível, reseta seleção sem forçar autoseleção
   useEffect(() => {
@@ -1686,6 +1677,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   // Adiciona Produto com Verificação de HARD BLOCK e Bloqueio de Linha Inativa
   const handleAddProduct = (newItemData?: Partial<WeeklyScheduleItem>) => {
     if (!newItemData || !newItemData.material_code) return
+
+    if (!hasSelectedLine) {
+      toast({
+        variant: 'destructive',
+        title: 'Nenhuma Linha Selecionada',
+        description: 'Selecione uma linha/centro ativa para adicionar produtos.',
+      })
+      return
+    }
 
     if (!isLineActive) {
       toast({
@@ -2405,6 +2405,14 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   const handleDuplicate = (index: number) => {
+    if (!hasSelectedLine) {
+      toast({
+        variant: 'destructive',
+        title: 'Nenhuma Linha Selecionada',
+        description: 'Selecione uma linha/centro para duplicar itens.',
+      })
+      return
+    }
     if (!isLineActive) {
       toast({
         variant: 'destructive',
@@ -3037,6 +3045,14 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }
 
     // Pipeline de validação real da IA antes de sugerir otimizações
+    if (!hasSelectedLine) {
+      toast({
+        variant: 'destructive',
+        title: 'Nenhuma Linha Selecionada',
+        description: 'Selecione uma linha/centro para executar a análise de IA.',
+      })
+      return
+    }
     if (!isLineActive) {
       toast({
         variant: 'destructive',
@@ -3986,8 +4002,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       />
 
       {/* 1.1 AVISOS DE LINHA INATIVA OU CONFIGURAÇÃO INCOMPLETA DA FICHA MESTRA */}
-      {!isLineActive && (
-        <div className="bg-rose-50 border-2 border-rose-300 rounded-lg p-3 text-rose-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+      {hasSelectedLine && !isLineActive && (
+        <div
+          data-testid="banner-linha-inativa"
+          className="bg-rose-50 border-2 border-rose-300 rounded-lg p-3 text-rose-950 flex flex-wrap items-center justify-between gap-3 shadow-xs"
+        >
           <div className="flex items-center gap-2.5">
             <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
             <div>
@@ -4013,7 +4032,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         </div>
       )}
 
-      {isLineActive && lineConfigurationDeficits.length > 0 && (
+      {hasSelectedLine && isLineActive && lineConfigurationDeficits.length > 0 && (
         <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-amber-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
           <div className="flex items-start gap-2.5">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
