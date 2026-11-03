@@ -101,11 +101,13 @@ interface ControlTowerContextType {
   setCompanyScope: (companyCode: string) => void
   setPlantScope: (plantCode: string) => void
   setLineScope: (lineCode: string) => void
+  setCenterScope: (centerCode: string) => void
   resetFilters: () => void
 
   // Cascata de opções disponíveis
   availablePlants: Plant[]
   availableLines: ProductionLineHierarchy[]
+  availableCenters: WorkCenterNode[]
 
   // Resolução de Regras e Herança
   effectiveRules: ReturnType<typeof resolveEffectiveRules>
@@ -932,6 +934,14 @@ export const ControlTowerProvider: React.FC<{
     })
   }, [lines, filters.companyCode, filters.plantCode])
 
+  // Filtros em Cascata: Centros de Trabalho Disponíveis (respeitando Linha -> Centros da Linha)
+  const availableCenters = useMemo(() => {
+    return workCenters.filter((wc) => {
+      if (filters.lineCode !== 'ALL' && wc.lineCode !== filters.lineCode) return false
+      return true
+    })
+  }, [workCenters, filters.lineCode])
+
   // Setters de Escopo com Reset em Cascata
   const setCompanyScope = useCallback((companyCode: string) => {
     setFilters((prev) => {
@@ -940,6 +950,7 @@ export const ControlTowerProvider: React.FC<{
         companyCode,
         plantCode: 'ALL',
         lineCode: 'ALL',
+        centerCode: 'ALL',
       }
       return next
     })
@@ -951,13 +962,18 @@ export const ControlTowerProvider: React.FC<{
         ...prev,
         plantCode,
         lineCode: 'ALL',
+        centerCode: 'ALL',
       }
       return next
     })
   }, [])
 
   const setLineScope = useCallback((lineCode: string) => {
-    setFilters((prev) => ({ ...prev, lineCode }))
+    setFilters((prev) => ({ ...prev, lineCode, centerCode: 'ALL' }))
+  }, [])
+
+  const setCenterScope = useCallback((centerCode: string) => {
+    setFilters((prev) => ({ ...prev, centerCode }))
   }, [])
 
   // Herança Efetiva de Regras
@@ -1344,9 +1360,11 @@ export const ControlTowerProvider: React.FC<{
       setCompanyScope,
       setPlantScope,
       setLineScope,
+      setCenterScope,
       resetFilters,
       availablePlants,
       availableLines,
+      availableCenters,
       effectiveRules,
       orders,
       processNodes,
@@ -1418,9 +1436,11 @@ export const ControlTowerProvider: React.FC<{
       setCompanyScope,
       setPlantScope,
       setLineScope,
+      setCenterScope,
       resetFilters,
       availablePlants,
       availableLines,
+      availableCenters,
       effectiveRules,
       orders,
       processNodes,

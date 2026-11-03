@@ -695,6 +695,7 @@ export interface GlobalFilterState {
   companyCode: string // 'ALL' or 'CIAFAL'
   plantCode: string // 'ALL' or 'DIV' or 'CTG'
   lineCode: string // 'ALL' or 'L1' or 'L2'...
+  centerCode?: string // 'ALL' or work center code
   period: 'HOJE' | 'AMANHA' | 'SEMANA' | '7_DIAS' | '15_DIAS' | 'MES' | 'CUSTOM'
   processCode: string
   familyCode: string
