@@ -401,19 +401,19 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
         <div className="h-1 bg-[#004C97] w-full" />
         {/* CABEÇALHO REESTRUTURADO EM 3 ÁREAS (Área 1: Título+descrição, Área 2: Badges compactos, Área 3: Seletor + Ações) */}
         <CardHeader className="p-4 pb-3 border-b border-slate-100">
-          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
-            {/* Bloco Título + Badges em linha flexível */}
-            <div className="flex flex-col md:flex-row md:items-center gap-3 min-w-0">
+          <div className="flex flex-col 2xl:flex-row 2xl:items-center 2xl:justify-between gap-3 min-w-0">
+            {/* Bloco Título + Badges em linha flexível com prioridade de espaço */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
               {/* Área 1: Título + Descrição */}
-              <div className="flex items-start gap-2.5 min-w-0">
+              <div className="flex items-start gap-2.5 flex-1 min-w-0">
                 <div className="p-2 rounded-lg bg-[#004C97]/10 text-[#004C97] shrink-0 mt-0.5">
                   <Activity className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <h1 className="text-lg md:text-xl font-bold text-slate-900 tracking-tight leading-snug whitespace-normal break-words">
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-lg md:text-xl font-bold text-slate-900 tracking-tight leading-snug break-normal">
                     Matriz de Gargalos Dinâmica — {lineCode}
                   </h1>
-                  <p className="text-[13px] md:text-sm text-slate-500 leading-snug mt-0.5">
+                  <p className="text-[13px] md:text-sm text-slate-500 leading-snug mt-0.5 break-normal">
                     Parâmetros técnicos de capacidade, restrições e gargalos vinculados ao
                     Planejador MRP SAP.
                   </p>
@@ -421,7 +421,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
               </div>
 
               {/* Área 2: Badges de status compactos */}
-              <div className="flex items-center gap-1.5 shrink-0 self-start md:self-center pl-0 md:pl-2">
+              <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center pl-0 sm:pl-2">
                 <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-bold px-2 py-0.5 whitespace-nowrap">
                   {selectedMatrix?.status || 'VIGENTE'}
                 </Badge>
@@ -444,14 +444,14 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
             </div>
 
             {/* Área 3: Seletor de Matriz + Ações */}
-            <div className="flex items-center gap-2 flex-wrap xl:flex-nowrap shrink-0">
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 flex-wrap 2xl:flex-nowrap shrink-0">
+              <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
                 <span className="text-xs text-slate-500 font-semibold shrink-0">Matriz:</span>
                 <select
                   value={selectedMatrixId}
                   onChange={(e) => handleMatrixChange(e.target.value)}
                   aria-label="Matriz de Referência Técnica"
-                  className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-[#004C97] focus:ring-1 focus:ring-[#004C97] outline-none min-w-[240px] md:min-w-[280px] max-w-[420px] h-8 truncate"
+                  className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-[#004C97] focus:ring-1 focus:ring-[#004C97] outline-none min-w-[200px] md:min-w-[240px] max-w-[360px] h-8 truncate"
                 >
                   {matrices.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -461,7 +461,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 </select>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                 <Button
                   size="sm"
                   variant="outline"
