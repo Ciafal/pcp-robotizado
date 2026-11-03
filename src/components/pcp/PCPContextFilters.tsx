@@ -184,10 +184,10 @@ export const PCPContextFilters: React.FC<PCPContextFiltersProps> = ({
     activeCount === 1
       ? 'grid-cols-1'
       : activeCount === 2
-        ? 'grid-cols-1 sm:grid-cols-2'
+        ? 'grid-cols-1 md:grid-cols-2'
         : activeCount === 3
-          ? 'grid-cols-1 sm:grid-cols-3'
-          : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+          ? 'grid-cols-1 md:grid-cols-3'
+          : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-4'
 
   return (
     <div
@@ -356,10 +356,10 @@ export const PCPContextFilters: React.FC<PCPContextFiltersProps> = ({
         )}
       </div>
 
-      {/* LINHA 2: Zona própria de botões de ação (NUNCA na mesma linha disputando largura) */}
+      {/* LINHA 2: Zona própria de botões de ação (NUNCA na mesma linha disputando largura, alinhadas à direita em telas largas) */}
       {actions && (
         <div
-          className="pt-2.5 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2.5"
+          className="pt-2.5 border-t border-slate-200/80 flex flex-wrap items-center justify-between md:justify-end gap-2.5"
           data-testid="pcp-context-actions"
         >
           {actions}

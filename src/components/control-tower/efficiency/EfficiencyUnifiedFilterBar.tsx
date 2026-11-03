@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RotateCcw, RefreshCw, Filter, Search } from 'lucide-react'
+import { PCPContextFilters } from '@/components/pcp/PCPContextFilters'
 
 import { PeriodAnalysisSelector, PeriodSelectionValue } from './PeriodAnalysisSelector'
 
@@ -249,100 +250,53 @@ export const EfficiencyUnifiedFilterBar: React.FC<EfficiencyUnifiedFilterBarProp
           </div>
         </div>
 
-        {/* Grade de Filtros — Linha 1: Empresa | Planta | Linha | Centro (h-8 padronizado, label alinhado) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* 1. Empresa */}
-          <div className="space-y-1">
-            <Label className="text-[11px] font-semibold text-slate-700 block">Empresa</Label>
-            <Select value={filters.companyCode || 'ALL'} onValueChange={handleCompanyChange}>
-              <SelectTrigger className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97]">
-                <SelectValue placeholder="Todas as Empresas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todas as Empresas</SelectItem>
-                {options.companies.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Componente Global de Filtros de Contexto PCP: Empresa -> Planta -> Linha -> Centro */}
+        <PCPContextFilters
+          companyCode={filters.companyCode || 'ALL'}
+          plantCode={filters.plantCode || 'ALL'}
+          lineCode={filters.lineCode || 'ALL'}
+          centerCode={filters.centerCode || 'ALL'}
+          companies={options.companies}
+          plants={options.plants}
+          lines={options.lines}
+          centers={options.centers}
+          onCompanyChange={handleCompanyChange}
+          onPlantChange={handlePlantChange}
+          onLineChange={handleLineChange}
+          onCenterChange={handleCenterChange}
+          showCompany={true}
+          showPlant={true}
+          showLine={true}
+          showCenter={showCenterFilter}
+          allowConsolidatedCompany={true}
+          allowConsolidatedPlant={true}
+          allowConsolidatedLine={true}
+          allowConsolidatedCenter={true}
+          companyAllText="Todas as Empresas"
+          plantAllText="Todas as Plantas"
+          lineAllText="Todas as Linhas"
+          centerAllText="Todos os Centros"
+          companyLabel="Empresa"
+          plantLabel="Planta Industrial"
+          lineLabel="Linha Produtiva"
+          centerLabel="Centro de Trabalho"
+          isLoading={isLoading}
+          idPrefix="efficiency-ctx"
+          className="bg-transparent border-0 p-0 shadow-none space-y-0"
+        />
 
-          {/* 2. Planta */}
-          <div className="space-y-1">
-            <Label className="text-[11px] font-semibold text-slate-700 block">
-              Planta Industrial
-            </Label>
-            <Select value={filters.plantCode || 'ALL'} onValueChange={handlePlantChange}>
-              <SelectTrigger className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97]">
-                <SelectValue placeholder="Todas as Plantas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todas as Plantas</SelectItem>
-                {availablePlants.map((p) => (
-                  <SelectItem key={p.code} value={p.code}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 3. Linha */}
-          <div className="space-y-1">
-            <Label className="text-[11px] font-semibold text-slate-700 block">
-              Linha Produtiva
-            </Label>
-            <Select value={filters.lineCode || 'ALL'} onValueChange={handleLineChange}>
-              <SelectTrigger className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97]">
-                <SelectValue placeholder="Todas as Linhas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todas as Linhas</SelectItem>
-                {availableLines.map((l) => (
-                  <SelectItem key={l.code} value={l.code}>
-                    {l.code} - {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 4. Centro de Trabalho */}
-          {showCenterFilter ? (
+        {/* Status Operacional se showCenterFilter for false */}
+        {!showCenterFilter && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
             <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-slate-700 block">
-                Centro de Trabalho
-              </Label>
-              <Select
-                value={filters.centerCode || 'ALL'}
-                onValueChange={handleCenterChange}
-                disabled={availableCenters.length === 0}
-              >
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97]">
-                  <SelectValue placeholder="Todos os Centros" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Todos os Centros</SelectItem>
-                  {availableCenters.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-slate-700 block">
+              <Label className="text-xs font-bold text-slate-700 tracking-tight block">
                 Status Operacional
               </Label>
               <Select
                 value={filters.status || 'ALL'}
                 onValueChange={(val) => onChange({ ...filters, status: val })}
               >
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97]">
+                <SelectTrigger className="h-10 text-xs sm:text-sm bg-white border border-slate-300 rounded-md px-3 font-medium text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004C97] focus:border-[#004C97] transition-colors truncate">
                   <SelectValue placeholder="Todos os Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -353,8 +307,8 @@ export const EfficiencyUnifiedFilterBar: React.FC<EfficiencyUnifiedFilterBarProp
                 </SelectContent>
               </Select>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Grade de Filtros — Linha 2 quando aplicável: Produto | Período (dd/mm - dd/mm) | Pesquisa (h-8 padronizado) */}
         {showLine2 && (
