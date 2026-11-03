@@ -38,6 +38,12 @@ import { SapMrpControllerItem } from '@/types/sap-mrp'
 import { pcpAuditService, computeDiff } from '@/services/pcp-audit-service'
 import { CreateReferenceMatrixModal } from './CreateReferenceMatrixModal'
 import { GenerateMatricesByMrpControllerModal } from './GenerateMatricesByMrpControllerModal'
+import { BottleneckMatrixRevisionHistory } from './BottleneckMatrixRevisionHistory'
+import { NewRevisionModal } from './NewRevisionModal'
+import {
+  bottleneckMatrixRevisionService,
+  BottleneckMatrixRevisionEntry,
+} from '@/services/bottleneck-matrix-revision-service'
 
 interface LineBottleneckMatrixPanelProps {
   lineCode: string
@@ -80,9 +86,20 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
   // Validação de Conflito de Vigência e Ausência
   const [conflictWarning, setConflictWarning] = useState<string | null>(null)
 
-  // Modais de Criação e Geração
+  // Modais de Criação, Geração e Nova Revisão
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false)
+  const [isNewRevisionModalOpen, setIsNewRevisionModalOpen] = useState(false)
+  const [isSavingRevision, setIsSavingRevision] = useState(false)
+
+  // Estado do Histórico de Revisões
+  const [revisionEntries, setRevisionEntries] = useState<BottleneckMatrixRevisionEntry[]>([])
+  const [loadingRevisions, setLoadingRevisions] = useState(false)
+  const [revisionsError, setRevisionsError] = useState<string | null>(null)
+
+  // Ações de Governança
+  const [isTogglingHomologation, setIsTogglingHomologation] = useState(false)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
 
   // Parâmetros de Simulação Rápida na Matriz
   const [simSection, setSimSection] = useState<number>(130)
@@ -94,6 +111,15 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
   useEffect(() => {
     loadData()
   }, [lineCode])
+
+  // Atualiza histórico de revisões sempre que a matriz selecionada mudar
+  useEffect(() => {
+    if (selectedMatrixId) {
+      loadRevisions(selectedMatrixId)
+    } else {
+      setRevisionEntries([])
+    }
+  }, [selectedMatrixId])
 
   // Atualiza WERKS e Planejadores MRP quando a Empresa mudar
   useEffect(() => {
@@ -121,6 +147,23 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Carrega histórico de revisões para uma matriz
+  const loadRevisions = async (matrixId: string) => {
+    if (!matrixId) return
+    setLoadingRevisions(true)
+    setRevisionsError(null)
+    try {
+      const activeM = matrices.find((m) => m.id === matrixId) || null
+      const list = await bottleneckMatrixRevisionService.listRevisionsForMatrix(matrixId, activeM)
+      setRevisionEntries(list)
+    } catch (err: any) {
+      console.error('Erro ao carregar histórico de revisões:', err)
+      setRevisionsError(err?.message || 'Erro de comunicação ao carregar auditoria.')
+    } finally {
+      setLoadingRevisions(false)
     }
   }
 
@@ -334,6 +377,8 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
         title: 'Associação Salva com Sucesso',
         description: `Matriz vinculada ao Planejador MRP ${selectedControllerCode || 'Nenhum'} (WERKS ${currentWerks}). Trilha de auditoria registrada.`,
       })
+      // Recarrega histórico para refletir a nova entrada
+      await loadRevisions(selectedMatrixId)
     } catch (err: any) {
       console.error('Erro ao salvar associação da matriz:', err)
       await pcpAuditService.recordFailureAttempt({
@@ -383,15 +428,141 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
   }
 
   // Callback de criação de matriz com sucesso
-  const handleMatrixCreated = (newM: LineBottleneckMatrixRecord) => {
+  const handleMatrixCreated = async (newM: LineBottleneckMatrixRecord) => {
     setMatrices((prev) => [newM, ...prev])
     setSelectedMatrixId(newM.id)
     applyMatrixToView(newM)
+    await loadRevisions(newM.id)
   }
 
   // Callback de geração de matrizes
   const handleMatricesGenerated = async (count: number) => {
     await loadData()
+  }
+
+  // Handler para Homologar / Revogar Homologação
+  const handleToggleHomologation = async () => {
+    if (!selectedMatrix) return
+    setIsTogglingHomologation(true)
+    const nextHomologated = selectedMatrix.is_homologated === false ? true : false
+    const approver = user?.name || user?.email || 'Engenharia de Processos PCP'
+
+    try {
+      const updated = await bottleneckMatrixService.updateMatrix(selectedMatrix.id, {
+        is_homologated: nextHomologated,
+        approver_name: nextHomologated ? approver : undefined,
+      })
+
+      setMatrices((prev) =>
+        prev.map((m) => (m.id === selectedMatrix.id ? { ...m, ...updated } : m)),
+      )
+
+      await bottleneckMatrixRevisionService.recordHomologationLog({
+        matrix: selectedMatrix,
+        isHomologated: nextHomologated,
+        approverName: approver,
+        companyCode: selectedCompany,
+        lineCode,
+        centerName: lineName,
+      })
+
+      toast({
+        title: nextHomologated ? 'Matriz Homologada' : 'Homologação Revogada',
+        description: nextHomologated
+          ? `A Matriz ${selectedMatrix.matrix_name || 'selecionada'} foi oficialmente homologada.`
+          : `A homologação da matriz foi cancelada e o status retornado para pendente.`,
+      })
+
+      await loadRevisions(selectedMatrix.id)
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao alterar homologação',
+        description: err.message || 'Falha ao gravar no backend.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsTogglingHomologation(false)
+    }
+  }
+
+  // Handler para Alterar Status / Vigência
+  const handleStatusChange = async (newStatus: 'VIGENTE' | 'RASCUNHO' | 'EM_REVISAO') => {
+    if (!selectedMatrix || selectedMatrix.status === newStatus) return
+    setIsUpdatingStatus(true)
+    try {
+      const updated = await bottleneckMatrixService.updateMatrix(selectedMatrix.id, {
+        status: newStatus,
+      })
+
+      setMatrices((prev) =>
+        prev.map((m) => (m.id === selectedMatrix.id ? { ...m, ...updated } : m)),
+      )
+
+      await bottleneckMatrixRevisionService.recordStatusChangeLog({
+        matrix: selectedMatrix,
+        newStatus,
+        companyCode: selectedCompany,
+        lineCode,
+        centerName: lineName,
+      })
+
+      toast({
+        title: `Status alterado para ${newStatus}`,
+        description: `O status da Matriz foi atualizado com sucesso e auditado.`,
+      })
+
+      await loadRevisions(selectedMatrix.id)
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao alterar status',
+        description: err.message || 'Falha ao salvar status.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  // Handler para Confirmar Nova Revisão
+  const handleConfirmNewRevision = async (notes: string) => {
+    if (!selectedMatrix) return
+    setIsSavingRevision(true)
+    const nextVer = (selectedMatrix.version || 1) + 1
+
+    try {
+      const updated = await bottleneckMatrixService.updateMatrix(selectedMatrix.id, {
+        version: nextVer,
+        status: 'EM_REVISAO',
+      })
+
+      setMatrices((prev) =>
+        prev.map((m) => (m.id === selectedMatrix.id ? { ...m, ...updated } : m)),
+      )
+
+      await bottleneckMatrixRevisionService.recordNewRevisionLog({
+        matrix: selectedMatrix,
+        newVersion: nextVer,
+        companyCode: selectedCompany,
+        lineCode,
+        centerName: lineName,
+        notes,
+      })
+
+      toast({
+        title: `Revisão Rev.${nextVer} Aberta com Sucesso`,
+        description: `A matriz agora está sob revisão técnica. O histórico foi atualizado.`,
+      })
+
+      await loadRevisions(selectedMatrix.id)
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao abrir nova revisão',
+        description: err.message || 'Falha ao salvar no backend.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingRevision(false)
+    }
   }
 
   return (
@@ -482,6 +653,18 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                   className="h-8 text-xs border-[#004C97]/30 text-[#004C97] hover:bg-blue-50 font-semibold gap-1 whitespace-nowrap"
                 >
                   <Sparkles className="w-3.5 h-3.5" /> Gerar por Planejador
+                </Button>
+
+                {/* Botão + Nova Revisão */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsNewRevisionModalOpen(true)}
+                  disabled={!selectedMatrix || isSavingRevision}
+                  className="h-8 text-xs border-slate-300 text-slate-800 hover:bg-slate-100 font-semibold gap-1 whitespace-nowrap"
+                  title="Abrir uma nova revisão desta matriz"
+                >
+                  <Clock className="w-3.5 h-3.5 text-[#004C97]" /> Nova Revisão
                 </Button>
 
                 {/* Botão + Nova Matriz */}
@@ -738,19 +921,36 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
               <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1 text-xs min-w-0">
                 <div className="flex items-center justify-between gap-1 min-w-0">
                   <span className="text-slate-500 font-medium">Status:</span>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold px-1.5 py-0 shrink-0">
-                    {selectedMatrix?.status || 'VIGENTE'}
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={selectedMatrix?.status || 'VIGENTE'}
+                      onChange={(e) => handleStatusChange(e.target.value as any)}
+                      disabled={isUpdatingStatus || !selectedMatrix}
+                      aria-label="Alterar Status da Matriz"
+                      className="text-[11px] bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 font-bold text-slate-800 outline-none"
+                    >
+                      <option value="VIGENTE">VIGENTE</option>
+                      <option value="RASCUNHO">RASCUNHO</option>
+                      <option value="EM_REVISAO">EM REVISÃO</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between gap-1 min-w-0">
                   <span className="text-slate-500 font-medium">Homologação:</span>
-                  <span
-                    className={`font-semibold text-xs shrink-0 ${
-                      selectedMatrix?.is_homologated !== false ? 'text-[#004C97]' : 'text-amber-700'
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleToggleHomologation}
+                    disabled={isTogglingHomologation || !selectedMatrix}
+                    className={`h-6 px-1.5 text-[11px] font-bold ${
+                      selectedMatrix?.is_homologated !== false
+                        ? 'text-[#004C97] hover:bg-blue-50'
+                        : 'text-amber-700 hover:bg-amber-50'
                     }`}
+                    title="Alternar estado de homologação"
                   >
                     {selectedMatrix?.is_homologated !== false ? 'HOMOLOGADA' : 'NÃO HOMOLOGADA'}
-                  </span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1108,7 +1308,17 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
         </CardContent>
       </Card>
 
-      {/* 4. REGRAS E RESTRIÇÕES CADASTRADAS */}
+      {/* 4. HISTÓRICO DE REVISÕES DA MATRIZ SELECIONADA */}
+      <BottleneckMatrixRevisionHistory
+        revisions={revisionEntries}
+        loading={loadingRevisions}
+        error={revisionsError}
+        onRetry={() => selectedMatrixId && loadRevisions(selectedMatrixId)}
+        matrixName={selectedMatrix?.matrix_name}
+        matrixVersion={selectedMatrix?.version}
+      />
+
+      {/* 5. REGRAS E RESTRIÇÕES CADASTRADAS */}
       <Card className="bg-white border-slate-200 shadow-xs">
         <CardHeader className="p-4 pb-2 border-b border-slate-100">
           <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -1208,6 +1418,17 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
           existingMatrices={matrices}
           onSuccess={handleMatricesGenerated}
           onOpenMatrix={(mid) => handleMatrixChange(mid)}
+        />
+      )}
+
+      {/* Modal 3: Abrir Nova Revisão da Matriz */}
+      {isNewRevisionModalOpen && (
+        <NewRevisionModal
+          open={isNewRevisionModalOpen}
+          onOpenChange={setIsNewRevisionModalOpen}
+          currentMatrix={selectedMatrix || null}
+          onConfirm={handleConfirmNewRevision}
+          saving={isSavingRevision}
         />
       )}
     </div>
