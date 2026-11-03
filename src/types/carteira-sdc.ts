@@ -65,6 +65,22 @@ export interface CarteiraSDCItem {
     data_prevista: string
     status: string
   }
+  ordem_producao_detalhe?: {
+    numero_op?: string // Número da OP SAP (ex: OP-4500012342 ou AFPO-AUFNR)
+    material?: string
+    descricao?: string
+    centro_produtivo?: string
+    quantidade_planejada_t?: number | null
+    quantidade_realizada_t?: number | null
+    quantidade_pendente_t?: number | null
+    data_inicio?: string | null
+    data_fim_prevista?: string | null
+    status_op?: string | null
+    lote?: string | null
+    corrida?: string | null
+    status_integracao?: 'SUCESSO' | 'INDISPONIVEL'
+    mensagem_indisponibilidade?: string
+  }
   industrializacao_sdc?: {
     destinada_t: number
     em_processo_t: number

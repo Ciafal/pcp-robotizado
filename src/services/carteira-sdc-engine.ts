@@ -75,6 +75,7 @@ export class CarteiraSDCEngine {
     empresa?: string
     pedidos_compoem?: any[]
     programacao_detalhe?: any
+    ordem_producao_detalhe?: any
     industrializacao_sdc?: any
   }): CarteiraSDCItem {
     const carteira = Math.max(0, this.round2(item.carteira_t))
@@ -218,6 +219,7 @@ export class CarteiraSDCEngine {
       empresa: 'Sidercentro',
       pedidos_compoem: item.pedidos_compoem || [],
       programacao_detalhe: item.programacao_detalhe,
+      ordem_producao_detalhe: item.ordem_producao_detalhe,
       industrializacao_sdc: item.industrializacao_sdc,
     }
   }

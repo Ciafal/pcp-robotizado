@@ -17,6 +17,7 @@ import {
 } from '@/lib/formatters-ptbr'
 import { CarteiraSDCItem, CarteiraSDCKpis, EstoqueCentroDetalhe } from '@/types/carteira-sdc'
 import { MinimoNaoAtingidoSummary } from '@/services/carteira-minimo-nao-atingido-engine'
+import { DetalheOrdemProducaoModal } from './DetalheOrdemProducaoModal'
 import {
   Building2,
   AlertTriangle,
@@ -38,6 +39,9 @@ import {
   AlertCircle,
   ShieldCheck,
   FileSpreadsheet,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
 } from 'lucide-react'
 
 export type TipoCardSDC =
@@ -95,6 +99,10 @@ const DetalheCardSDCContent: React.FC<DetalheCardSDCModalProps> = ({
   const [filtroOrigem, setFiltroOrigem] = useState('TODAS')
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<string>('prioridade')
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState<'asc' | 'desc'>('asc')
+
+  // Controle de expansão de linha e abertura de modal de detalhe da OP
+  const [opExpandidaMaterial, setOpExpandidaMaterial] = useState<string | null>(null)
+  const [itemOpModal, setItemOpModal] = useState<CarteiraSDCItem | null>(null)
 
   // Metadados do card ativo
   const cardMeta = useMemo(() => {
@@ -870,161 +878,374 @@ const DetalheCardSDCContent: React.FC<DetalheCardSDCModalProps> = ({
                       )
 
                       return (
-                        <tr
-                          key={`${it.material}-${idx}`}
-                          className={`hover:bg-blue-50/50 transition-colors ${
-                            idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
-                          }`}
-                        >
-                          <td className="p-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
-                            {it.material}
-                          </td>
-                          <td className="p-2.5 text-slate-700 max-w-[220px]">
-                            <span className="truncate block font-medium" title={it.descricao}>
-                              {it.descricao}
-                            </span>
-                            <span className="text-[10px] text-slate-400 block">
-                              {it.familia} &bull; {it.bitola}
-                            </span>
-                          </td>
-
-                          {tipoCard === 'CARTEIRA_TOTAL' && (
-                            <td
-                              className="p-2.5 text-slate-600 max-w-[180px] truncate"
-                              title={clienteStr}
-                            >
-                              {clienteStr}
-                            </td>
-                          )}
-
-                          {(tipoCard === 'ESTOQUE_TOTAL_SDPL' ||
-                            tipoCard === 'ESTOQUE_REMESSA' ||
-                            tipoCard === 'ESTOQUE_ARMAZENADO_CIAFAL') && (
-                            <>
-                              <td className="p-2.5 text-slate-500 font-mono text-[11px]">
-                                <span
-                                  className="text-slate-400 italic"
-                                  title="Campo detalhado por lote aguardando liberação da BAPI MB52"
-                                >
-                                  Não disponível
-                                </span>
-                              </td>
-                              <td className="p-2.5 text-slate-500 font-mono text-[11px]">
-                                {tipoCard === 'ESTOQUE_TOTAL_SDPL'
-                                  ? 'DEP-SDC-01'
-                                  : 'Não disponível'}
-                              </td>
-                              {tipoCard === 'ESTOQUE_REMESSA' && (
-                                <td className="p-2.5 text-slate-500 font-mono text-[11px]">
-                                  <span className="text-slate-400 italic">Não disponível</span>
-                                </td>
-                              )}
-                              {tipoCard === 'ESTOQUE_ARMAZENADO_CIAFAL' && (
-                                <td className="p-2.5 text-slate-500 font-mono text-[11px]">
-                                  <span className="text-slate-400 italic">Não disponível</span>
-                                </td>
-                              )}
-                            </>
-                          )}
-
-                          {tipoCard === 'EM_PRODUCAO' && (
-                            <>
-                              <td className="p-2.5 font-mono text-slate-800">
-                                {it.programacao_detalhe ? 'OP-SDC-2026' : 'Em processo'}
-                              </td>
-                              <td className="p-2.5 text-slate-700 font-medium">
-                                {it.origem_producao} ({it.centro_sap})
-                              </td>
-                              <td className="p-2.5 text-right font-mono text-slate-700">
-                                {formatTons3DecimalsValue(it.em_producao_t)} t
-                              </td>
-                              <td className="p-2.5 text-right font-mono text-indigo-700 font-bold">
-                                {formatTons3DecimalsValue(it.em_producao_t)} t
-                              </td>
-                            </>
-                          )}
-
-                          {tipoCard === 'COBERTURA_PROGRAMADA' && (
-                            <>
-                              <td className="p-2.5 font-medium text-[#004C97]">
-                                {it.programacao_detalhe?.linha || 'Laminação SDC'}
-                              </td>
-                              <td className="p-2.5 text-right font-mono font-bold text-slate-900">
-                                {formatTons3DecimalsValue(it.programado_t)} t
-                              </td>
-                              <td className="p-2.5 text-center font-mono text-slate-600">
-                                {formatDatePTBR(it.data_prevista)}
-                              </td>
-                              <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                                +{formatTons3DecimalsValue(it.saldo_projetado_t)} t
-                              </td>
-                            </>
-                          )}
-
-                          {tipoCard === 'MINIMO_NAO_ATINGIDO' && (
-                            <>
-                              <td className="p-2.5 text-right font-mono font-bold text-slate-900">
-                                {matMin?.lote_minimo_tons !== null &&
-                                matMin?.lote_minimo_tons !== undefined
-                                  ? `${formatTons3DecimalsValue(matMin.lote_minimo_tons)} t`
-                                  : 'Não recebido'}
-                              </td>
-                              <td className="p-2.5 text-right font-mono text-slate-700">
-                                {formatTons3DecimalsValue(it.carteira_t)} t
-                              </td>
-                              <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                                {matMin?.falta_para_minimo_tons
-                                  ? `${formatTons3DecimalsValue(matMin.falta_para_minimo_tons)} t`
-                                  : '-'}
-                              </td>
-                              <td className="p-2.5 text-slate-600 text-[11px]">
-                                MARC-BSTMI (Lote Mínimo)
-                              </td>
-                            </>
-                          )}
-
-                          <td className="p-2.5 text-right font-mono font-bold text-slate-900">
-                            {formatTons3DecimalsValue(it.carteira_t)} t
-                          </td>
-                          <td className="p-2.5 text-right font-mono text-slate-700">
-                            {formatTons3DecimalsValue(it.estoque_total_t)} t
-                          </td>
-                          <td
-                            className={`p-2.5 text-right font-mono font-bold ${
-                              it.saldo_t < 0 ? 'text-rose-600' : 'text-emerald-700'
+                        <React.Fragment key={`${it.material}-${idx}`}>
+                          <tr
+                            className={`hover:bg-blue-50/50 transition-colors ${
+                              idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
                             }`}
                           >
-                            {it.saldo_t > 0
-                              ? `+${formatTons3DecimalsValue(it.saldo_t)} t`
-                              : `${formatTons3DecimalsValue(it.saldo_t)} t`}
-                          </td>
-                          <td className="p-2.5 text-center font-mono font-semibold">
-                            {formatPercentagePTBR(it.cobertura_pct, 1)}
-                          </td>
-                          <td className="p-2.5 text-center whitespace-nowrap">
-                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
-                              {it.situacao_producao}
-                            </span>
-                          </td>
-                          <td className="p-2.5 text-center font-mono font-semibold text-slate-700">
-                            {it.centro_sap}
-                          </td>
-                          <td className="p-2.5 text-center">
-                            {onSelectMaterial && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  onSelectMaterial(it.material)
-                                  onClose()
-                                }}
-                                className="h-6 px-2 text-[10px] font-bold text-[#004C97] border-blue-200 hover:bg-blue-50"
+                            <td className="p-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
+                              {it.material}
+                            </td>
+                            <td className="p-2.5 text-slate-700 max-w-[220px]">
+                              <span className="truncate block font-medium" title={it.descricao}>
+                                {it.descricao}
+                              </span>
+                              <span className="text-[10px] text-slate-400 block">
+                                {it.familia} &bull; {it.bitola}
+                              </span>
+                            </td>
+
+                            {tipoCard === 'CARTEIRA_TOTAL' && (
+                              <td
+                                className="p-2.5 text-slate-600 max-w-[180px] truncate"
+                                title={clienteStr}
                               >
-                                Ver na grade
-                              </Button>
+                                {clienteStr}
+                              </td>
                             )}
-                          </td>
-                        </tr>
+
+                            {(tipoCard === 'ESTOQUE_TOTAL_SDPL' ||
+                              tipoCard === 'ESTOQUE_REMESSA' ||
+                              tipoCard === 'ESTOQUE_ARMAZENADO_CIAFAL') && (
+                              <>
+                                <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                                  <span
+                                    className="text-slate-400 italic"
+                                    title="Campo detalhado por lote aguardando liberação da BAPI MB52"
+                                  >
+                                    Não disponível
+                                  </span>
+                                </td>
+                                <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                                  {tipoCard === 'ESTOQUE_TOTAL_SDPL'
+                                    ? 'DEP-SDC-01'
+                                    : 'Não disponível'}
+                                </td>
+                                {tipoCard === 'ESTOQUE_REMESSA' && (
+                                  <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                                    <span className="text-slate-400 italic">Não disponível</span>
+                                  </td>
+                                )}
+                                {tipoCard === 'ESTOQUE_ARMAZENADO_CIAFAL' && (
+                                  <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                                    <span className="text-slate-400 italic">Não disponível</span>
+                                  </td>
+                                )}
+                              </>
+                            )}
+
+                            {tipoCard === 'EM_PRODUCAO' && (
+                              <>
+                                <td className="p-2.5 font-mono text-slate-800">
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setOpExpandidaMaterial((prev) =>
+                                          prev === it.material ? null : it.material,
+                                        )
+                                      }}
+                                      className="p-1 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded transition-colors"
+                                      title={
+                                        opExpandidaMaterial === it.material
+                                          ? 'Recolher detalhes da OP'
+                                          : 'Expandir detalhes da OP'
+                                      }
+                                      data-testid={`btn-expandir-op-${it.material}`}
+                                      aria-expanded={opExpandidaMaterial === it.material}
+                                    >
+                                      {opExpandidaMaterial === it.material ? (
+                                        <ChevronDown className="w-3.5 h-3.5 text-indigo-700" />
+                                      ) : (
+                                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setItemOpModal(it)}
+                                      className="hover:underline text-indigo-700 font-bold hover:text-indigo-900 flex items-center gap-1 text-left"
+                                      title="Abrir modal detalhado da OP"
+                                      data-testid={`btn-abrir-modal-op-${it.material}`}
+                                    >
+                                      <span>
+                                        {it.ordem_producao_detalhe?.numero_op ||
+                                          (it.programacao_detalhe ? 'OP-SDC-2026' : 'Em processo')}
+                                      </span>
+                                      <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                                    </button>
+                                  </div>
+                                </td>
+                                <td className="p-2.5 text-slate-700 font-medium">
+                                  {it.ordem_producao_detalhe?.centro_produtivo ||
+                                    `${it.origem_producao} (${it.centro_sap})`}
+                                </td>
+                                <td className="p-2.5 text-right font-mono text-slate-700">
+                                  {it.ordem_producao_detalhe?.quantidade_planejada_t !==
+                                    undefined &&
+                                  it.ordem_producao_detalhe?.quantidade_planejada_t !== null
+                                    ? `${formatTons3DecimalsValue(it.ordem_producao_detalhe.quantidade_planejada_t)} t`
+                                    : `${formatTons3DecimalsValue(it.em_producao_t)} t`}
+                                </td>
+                                <td className="p-2.5 text-right font-mono text-indigo-700 font-bold">
+                                  {it.ordem_producao_detalhe?.quantidade_realizada_t !==
+                                    undefined &&
+                                  it.ordem_producao_detalhe?.quantidade_realizada_t !== null
+                                    ? `${formatTons3DecimalsValue(it.ordem_producao_detalhe.quantidade_realizada_t)} t`
+                                    : `${formatTons3DecimalsValue(it.em_producao_t)} t`}
+                                </td>
+                              </>
+                            )}
+
+                            {tipoCard === 'COBERTURA_PROGRAMADA' && (
+                              <>
+                                <td className="p-2.5 font-medium text-[#004C97]">
+                                  {it.programacao_detalhe?.linha || 'Laminação SDC'}
+                                </td>
+                                <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                                  {formatTons3DecimalsValue(it.programado_t)} t
+                                </td>
+                                <td className="p-2.5 text-center font-mono text-slate-600">
+                                  {formatDatePTBR(it.data_prevista)}
+                                </td>
+                                <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
+                                  +{formatTons3DecimalsValue(it.saldo_projetado_t)} t
+                                </td>
+                              </>
+                            )}
+
+                            {tipoCard === 'MINIMO_NAO_ATINGIDO' && (
+                              <>
+                                <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                                  {matMin?.lote_minimo_tons !== null &&
+                                  matMin?.lote_minimo_tons !== undefined
+                                    ? `${formatTons3DecimalsValue(matMin.lote_minimo_tons)} t`
+                                    : 'Não recebido'}
+                                </td>
+                                <td className="p-2.5 text-right font-mono text-slate-700">
+                                  {formatTons3DecimalsValue(it.carteira_t)} t
+                                </td>
+                                <td className="p-2.5 text-right font-mono font-bold text-rose-700">
+                                  {matMin?.falta_para_minimo_tons
+                                    ? `${formatTons3DecimalsValue(matMin.falta_para_minimo_tons)} t`
+                                    : '-'}
+                                </td>
+                                <td className="p-2.5 text-slate-600 text-[11px]">
+                                  MARC-BSTMI (Lote Mínimo)
+                                </td>
+                              </>
+                            )}
+
+                            <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                              {formatTons3DecimalsValue(it.carteira_t)} t
+                            </td>
+                            <td className="p-2.5 text-right font-mono text-slate-700">
+                              {formatTons3DecimalsValue(it.estoque_total_t)} t
+                            </td>
+                            <td
+                              className={`p-2.5 text-right font-mono font-bold ${
+                                it.saldo_t < 0 ? 'text-rose-600' : 'text-emerald-700'
+                              }`}
+                            >
+                              {it.saldo_t > 0
+                                ? `+${formatTons3DecimalsValue(it.saldo_t)} t`
+                                : `${formatTons3DecimalsValue(it.saldo_t)} t`}
+                            </td>
+                            <td className="p-2.5 text-center font-mono font-semibold">
+                              {formatPercentagePTBR(it.cobertura_pct, 1)}
+                            </td>
+                            <td className="p-2.5 text-center whitespace-nowrap">
+                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
+                                {it.situacao_producao}
+                              </span>
+                            </td>
+                            <td className="p-2.5 text-center font-mono font-semibold text-slate-700">
+                              {it.centro_sap}
+                            </td>
+                            <td className="p-2.5 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {tipoCard === 'EM_PRODUCAO' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setItemOpModal(it)}
+                                    className="h-6 px-2 text-[10px] font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                                    title="Ver detalhe da OP"
+                                    data-testid={`btn-detalhe-op-${it.material}`}
+                                  >
+                                    Detalhe OP
+                                  </Button>
+                                )}
+                                {onSelectMaterial && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      onSelectMaterial(it.material)
+                                      onClose()
+                                    }}
+                                    className="h-6 px-2 text-[10px] font-bold text-[#004C97] border-blue-200 hover:bg-blue-50"
+                                  >
+                                    Ver na grade
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* SEGUNDO NÍVEL: LINHA EXPANSÍVEL DE DETALHE DA OP NO CARD EM PRODUÇÃO */}
+                          {tipoCard === 'EM_PRODUCAO' && opExpandidaMaterial === it.material && (
+                            <tr
+                              className="bg-indigo-50/50 border-y border-indigo-200"
+                              data-testid={`linha-expandida-op-${it.material}`}
+                            >
+                              <td colSpan={14} className="p-3 sm:p-4">
+                                <div className="bg-white rounded-xl border border-indigo-200 p-3 sm:p-4 shadow-2xs space-y-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                                    <div className="flex items-center gap-2">
+                                      <div className="p-1.5 bg-indigo-600 text-white rounded-lg">
+                                        <Factory className="w-4 h-4" />
+                                      </div>
+                                      <div>
+                                        <span className="text-xs font-bold text-slate-900">
+                                          Detalhamento da Ordem de Produção &bull;{' '}
+                                          <span className="font-mono text-indigo-700">
+                                            {it.ordem_producao_detalhe?.numero_op ||
+                                              (it.programacao_detalhe
+                                                ? 'OP-SDC-2026'
+                                                : 'Ordem em Processo')}
+                                          </span>
+                                        </span>
+                                        <span className="text-[11px] text-slate-500 block">
+                                          Centro SAP:{' '}
+                                          {it.ordem_producao_detalhe?.centro_produtivo ||
+                                            it.centro_sap}{' '}
+                                          &bull; Material: {it.material}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setItemOpModal(it)}
+                                        className="h-7 text-xs font-semibold text-indigo-700 border-indigo-300 hover:bg-indigo-50 gap-1"
+                                        data-testid={`btn-modal-completo-op-${it.material}`}
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                        <span>Abrir modal completo</span>
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setOpExpandidaMaterial(null)}
+                                        className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
+                                        title="Recolher linha"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </div>
+                                  </div>
+
+                                  {it.ordem_producao_detalhe &&
+                                  it.ordem_producao_detalhe.status_integracao !== 'INDISPONIVEL' ? (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
+                                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase block">
+                                          Planejada (t)
+                                        </span>
+                                        <strong className="text-sm font-mono text-[#004C97]">
+                                          {it.ordem_producao_detalhe.quantidade_planejada_t !==
+                                            undefined &&
+                                          it.ordem_producao_detalhe.quantidade_planejada_t !== null
+                                            ? `${formatTons3DecimalsValue(it.ordem_producao_detalhe.quantidade_planejada_t)} t`
+                                            : 'Não disponível'}
+                                        </strong>
+                                      </div>
+
+                                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase block">
+                                          Realizada (t)
+                                        </span>
+                                        <strong className="text-sm font-mono text-indigo-800">
+                                          {it.ordem_producao_detalhe.quantidade_realizada_t !==
+                                            undefined &&
+                                          it.ordem_producao_detalhe.quantidade_realizada_t !== null
+                                            ? `${formatTons3DecimalsValue(it.ordem_producao_detalhe.quantidade_realizada_t)} t`
+                                            : 'Não disponível'}
+                                        </strong>
+                                      </div>
+
+                                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase block">
+                                          Pendente (t)
+                                        </span>
+                                        <strong className="text-sm font-mono text-amber-800">
+                                          {it.ordem_producao_detalhe.quantidade_pendente_t !==
+                                            undefined &&
+                                          it.ordem_producao_detalhe.quantidade_pendente_t !== null
+                                            ? `${formatTons3DecimalsValue(it.ordem_producao_detalhe.quantidade_pendente_t)} t`
+                                            : 'Não disponível'}
+                                        </strong>
+                                      </div>
+
+                                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase block">
+                                          Status da OP
+                                        </span>
+                                        <span className="font-mono font-bold text-slate-800 text-[11px] block mt-0.5">
+                                          {it.ordem_producao_detalhe.status_op || 'Não disponível'}
+                                        </span>
+                                      </div>
+
+                                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase block">
+                                          Início / Término
+                                        </span>
+                                        <span className="font-mono text-slate-700 text-[11px] block mt-0.5">
+                                          {it.ordem_producao_detalhe.data_inicio
+                                            ? formatDatePTBR(it.ordem_producao_detalhe.data_inicio)
+                                            : 'Não disponível'}{' '}
+                                          &rarr;{' '}
+                                          {it.ordem_producao_detalhe.data_fim_prevista
+                                            ? formatDatePTBR(
+                                                it.ordem_producao_detalhe.data_fim_prevista,
+                                              )
+                                            : formatDatePTBR(it.data_prevista) || 'Não disponível'}
+                                        </span>
+                                      </div>
+
+                                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase block">
+                                          Lote / Corrida
+                                        </span>
+                                        <span className="font-mono text-slate-700 text-[11px] block mt-0.5">
+                                          {it.ordem_producao_detalhe.lote || 'Não disponível'}{' '}
+                                          &bull;{' '}
+                                          {it.ordem_producao_detalhe.corrida || 'Não disponível'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                                        <span>
+                                          Detalhamento por OP indisponível no SAP ECC para este
+                                          material.
+                                        </span>
+                                      </div>
+                                      <span className="text-[10px] font-mono text-amber-800">
+                                        BAPI_PRODORD_GET_DETAIL • COOIS RFC
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       )
                     })
                   )}
@@ -1122,6 +1343,13 @@ const DetalheCardSDCContent: React.FC<DetalheCardSDCModalProps> = ({
           </Button>
         </div>
       </DialogContent>
+
+      {/* MODAL FILHO: DETALHE INDIVIDUAL DA OP */}
+      <DetalheOrdemProducaoModal
+        isOpen={Boolean(itemOpModal)}
+        onClose={() => setItemOpModal(null)}
+        item={itemOpModal}
+      />
     </Dialog>
   )
 }
