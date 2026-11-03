@@ -90,6 +90,13 @@ import {
   RawMaterialPriorityModal,
   RawMaterialPriorityFormData,
 } from '@/components/line-master/RawMaterialPriorityModal'
+import { RawMaterialRestrictionsPanel } from '@/components/line-master/RawMaterialRestrictionsPanel'
+import { RawMaterialRestrictionModal } from '@/components/line-master/RawMaterialRestrictionModal'
+import {
+  rawMaterialRestrictionsService,
+  LineRawMaterialRestriction,
+  RawMaterialRestrictionSaveDTO,
+} from '@/services/line-raw-material-restrictions-service'
 import {
   RawMaterialPriorityConflictModal,
   HierarchyImpactItem,
@@ -328,6 +335,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'SHIFTS_CREWS'
     | 'PRODUCTIVITY'
     | 'RAW_MATERIALS'
+    | 'RAW_MATERIAL_RESTRICTIONS'
     | 'RAW_MATERIAL_APPLICATIONS'
     | 'BLOCKED'
     | 'SETUP_MATRIX'
@@ -519,6 +527,38 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [productivityStatusFilter, setProductivityStatusFilter] = useState<
     'Ativa' | 'Inativa' | 'Todas'
   >('Ativa')
+
+  // Restrições de Matéria-Prima (HUB Ciafal)
+  const [rawMaterialRestrictions, setRawMaterialRestrictions] = useState<
+    LineRawMaterialRestriction[]
+  >([])
+  const [activeRestrictionsCount, setActiveRestrictionsCount] = useState<number>(0)
+  const [isLoadingRestrictions, setIsLoadingRestrictions] = useState<boolean>(false)
+  const [isRestrictionModalOpen, setIsRestrictionModalOpen] = useState<boolean>(false)
+  const [editingRestriction, setEditingRestriction] = useState<LineRawMaterialRestriction | null>(
+    null,
+  )
+  const [isSavingRestriction, setIsSavingRestriction] = useState<boolean>(false)
+
+  const loadRawMaterialRestrictions = React.useCallback(async () => {
+    setIsLoadingRestrictions(true)
+    try {
+      const list = await rawMaterialRestrictionsService.getRestrictionsByCenter(
+        line.code || line.id,
+      )
+      setRawMaterialRestrictions(list)
+      const count = list.filter((r) => r.active && !r.deleted).length
+      setActiveRestrictionsCount(count)
+    } catch (err) {
+      console.warn('Erro ao carregar restrições de matéria-prima:', err)
+    } finally {
+      setIsLoadingRestrictions(false)
+    }
+  }, [line.code, line.id])
+
+  React.useEffect(() => {
+    loadRawMaterialRestrictions()
+  }, [loadRawMaterialRestrictions, overview])
 
   // Modais de Criação Rápida
   const [isProdModalOpen, setIsProdModalOpen] = useState(false)
@@ -955,6 +995,68 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       })
     } finally {
       setIsSavingProd(false)
+    }
+  }
+
+  // Handlers para Restrições de Matéria-Prima (HUB Ciafal)
+  const handleOpenAddRestriction = () => {
+    setEditingRestriction(null)
+    setIsRestrictionModalOpen(true)
+  }
+
+  const handleOpenEditRestriction = (item: LineRawMaterialRestriction) => {
+    setEditingRestriction(item)
+    setIsRestrictionModalOpen(true)
+  }
+
+  const handleToggleRestrictionStatus = async (item: LineRawMaterialRestriction) => {
+    const newActive = item.active === false
+    try {
+      await rawMaterialRestrictionsService.setRestrictionActive(item.id, newActive)
+      toast({
+        title: 'Status da restrição atualizado com sucesso.',
+        description: `Restrição da MP ${item.material_code} agora está ${newActive ? 'ativa' : 'inativa'}.`,
+      })
+      await loadRawMaterialRestrictions()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao alterar status',
+        description: err.message || 'Falha ao atualizar status da restrição de matéria-prima.',
+      })
+    }
+  }
+
+  const handleDeleteRestriction = async (item: LineRawMaterialRestriction) => {
+    try {
+      await rawMaterialRestrictionsService.softDeleteRestriction(item.id)
+      toast({
+        title: 'Restrição excluída logicamente com sucesso.',
+        description: `A restrição da MP ${item.material_code} foi desativada e arquivada logicamente.`,
+      })
+      await loadRawMaterialRestrictions()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir restrição',
+        description: err.message || 'Falha ao processar exclusão lógica da restrição.',
+      })
+    }
+  }
+
+  const handleSaveRestrictionSubmit = async (data: RawMaterialRestrictionSaveDTO) => {
+    setIsSavingRestriction(true)
+    try {
+      await rawMaterialRestrictionsService.saveRestriction(data)
+      toast({
+        title: 'Restrição de matéria-prima cadastrada com sucesso.',
+        description: `Regra para a matéria-prima ${data.material_code} foi gravada no Centro ${data.center_code}.`,
+      })
+      setIsRestrictionModalOpen(false)
+      setEditingRestriction(null)
+      await loadRawMaterialRestrictions()
+    } finally {
+      setIsSavingRestriction(false)
     }
   }
 
@@ -2613,6 +2715,23 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               <span className="truncate">Prioridades MP ({rawMaterials.length})</span>
             </Button>
 
+            {/* Novo Item: Restrições de MP */}
+            <Button
+              size="sm"
+              data-testid="tab-raw-material-restrictions"
+              variant={masterSubTab === 'RAW_MATERIAL_RESTRICTIONS' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('RAW_MATERIAL_RESTRICTIONS')}
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
+                masterSubTab === 'RAW_MATERIAL_RESTRICTIONS'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+              title="Restrições de Matéria-Prima"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+              <span className="truncate">Restrições de MP ({activeRestrictionsCount})</span>
+            </Button>
+
             <Button
               size="sm"
               data-testid="tab-raw-material-applications"
@@ -3257,6 +3376,21 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             />
           )}
 
+          {/* Sub-aba: Restrições de MP (HUB Ciafal) com ErrorBoundary */}
+          {masterSubTab === 'RAW_MATERIAL_RESTRICTIONS' && (
+            <div id="section-raw-material-restrictions">
+              <RawMaterialRestrictionsPanel
+                restrictions={rawMaterialRestrictions}
+                activeCount={activeRestrictionsCount}
+                isLoading={isLoadingRestrictions}
+                onAddClick={handleOpenAddRestriction}
+                onEditClick={handleOpenEditRestriction}
+                onToggleActiveClick={handleToggleRestrictionStatus}
+                onDeleteClick={handleDeleteRestriction}
+              />
+            </div>
+          )}
+
           {/* Sub-aba: Matéria-prima por Aplicação (HUB Ciafal) */}
           {masterSubTab === 'RAW_MATERIAL_APPLICATIONS' && (
             <RawMaterialApplicationsPanel
@@ -3761,6 +3895,21 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL: Cadastrar / Editar Restrição de Matéria-Prima */}
+      <RawMaterialRestrictionModal
+        open={isRestrictionModalOpen}
+        centerCode={line.code || line.id}
+        lineId={line.id}
+        lineMasterId={master?.id}
+        initialData={editingRestriction}
+        isSubmitting={isSavingRestriction}
+        onClose={() => {
+          setIsRestrictionModalOpen(false)
+          setEditingRestriction(null)
+        }}
+        onSubmit={handleSaveRestrictionSubmit}
+      />
 
       {/* MODAL: Cadastrar / Editar Prioridade de Matéria-Prima */}
       <RawMaterialPriorityModal
