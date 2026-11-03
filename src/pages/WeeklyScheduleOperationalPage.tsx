@@ -92,6 +92,7 @@ import {
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
 import { WeeklyScheduleModalErrorBoundary } from '@/components/weekly-schedule/WeeklyScheduleModalErrorBoundary'
+import { LocalErrorBoundary } from '@/components/common/LocalErrorBoundary'
 import { DerivedProgrammingModal } from '@/components/weekly-schedule/DerivedProgrammingModal'
 import { weeklyDerivationEngine, DerivationMatchResult } from '@/services/weekly-derivation-engine'
 import { centerDerivationService } from '@/services/pcp-center-derivation-service'
@@ -934,10 +935,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   // Validações de Linha Selecionada, Linha Inativa e Configuração Completa da Ficha Mestra
+  // P4: Sem linha selecionada, NÃO há avaliação de inatividade (isLineActive não deve emitir falsos alertas).
   const hasSelectedLine = Boolean(selectedLineCode && currentLineOverview?.line)
-  const isLineActive = currentLineOverview?.line
-    ? currentLineOverview.line.is_active !== false
-    : false
+  const isLineActive = hasSelectedLine ? currentLineOverview?.line?.is_active !== false : true
 
   const lineConfigurationDeficits = useMemo(() => {
     if (!selectedLineCode || !currentLineOverview?.line) return []
@@ -974,19 +974,41 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     return deficits
   }, [selectedLineCode, currentLineOverview])
 
-  // Linhas Elegíveis filtradas por Tipo de Programação e Linha Ativa (Regra centralizada isLineEligibleForProgrammingType)
+  // Linhas Elegíveis filtradas por Tipo de Programação, Linha Ativa e Empresa Selecionada
+  // Avaliação baseada na Ficha Mestre ativa de cada linha mapeada em listLines (line.resource_type / line.programming_stages),
+  // sem depender de currentLineOverview (que só existe após seleção).
   const eligibleLines = useMemo(() => {
-    return lines.filter((line) =>
-      isLineEligibleForProgrammingType(line, selectedProgrammingType, currentLineOverview),
-    )
-  }, [lines, selectedProgrammingType, currentLineOverview])
+    if (!selectedProgrammingType) return []
+    return lines.filter((line) => {
+      // 1. Filtro por Empresa / Planta selecionada
+      if (companyCode) {
+        const linePlant = String(
+          (line as any).sap_plant_code || (line as any).plant || (line as any).plant_code || '1000',
+        ).trim()
+        if (companyCode === 'CIAFAL' || companyCode === '1000') {
+          if (linePlant !== '1000' && linePlant !== '1001' && linePlant !== 'CIAFAL') {
+            return false
+          }
+        } else if (companyCode === 'CIAFAL_SUL' || companyCode === '2000') {
+          if (linePlant !== '2000' && linePlant !== 'CIAFAL_SUL') {
+            return false
+          }
+        }
+      }
 
-  // Quando o Tipo de Programação mudar, se a linha atual não for mais elegível, reseta seleção sem forçar autoseleção
+      // 2. Regra centralizada isLineEligibleForProgrammingType avaliada diretamente a partir dos dados da linha
+      return isLineEligibleForProgrammingType(line, selectedProgrammingType, null)
+    })
+  }, [lines, selectedProgrammingType, companyCode])
+
+  // P2: Quando o Tipo de Programação mudar, se a linha atual não for mais elegível (ou se a lista for vazia),
+  // reseta seleção (selectedLineCode e currentLineOverview) SEMPRE, sem apagar filtros válidos (empresa, período, versão).
   useEffect(() => {
-    if (selectedLineCode && eligibleLines.length > 0) {
+    if (selectedLineCode) {
       const isCurrentEligible = eligibleLines.some((l) => l.code === selectedLineCode)
       if (!isCurrentEligible) {
         setSelectedLineCode('')
+        setCurrentLineOverview(null)
       }
     }
   }, [eligibleLines, selectedLineCode])
@@ -1654,17 +1676,20 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       return
     }
 
-    if (!selectedLineCode || !currentLineOverview) {
+    if (!selectedLineCode) {
       toast({
-        title: 'Aguarde o carregamento do centro',
-        description: 'Os dados operacionais da linha estão sendo sincronizados.',
+        title: 'Nenhuma Linha Selecionada',
+        description: 'Selecione uma linha/centro ativa antes de inserir atividades.',
+        variant: 'destructive',
       })
       return
     }
 
+    // Null-guard defensivo: permite abrir modal com fallbacks caso os turnos da linha ainda não tenham terminado de carregar
     const shifts = Array.isArray(currentLineOverview?.shifts) ? currentLineOverview.shifts : []
-    const fallbackShift = shifts[0]?.code || 'T1_L1'
-    const activeShift = shifts.find((s) => s && s.code === shiftCode)?.code || fallbackShift
+    const fallbackShift = shifts[0]?.code || shiftCode || 'T1_L1'
+    const activeShift =
+      (shiftCode && shifts.find((s) => s && s.code === shiftCode)?.code) || fallbackShift
     const shiftObj = shifts.find((s) => s && s.code === activeShift)
 
     setTargetDay(normalizedDay)
@@ -1687,7 +1712,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       return
     }
 
-    if (!isLineActive) {
+    if (hasSelectedLine && !isLineActive) {
       toast({
         variant: 'destructive',
         title: 'Operação Não Permitida',
@@ -2104,7 +2129,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       crew_name?: string
     },
   ) => {
-    if (!isLineActive) {
+    if (hasSelectedLine && !isLineActive) {
       toast({
         variant: 'destructive',
         title: 'Sequenciamento Bloqueado',
@@ -2413,7 +2438,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       })
       return
     }
-    if (!isLineActive) {
+    if (hasSelectedLine && !isLineActive) {
       toast({
         variant: 'destructive',
         title: 'Operação Não Permitida',
@@ -3053,7 +3078,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       })
       return
     }
-    if (!isLineActive) {
+    if (hasSelectedLine && !isLineActive) {
       toast({
         variant: 'destructive',
         title: 'Linha Inativa',
@@ -3629,6 +3654,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               onChange={(e) => {
                 const val = e.target.value
                 setSelectedProgrammingType(val)
+                setSelectedLineCode('')
+                setCurrentLineOverview(null)
                 setItems([])
                 setSavedBaselineItems([])
                 setSelectedScheduleItem(null)
@@ -3651,24 +3678,58 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Linha Produtiva */}
+          {/* Linha / Centro Produtivo */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-bold text-slate-700">Linha:</span>
+            <span className="text-[11px] font-bold text-slate-700">Linha / Centro:</span>
             <select
               value={selectedLineCode}
               onChange={(e) => setSelectedLineCode(e.target.value)}
-              aria-label="Linha Produtiva"
-              className="text-xs bg-white border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97] shadow-2xs"
+              aria-label="Linha / Centro"
+              disabled={isLoadingLines}
+              className="text-xs bg-white border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97] shadow-2xs disabled:bg-slate-100 disabled:text-slate-400"
             >
               <option value="" disabled>
-                [ Selecione o centro ]
+                {isLoadingLines
+                  ? 'Carregando linhas/centros...'
+                  : linesLoadError
+                    ? 'Erro ao carregar linhas/centros'
+                    : 'Selecione a linha/centro'}
               </option>
               {eligibleLines.map((l) => (
                 <option key={l.code} value={l.code}>
-                  {l.code} - {l.name}
+                  {l.code} — {l.name}
                 </option>
               ))}
             </select>
+            {linesLoadError && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => fetchLines()}
+                className="h-6 px-1.5 text-[11px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold"
+              >
+                Tentar novamente
+              </Button>
+            )}
+            {!isLoadingLines &&
+              !linesLoadError &&
+              Boolean(selectedProgrammingType) &&
+              eligibleLines.length === 0 && (
+                <div className="flex items-center gap-1 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+                  <span>
+                    Nenhuma linha/centro ativo está configurado para programação do tipo{' '}
+                    {selectedProgrammingType === 'ALL' ? 'selecionado' : selectedProgrammingType}.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => (window.location.href = '/pcp/linhas')}
+                    className="font-bold text-[#004C97] hover:underline underline-offset-2 ml-1"
+                  >
+                    Abrir Centros e Ficha Mestre
+                  </button>
+                </div>
+              )}
           </div>
         </div>
 
@@ -4146,6 +4207,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 onChange={(e) => {
                   const val = e.target.value
                   setSelectedProgrammingType(val)
+                  setSelectedLineCode('')
+                  setCurrentLineOverview(null)
                   setItems([])
                   setSavedBaselineItems([])
                   setSelectedScheduleItem(null)
@@ -4168,24 +4231,58 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Filtro Linha Produtiva (linhas elegíveis ativas) */}
+            {/* Filtro Linha / Centro Produtivo */}
             <div className="flex items-center gap-1">
-              <span className="text-[11px] font-bold text-slate-600">Linha:</span>
+              <span className="text-[11px] font-bold text-slate-600">Linha / Centro:</span>
               <select
                 value={selectedLineCode}
                 onChange={(e) => setSelectedLineCode(e.target.value)}
-                aria-label="Linha Produtiva"
-                className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                aria-label="Linha / Centro"
+                disabled={isLoadingLines}
+                className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97] disabled:bg-slate-100 disabled:text-slate-400"
               >
                 <option value="" disabled>
-                  [ Selecione o centro ]
+                  {isLoadingLines
+                    ? 'Carregando linhas/centros...'
+                    : linesLoadError
+                      ? 'Erro ao carregar linhas/centros'
+                      : 'Selecione a linha/centro'}
                 </option>
                 {eligibleLines.map((l) => (
                   <option key={l.code} value={l.code}>
-                    {l.code} - {l.name}
+                    {l.code} — {l.name}
                   </option>
                 ))}
               </select>
+              {linesLoadError && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fetchLines()}
+                  className="h-6 px-1.5 text-[11px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold"
+                >
+                  Tentar novamente
+                </Button>
+              )}
+              {!isLoadingLines &&
+                !linesLoadError &&
+                Boolean(selectedProgrammingType) &&
+                eligibleLines.length === 0 && (
+                  <div className="flex items-center gap-1 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+                    <span>
+                      Nenhuma linha/centro ativo está configurado para programação do tipo{' '}
+                      {selectedProgrammingType === 'ALL' ? 'selecionado' : selectedProgrammingType}.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => (window.location.href = '/pcp/linhas')}
+                      className="font-bold text-[#004C97] hover:underline underline-offset-2 ml-1"
+                    >
+                      Abrir Centros e Ficha Mestre
+                    </button>
+                  </div>
+                )}
             </div>
 
             {/* Filtro Turno da Ficha Mestra */}
@@ -4269,9 +4366,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-1.5">
             <Button
               size="sm"
-              disabled={!isLineActive}
+              disabled={hasSelectedLine && !isLineActive}
               onClick={() => {
-                if (!isLineActive) {
+                if (hasSelectedLine && !isLineActive) {
                   toast({
                     variant: 'destructive',
                     title: 'Linha Inativa',
@@ -4282,7 +4379,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 handleOpenAddModal('SEG')
               }}
               className={`h-7 text-xs font-bold flex items-center gap-1 shadow-2xs ${
-                !isLineActive
+                hasSelectedLine && !isLineActive
                   ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   : 'bg-[#004C97] hover:bg-[#003d7a] text-white'
               }`}
@@ -5001,21 +5098,34 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         }}
       />
 
-      {/* 6. MODAL DE ADICIONAR PRODUTO */}
+      {/* 6. MODAL DE ADICIONAR PRODUTO (Blindado com WeeklyScheduleModalErrorBoundary, LocalErrorBoundary e null-guards) */}
       <WeeklyScheduleModalErrorBoundary onReset={() => setIsAddModalOpen(false)}>
-        <AddProductModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onAdd={handleAddProduct}
-          lineCode={selectedLineCode}
-          officialMaterials={officialMaterials}
-          lineOverview={currentLineOverview}
-          existingItems={items}
-          targetDay={targetDay || 'SEG'}
-          targetShiftCode={targetShiftCode || 'T1_L1'}
-          targetShiftName={targetShiftName || '1º Turno Matutino'}
-          targetCrewName={targetCrewName || 'Turma A'}
-        />
+        <LocalErrorBoundary
+          moduleName="Adicionar Atividade/Produto"
+          onRetry={() => setIsAddModalOpen(false)}
+        >
+          <AddProductModal
+            isOpen={isAddModalOpen}
+            onClose={() => setIsAddModalOpen(false)}
+            onAdd={(newItem) => {
+              try {
+                if (newItem) {
+                  handleAddProduct(newItem)
+                }
+              } catch (err) {
+                console.error('[AddProductModal] Erro ao adicionar item:', err)
+              }
+            }}
+            lineCode={selectedLineCode || ''}
+            officialMaterials={Array.isArray(officialMaterials) ? officialMaterials : []}
+            lineOverview={currentLineOverview || null}
+            existingItems={Array.isArray(items) ? items : []}
+            targetDay={targetDay || 'SEG'}
+            targetShiftCode={targetShiftCode || 'T1_L1'}
+            targetShiftName={targetShiftName || '1º Turno Matutino'}
+            targetCrewName={targetCrewName || 'Turma A'}
+          />
+        </LocalErrorBoundary>
       </WeeklyScheduleModalErrorBoundary>
 
       {/* 6.1 MODAL DE EDIÇÃO DE PRODUTO */}
