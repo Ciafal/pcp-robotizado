@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { DetalheCardSDCModal } from '@/components/carteira-views/DetalheCardSDCModal'
@@ -110,13 +111,7 @@ describe('Detalhamento para OP no Card Em Produção - Carteira SDC', () => {
 
   it('2. Deve abrir o modal de detalhe individual da OP com todas as informações requeridas', () => {
     const onClose = vi.fn()
-    render(
-      <DetalheOrdemProducaoModal
-        isOpen={true}
-        onClose={onClose}
-        item={itemComOpMock}
-      />,
-    )
+    render(<DetalheOrdemProducaoModal isOpen={true} onClose={onClose} item={itemComOpMock} />)
 
     expect(screen.getByTestId('modal-detalhe-ordem-producao')).toBeInTheDocument()
     expect(screen.getByTestId('op-qtd-planejada')).toHaveTextContent('18,000 t')
@@ -133,13 +128,7 @@ describe('Detalhamento para OP no Card Em Produção - Carteira SDC', () => {
 
   it('3. Quando o SAP não retornar registros por OP, deve mostrar indicação clara de indisponibilidade sem números fictícios e sem travar', () => {
     const onClose = vi.fn()
-    render(
-      <DetalheOrdemProducaoModal
-        isOpen={true}
-        onClose={onClose}
-        item={itemSemOpMock}
-      />,
-    )
+    render(<DetalheOrdemProducaoModal isOpen={true} onClose={onClose} item={itemSemOpMock} />)
 
     expect(screen.getByTestId('aviso-op-indisponivel')).toBeInTheDocument()
     expect(
