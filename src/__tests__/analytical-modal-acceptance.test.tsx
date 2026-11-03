@@ -209,15 +209,13 @@ describe('AnalyticalModal and Analytical Views Acceptance', () => {
     const handleClose = vi.fn()
     render(<PortfolioABC isOpen={true} onClose={handleClose} resultadoABC={mockResultadoABC} />)
 
-    expect(screen.getByText('Curva ABC & Diagrama de Pareto Comercial')).toBeInTheDocument()
+    expect(screen.getByText('Curva ABC & Diagrama de Pareto — Volume')).toBeInTheDocument()
     // Badges Curva A, B e C
     expect(screen.getAllByText(/Curva A/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Curva B/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Curva C/i).length).toBeGreaterThan(0)
-    // Validação de texto limpo de alerta
-    expect(
-      screen.getByText(/Alerta Prioritário • Ruptura Comercial na Curva A/i),
-    ).toBeInTheDocument()
+    // Validação de texto limpo de alerta operacional
+    expect(screen.getByText(/ALERTA CRÍTICO • Ruptura Operacional na Curva A/i)).toBeInTheDocument()
   })
 
   it('deve renderizar o PortfolioCharts com navegação por abas uniforme', () => {

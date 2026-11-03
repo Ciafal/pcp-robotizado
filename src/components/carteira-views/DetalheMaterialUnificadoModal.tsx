@@ -350,7 +350,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                     : 'text-emerald-700 font-mono'
                 }
               >
-                {resultadoTemporal.saldoAtualT.toFixed(2)} t
+                {resultadoTemporal.saldoAtualT.toFixed(3).replace('.', ',')} t
               </strong>
             </span>
             <span className="text-slate-500">
@@ -362,7 +362,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                     : 'text-blue-700 font-mono'
                 }
               >
-                {resultadoTemporal.saldoProjetadoT.toFixed(2)} t
+                {resultadoTemporal.saldoProjetadoT.toFixed(3).replace('.', ',')} t
               </strong>
             </span>
           </div>
@@ -387,7 +387,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                   <Briefcase className="w-4 h-4 text-[#004C97]" /> Carteira &amp; Demanda Aberta
                 </span>
                 <span className="text-sm font-mono font-bold text-[#004C97]">
-                  {carteiraAberta.toFixed(2)} t
+                  {carteiraAberta.toFixed(3).replace('.', ',')} t
                 </span>
               </div>
 
@@ -409,7 +409,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                       </div>
                       <div className="text-right">
                         <div className="font-mono font-bold text-slate-900">
-                          {ped.quantidade_t.toFixed(2)} t
+                          {ped.quantidade_t.toFixed(3).replace('.', ',')} t
                         </div>
                         <div className="text-[10px] text-slate-500">
                           Desejada: {ped.data_desejada}
@@ -459,7 +459,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                   <Layers className="w-4 h-4 text-emerald-600" /> Balanço de Estoque Físico
                 </span>
                 <span className="text-sm font-mono font-bold text-emerald-700">
-                  {estoqueTotal.toFixed(2)} t
+                  {estoqueTotal.toFixed(3).replace('.', ',')} t
                 </span>
               </div>
 
@@ -467,7 +467,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                 <div className="bg-white p-2 rounded-lg border border-slate-200">
                   <span className="text-[10px] text-slate-500 block">Disponível Utilizável</span>
                   <strong className="text-xs font-mono text-emerald-700">
-                    {estoqueDisponivelUtilizavel.toFixed(2)} t
+                    {estoqueDisponivelUtilizavel.toFixed(3).replace('.', ',')} t
                   </strong>
                 </div>
                 <div className="bg-white p-2 rounded-lg border border-slate-200">
@@ -477,7 +477,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                       estoqueBloqueado > 0 ? 'text-rose-600 font-bold' : 'text-slate-700'
                     }`}
                   >
-                    {estoqueBloqueado.toFixed(2)} t
+                    {estoqueBloqueado.toFixed(3).replace('.', ',')} t
                   </strong>
                 </div>
               </div>
@@ -497,7 +497,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                   <Clock className="w-4 h-4 text-blue-600" /> Programação &amp; Reposição
                 </span>
                 <span className="text-sm font-mono font-bold text-blue-700">
-                  {(programadoTons + emProducaoTons).toFixed(2)} t
+                  {(programadoTons + emProducaoTons).toFixed(3).replace('.', ',')} t
                 </span>
               </div>
 
@@ -511,14 +511,14 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                 <div className="flex justify-between">
                   <span className="text-slate-500">Programado:</span>
                   <strong className="text-slate-800 font-mono">
-                    {programadoTons.toFixed(2)} t
+                    {programadoTons.toFixed(3).replace('.', ',')} t
                   </strong>
                 </div>
                 {emProducaoTons > 0 && (
                   <div className="flex justify-between">
                     <span className="text-slate-500">Em Produção:</span>
                     <strong className="text-indigo-700 font-mono">
-                      {emProducaoTons.toFixed(2)} t
+                      {emProducaoTons.toFixed(3).replace('.', ',')} t
                     </strong>
                   </div>
                 )}
@@ -533,34 +533,34 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                     <Building2 className="w-4 h-4 text-[#004C97]" /> Industrialização SDC
                   </span>
                   <span className="text-sm font-mono font-bold text-[#003870]">
-                    {(sdcItem.em_producao_t + sdcItem.programado_t).toFixed(2)} t
+                    {(sdcItem.em_producao_t + sdcItem.programado_t).toFixed(3).replace('.', ',')} t
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div className="bg-white p-1.5 rounded border border-slate-200">
                     <span className="text-[9px] text-slate-500 block">Destinada</span>
                     <strong className="font-mono text-slate-800">
-                      {(sdcItem.industrializacao_sdc?.destinada_t ?? sdcItem.programado_t).toFixed(
-                        2,
-                      )}{' '}
+                      {(sdcItem.industrializacao_sdc?.destinada_t ?? sdcItem.programado_t)
+                        .toFixed(3)
+                        .replace('.', ',')}{' '}
                       t
                     </strong>
                   </div>
                   <div className="bg-white p-1.5 rounded border border-slate-200">
                     <span className="text-[9px] text-slate-500 block">Em Processo</span>
                     <strong className="font-mono text-indigo-700">
-                      {(
-                        sdcItem.industrializacao_sdc?.em_processo_t ?? sdcItem.em_producao_t
-                      ).toFixed(2)}{' '}
+                      {(sdcItem.industrializacao_sdc?.em_processo_t ?? sdcItem.em_producao_t)
+                        .toFixed(3)
+                        .replace('.', ',')}{' '}
                       t
                     </strong>
                   </div>
                   <div className="bg-white p-1.5 rounded border border-slate-200">
                     <span className="text-[9px] text-slate-500 block">Concluída</span>
                     <strong className="font-mono text-emerald-700">
-                      {(
-                        sdcItem.industrializacao_sdc?.concluida_t ?? sdcItem.estoque_total_t
-                      ).toFixed(2)}{' '}
+                      {(sdcItem.industrializacao_sdc?.concluida_t ?? sdcItem.estoque_total_t)
+                        .toFixed(3)
+                        .replace('.', ',')}{' '}
                       t
                     </strong>
                   </div>
@@ -592,7 +592,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                         <div className="flex justify-between font-semibold text-slate-800">
                           <span>Doc: {ent.documento_ref}</span>
                           <span className="font-mono font-bold text-sky-700">
-                            {ent.quantidade_prevista_tons.toFixed(2)} t
+                            {ent.quantidade_prevista_tons.toFixed(3).replace('.', ',')} t
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-500 flex justify-between mt-1">
@@ -628,7 +628,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                         <div className="flex justify-between font-semibold text-slate-800">
                           <span>Fornec: {ent.fornecedor_origem || 'Gerdau/Arcelor'}</span>
                           <span className="font-mono font-bold text-emerald-700">
-                            {ent.quantidade_prevista_tons.toFixed(2)} t
+                            {ent.quantidade_prevista_tons.toFixed(3).replace('.', ',')} t
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-500 flex justify-between mt-1">
@@ -658,13 +658,19 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                   <div className="flex justify-between">
                     <span className="text-slate-500">Estoque MTO Dedicado:</span>
                     <strong className="text-[#003870] font-mono">
-                      {Number(genItem?.estoque_mto_tons || 0).toFixed(2)} t
+                      {Number(genItem?.estoque_mto_tons || 0)
+                        .toFixed(3)
+                        .replace('.', ',')}{' '}
+                      t
                     </strong>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Carteira MTO Aberta:</span>
                     <strong className="text-slate-800 font-mono">
-                      {Number(genItem?.carteira_mto_tons || carteiraAberta).toFixed(2)} t
+                      {Number(genItem?.carteira_mto_tons || carteiraAberta)
+                        .toFixed(3)
+                        .replace('.', ',')}{' '}
+                      t
                     </strong>
                   </div>
                   <div className="flex justify-between">
@@ -827,14 +833,14 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                     }`}
                   >
                     {resultadoTemporal.saldoAtualT > 0
-                      ? `+${resultadoTemporal.saldoAtualT.toFixed(2)}`
-                      : resultadoTemporal.saldoAtualT.toFixed(2)}
+                      ? `+${resultadoTemporal.saldoAtualT.toFixed(3).replace('.', ',')}`
+                      : resultadoTemporal.saldoAtualT.toFixed(3).replace('.', ',')}
                   </strong>
                   <span className="text-xs text-slate-500 font-semibold">t</span>
                 </div>
                 <span className="text-[9px] text-slate-500 mt-0.5 block truncate">
                   {isDeficit
-                    ? `Déficit de ${Math.abs(resultadoTemporal.saldoAtualT).toFixed(2)} t`
+                    ? `Déficit de ${Math.abs(resultadoTemporal.saldoAtualT).toFixed(3).replace('.', ',')} t`
                     : 'Coberto com estoque atual'}
                 </span>
               </div>
@@ -855,15 +861,15 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                     }`}
                   >
                     {resultadoTemporal.saldoProjetadoT > 0
-                      ? `+${resultadoTemporal.saldoProjetadoT.toFixed(2)}`
-                      : resultadoTemporal.saldoProjetadoT.toFixed(2)}
+                      ? `+${resultadoTemporal.saldoProjetadoT.toFixed(3).replace('.', ',')}`
+                      : resultadoTemporal.saldoProjetadoT.toFixed(3).replace('.', ',')}
                   </strong>
                   <span className="text-xs text-slate-500 font-semibold">t</span>
                 </div>
                 <span className="text-[9px] text-slate-500 mt-0.5 block truncate">
                   {isProjPositivo
                     ? 'Cobertura projetada suficiente'
-                    : `Déficit residual: ${Math.abs(resultadoTemporal.saldoProjetadoT).toFixed(2)} t`}
+                    : `Déficit residual: ${Math.abs(resultadoTemporal.saldoProjetadoT).toFixed(3).replace('.', ',')} t`}
                 </span>
               </div>
 

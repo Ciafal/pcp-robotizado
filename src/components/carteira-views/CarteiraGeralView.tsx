@@ -323,9 +323,9 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
         tipoFormato: 'quantidade',
         unidade: 'itens',
         cor: 'roxo',
-        badge: `${formatPercentagePTBR(resultadoABC.resumoA.percentual_faturamento, 0)} fat.`,
-        subtitulo: `Até ${parametrosCurvaAbc?.corteA_pct || 85}% do faturamento`,
-        tooltip: `Materiais de maior relevância financeira comercial (concentram ${resultadoABC.resumoA.percentual_faturamento.toFixed(1)}% do faturamento)`,
+        badge: `${formatPercentagePTBR(resultadoABC.tonelagemTotal_t > 0 ? (resultadoABC.resumoA.toneladas / resultadoABC.tonelagemTotal_t) * 100 : 0, 0)} vol.`,
+        subtitulo: `Até ${parametrosCurvaAbc?.corteA_pct || 85}% do volume`,
+        tooltip: `Materiais de maior impacto volumétrico (concentram ${formatPercentagePTBR(resultadoABC.tonelagemTotal_t > 0 ? (resultadoABC.resumoA.toneladas / resultadoABC.tonelagemTotal_t) * 100 : 0, 1)} do volume)`,
       },
       {
         id: 'CURVA_B',
@@ -334,9 +334,9 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
         tipoFormato: 'quantidade',
         unidade: 'itens',
         cor: 'azul',
-        badge: `${formatPercentagePTBR(resultadoABC.resumoB.percentual_faturamento, 0)} fat.`,
+        badge: `${formatPercentagePTBR(resultadoABC.tonelagemTotal_t > 0 ? (resultadoABC.resumoB.toneladas / resultadoABC.tonelagemTotal_t) * 100 : 0, 0)} vol.`,
         subtitulo: `${parametrosCurvaAbc?.corteA_pct || 85}% a ${parametrosCurvaAbc?.corteB_pct || 95}%`,
-        tooltip: `Materiais de relevância intermediária (concentram ${resultadoABC.resumoB.percentual_faturamento.toFixed(1)}% do faturamento)`,
+        tooltip: `Materiais de volume intermediário (concentram ${formatPercentagePTBR(resultadoABC.tonelagemTotal_t > 0 ? (resultadoABC.resumoB.toneladas / resultadoABC.tonelagemTotal_t) * 100 : 0, 1)} do volume)`,
       },
       {
         id: 'CURVA_C',
@@ -345,9 +345,9 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
         tipoFormato: 'quantidade',
         unidade: 'itens',
         cor: 'cinza',
-        badge: `${formatPercentagePTBR(resultadoABC.resumoC.percentual_faturamento, 0)} fat.`,
+        badge: `${formatPercentagePTBR(resultadoABC.tonelagemTotal_t > 0 ? (resultadoABC.resumoC.toneladas / resultadoABC.tonelagemTotal_t) * 100 : 0, 0)} vol.`,
         subtitulo: `Acima de ${parametrosCurvaAbc?.corteB_pct || 95}%`,
-        tooltip: `Materiais de cauda longa (concentram ${resultadoABC.resumoC.percentual_faturamento.toFixed(1)}% do faturamento)`,
+        tooltip: `Materiais de cauda longa (concentram ${formatPercentagePTBR(resultadoABC.tonelagemTotal_t > 0 ? (resultadoABC.resumoC.toneladas / resultadoABC.tonelagemTotal_t) * 100 : 0, 1)} do volume)`,
       },
     ]
   }, [todosItensCalculados, resultadoABC, parametrosCurvaAbc])
@@ -453,7 +453,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
         setDrilldownConfig({
           isOpen: true,
           nome: 'Materiais da Curva A',
-          descricao: `Itens de alta relevância (até ${parametrosCurvaAbc?.corteA_pct || 85}% do faturamento)`,
+          descricao: `Itens de alta relevância volumétrica (até ${parametrosCurvaAbc?.corteA_pct || 85}% do volume)`,
           itens: todosItensCalculados.filter((i) => i.curva_abc === 'A'),
         })
         break

@@ -119,10 +119,10 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
       {/* Grade Compacta de 6 Indicadores Oficiais */}
       <div className="p-3.5">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
-          {/* 1. Média diária faturamento */}
+          {/* 1. Média diária de consumo físico */}
           <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex flex-col justify-between">
             <span className="text-[10px] uppercase font-bold text-slate-500 block leading-tight">
-              1. Média Diária Faturamento
+              1. Média Diária Consumo (t)
             </span>
             <div className="mt-1">
               <strong
@@ -160,7 +160,7 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
                 {analise.diasCoberturaFormatado}
               </strong>
               <span className="text-[9px] text-slate-400 block mt-0.5">
-                {analise.estoqueDisponivelUtilizavelT.toFixed(2)} t utilizável
+                {analise.estoqueDisponivelUtilizavelT.toFixed(3).replace('.', ',')} t utilizável
               </span>
             </div>
           </div>
@@ -223,7 +223,7 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
                 title={analise.proximaDemandaDetalhe?.cliente || ''}
               >
                 {analise.proximaDemandaDetalhe
-                  ? `${analise.proximaDemandaDetalhe.quantidadeTons.toFixed(1)}t · ${analise.proximaDemandaDetalhe.ordemVenda || 'Pedido'}`
+                  ? `${analise.proximaDemandaDetalhe.quantidadeTons.toFixed(3).replace('.', ',')} t · ${analise.proximaDemandaDetalhe.ordemVenda || 'Pedido'}`
                   : 'Necessidade carteira'}
               </span>
             </div>
@@ -243,7 +243,7 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
               </strong>
               <span className="text-[9px] text-slate-500 block mt-0.5 truncate">
                 {analise.proximaReposicaoDetalhe
-                  ? `Qtd: ${analise.proximaReposicaoDetalhe.quantidadeTons.toFixed(1)} t`
+                  ? `Qtd: ${analise.proximaReposicaoDetalhe.quantidadeTons.toFixed(3).replace('.', ',')} t`
                   : 'Entrada disponível'}
               </span>
             </div>

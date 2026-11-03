@@ -900,7 +900,7 @@ export class CoberturaTemporalEngine {
     } else if (!temHistorico || mediaDiaria === null) {
       status = 'SEM HISTÓRICO'
       severidade = 'INFORMATIVO'
-      textoStatus = 'SEM HISTÓRICO DE FATURAMENTO'
+      textoStatus = 'HISTÓRICO INSUFICIENTE'
       badgeCor = {
         bg: 'bg-slate-100',
         text: 'text-slate-700',

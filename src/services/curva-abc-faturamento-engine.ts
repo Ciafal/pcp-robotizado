@@ -264,13 +264,15 @@ export class CurvaAbcFaturamentoEngine {
       return this.normalizarCarteiraItem(it as CarteiraItem, precoPadrao)
     })
 
-    // 2. Ordenar materiais por faturamento decrescente (NUNCA por tonelagem)
-    const ordenados = [...itensNormalizados].sort((a, b) => b.faturamento_brl - a.faturamento_brl)
+    // 2. Ordenar materiais por VOLUME (toneladas) decrescente conforme regra oficial do PCP
+    const ordenados = [...itensNormalizados].sort(
+      (a, b) => (b.carteira_tons || 0) - (a.carteira_tons || 0),
+    )
 
     const faturamentoTotal = ordenados.reduce((acc, i) => acc + (i.faturamento_brl || 0), 0)
     const tonelagemTotal = ordenados.reduce((acc, i) => acc + (i.carteira_tons || 0), 0)
 
-    let faturamentoAcumulado = 0
+    let volumeAcumulado = 0
     const itensCalculados: ItemCurvaAbcCalculado[] = []
 
     let qtdA = 0
@@ -286,11 +288,10 @@ export class CurvaAbcFaturamentoEngine {
     const alertasPrioritariosCurvaA: string[] = []
 
     ordenados.forEach((item) => {
-      faturamentoAcumulado += item.faturamento_brl
+      volumeAcumulado += item.carteira_tons || 0
       const individualPct =
-        faturamentoTotal > 0 ? (item.faturamento_brl / faturamentoTotal) * 100 : 0
-      const acumuladoPct =
-        faturamentoTotal > 0 ? (faturamentoAcumulado / faturamentoTotal) * 100 : 0
+        tonelagemTotal > 0 ? ((item.carteira_tons || 0) / tonelagemTotal) * 100 : 0
+      const acumuladoPct = tonelagemTotal > 0 ? (volumeAcumulado / tonelagemTotal) * 100 : 0
 
       let curva: 'A' | 'B' | 'C' = 'C'
       if (
@@ -313,10 +314,10 @@ export class CurvaAbcFaturamentoEngine {
         tonC += item.carteira_tons
       }
 
-      // Regra Prioritária Curva A:
-      // "ALERTA CRÍTICO — Material XXXXX pertence à Curva A, possui déficit de 25,40 t e não apresenta programação PCP suficiente para cobertura."
+      // Regra Prioritária Curva A com padrão 3 casas decimais:
+      // "ALERTA CRÍTICO — Material XXXXX pertence à Curva A, possui déficit de 19,160 t e não apresenta programação PCP suficiente para cobertura."
       if (curva === 'A' && item.deficit_tons > 0 && item.saldo_projetado_tons < 0) {
-        const defFmt = item.deficit_tons.toFixed(2).replace('.', ',')
+        const defFmt = item.deficit_tons.toFixed(3).replace('.', ',')
         alertasPrioritariosCurvaA.push(
           `ALERTA CRÍTICO — Material ${item.codigo_material} pertence à Curva A, possui déficit de ${defFmt} t e não apresenta programação PCP suficiente para cobertura.`,
         )

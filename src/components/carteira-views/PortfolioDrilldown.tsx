@@ -3,47 +3,39 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Search,
-  Filter,
   Download,
   AlertTriangle,
-  Eye,
-  SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
+  Eye,
   ShieldCheck,
-  Package,
 } from 'lucide-react'
 import { ItemCurvaAbcCalculado } from '@/services/curva-abc-faturamento-engine'
-import {
-  formatNumberPTBR,
-  formatCurrencyPTBR,
-  formatPercentagePTBR,
-  formatDatePTBR,
-} from '@/lib/formatters-ptbr'
+import { formatTons3Decimals } from '@/lib/formatters-ptbr'
 import { AnalyticalModal } from '@/components/common/AnalyticalModal'
 
-export interface PortfolioDrilldownProps {
+interface PortfolioDrilldownProps {
   isOpen: boolean
   onClose: () => void
-  curvaInicial?: 'A' | 'B' | 'C' | null
-  indicadorNome?: string
-  indicadorDescricao?: string
+  curvaInicial?: 'A' | 'B' | 'C' | 'TODOS'
   itens: ItemCurvaAbcCalculado[]
   onSelectMaterial?: (item: ItemCurvaAbcCalculado) => void
   onOpenDetalheMaterialOriginal?: (item: ItemCurvaAbcCalculado) => void
+  indicadorNome?: string
+  indicadorDescricao?: string
 }
 
 export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
   isOpen,
   onClose,
-  curvaInicial = null,
-  indicadorNome,
-  indicadorDescricao,
+  curvaInicial = 'TODOS',
   itens,
   onSelectMaterial,
   onOpenDetalheMaterialOriginal,
+  indicadorNome,
+  indicadorDescricao,
 }) => {
-  const [curvaFiltro, setCurvaFiltro] = useState<'TODOS' | 'A' | 'B' | 'C'>(curvaInicial || 'TODOS')
+  const [curvaFiltro, setCurvaFiltro] = useState<'A' | 'B' | 'C' | 'TODOS'>(curvaInicial)
   const [busca, setBusca] = useState('')
   const [centroFiltro, setCentroFiltro] = useState<string>('TODOS')
   const [linhaFiltro, setLinhaFiltro] = useState<string>('TODAS')
@@ -86,12 +78,13 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
     return itensFiltrados.slice(inicio, inicio + ITENS_POR_PAGINA)
   }, [itensFiltrados, paginaAtual])
 
-  // KPIs dos itens filtrados (com valores sem corte)
+  // KPIs dos itens filtrados (com valores exclusivamente operacionais / físicos em toneladas)
   const kpisFiltro = useMemo(() => {
     const qtd = itensFiltrados.length
-    const deficitTotal = itensFiltrados.reduce((s, i) => s + i.deficit_tons, 0)
-    const faturamentoTotal = itensFiltrados.reduce((s, i) => s + i.faturamento_brl, 0)
-    const carteiraTotal = itensFiltrados.reduce((s, i) => s + i.carteira_tons, 0)
+    const deficitTotal = itensFiltrados.reduce((s, i) => s + (i.deficit_tons || 0), 0)
+    const carteiraTotal = itensFiltrados.reduce((s, i) => s + (i.carteira_tons || 0), 0)
+    const estoqueTotal = itensFiltrados.reduce((s, i) => s + (i.estoque_disponivel_tons || 0), 0)
+    const programadoTotal = itensFiltrados.reduce((s, i) => s + (i.programado_tons || 0), 0)
 
     const countA = itensFiltrados.filter((i) => i.curva_abc === 'A').length
     const countB = itensFiltrados.filter((i) => i.curva_abc === 'B').length
@@ -100,8 +93,9 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
     return {
       qtd,
       deficitTotal,
-      faturamentoTotal,
       carteiraTotal,
+      estoqueTotal,
+      programadoTotal,
       countA,
       countB,
       countC,
@@ -116,13 +110,14 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
     }
   }
 
+  // Exportar dados em CSV (sem dados financeiros, quantidades no padrão XX,XXX t)
   const exportarCSV = () => {
     const cabecalho =
-      'Material;Descrição;Curva ABC;Centro;Linha;Carteira (t);Estoque (t);Programado (t);Déficit (t);Faturamento (R$);% do Total;Risco\n'
+      'Material;Descrição;Curva ABC;Centro;Linha;Carteira (t);Estoque Disponível (t);Programado (t);Déficit (t);Risco\n'
     const linhas = itensFiltrados
       .map(
         (i) =>
-          `"${i.codigo_material}";"${i.descricao_material}";"${i.curva_abc}";"${i.centro}";"${i.linha}";${i.carteira_tons.toFixed(2)};${i.estoque_disponivel_tons.toFixed(2)};${i.programado_tons.toFixed(2)};${i.deficit_tons.toFixed(2)};${i.faturamento_brl.toFixed(2)};${i.participacao_individual_pct.toFixed(2)};"${i.risco}"`,
+          `"${i.codigo_material}";"${i.descricao_material}";"${i.curva_abc}";"${i.centro}";"${i.linha}";${formatTons3Decimals(i.carteira_tons)};${formatTons3Decimals(i.estoque_disponivel_tons)};${formatTons3Decimals(i.programado_tons)};${formatTons3Decimals(i.deficit_tons)};"${i.risco}"`,
       )
       .join('\n')
 
@@ -132,17 +127,18 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
     link.href = url
     link.setAttribute(
       'download',
-      `drilldown_curva_${curvaFiltro}_${new Date().toISOString().slice(0, 10)}.csv`,
+      `drilldown_materiais_${curvaFiltro}_${new Date().toISOString().slice(0, 10)}.csv`,
     )
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   }
 
+  // Indicadores físicos do cabeçalho
   const kpisTopo = [
-    { label: 'Materiais Exibidos', value: `${kpisFiltro.qtd} de ${itens.length}` },
-    { label: 'Faturamento Filtro', value: formatCurrencyPTBR(kpisFiltro.faturamentoTotal) },
-    { label: 'Déficit no Filtro', value: `${formatNumberPTBR(kpisFiltro.deficitTotal, 2)} t` },
+    { label: 'Materiais exibidos', value: `${kpisFiltro.qtd} de ${itens.length}` },
+    { label: 'Volume da carteira', value: formatTons3Decimals(kpisFiltro.carteiraTotal) },
+    { label: 'Déficit no filtro', value: formatTons3Decimals(kpisFiltro.deficitTotal) },
   ]
 
   const tituloModal = indicadorNome
@@ -153,7 +149,7 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
 
   const subtituloModal =
     indicadorDescricao ||
-    'Auditoria detalhada linha a linha com rastreabilidade de faturamento comercial, estoques físicos e cobertura industrial'
+    'Auditoria operacional detalhada com volumes físicos da carteira, estoques disponíveis e cobertura da programação PCP.'
 
   return (
     <AnalyticalModal
@@ -224,9 +220,9 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
       }
     >
       <div className="space-y-4">
-        {/* 4 MINI-CARDS NO TOPO DO DRILL-DOWN EM 4 COLUNAS NO DESKTOP (Sem valores cortados) */}
+        {/* 4 MINI-CARDS OPERACIONAIS NO TOPO DO DRILL-DOWN */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Card 1: Itens no Filtro */}
+          {/* Card 1: Itens no Filtro e Volume */}
           <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
             <span className="text-[11px] uppercase font-bold text-slate-500 block">
               Materiais Filtrados
@@ -235,12 +231,12 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
               <strong className="text-xl sm:text-2xl font-bold font-sans text-slate-900">
                 {kpisFiltro.qtd}
               </strong>
-              <span className="text-xs font-semibold text-slate-500">itens</span>
+              <span className="text-xs font-semibold text-slate-500">materiais</span>
             </div>
             <span className="text-xs text-slate-600 block mt-1">
               Volume:{' '}
               <strong className="text-slate-800">
-                {formatNumberPTBR(kpisFiltro.carteiraTotal, 2)} t
+                {formatTons3Decimals(kpisFiltro.carteiraTotal)}
               </strong>
             </span>
           </div>
@@ -252,29 +248,30 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
             </span>
             <div className="flex items-baseline gap-1 mt-1">
               <strong className="text-xl sm:text-2xl font-bold font-sans text-rose-700 whitespace-nowrap">
-                {formatNumberPTBR(kpisFiltro.deficitTotal, 2)}
+                {formatTons3Decimals(kpisFiltro.deficitTotal)}
               </strong>
-              <span className="text-xs font-semibold text-rose-600">t</span>
             </div>
             <span className="text-xs text-rose-600 font-medium block mt-1">
               Necessidade de produção
             </span>
           </div>
 
-          {/* Card 3: Valor Comercial Relacionado (Completo, sem corte) */}
+          {/* Card 3: Estoque Disponível & Programado */}
           <div className="p-3.5 bg-white rounded-xl border border-blue-200 shadow-xs flex flex-col justify-between">
             <span className="text-[11px] uppercase font-bold text-[#004C97] block">
-              Faturamento Relacionado
+              Estoque Disponível
             </span>
             <div className="flex items-baseline gap-1 mt-1">
-              <strong
-                className="text-xl sm:text-2xl font-bold font-sans text-[#004C97] whitespace-nowrap"
-                title={formatCurrencyPTBR(kpisFiltro.faturamentoTotal)}
-              >
-                {formatCurrencyPTBR(kpisFiltro.faturamentoTotal)}
+              <strong className="text-xl sm:text-2xl font-bold font-sans text-emerald-700 whitespace-nowrap">
+                {formatTons3Decimals(kpisFiltro.estoqueTotal)}
               </strong>
             </div>
-            <span className="text-xs text-slate-600 block mt-1">Receita dos itens filtrados</span>
+            <span className="text-xs text-slate-600 block mt-1">
+              Programado:{' '}
+              <strong className="text-indigo-700 font-semibold">
+                {formatTons3Decimals(kpisFiltro.programadoTotal)}
+              </strong>
+            </span>
           </div>
 
           {/* Card 4: Distribuição ABC Clara */}
@@ -293,14 +290,14 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                 C: {kpisFiltro.countC}
               </Badge>
             </div>
-            <span className="text-xs text-slate-600 block mt-1">Classificação por receita</span>
+            <span className="text-xs text-slate-600 block mt-1">Classificação por volume</span>
           </div>
         </div>
 
         {/* TOOLBAR RESPONSIVA DE FILTROS */}
         <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-2.5">
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Campo de Busca: min-width 320px, flex: 1, nunca truncado */}
+            {/* Campo de Busca: min-width 280px, flex: 1, nunca truncado */}
             <div className="relative flex-1 min-w-[280px] sm:min-w-[320px]">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               <input
@@ -401,10 +398,10 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
           </div>
         </div>
 
-        {/* TABELA PROPORCIONAL COM HEADER STICKY DENTRO DO SEU CONTAINER */}
+        {/* TABELA: Material, Descrição, Curva ABC, Centro, Linha, Carteira, Estoque disponível, Programado, Déficit, Ações */}
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
           <div className="w-full overflow-x-auto max-h-[500px] scrollbar-thin">
-            <table className="w-full min-w-[980px] text-left text-xs border-collapse">
+            <table className="w-full min-w-[960px] text-left text-xs border-collapse">
               <thead className="bg-[#004C97] text-white text-[11px] sticky top-0 z-20 shadow-xs">
                 <tr>
                   <th className="p-2.5 font-bold">Material</th>
@@ -413,17 +410,16 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                   <th className="p-2.5 font-bold text-center">Centro</th>
                   <th className="p-2.5 font-bold text-center">Linha</th>
                   <th className="p-2.5 font-bold text-right">Carteira</th>
-                  <th className="p-2.5 font-bold text-right">Estoque Disp.</th>
+                  <th className="p-2.5 font-bold text-right">Estoque disponível</th>
                   <th className="p-2.5 font-bold text-right">Programado</th>
                   <th className="p-2.5 font-bold text-right">Déficit</th>
-                  <th className="p-2.5 font-bold text-right">Faturamento</th>
                   <th className="p-2.5 font-bold text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {itensPaginados.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="p-8 text-center text-slate-500">
+                    <td colSpan={10} className="p-8 text-center text-slate-500">
                       Nenhum material encontrado para os filtros selecionados.
                     </td>
                   </tr>
@@ -447,8 +443,8 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                           {it.codigo_material}
                         </td>
 
-                        {/* Descrição (Tipografia padrão, sem estourar o modal) */}
-                        <td className="p-2.5 text-slate-700 max-w-[260px]">
+                        {/* Descrição */}
+                        <td className="p-2.5 text-slate-700 max-w-[280px]">
                           <span
                             className="truncate block font-medium"
                             title={it.descricao_material}
@@ -457,7 +453,7 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                           </span>
                         </td>
 
-                        {/* Curva ABC (Identificada por TEXTO e badge) */}
+                        {/* Curva ABC */}
                         <td className="p-2.5 text-center">
                           <span
                             className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold ${
@@ -480,19 +476,19 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                         {/* Linha */}
                         <td className="p-2.5 text-center font-medium text-slate-700">{it.linha}</td>
 
-                        {/* Carteira (t) - Numérico à direita na tipografia padrão */}
+                        {/* Carteira (t) - Exatamente 3 casas decimais */}
                         <td className="p-2.5 text-right font-sans font-bold text-slate-900 whitespace-nowrap">
-                          {formatNumberPTBR(it.carteira_tons, 2)} t
+                          {formatTons3Decimals(it.carteira_tons)}
                         </td>
 
-                        {/* Estoque (t) */}
-                        <td className="p-2.5 text-right font-sans font-semibold text-slate-800 whitespace-nowrap">
-                          {formatNumberPTBR(it.estoque_disponivel_tons, 2)} t
+                        {/* Estoque disponível (t) */}
+                        <td className="p-2.5 text-right font-sans font-semibold text-emerald-800 whitespace-nowrap">
+                          {formatTons3Decimals(it.estoque_disponivel_tons)}
                         </td>
 
                         {/* Programado (t) */}
-                        <td className="p-2.5 text-right font-sans text-slate-700 whitespace-nowrap">
-                          {formatNumberPTBR(it.programado_tons, 2)} t
+                        <td className="p-2.5 text-right font-sans text-indigo-700 font-semibold whitespace-nowrap">
+                          {formatTons3Decimals(it.programado_tons)}
                         </td>
 
                         {/* Déficit (t) */}
@@ -501,12 +497,7 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                             isDeficit ? 'text-rose-600' : 'text-emerald-700'
                           }`}
                         >
-                          {formatNumberPTBR(it.deficit_tons, 2)} t
-                        </td>
-
-                        {/* Faturamento (R$) */}
-                        <td className="p-2.5 text-right font-sans font-bold text-[#004C97] whitespace-nowrap">
-                          {formatCurrencyPTBR(it.faturamento_brl)}
+                          {formatTons3Decimals(it.deficit_tons)}
                         </td>
 
                         {/* Ações */}
@@ -557,15 +548,14 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
               </span>
               <p className="text-slate-800 mt-1 font-medium leading-relaxed">
                 {kpisFiltro.qtd} materiais compõem este conjunto com volume físico de{' '}
-                {formatNumberPTBR(kpisFiltro.carteiraTotal, 2)} t e receita total de{' '}
-                {formatCurrencyPTBR(kpisFiltro.faturamentoTotal)}.
+                {formatTons3Decimals(kpisFiltro.carteiraTotal)}.
               </p>
             </div>
             <div className="p-3 bg-rose-50/70 rounded-lg border border-rose-200">
               <span className="text-[10px] uppercase font-bold text-rose-700 block">2. Risco</span>
               <p className="text-rose-950 mt-1 font-medium leading-relaxed">
                 {kpisFiltro.deficitTotal > 0
-                  ? `Déficit de ${formatNumberPTBR(kpisFiltro.deficitTotal, 2)} t requer atenção imediata de cobertura e semiacabados.`
+                  ? `Déficit de ${formatTons3Decimals(kpisFiltro.deficitTotal)} requer atenção imediata de cobertura e semiacabados.`
                   : 'Nenhum déficit crítico identificado neste recorte filtrado.'}
               </p>
             </div>
@@ -575,7 +565,7 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
               </span>
               <p className="text-amber-950 mt-1 font-medium leading-relaxed">
                 {curvaFiltro === 'A'
-                  ? 'Prioridade Máxima (P1) no sequenciamento semanal para assegurar pedidos de maior margem.'
+                  ? 'Prioridade Máxima (P1) no sequenciamento semanal para assegurar pedidos de maior volume.'
                   : curvaFiltro === 'B'
                     ? 'Prioridade Intermediária (P2) equilibrando lotes mínimos com prazos contratuais.'
                     : 'Prioridade Normal (P3) agrupando campanhas similares para evitar trocas excessivas.'}

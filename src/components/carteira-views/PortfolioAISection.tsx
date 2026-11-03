@@ -2,18 +2,9 @@ import React from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Sparkles,
-  AlertTriangle,
-  Bot,
-  ChevronRight,
-  ShieldCheck,
-  TrendingDown,
-  Layers,
-  Flame,
-} from 'lucide-react'
+import { Sparkles, AlertTriangle, Bot, ChevronRight } from 'lucide-react'
 import { CurvaAbcResultadoConsolidado } from '@/services/curva-abc-faturamento-engine'
-import { formatNumberPTBR, formatCurrencyPTBR, formatPercentagePTBR } from '@/lib/formatters-ptbr'
+import { formatTons3Decimals, formatPercentagePTBR } from '@/lib/formatters-ptbr'
 
 interface PortfolioAISectionProps {
   resultadoABC: CurvaAbcResultadoConsolidado
@@ -26,27 +17,16 @@ export const PortfolioAISection: React.FC<PortfolioAISectionProps> = ({
   onFiltrarMaterial,
   onOpenCurvaAbcModal,
 }) => {
-  const {
-    itens,
-    resumoA,
-    faturamentoTotal_brl,
-    tonelagemTotal_t,
-    alertasPrioritariosCurvaA,
-    parametrosAplicados,
-    fonteFaturamentoParametrizada,
-  } = resultadoABC
+  const { itens, resumoA, tonelagemTotal_t, alertasPrioritariosCurvaA } = resultadoABC
 
-  // Cálculos consolidados para a análise IA
-  const itensComDeficit = itens.filter((i) => i.deficit_tons > 0)
+  // Cálculos consolidados exclusivamente operacionais / físicos para a análise IA
   const itensSemProgramacao = itens.filter((i) => i.deficit_tons > 0 && i.programado_tons === 0)
-  const itensCriticos = itens.filter((i) => i.risco === 'CRITICO')
   const itensCurvaA = itens.filter((i) => i.curva_abc === 'A')
   const curvaAEmRisco = itensCurvaA.filter((i) => i.deficit_tons > 0 && i.saldo_projetado_tons < 0)
-  const curvaAExposicao = curvaAEmRisco.reduce((acc, i) => acc + i.faturamento_brl, 0)
-  const curvaAPercentualFat =
-    faturamentoTotal_brl > 0 ? (curvaAExposicao / faturamentoTotal_brl) * 100 : 0
+  const curvaAExposicaoTons = curvaAEmRisco.reduce((acc, i) => acc + (i.deficit_tons || 0), 0)
+  const pctVolumeA = tonelagemTotal_t > 0 ? (resumoA.toneladas / tonelagemTotal_t) * 100 : 0
 
-  // Diagnósticos automáticos consolidados
+  // Diagnósticos automáticos consolidados com dados operacionais
   const diagnosticos: {
     titulo: string
     descricao: string
@@ -57,11 +37,10 @@ export const PortfolioAISection: React.FC<PortfolioAISectionProps> = ({
   // 1. Alerta Prioritário Curva A
   if (curvaAEmRisco.length > 0) {
     diagnosticos.push({
-      titulo: 'Curva A Comercial em Risco de Ruptura',
-      descricao: `Existem ${curvaAEmRisco.length} materiais Curva A com risco de ruptura nos próximos 7 dias. Esses itens representam ${formatPercentagePTBR(
-        curvaAPercentualFat,
-        2,
-      )} do faturamento analisado (${formatCurrencyPTBR(curvaAExposicao)}).`,
+      titulo: 'Curva A em Risco de Ruptura',
+      descricao: `Existem ${curvaAEmRisco.length} materiais Curva A com risco de ruptura. Esses itens somam déficit físico de ${formatTons3Decimals(
+        curvaAExposicaoTons,
+      )} sem cobertura imediata da programação PCP.`,
       severidade: 'CRITICO',
       material: curvaAEmRisco[0]?.codigo_material,
     })
@@ -69,40 +48,26 @@ export const PortfolioAISection: React.FC<PortfolioAISectionProps> = ({
 
   // 2. Materiais com déficit sem programação PCP
   if (itensSemProgramacao.length > 0) {
-    const deficitSemProgT = itensSemProgramacao.reduce((acc, i) => acc + i.deficit_tons, 0)
+    const deficitSemProgT = itensSemProgramacao.reduce((acc, i) => acc + (i.deficit_tons || 0), 0)
     diagnosticos.push({
       titulo: 'Déficits sem Programação Industrial Vinculada',
-      descricao: `${itensSemProgramacao.length} produtos apresentam déficit físico somando ${formatNumberPTBR(
+      descricao: `${itensSemProgramacao.length} produtos apresentam déficit físico somando ${formatTons3Decimals(
         deficitSemProgT,
-        2,
-      )} t sem nenhuma ordem de produção (OP) programada no sequenciamento ativo.`,
+      )} sem nenhuma ordem de produção (OP) programada no sequenciamento ativo.`,
       severidade: 'ALERTA',
       material: itensSemProgramacao[0]?.codigo_material,
     })
   }
 
-  // 3. Concentração comercial da carteira
+  // 3. Concentração de volume da carteira
   diagnosticos.push({
-    titulo: 'Concentração Comercial da Carteira (Pareto)',
+    titulo: 'Concentração de Volume da Carteira (Pareto)',
     descricao: `A Curva A concentra ${formatPercentagePTBR(
-      resumoA.percentual_faturamento,
+      pctVolumeA,
       2,
-    )} do faturamento (${formatCurrencyPTBR(resumoA.faturamento_brl)}) em ${resumoA.quantidade_itens} materiais (${formatNumberPTBR(
-      resumoA.toneladas,
-      2,
-    )} t). A estabilidade comercial depende da garantia de entrega desses itens prioritários.`,
+    )} do volume da carteira (${formatTons3Decimals(resumoA.toneladas)}) em ${resumoA.quantidade_itens} materiais. A regularidade operacional depende da garantia de produção desses itens prioritários.`,
     severidade: 'INFO',
   })
-
-  // 4. Se a fonte SAP de faturamento está pendente de parametrização
-  if (!fonteFaturamentoParametrizada) {
-    diagnosticos.push({
-      titulo: 'Parametrização da Fonte de Faturamento SAP',
-      descricao:
-        'Fonte de faturamento SAP pendente de parametrização. Os valores utilizam a tabela de preços médios por família da referência ZSD28C.',
-      severidade: 'INFO',
-    })
-  }
 
   return (
     <Card className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white border-blue-900 shadow-md overflow-hidden">
@@ -114,14 +79,14 @@ export const PortfolioAISection: React.FC<PortfolioAISectionProps> = ({
             </div>
             <div>
               <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                Alertas & IA &bull; Análise Automática da Carteira Geral
+                Alertas &amp; IA &bull; Análise Automática da Carteira Geral
                 <Badge className="bg-blue-600 text-white text-[9px] font-bold">
                   ZSD28C &bull; RFC
                 </Badge>
               </CardTitle>
               <p className="text-[11px] text-slate-300">
-                Diagnóstico preditivo em tempo real cruzando Faturamento Comercial (Curva ABC),
-                Déficits Físicos e Cobertura PCP.
+                Diagnóstico preditivo em tempo real cruzando Volume Físico (Curva ABC), Déficits em
+                Toneladas e Cobertura PCP.
               </p>
             </div>
           </div>
@@ -204,7 +169,7 @@ export const PortfolioAISection: React.FC<PortfolioAISectionProps> = ({
 
         <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800">
           <span>
-            * A IA do HUB CIAFAL analisa padrões comerciais e sugere priorização industrial.
+            * A IA do HUB CIAFAL analisa padrões volumétricos e sugere priorização industrial.
             Decisões de sequenciamento e emissão de OPs permanecem sob governança estrita do
             programador PCP.
           </span>
@@ -214,4 +179,5 @@ export const PortfolioAISection: React.FC<PortfolioAISectionProps> = ({
     </Card>
   )
 }
+
 export default PortfolioAISection

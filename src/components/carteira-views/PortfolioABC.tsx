@@ -1,18 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  TrendingUp,
-  AlertTriangle,
-  Bot,
-  ChevronRight,
-  ShieldAlert,
-  Download,
-  Filter,
-  DollarSign,
-  PackageCheck,
-  Percent,
-} from 'lucide-react'
+import { TrendingUp, AlertTriangle, Bot, ChevronRight, Download } from 'lucide-react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -29,12 +18,7 @@ import {
   ItemCurvaAbcCalculado,
   CurvaAbcResultadoConsolidado,
 } from '@/services/curva-abc-faturamento-engine'
-import {
-  formatNumberPTBR,
-  formatCurrencyPTBR,
-  formatPercentagePTBR,
-  formatDatePTBR,
-} from '@/lib/formatters-ptbr'
+import { formatTons3Decimals, formatPercentagePTBR } from '@/lib/formatters-ptbr'
 import { PortfolioDrilldown } from './PortfolioDrilldown'
 import { AnalyticalModal } from '@/components/common/AnalyticalModal'
 
@@ -44,6 +28,51 @@ interface PortfolioABCProps {
   resultadoABC: CurvaAbcResultadoConsolidado
   onSelectMaterial?: (item: ItemCurvaAbcCalculado) => void
   onDrilldownFaixa?: (faixa: 'A' | 'B' | 'C', itens: ItemCurvaAbcCalculado[]) => void
+}
+
+/**
+ * CustomTick para o eixo X do Pareto:
+ * - Quebra controlada em até 2 linhas caso o código do material tenha hífens e seja longo.
+ * - Centralizado e totalmente separado da área superior da legenda.
+ * - Margem inferior generosa (90px) para acomodar até 2 linhas sem cortes.
+ */
+const CustomParetoTick = (props: any) => {
+  const { x, y, payload } = props
+  const rawText: string = payload?.value || ''
+
+  // Quebra por hífen se for longo (> 12 chars), mantendo no máximo 2 linhas legíveis
+  let line1 = rawText
+  let line2 = ''
+
+  if (rawText.length > 12 && rawText.includes('-')) {
+    const parts = rawText.split('-')
+    const mid = Math.ceil(parts.length / 2)
+    line1 = parts.slice(0, mid).join('-') + '-'
+    line2 = parts.slice(mid).join('-')
+  }
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={14}
+        textAnchor="middle"
+        fill="#334155"
+        fontSize={10}
+        fontFamily="ui-monospace, monospace"
+      >
+        <tspan x={0} dy="10">
+          {line1}
+        </tspan>
+        {line2 && (
+          <tspan x={0} dy="12">
+            {line2}
+          </tspan>
+        )}
+      </text>
+    </g>
+  )
 }
 
 export const PortfolioABC: React.FC<PortfolioABCProps> = ({
@@ -61,26 +90,31 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
     resumoA,
     resumoB,
     resumoC,
-    faturamentoTotal_brl,
     tonelagemTotal_t,
     alertasPrioritariosCurvaA,
     parametrosAplicados,
-    fonteFaturamentoParametrizada,
   } = resultadoABC
 
   const limiteA = parametrosAplicados.corteA_pct ?? 85
   const limiteB = parametrosAplicados.corteB_pct ?? 95
 
-  // Prepara dados do Pareto (Top 25 materiais por faturamento para visualização nítida)
+  // Cálculo do Déficit Total analisado
+  const deficitTotal_t = useMemo(() => {
+    return itens.reduce((acc, it) => acc + (it.deficit_tons || 0), 0)
+  }, [itens])
+
+  // Prepara dados do Pareto (Top 25 materiais por volume para visualização nítida)
   const dadosPareto = useMemo(() => {
     return itens.slice(0, 25).map((it) => ({
       material: it.codigo_material,
       descricao: it.descricao_material,
-      faturamento: it.faturamento_brl,
+      volume: it.carteira_tons,
       percentualAcumulado: it.participacao_acumulada_pct,
-      toneladas: it.carteira_tons,
-      curva: it.curva_abc,
+      carteira: it.carteira_tons,
+      estoqueDisponivel: it.estoque_disponivel_tons,
+      programado: it.programado_tons,
       deficit: it.deficit_tons,
+      curva: it.curva_abc,
       cobertura: it.dias_cobertura,
       // Curva A = Azul Institucional Forte, Curva B = Azul Médio, Curva C = Cinza-Azulado
       fillColor: it.curva_abc === 'A' ? '#004C97' : it.curva_abc === 'B' ? '#3380CC' : '#94A3B8',
@@ -97,14 +131,14 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
     setIsDrilldownOpen(true)
   }
 
-  // Exportar dados em CSV formatado
+  // Exportar dados em CSV formatado (sem valores financeiros, com padrão de 3 decimais em toneladas)
   const exportarCSV = () => {
     const cabecalho =
-      'Material;Descrição;Curva ABC;Carteira (t);Faturamento Estimado (R$);% do Total;% Acumulado;Estoque (t);Programado (t);Déficit (t);Risco\n'
+      'Material;Descrição;Curva ABC;Volume Carteira (t);% do Total;% Acumulado;Estoque Disponível (t);Programado (t);Déficit (t);Risco\n'
     const linhas = itens
       .map(
         (i) =>
-          `"${i.codigo_material}";"${i.descricao_material}";"${i.curva_abc}";${i.carteira_tons.toFixed(2)};${i.faturamento_brl.toFixed(2)};${i.participacao_individual_pct.toFixed(2)};${i.participacao_acumulada_pct.toFixed(2)};${i.estoque_disponivel_tons.toFixed(2)};${i.programado_tons.toFixed(2)};${i.deficit_tons.toFixed(2)};"${i.risco}"`,
+          `"${i.codigo_material}";"${i.descricao_material}";"${i.curva_abc}";${formatTons3Decimals(i.carteira_tons)};${formatPercentagePTBR(i.participacao_individual_pct, 2)};${formatPercentagePTBR(i.participacao_acumulada_pct, 2)};${formatTons3Decimals(i.estoque_disponivel_tons)};${formatTons3Decimals(i.programado_tons)};${formatTons3Decimals(i.deficit_tons)};"${i.risco}"`,
       )
       .join('\n')
 
@@ -112,29 +146,32 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute(
-      'download',
-      `curva_abc_faturamento_${new Date().toISOString().slice(0, 10)}.csv`,
-    )
+    link.setAttribute('download', `curva_abc_volume_${new Date().toISOString().slice(0, 10)}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   }
 
+  // Cabeçalho do modal: Base Analisada, Volume Total Analisado, Déficit Total
   const kpisTopo = [
     {
-      label: 'Base Analisada',
+      label: 'BASE ANALISADA',
       value: `${itens.length} materiais`,
     },
     {
-      label: 'Faturamento Total',
-      value: formatCurrencyPTBR(faturamentoTotal_brl),
+      label: 'VOLUME TOTAL ANALISADO',
+      value: formatTons3Decimals(tonelagemTotal_t),
     },
     {
-      label: 'Volume Físico',
-      value: `${formatNumberPTBR(tonelagemTotal_t, 2)} t`,
+      label: 'DÉFICIT TOTAL',
+      value: formatTons3Decimals(deficitTotal_t),
     },
   ]
+
+  // Percentuais de volume de cada curva
+  const pctVolumeA = tonelagemTotal_t > 0 ? (resumoA.toneladas / tonelagemTotal_t) * 100 : 0
+  const pctVolumeB = tonelagemTotal_t > 0 ? (resumoB.toneladas / tonelagemTotal_t) * 100 : 0
+  const pctVolumeC = tonelagemTotal_t > 0 ? (resumoC.toneladas / tonelagemTotal_t) * 100 : 0
 
   return (
     <>
@@ -142,21 +179,15 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         size="analytical"
-        badge="Curva ABC • Faturamento"
-        title="Curva ABC & Diagrama de Pareto Comercial"
-        subtitle="Classificação estratégica por faturamento em R$ (não tonelagem) com identificação de riscos de ruptura e impactos na receita"
+        badge="CURVA ABC • VOLUME (t)"
+        title="Curva ABC & Diagrama de Pareto — Volume"
+        subtitle="Classificação dos materiais pela participação acumulada no volume da carteira, em toneladas, com identificação de déficits, estoque disponível e cobertura da programação PCP."
         headerKpis={kpisTopo}
         scrollMode="auto"
         footer={
           <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-slate-600 flex-wrap">
               <span className="font-semibold text-slate-800">Fonte: SAP RFC ZSD28C</span>
-              <span className="text-slate-300">•</span>
-              <span>
-                {fonteFaturamentoParametrizada
-                  ? 'Faturamento real SAP RFC ZSD28C'
-                  : 'Preços médios por família (ZSD28C)'}
-              </span>
               <span className="text-slate-300">•</span>
               <span>Última sincronização: 19/09/2026 12:40</span>
             </div>
@@ -181,7 +212,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
         }
       >
         <div className="space-y-4">
-          {/* ALERTA CRÍTICO LIMPO (Fundo vermelho claro, sem blocos vinho escuros) */}
+          {/* ALERTA CRÍTICO OPERACIONAL (Fundo vermelho claro, sem blocos escuros) */}
           {alertasPrioritariosCurvaA.length > 0 && (
             <div className="p-4 bg-rose-50/80 border border-rose-200 rounded-xl shadow-xs">
               <div className="flex items-start gap-3">
@@ -191,7 +222,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs sm:text-sm font-bold text-rose-900 tracking-wide">
-                      ⚠ ALERTA CRÍTICO • Ruptura Comercial na Curva A
+                      ⚠ ALERTA CRÍTICO • Ruptura Operacional na Curva A
                     </span>
                     <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] font-bold">
                       {alertasPrioritariosCurvaA.length} itens em atenção
@@ -209,7 +240,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
             </div>
           )}
 
-          {/* 3 CARDS CURVA A / B / C EM GRID RESPONSIVO (Hierarquia vertical, 3 col desktop, minmax(0,1fr), valores integrais) */}
+          {/* 3 CARDS CURVA A / B / C EM GRID RESPONSIVO (Baseados em Volume Físico) */}
           <div
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0 w-full"
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))' }}
@@ -235,26 +266,21 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                   </span>
                 </div>
 
-                {/* Linha 2 e 3: Percentual e Faturamento integral */}
+                {/* Linha 2 e 3: Participação no Volume e Tonelagem Total */}
                 <div className="pt-1">
-                  <div className="text-xs text-slate-500 font-medium">Concentração de Receita</div>
+                  <div className="text-xs text-slate-500 font-medium">Participação no Volume</div>
                   <div className="text-base sm:text-lg font-bold font-sans text-[#004C97] mt-0.5">
-                    {formatPercentagePTBR(resumoA.percentual_faturamento, 2)} do faturamento
+                    {formatPercentagePTBR(pctVolumeA, 2)} do volume total
                   </div>
                   <div
                     className="font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight"
-                    style={{ fontSize: 'clamp(20px, 2vw, 30px)' }}
+                    style={{ fontSize: 'clamp(20px, 2vw, 28px)' }}
                   >
-                    {formatCurrencyPTBR(resumoA.faturamento_brl)}
+                    {formatTons3Decimals(resumoA.toneladas)}
                   </div>
                   <div className="text-xs font-medium text-slate-600 mt-1.5 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#004C97]" />
-                    <span>
-                      Volume físico:{' '}
-                      <strong className="text-slate-800">
-                        {formatNumberPTBR(resumoA.toneladas, 2)} t
-                      </strong>
-                    </span>
+                    <span>Volume concentrado na faixa de maior impacto</span>
                   </div>
                 </div>
               </div>
@@ -286,26 +312,21 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                   </span>
                 </div>
 
-                {/* Linha 2 e 3: Percentual e Faturamento integral */}
+                {/* Linha 2 e 3: Participação no Volume e Tonelagem Total */}
                 <div className="pt-1">
-                  <div className="text-xs text-slate-500 font-medium">Concentração de Receita</div>
+                  <div className="text-xs text-slate-500 font-medium">Participação no Volume</div>
                   <div className="text-base sm:text-lg font-bold font-sans text-[#3380CC] mt-0.5">
-                    {formatPercentagePTBR(resumoB.percentual_faturamento, 2)} do faturamento
+                    {formatPercentagePTBR(pctVolumeB, 2)} do volume total
                   </div>
                   <div
                     className="font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight"
-                    style={{ fontSize: 'clamp(20px, 2vw, 30px)' }}
+                    style={{ fontSize: 'clamp(20px, 2vw, 28px)' }}
                   >
-                    {formatCurrencyPTBR(resumoB.faturamento_brl)}
+                    {formatTons3Decimals(resumoB.toneladas)}
                   </div>
                   <div className="text-xs font-medium text-slate-600 mt-1.5 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#3380CC]" />
-                    <span>
-                      Volume físico:{' '}
-                      <strong className="text-slate-800">
-                        {formatNumberPTBR(resumoB.toneladas, 2)} t
-                      </strong>
-                    </span>
+                    <span>Volume intermediário da carteira</span>
                   </div>
                 </div>
               </div>
@@ -337,26 +358,21 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                   </span>
                 </div>
 
-                {/* Linha 2 e 3: Percentual e Faturamento integral */}
+                {/* Linha 2 e 3: Participação no Volume e Tonelagem Total */}
                 <div className="pt-1">
-                  <div className="text-xs text-slate-500 font-medium">Concentração de Receita</div>
+                  <div className="text-xs text-slate-500 font-medium">Participação no Volume</div>
                   <div className="text-base sm:text-lg font-bold font-sans text-slate-700 mt-0.5">
-                    {formatPercentagePTBR(resumoC.percentual_faturamento, 2)} do faturamento
+                    {formatPercentagePTBR(pctVolumeC, 2)} do volume total
                   </div>
                   <div
                     className="font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight"
-                    style={{ fontSize: 'clamp(20px, 2vw, 30px)' }}
+                    style={{ fontSize: 'clamp(20px, 2vw, 28px)' }}
                   >
-                    {formatCurrencyPTBR(resumoC.faturamento_brl)}
+                    {formatTons3Decimals(resumoC.toneladas)}
                   </div>
                   <div className="text-xs font-medium text-slate-600 mt-1.5 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                    <span>
-                      Volume físico:{' '}
-                      <strong className="text-slate-800">
-                        {formatNumberPTBR(resumoC.toneladas, 2)} t
-                      </strong>
-                    </span>
+                    <span>Materiais de menor volume individual</span>
                   </div>
                 </div>
               </div>
@@ -368,17 +384,17 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
             </div>
           </div>
 
-          {/* DIAGRAMA DE PARETO: BARRAS EM AZUL INSTITUCIONAL, LINHA ACUMULADA, REF 85%/95% */}
+          {/* DIAGRAMA DE PARETO: BARRAS = VOLUME (t), LINHA = % ACUMULADO, LEGENDA SUPERIOR, SEM SOBREPOSIÇÃO */}
           <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-[#004C97]" />
-                  Diagrama de Pareto &bull; Top 25 Materiais por Faturamento
+                  Diagrama de Pareto &bull; Top 25 Materiais por Volume
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Barras representam o Faturamento individual (R$ - Eixo Esquerdo) e a linha
-                  representa o Percentual Acumulado (% - Eixo Direito)
+                  Barras representam o Volume do material (t - Eixo Esquerdo) e a linha representa o
+                  Percentual Acumulado (% - Eixo Direito)
                 </p>
               </div>
 
@@ -388,7 +404,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                   85%)
                 </span>
                 <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                  <span className="w-3 h-3 rounded-xs bg-[#3380CC] inline-block" /> Curva B (85-95%)
+                  <span className="w-3 h-3 rounded-xs bg-[#3380CC] inline-block" /> Curva B (85–95%)
                 </span>
                 <span className="flex items-center gap-1.5 font-medium text-slate-700">
                   <span className="w-3 h-3 rounded-xs bg-slate-400 inline-block" /> Curva C
@@ -402,149 +418,178 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                 Nenhum material encontrado para gerar o diagrama de Pareto.
               </div>
             ) : (
-              <div className="w-full min-h-[440px] h-[480px] lg:h-[520px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart
-                    data={dadosPareto}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 65 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis
-                      dataKey="material"
-                      angle={-45}
-                      textAnchor="end"
-                      height={60}
-                      tick={{ fontSize: 11, fill: '#334155', fontFamily: 'monospace' }}
-                      interval={0}
-                    />
-                    {/* Eixo Esquerdo: Faturamento R$ */}
-                    <YAxis
-                      yAxisId="left"
-                      orientation="left"
-                      stroke="#004C97"
-                      tick={{ fontSize: 11, fill: '#004C97' }}
-                      tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`}
-                    />
-                    {/* Eixo Direito: Percentual Acumulado % */}
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      domain={[0, 100]}
-                      stroke="#0284c7"
-                      tick={{ fontSize: 11, fill: '#0284c7' }}
-                      tickFormatter={(val) => `${val}%`}
-                    />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const d = payload[0].payload
-                          return (
-                            <div className="p-3 bg-white border border-slate-200 shadow-xl rounded-xl text-xs space-y-1.5 max-w-xs z-50">
-                              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1">
-                                <span className="font-mono font-bold text-slate-900">
-                                  {d.material}
-                                </span>
-                                <Badge
-                                  className={`text-[10px] font-bold ${
-                                    d.curva === 'A'
-                                      ? 'bg-[#004C97] text-white'
-                                      : d.curva === 'B'
-                                        ? 'bg-[#3380CC] text-white'
-                                        : 'bg-slate-500 text-white'
-                                  }`}
-                                >
-                                  Curva {d.curva}
-                                </Badge>
-                              </div>
-                              <p className="text-slate-600 font-medium text-[11px] truncate">
-                                {d.descricao}
-                              </p>
-                              <div className="space-y-0.5 pt-1 text-slate-700">
-                                <div className="flex justify-between">
-                                  <span>Faturamento:</span>
-                                  <strong className="font-sans text-[#004C97]">
-                                    {formatCurrencyPTBR(d.faturamento)}
-                                  </strong>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Acumulado:</span>
-                                  <strong className="font-sans text-slate-900">
-                                    {formatPercentagePTBR(d.percentualAcumulado, 2)}
-                                  </strong>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Carteira:</span>
-                                  <span className="font-sans">
-                                    {formatNumberPTBR(d.toneladas, 2)} t
+              /* Container responsivo com rolagem horizontal interna se a tela for muito estreita */
+              <div className="w-full overflow-x-auto overflow-y-hidden">
+                <div className="min-w-[620px] w-full min-h-[460px] h-[500px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                      data={dadosPareto}
+                      margin={{ top: 15, right: 30, left: 10, bottom: 90 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      {/* LEGENDA NO TOPO DO GRÁFICO, TOTALMENTE SEPARADA DO EIXO X */}
+                      <Legend
+                        verticalAlign="top"
+                        align="center"
+                        wrapperStyle={{ paddingBottom: 16, fontSize: 12, fontWeight: 600 }}
+                      />
+                      {/* Eixo X com tick customizado com quebra e margem generosa */}
+                      <XAxis
+                        dataKey="material"
+                        interval={0}
+                        tick={<CustomParetoTick />}
+                        stroke="#94A3B8"
+                      />
+                      {/* Eixo Esquerdo: Volume (t) */}
+                      <YAxis
+                        yAxisId="left"
+                        orientation="left"
+                        stroke="#004C97"
+                        tick={{ fontSize: 11, fill: '#004C97' }}
+                        tickFormatter={(val) => `${val.toLocaleString('pt-BR')} t`}
+                        label={{
+                          value: 'Volume (t)',
+                          angle: -90,
+                          position: 'insideLeft',
+                          fill: '#004C97',
+                          fontSize: 11,
+                          fontWeight: 'bold',
+                        }}
+                      />
+                      {/* Eixo Direito: Percentual Acumulado % de 0 a 100 */}
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        domain={[0, 100]}
+                        stroke="#0284c7"
+                        tick={{ fontSize: 11, fill: '#0284c7' }}
+                        tickFormatter={(val) => `${val}%`}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload
+                            return (
+                              <div className="p-3 bg-white border border-slate-200 shadow-xl rounded-xl text-xs space-y-1.5 max-w-xs z-50">
+                                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1">
+                                  <span className="font-mono font-bold text-slate-900">
+                                    {d.material}
                                   </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Déficit:</span>
-                                  <span
-                                    className={
-                                      d.deficit > 0 ? 'text-rose-600 font-bold' : 'text-emerald-700'
-                                    }
+                                  <Badge
+                                    className={`text-[10px] font-bold ${
+                                      d.curva === 'A'
+                                        ? 'bg-[#004C97] text-white'
+                                        : d.curva === 'B'
+                                          ? 'bg-[#3380CC] text-white'
+                                          : 'bg-slate-500 text-white'
+                                    }`}
                                   >
-                                    {formatNumberPTBR(d.deficit, 2)} t
-                                  </span>
+                                    Curva {d.curva}
+                                  </Badge>
+                                </div>
+                                <p className="text-slate-600 font-medium text-[11px] truncate">
+                                  {d.descricao}
+                                </p>
+                                <div className="space-y-0.5 pt-1 text-slate-700">
+                                  <div className="flex justify-between">
+                                    <span>Volume:</span>
+                                    <strong className="font-sans text-[#004C97]">
+                                      {formatTons3Decimals(d.volume)}
+                                    </strong>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>% Acumulado:</span>
+                                    <strong className="font-sans text-slate-900">
+                                      {formatPercentagePTBR(d.percentualAcumulado, 2)}
+                                    </strong>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Carteira:</span>
+                                    <span className="font-sans">
+                                      {formatTons3Decimals(d.carteira)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Estoque disponível:</span>
+                                    <span className="font-sans text-emerald-700 font-semibold">
+                                      {formatTons3Decimals(d.estoqueDisponivel)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Programado:</span>
+                                    <span className="font-sans text-indigo-700 font-semibold">
+                                      {formatTons3Decimals(d.programado)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Déficit:</span>
+                                    <span
+                                      className={
+                                        d.deficit > 0
+                                          ? 'text-rose-600 font-bold'
+                                          : 'text-emerald-700'
+                                      }
+                                    >
+                                      {formatTons3Decimals(d.deficit)}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          )
-                        }
-                        return null
-                      }}
-                    />
-                    <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
-                    <ReferenceLine
-                      yAxisId="right"
-                      y={limiteA}
-                      stroke="#004C97"
-                      strokeDasharray="4 4"
-                      label={{
-                        value: `Limite A (${limiteA}%)`,
-                        position: 'insideTopLeft',
-                        fill: '#004C97',
-                        fontSize: 10,
-                        fontWeight: 'bold',
-                      }}
-                    />
-                    <ReferenceLine
-                      yAxisId="right"
-                      y={limiteB}
-                      stroke="#3380CC"
-                      strokeDasharray="4 4"
-                      label={{
-                        value: `Limite B (${limiteB}%)`,
-                        position: 'insideTopLeft',
-                        fill: '#3380CC',
-                        fontSize: 10,
-                        fontWeight: 'bold',
-                      }}
-                    />
-                    <Bar
-                      yAxisId="left"
-                      dataKey="faturamento"
-                      name="Faturamento (R$)"
-                      fill="#004C97"
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="percentualAcumulado"
-                      name="% Acumulado"
-                      stroke="#0284c7"
-                      strokeWidth={2.5}
-                      dot={{ r: 3.5, fill: '#0284c7', stroke: '#fff', strokeWidth: 1.5 }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <ReferenceLine
+                        yAxisId="right"
+                        y={limiteA}
+                        stroke="#004C97"
+                        strokeDasharray="4 4"
+                        label={{
+                          value: `Limite A (${limiteA}%)`,
+                          position: 'insideTopLeft',
+                          fill: '#004C97',
+                          fontSize: 10,
+                          fontWeight: 'bold',
+                        }}
+                      />
+                      <ReferenceLine
+                        yAxisId="right"
+                        y={limiteB}
+                        stroke="#3380CC"
+                        strokeDasharray="4 4"
+                        label={{
+                          value: `Limite B (${limiteB}%)`,
+                          position: 'insideTopLeft',
+                          fill: '#3380CC',
+                          fontSize: 10,
+                          fontWeight: 'bold',
+                        }}
+                      />
+                      <Bar
+                        yAxisId="left"
+                        dataKey="volume"
+                        name="Volume (t)"
+                        fill="#004C97"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="percentualAcumulado"
+                        name="% Acumulado"
+                        stroke="#0284c7"
+                        strokeWidth={2.5}
+                        dot={{ r: 3.5, fill: '#0284c7', stroke: '#fff', strokeWidth: 1.5 }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
           </div>
 
-          {/* ANÁLISE IA DA CURVA ABC: CONCENTRAÇÃO & RISCOS COMERCIAIS (LARGURA TOTAL, LEITURA EXECUTIVA) */}
+          {/* ANÁLISE IA DA CURVA ABC: CONCENTRAÇÃO & RISCOS OPERACIONAIS */}
           <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
@@ -553,7 +598,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900">
-                    Análise IA da Curva ABC &bull; Concentração & Riscos Comerciais
+                    Análise IA da Curva ABC &bull; Concentração de Volume &amp; Riscos Operacionais
                   </h4>
                   <p className="text-xs text-slate-500">
                     Interpretação consultiva determinística para apoio à tomada de decisão do
@@ -574,10 +619,8 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                 </span>
                 <p className="text-xs text-slate-800 leading-relaxed mt-1 font-medium">
                   {resumoA.quantidade_itens} materiais concentram{' '}
-                  <strong className="text-[#004C97]">
-                    {formatPercentagePTBR(resumoA.percentual_faturamento, 1)}
-                  </strong>{' '}
-                  da receita total da carteira ({formatCurrencyPTBR(resumoA.faturamento_brl)}).
+                  <strong className="text-[#004C97]">{formatPercentagePTBR(pctVolumeA, 1)}</strong>{' '}
+                  do volume físico total da carteira ({formatTons3Decimals(resumoA.toneladas)}).
                 </p>
               </div>
 
@@ -588,7 +631,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                 </span>
                 <p className="text-xs text-rose-950 leading-relaxed mt-1 font-medium">
                   {alertasPrioritariosCurvaA.length > 0
-                    ? `${alertasPrioritariosCurvaA.length} itens de alta relevância comercial possuem déficit físico sem cobertura imediata.`
+                    ? `${alertasPrioritariosCurvaA.length} itens de alta relevância volumétrica possuem déficit físico sem cobertura imediata.`
                     : 'Carteira Curva A com cobertura física estável para o ciclo corrente.'}
                 </p>
               </div>
@@ -599,8 +642,8 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                   3. Materiais Críticos
                 </span>
                 <p className="text-xs text-amber-950 leading-relaxed mt-1 font-medium">
-                  Prioridade 1 em sequenciamento nas linhas de laminação L1/L2 para blindar
-                  contratos comerciais.
+                  Prioridade 1 em sequenciamento nas linhas de produção para garantir atendimento
+                  dos maiores volumes da carteira.
                 </p>
               </div>
 
