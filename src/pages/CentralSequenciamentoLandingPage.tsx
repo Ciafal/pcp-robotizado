@@ -755,118 +755,122 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Barra de Filtros Globais */}
-        <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-3.5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
-          {/* 1. Empresa */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-700 block">Empresa:</label>
-            <select
-              value={filterCompany}
-              onChange={(e) => setFilterCompany(e.target.value)}
-              className="w-full text-xs h-8 bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
-            >
-              <option value="TODAS">Todas (CIAFAL Matriz)</option>
-              <option value="CIAFAL">CIAFAL Wilson Santos</option>
-            </select>
-          </div>
+        {/* Barra de Filtros Globais com PCPContextFilters unificado */}
+        <PCPContextFilters
+          companyCode={filterCompany === 'TODAS' ? 'ALL' : filterCompany}
+          plantCode={filterPlant === 'TODAS' ? 'ALL' : filterPlant}
+          lineCode={filterLine === 'TODAS' ? 'ALL' : filterLine}
+          centerCode="ALL"
+          companies={[
+            { code: 'CIAFAL', name: 'CIAFAL Matriz' },
+            { code: 'CIAFAL_WS', name: 'CIAFAL Wilson Santos' },
+          ]}
+          plants={[
+            { code: 'DIV', name: 'Divinópolis (DIV / 1000)', companyCode: 'CIAFAL' },
+            { code: 'CTG', name: 'Contagem (CTG / 2000)', companyCode: 'CIAFAL' },
+          ]}
+          lines={lines.map((l) => ({
+            code: l.code,
+            name: l.name,
+            plantCode: (l.sap_work_center || '').toLowerCase().includes('div') || ['L1', 'ENF_L1'].includes(l.code) ? 'DIV' : 'CTG',
+          }))}
+          centers={lines.map((l) => ({
+            code: l.sap_work_center || `WC-${l.code}`,
+            name: l.sap_work_center || `Centro ${l.code}`,
+            lineCode: l.code,
+          }))}
+          onCompanyChange={(c) => setFilterCompany(c === 'ALL' ? 'TODAS' : c)}
+          onPlantChange={(p) => setFilterPlant(p === 'ALL' ? 'TODAS' : p)}
+          onLineChange={(l) => setFilterLine(l === 'ALL' ? 'TODAS' : l)}
+          allowConsolidatedCompany={true}
+          allowConsolidatedPlant={true}
+          allowConsolidatedLine={true}
+          allowConsolidatedCenter={true}
+          companyAllText="Todas as Empresas"
+          plantAllText="Todas as Plantas"
+          lineAllText={`Todas as Linhas (${lines.length})`}
+          centerAllText="Todos os Centros"
+          idPrefix="landing-ctx"
+          actions={
+            <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+              {/* Filtros Secundários de Período, Tipo e Status */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                  <span className="font-bold text-[11px] text-slate-600">Período:</span>
+                  <select
+                    value={filterMonth}
+                    onChange={(e) => setFilterMonth(e.target.value)}
+                    className="h-8 text-xs bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
+                  >
+                    <option value="ATUAL">Mês Atual (Agosto/Setembro 2026)</option>
+                    <option value="ANTERIOR">Mês Anterior (Julho 2026)</option>
+                    <option value="SEMANA">Semana Vigente (S35/2026)</option>
+                  </select>
+                </div>
 
-          {/* 2. Planta */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-700 block">Planta:</label>
-            <select
-              value={filterPlant}
-              onChange={(e) => setFilterPlant(e.target.value)}
-              className="w-full text-xs h-8 bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
-            >
-              <option value="TODAS">Todas as Plantas</option>
-              <option value="DIV">Divinópolis (DIV / 1000)</option>
-              <option value="CTG">Contagem (CTG / 2000)</option>
-            </select>
-          </div>
+                <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                  <span className="font-bold text-[11px] text-slate-600">Tipo:</span>
+                  <select
+                    value={filterProgrammingType}
+                    onChange={(e) => setFilterProgrammingType(e.target.value)}
+                    className="h-8 text-xs bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
+                  >
+                    <option value="TODOS">Todos os Tipos</option>
+                    {PROGRAMMING_TYPES_CATALOG.map((pType) => (
+                      <option key={pType} value={pType}>
+                        {pType}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* 3. Mês / Período */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-700 block">Mês / Período:</label>
-            <select
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
-              className="w-full text-xs h-8 bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
-            >
-              <option value="ATUAL">Mês Atual (Agosto/Setembro 2026)</option>
-              <option value="ANTERIOR">Mês Anterior (Julho 2026)</option>
-              <option value="SEMANA">Semana Vigente (S35/2026)</option>
-            </select>
-          </div>
+                <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                  <span className="font-bold text-[11px] text-slate-600">Status:</span>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="h-8 text-xs bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
+                  >
+                    <option value="TODOS">Todos os Status</option>
+                    <option value="running">Operacional (Running)</option>
+                    <option value="maintenance">Em Manutenção</option>
+                    <option value="idle">Ociosa / Em Espera</option>
+                    <option value="stopped">Parada / Interrompida</option>
+                  </select>
+                </div>
 
-          {/* 4. Linha */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-700 block">Linha:</label>
-            <select
-              value={filterLine}
-              onChange={(e) => setFilterLine(e.target.value)}
-              className="w-full text-xs h-8 bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
-            >
-              <option value="TODAS">Todas as Linhas ({lines.length})</option>
-              {lines.map((l) => (
-                <option key={l.id} value={l.code}>
-                  {l.code} — {l.name}
-                </option>
-              ))}
-            </select>
-          </div>
+                <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                  <span className="font-bold text-[11px] text-slate-600">Ordenar:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="h-8 text-xs bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
+                  >
+                    <option value="CRITICIDADE">Criticidade Operacional</option>
+                    <option value="OCUPACAO">Maior Ocupação (%)</option>
+                    <option value="CODIGO">Código da Linha (A-Z)</option>
+                    <option value="STATUS">Status Operacional</option>
+                  </select>
+                </div>
+              </div>
 
-          {/* 5. Tipo de Programação */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-700 block">
-              Tipo de Programação:
-            </label>
-            <select
-              value={filterProgrammingType}
-              onChange={(e) => setFilterProgrammingType(e.target.value)}
-              className="w-full text-xs h-8 bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
-            >
-              <option value="TODOS">Todos os Tipos</option>
-              {PROGRAMMING_TYPES_CATALOG.map((pType) => (
-                <option key={pType} value={pType}>
-                  {pType}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 6. Status Operacional */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-700 block">
-              Status Operacional:
-            </label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full text-xs h-8 bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
-            >
-              <option value="TODOS">Todos os Status</option>
-              <option value="running">Operacional (Running)</option>
-              <option value="maintenance">Em Manutenção</option>
-              <option value="idle">Ociosa / Em Espera</option>
-              <option value="stopped">Parada / Interrompida</option>
-            </select>
-          </div>
-
-          {/* 7. Busca por Nome / Código e Ordenação */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-700 block">Ordenar por:</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="w-full text-xs h-8 bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
-            >
-              <option value="CRITICIDADE">Criticidade Operacional</option>
-              <option value="OCUPACAO">Maior Ocupação (%)</option>
-              <option value="CODIGO">Código da Linha (A-Z)</option>
-              <option value="STATUS">Status Operacional</option>
-            </select>
-          </div>
-        </div>
+              {/* Botão de Atualização Rápida */}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRefreshCount((c) => c + 1)}
+                  disabled={loading}
+                  className="h-8 px-2.5 text-xs border-slate-300 bg-white hover:bg-slate-50 text-slate-700 gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Atualizar Indicadores</span>
+                </Button>
+              </div>
+            </div>
+          }
+        />
 
         {/* Barra de Busca e Contador */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
