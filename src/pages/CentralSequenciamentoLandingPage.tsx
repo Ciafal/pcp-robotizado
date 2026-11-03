@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useControlTower } from '@/contexts/ControlTowerContext'
+import { PCPContextFilters } from '@/components/pcp/PCPContextFilters'
 import pb from '@/lib/pocketbase/client'
 import { formatAbntNumber, formatAbntUnit } from '@/lib/ciafal-standards'
 import { OeeDrilldownEngine } from '@/services/oee-drilldown-engine'
@@ -772,7 +773,11 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
           lines={lines.map((l) => ({
             code: l.code,
             name: l.name,
-            plantCode: (l.sap_work_center || '').toLowerCase().includes('div') || ['L1', 'ENF_L1'].includes(l.code) ? 'DIV' : 'CTG',
+            plantCode:
+              (l.sap_work_center || '').toLowerCase().includes('div') ||
+              ['L1', 'ENF_L1'].includes(l.code)
+                ? 'DIV'
+                : 'CTG',
           }))}
           centers={lines.map((l) => ({
             code: l.sap_work_center || `WC-${l.code}`,

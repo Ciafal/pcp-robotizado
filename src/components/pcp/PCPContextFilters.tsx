@@ -313,7 +313,7 @@ export const PCPContextFilters: React.FC<PCPContextFiltersProps> = ({
               )}
             </Label>
             <Select
-              value={centerCode || 'ALL'}
+              value={availableCenters.length === 0 ? '' : centerCode || 'ALL'}
               onValueChange={onCenterChange || (() => {})}
               disabled={disabled || isLoading || availableCenters.length === 0}
             >
@@ -336,7 +336,9 @@ export const PCPContextFilters: React.FC<PCPContextFiltersProps> = ({
                 />
               </SelectTrigger>
               <SelectContent>
-                {allowConsolidatedCenter && <SelectItem value="ALL">{centerAllText}</SelectItem>}
+                {allowConsolidatedCenter && availableCenters.length > 0 && (
+                  <SelectItem value="ALL">{centerAllText}</SelectItem>
+                )}
                 {availableCenters.length === 0 ? (
                   <SelectItem value="NONE" disabled>
                     Nenhum centro disponível para a linha selecionada.
