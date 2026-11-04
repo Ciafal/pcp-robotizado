@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   EfficiencyUnifiedFilterBar,
   UnifiedEfficiencyFilters,
@@ -7,7 +7,11 @@ import {
 import { CheckCircle2, AlertTriangle, Clock, TrendingUp, Target, FileCheck2 } from 'lucide-react'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatPercentPtBr } from '@/lib/formatters-ptbr'
+import { formatPercentPtBr, formatTonsPtBr } from '@/lib/formatters-ptbr'
+import {
+  getProductionLossByLine,
+  LineProductionLossRow,
+} from '@/services/line-production-loss-service'
 
 export const EfficiencyAssertivenessSubpage: React.FC = () => {
   const [filters, setFilters] = useState<UnifiedEfficiencyFilters>({
@@ -17,6 +21,35 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     startDate: '',
     endDate: '',
   })
+  const [appliedFilters, setAppliedFilters] = useState<UnifiedEfficiencyFilters>(filters)
+  const [productionRows, setProductionRows] = useState<LineProductionLossRow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Aplicação reativa dos filtros: seleções discretas (Empresa, Planta, Linha, Centro,
+  // Status Operacional e Período) recalculam na hora; campos de texto (Produto/Pesquisa)
+  // entram no cálculo ao clicar em "Aplicar filtros". Cards e tabela compartilham o
+  // MESMO conjunto de dados filtrados.
+  const INSTANT_FILTER_KEYS: (keyof UnifiedEfficiencyFilters)[] = [
+    'companyCode',
+    'plantCode',
+    'lineCode',
+    'centerCode',
+    'status',
+    'startDate',
+    'endDate',
+    'periodType',
+    'week',
+    'year',
+  ]
+  const handleFiltersChange = (next: UnifiedEfficiencyFilters) => {
+    setFilters(next)
+    const instantChanged = INSTANT_FILTER_KEYS.some((key) => next[key] !== filters[key])
+    if (instantChanged) setAppliedFilters(next)
+  }
+  const handleFiltersApply = (next: UnifiedEfficiencyFilters) => {
+    setFilters(next)
+    setAppliedFilters(next)
+  }
 
   const filterOptions: EfficiencyFilterOptions = {
     companies: [
@@ -34,6 +67,32 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     ],
     centers: [],
   }
+
+  // Consulta consolidada: os MESMOS filtros aplicados na tela recalculam
+  // Programado, Realizado, percentuais e Perda em UMA única consulta ao serviço oficial.
+  useEffect(() => {
+    let cancelled = false
+    setIsLoading(true)
+    getProductionLossByLine(appliedFilters)
+      .then((result) => {
+        if (cancelled) return
+        setProductionRows(result.rows)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.error(
+          '[AssertividadeOperacional] Falha ao consultar produção/perda por linha:',
+          err,
+        )
+        setProductionRows([])
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [appliedFilters])
 
   const metrics = [
     {
@@ -70,40 +129,79 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     },
   ]
 
-  const lineAssertiveness = [
-    {
-      lineCode: 'L1',
-      lineName: 'Laminação a Quente',
-      startPct: 96.5,
-      volumePct: 97.7,
-      sequencePct: 94.0,
-      status: 'DENTRO_ESPERADO',
-    },
-    {
-      lineCode: 'L2',
-      lineName: 'Trefilação e Acabamento',
-      startPct: 91.2,
-      volumePct: 91.6,
-      sequencePct: 88.5,
-      status: 'ATENCAO',
-    },
-    {
-      lineCode: 'L3',
-      lineName: 'Corte e Dobra',
-      startPct: 95.0,
-      volumePct: 97.4,
-      sequencePct: 92.0,
-      status: 'DENTRO_ESPERADO',
-    },
-    {
-      lineCode: 'L4',
-      lineName: 'Treliças',
-      startPct: 89.0,
-      volumePct: 88.9,
-      sequencePct: 86.0,
-      status: 'ATENCAO',
-    },
-  ]
+  // Base consolidada por linha: Programado/Realizado/Perda reais + indicadores existentes.
+  // As colunas Início no Horário, Aderência de Volume, Sequência Cumprida e Status mantêm
+  // exatamente os mesmos valores de antes para as linhas já existentes.
+  const tableRows = useMemo(() => {
+    const base = [
+      {
+        lineCode: 'L1',
+        lineName: 'Laminação a Quente',
+        startPct: 96.5,
+        volumePct: 97.7,
+        sequencePct: 94.0,
+        status: 'DENTRO_ESPERADO',
+      },
+      {
+        lineCode: 'L2',
+        lineName: 'Trefilação e Acabamento',
+        startPct: 91.2,
+        volumePct: 91.6,
+        sequencePct: 88.5,
+        status: 'ATENCAO',
+      },
+      {
+        lineCode: 'L3',
+        lineName: 'Corte e Dobra',
+        startPct: 95.0,
+        volumePct: 97.4,
+        sequencePct: 92.0,
+        status: 'DENTRO_ESPERADO',
+      },
+      {
+        lineCode: 'L4',
+        lineName: 'Treliças',
+        startPct: 89.0,
+        volumePct: 88.9,
+        sequencePct: 86.0,
+        status: 'ATENCAO',
+      },
+    ]
+    const byLine = new Map(productionRows.map((r) => [r.lineCode, r]))
+
+    // Linhas vindas da consulta consolidada que não estão na base estática entram como novas linhas
+    const extras = productionRows
+      .filter((r) => !byLine.has(r.lineCode) || !base.some((b) => b.lineCode === r.lineCode))
+      .map((r) => ({
+        lineCode: r.lineCode,
+        lineName: r.lineName,
+        startPct: null as number | null,
+        volumePct: null as number | null,
+        sequencePct: null as number | null,
+        status: 'DENTRO_ESPERADO' as string,
+      }))
+
+    const merged = [...base, ...extras.filter((e) => !base.some((b) => b.lineCode === e.lineCode))]
+
+    return merged.map((item) => {
+      const prod = byLine.get(item.lineCode)
+      return {
+        ...item,
+        programadoT: prod?.programadoT ?? null,
+        realizadoT: prod?.realizadoT ?? null,
+        percentualRealizado: prod?.percentualRealizado ?? null,
+        perdaT: prod?.perdaT ?? null,
+        percentualPerda: prod?.percentualPerda ?? null,
+        dadosDisponiveis: prod !== undefined,
+      }
+    })
+  }, [productionRows])
+
+  const formatTonsCell = (value: number | null | undefined) =>
+    value === null || value === undefined ? 'Dados não disponíveis' : formatTonsPtBr(value, 2)
+
+  const formatPercentCell = (value: number | null | undefined) =>
+    value === null || value === undefined ? '—' : formatPercentPtBr(value, 1)
 
   return (
     <div className="space-y-4">
@@ -136,16 +234,19 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
       <EfficiencyUnifiedFilterBar
         filters={filters}
         options={filterOptions}
-        onChange={setFilters}
-        onReset={() =>
-          setFilters({
+        onChange={handleFiltersChange}
+        onApply={handleFiltersApply}
+        onReset={() => {
+          const reset: UnifiedEfficiencyFilters = {
             companyCode: 'ALL',
             plantCode: 'ALL',
             lineCode: 'ALL',
             startDate: '',
             endDate: '',
-          })
-        }
+          }
+          setFilters(reset)
+          setAppliedFilters(reset)
+        }}
         showCenterFilter={false}
         showLine2={false}
       />
@@ -194,28 +295,49 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
           </span>
         </div>
 
+        {/* Rolagem horizontal SOMENTE dentro do componente da tabela, nunca na página inteira */}
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left min-w-[640px]">
+          <table className="w-full text-xs text-left min-w-[1080px]">
             <thead className="bg-slate-100 text-slate-700 text-[11px] font-semibold border-b border-slate-200">
               <tr>
                 <th className="py-2.5 px-4">Linha</th>
+                <th className="py-2.5 px-4 text-right">Programado em t</th>
+                <th className="py-2.5 px-4 text-right">Realizado em t</th>
+                <th className="py-2.5 px-4 text-right">%</th>
                 <th className="py-2.5 px-4 text-right">Início no Horário</th>
                 <th className="py-2.5 px-4 text-right">Aderência de Volume</th>
+                <th className="py-2.5 px-4 text-right">Perda em t</th>
+                <th className="py-2.5 px-4 text-right">%</th>
                 <th className="py-2.5 px-4 text-right">Sequência Cumprida</th>
                 <th className="py-2.5 px-4 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono">
-              {lineAssertiveness.map((item) => (
+              {tableRows.map((item) => (
                 <tr key={item.lineCode} className="hover:bg-slate-50/80">
-                  <td className="py-2.5 px-4 font-sans font-semibold text-slate-900">
+                  <td className="py-2.5 px-4 font-sans font-semibold text-slate-900 whitespace-nowrap">
                     {item.lineCode} &bull; {item.lineName}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                    {formatTonsCell(item.programadoT)}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                    {formatTonsCell(item.realizadoT)}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                    {formatPercentCell(item.percentualRealizado)}
                   </td>
                   <td className="py-2.5 px-4 text-right font-medium">
                     {formatPercentPtBr(item.startPct, 1)}
                   </td>
                   <td className="py-2.5 px-4 text-right font-medium">
                     {formatPercentPtBr(item.volumePct, 1)}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                    {formatTonsCell(item.perdaT)}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                    {formatPercentCell(item.percentualPerda)}
                   </td>
                   <td className="py-2.5 px-4 text-right font-medium">
                     {formatPercentPtBr(item.sequencePct, 1)}
