@@ -263,6 +263,20 @@ export interface WeeklyScheduleItem {
   updated?: string
   // Rastreabilidade de Retrabalho Exclusivo
   is_rework?: boolean
+  production_type?: string
+  batch_number?: string
+  stock_type?: string
+  storage_location?: string
+  rework_batch?: string
+  rework_reason?: string
+  rework_info?: {
+    rework_lot?: string
+    source_stock_type?: string
+    location?: string
+    rework_reason?: string
+    rework_operation?: string
+    notes?: string
+  }
   rework_details?: {
     material_code: string
     material_description?: string

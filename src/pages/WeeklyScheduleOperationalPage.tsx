@@ -91,6 +91,10 @@ import {
 } from '@/types/line-master'
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
+import {
+  AddReworkItemModal,
+  SelectedLotReworkConfig,
+} from '@/components/weekly-schedule/AddReworkItemModal'
 import { WeeklyScheduleModalErrorBoundary } from '@/components/weekly-schedule/WeeklyScheduleModalErrorBoundary'
 import { LocalErrorBoundary } from '@/components/common/LocalErrorBoundary'
 import { DerivedProgrammingModal } from '@/components/weekly-schedule/DerivedProgrammingModal'
@@ -1648,6 +1652,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     applyNewActiveDate(nextDate)
   }
 
+  // Determina se o tipo de programação atual é Retrabalho (case e acento insensíveis)
+  const isReworkProgrammingType = useMemo(() => {
+    if (!selectedProgrammingType) return false
+    const normalized = selectedProgrammingType
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+    return normalized === 'retrabalho' || selectedProgrammingType === 'REWORK'
+  }, [selectedProgrammingType])
+
   // Centralização com null-guard da abertura do modal de inserção de produto/atividade
   const handleOpenAddModal = (
     day?: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM' | string,
@@ -1912,6 +1927,139 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       .catch((err) => {
         console.warn('Erro ao avaliar derivação automática:', err)
       })
+  }
+
+  // Adiciona itens de Retrabalho (multi-lote) na grade operacional com rastreabilidade completa
+  const handleAddReworkItems = async (configuredLots: SelectedLotReworkConfig[]) => {
+    if (!configuredLots || configuredLots.length === 0) return
+
+    if (!hasSelectedLine) {
+      toast({
+        variant: 'destructive',
+        title: 'Nenhuma Linha Selecionada',
+        description: 'Selecione uma linha/centro ativa para adicionar produtos de retrabalho.',
+      })
+      return
+    }
+
+    if (hasSelectedLine && !isLineActive) {
+      toast({
+        variant: 'destructive',
+        title: 'Operação Não Permitida',
+        description: 'Esta linha está inativa para novas programações.',
+      })
+      return
+    }
+
+    const lineObj = lines.find((l) => l.code === selectedLineCode)
+    const day = targetDay || 'SEG'
+    const shift = targetShiftCode || 'T1_L1'
+
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const addOffset = dayOffsetMap[day] ?? 0
+    const addDate = new Date(weekRange.startDate)
+    addDate.setDate(weekRange.startDate.getDate() + addOffset)
+    const calculatedDateStr = `${pad(addDate.getDate())}/${pad(addDate.getMonth() + 1)}`
+
+    const newReworkItems: WeeklyScheduleItem[] = configuredLots.map((cfg, idx) => {
+      const nextSeq = items.length + idx + 1
+      const plannedQty = Number(cfg.rework_quantity) || 1
+      const cadence = 10.0 // Cadência padrão de retrabalho (t/h)
+      const prodHours = cadence > 0 ? Number((plannedQty / cadence).toFixed(2)) : 0
+
+      return {
+        id: `item-rework-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+        schedule_code: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
+        company_code: companyCode,
+        plant_code: plantCode,
+        line_code: selectedLineCode,
+        line_id: lineObj?.id,
+        year: selectedYear,
+        week_number: selectedWeekNumber,
+        period_display: weekRange.display,
+        day_of_week: day,
+        date_str: calculatedDateStr,
+        shift_code: shift,
+        shift_name: targetShiftName || '1º Turno Matutino',
+        crew_name: targetCrewName || 'Turma A',
+        sequence_order: nextSeq,
+        item_type: 'PRODUCTION',
+        production_type: 'REWORK',
+        material_code: cfg.item.material_code,
+        material_description: cfg.item.material_description || '',
+        family_code: 'RETRABALHO',
+        steel_grade: cfg.item.steel_grade || 'SAE 1020',
+        dimensions: cfg.item.dimensions || '50x50 mm',
+        order_type: 'MTS',
+        planned_quantity_tons: plannedQty,
+        productivity_rate_th: cadence,
+        production_hours: prodHours,
+        setup_duration_minutes: 0,
+        start_datetime: '',
+        end_datetime: '',
+        status: 'DRAFT',
+        version: 1,
+        pcp_notes: `[RETRABALHO] Lote: ${cfg.item.lot_number} | Motivo: ${cfg.rework_reason} | Operação: ${cfg.rework_operation}${cfg.rework_notes ? ` | Obs: ${cfg.rework_notes}` : ''}`,
+        raw_material_req_tons: 0,
+        // Rastreabilidade estrita do Retrabalho
+        is_rework: true,
+        rework_batch: cfg.item.lot_number,
+        rework_reason: cfg.rework_reason,
+        rework_info: {
+          rework_lot: cfg.item.lot_number,
+          source_stock_type: cfg.item.stock_origin_type,
+          location: cfg.item.storage_location,
+          rework_reason: cfg.rework_reason,
+          rework_operation: cfg.rework_operation,
+          notes: cfg.rework_notes,
+        },
+        rework_details: {
+          material_code: cfg.item.material_code,
+          material_description: cfg.item.material_description,
+          lot_number: cfg.item.lot_number,
+          heat_number: cfg.item.heat_number,
+          stock_origin_type: cfg.item.stock_origin_type,
+          storage_deposit: cfg.item.storage_deposit,
+          storage_location: cfg.item.storage_location,
+          available_quantity: cfg.item.available_quantity,
+          rework_quantity: cfg.rework_quantity,
+          unit: cfg.item.unit,
+          rework_reason_code: cfg.rework_reason_code,
+          rework_reason: cfg.rework_reason,
+          rework_notes: cfg.rework_notes,
+          rework_operation: cfg.rework_operation,
+          rework_center_code: selectedLineCode,
+          company_code: companyCode,
+          stock_reference_id: cfg.item.id,
+          validated_at: new Date().toISOString(),
+        },
+      }
+    })
+
+    const updatedList = [...items, ...newReworkItems]
+    const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      updatedList,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+    setItems(recalculated.items)
+
+    weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter).catch((err) => {
+      console.error('Erro ao persistir itens de retrabalho:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar programação de retrabalho',
+        description:
+          err?.message ||
+          'Não foi possível salvar no servidor. Os dados continuam disponíveis na tela para nova tentativa.',
+      })
+    })
+
+    toast({
+      title: 'Itens de Retrabalho incluídos com sucesso.',
+      description: `${newReworkItems.length} lote(s) inserido(s) na sequência com etiqueta RETRABALHO. Grade recalculada.`,
+    })
   }
 
   // Regra de bloqueio temporal no passado respeitando timezone da planta e regras canônicas
@@ -5098,33 +5246,58 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         }}
       />
 
-      {/* 6. MODAL DE ADICIONAR PRODUTO (Blindado com WeeklyScheduleModalErrorBoundary, LocalErrorBoundary e null-guards) */}
+      {/* 6. MODAL DE ADICIONAR PRODUTO / RETRABALHO (Alternância estrita por Tipo de Programação) */}
       <WeeklyScheduleModalErrorBoundary onReset={() => setIsAddModalOpen(false)}>
         <LocalErrorBoundary
-          moduleName="Adicionar Atividade/Produto"
+          moduleName={
+            isReworkProgrammingType ? 'Adicionar Item de Retrabalho' : 'Adicionar Atividade/Produto'
+          }
           onRetry={() => setIsAddModalOpen(false)}
         >
-          <AddProductModal
-            isOpen={isAddModalOpen}
-            onClose={() => setIsAddModalOpen(false)}
-            onAdd={(newItem) => {
-              try {
-                if (newItem) {
-                  handleAddProduct(newItem)
+          {isReworkProgrammingType ? (
+            <AddReworkItemModal
+              open={isAddModalOpen}
+              onClose={() => setIsAddModalOpen(false)}
+              onAddReworkItems={async (configuredLots) => {
+                try {
+                  await handleAddReworkItems(configuredLots)
+                  setIsAddModalOpen(false)
+                } catch (err) {
+                  console.error('[AddReworkItemModal] Erro ao adicionar itens de retrabalho:', err)
                 }
-              } catch (err) {
-                console.error('[AddProductModal] Erro ao adicionar item:', err)
+              }}
+              companyCode={companyCode || '1000'}
+              plantCode={plantCode || '1010'}
+              lineCode={selectedLineCode || 'RETRAB-01'}
+              lineName={
+                lines.find((l) => l.code === selectedLineCode)?.name || 'Centro de Retrabalho'
               }
-            }}
-            lineCode={selectedLineCode || ''}
-            officialMaterials={Array.isArray(officialMaterials) ? officialMaterials : []}
-            lineOverview={currentLineOverview || null}
-            existingItems={Array.isArray(items) ? items : []}
-            targetDay={targetDay || 'SEG'}
-            targetShiftCode={targetShiftCode || 'T1_L1'}
-            targetShiftName={targetShiftName || '1º Turno Matutino'}
-            targetCrewName={targetCrewName || 'Turma A'}
-          />
+              targetDayKey={targetDay || 'SEG'}
+              targetShiftCode={targetShiftCode || 'T1_L1'}
+            />
+          ) : (
+            <AddProductModal
+              isOpen={isAddModalOpen}
+              onClose={() => setIsAddModalOpen(false)}
+              onAdd={(newItem) => {
+                try {
+                  if (newItem) {
+                    handleAddProduct(newItem)
+                  }
+                } catch (err) {
+                  console.error('[AddProductModal] Erro ao adicionar item:', err)
+                }
+              }}
+              lineCode={selectedLineCode || ''}
+              officialMaterials={Array.isArray(officialMaterials) ? officialMaterials : []}
+              lineOverview={currentLineOverview || null}
+              existingItems={Array.isArray(items) ? items : []}
+              targetDay={targetDay || 'SEG'}
+              targetShiftCode={targetShiftCode || 'T1_L1'}
+              targetShiftName={targetShiftName || '1º Turno Matutino'}
+              targetCrewName={targetCrewName || 'Turma A'}
+            />
+          )}
         </LocalErrorBoundary>
       </WeeklyScheduleModalErrorBoundary>
 

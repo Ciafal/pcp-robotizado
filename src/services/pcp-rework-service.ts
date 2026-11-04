@@ -16,6 +16,8 @@ export interface ReworkStockItem {
   profile?: string
   gauge_mm?: number
   steel_type?: string
+  steel_grade?: string
+  dimensions?: string
   lot_number: string
   heat_number?: string
   available_quantity: number
