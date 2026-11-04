@@ -269,7 +269,24 @@ export function AddReworkItemModal({
         items: payload.items,
       })
 
-      // 3. Notificar pai e fechar
+      // 3. Disparar notificação in-app para cada item adicionado
+      for (const cfg of selectedList) {
+        PcpReworkService.notifyReworkEvent('ADDED', {
+          materialCode: cfg.item.material_code,
+          lotNumber: cfg.item.lot_number,
+          quantity: cfg.rework_quantity,
+          unit: cfg.item.unit,
+          targetCenter: lineCode,
+          line: lineCode,
+        }).catch((notifErr) => {
+          console.warn(
+            '[AddReworkItemModal] Falha ao notificar item de retrabalho adicionado:',
+            notifErr,
+          )
+        })
+      }
+
+      // 4. Notificar pai e fechar
       await onAddReworkItems(selectedList)
 
       const successTxt =
@@ -283,9 +300,34 @@ export function AddReworkItemModal({
       }, 700)
     } catch (err: any) {
       console.error('[AddReworkItemModal] Erro ao submeter retrabalho:', err)
-      setValidationError(
-        err?.message || 'Falha ao revalidar estoque ou adicionar lote. Verifique as quantidades.',
-      )
+      const errorMsg =
+        err?.message || 'Falha ao revalidar estoque ou adicionar lote. Verifique as quantidades.'
+      setValidationError(errorMsg)
+
+      // Notificar falha de revalidação de estoque quando aplicável
+      if (
+        errorMsg.toLowerCase().includes('estoque') ||
+        errorMsg.toLowerCase().includes('saldo') ||
+        errorMsg.toLowerCase().includes('insuficiente') ||
+        errorMsg.toLowerCase().includes('alterado')
+      ) {
+        const firstItem = selectedList[0]?.item
+        if (firstItem) {
+          PcpReworkService.notifyReworkEvent('STOCK_VALIDATION_FAILED', {
+            materialCode: firstItem.material_code,
+            lotNumber: firstItem.lot_number,
+            availableQuantity: firstItem.available_quantity,
+            unit: firstItem.unit,
+            targetCenter: lineCode,
+            line: lineCode,
+          }).catch((notifErr) => {
+            console.warn(
+              '[AddReworkItemModal] Falha ao notificar falha de validação de estoque:',
+              notifErr,
+            )
+          })
+        }
+      }
     } finally {
       setIsSubmitting(false)
     }

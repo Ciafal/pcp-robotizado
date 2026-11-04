@@ -5,6 +5,8 @@
  */
 
 import { pb } from '../lib/pocketbase/client'
+import { NotificationAdapter } from './pcp-adapters-service'
+import type { HubInternalNotification } from '../types/pcp-integration-contracts'
 
 export type ReworkStockOrigin = 'SEMIACABADO' | 'ACABADO'
 
@@ -596,6 +598,80 @@ export class PcpReworkService {
       } catch (saveErr) {
         console.error('[PcpReworkService] Erro ao gravar pcp_rework_items:', saveErr)
       }
+    }
+  }
+
+  /**
+   * Helper oficial de emissão de notificações in-app de Retrabalho.
+   * Grava na central de notificações interna (pcp_internal_notifications)
+   * com público alvo 'PCP' e rota de ação para Montagem de Programação.
+   */
+  static async notifyReworkEvent(
+    event: 'ADDED' | 'STOCK_VALIDATION_FAILED' | 'REMOVED',
+    data: {
+      materialCode: string
+      lotNumber: string
+      quantity?: number
+      unit?: string
+      targetCenter?: string
+      programCode?: string
+      version?: number | string
+      reason?: string
+      availableQuantity?: number
+      line?: string
+    },
+  ): Promise<HubInternalNotification | null> {
+    try {
+      const formatQty = (q?: number) => {
+        if (q === undefined || q === null || Number.isNaN(q)) return '0'
+        return q.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
+      }
+
+      let title = ''
+      let message = ''
+      let severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO'
+
+      const actionUrl = '/pcp/montagem-semanal'
+
+      if (event === 'ADDED') {
+        title = 'Novo item de Retrabalho'
+        const qtyFormatted = formatQty(data.quantity)
+        const unit = data.unit || 't'
+        const centerStr = data.targetCenter ? ` | Centro: ${data.targetCenter}` : ''
+        const progStr =
+          data.programCode || data.version
+            ? ` | Programação: ${data.programCode || 'Ativa'}${data.version ? ` (v${data.version})` : ''}`
+            : ''
+        message = `Material ${data.materialCode} (Lote: ${data.lotNumber}) com ${qtyFormatted} ${unit} adicionado à programação de Retrabalho${centerStr}${progStr}.`
+        severity = 'INFO'
+      } else if (event === 'STOCK_VALIDATION_FAILED') {
+        title = 'Estoque de lote alterado na confirmação'
+        const availFormatted =
+          data.availableQuantity !== undefined
+            ? `${formatQty(data.availableQuantity)} ${data.unit || 't'}`
+            : 'indisponível'
+        message = `O lote ${data.lotNumber} do material ${data.materialCode} teve alteração de saldo antes da confirmação. Saldo disponível atual: ${availFormatted}.`
+        severity = 'WARNING'
+      } else if (event === 'REMOVED') {
+        title = 'Item de Retrabalho removido'
+        const reasonStr = data.reason ? ` Motivo: ${data.reason}.` : ''
+        message = `Item de Retrabalho do material ${data.materialCode} (Lote: ${data.lotNumber}) foi removido da programação.${reasonStr}`
+        severity = 'WARNING'
+      }
+
+      return await NotificationAdapter.sendInternalNotification({
+        target_audience: 'PCP',
+        type: 'REWORK',
+        title,
+        message,
+        material_code: data.materialCode,
+        line: data.line || data.targetCenter || 'L1',
+        action_url: actionUrl,
+        severity,
+      })
+    } catch (err) {
+      console.warn('[PcpReworkService] Falha ao disparar notificação de retrabalho:', err)
+      return null
     }
   }
 }

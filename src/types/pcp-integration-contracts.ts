@@ -132,6 +132,7 @@ export interface HubInternalNotification {
     | 'MATERIAL_NAO_LOCALIZADO'
     | 'INVENTARIO_PRONTO'
     | 'PROGRAMACAO_ALTERADA'
+    | 'REWORK'
   title: string
   message: string
   order_number?: string
