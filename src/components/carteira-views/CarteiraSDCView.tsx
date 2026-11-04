@@ -1539,7 +1539,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               curva: itemCalc.curva_abc as any,
               centro: itemCalc.centro,
               linha: itemCalc.linha,
-            } as CarteiraSDCItem)
+            } as unknown as CarteiraSDCItem)
           }
         }}
       />
@@ -1563,7 +1563,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               curva: itemCalc.curva_abc as any,
               centro: itemCalc.centro,
               linha: itemCalc.linha,
-            } as CarteiraSDCItem)
+            } as unknown as CarteiraSDCItem)
           }
         }}
       />

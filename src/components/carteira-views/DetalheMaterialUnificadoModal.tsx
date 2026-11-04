@@ -23,6 +23,8 @@ import {
   Ship,
   ShoppingBag,
   Factory,
+  Sparkles,
+  Info,
 } from 'lucide-react'
 import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CarteiraSDCItem } from '@/types/carteira-sdc'
@@ -193,8 +195,6 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
     })
   }, [origemCarteira, genItem, sheetMTO])
 
-  if (!resolvedItem && !materialProp) return null
-
   // Histórico de faturamento
   const mediaFaturamentoInformada = genItem?.media_faturamento_diario_t_dia
     ? Number(genItem.media_faturamento_diario_t_dia)
@@ -285,6 +285,139 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
   const isDeficit = resultadoTemporal.saldoAtualT < 0
   const isProjPositivo = resultadoTemporal.saldoProjetadoT >= 0
 
+  // Análise IA Consultiva baseada estritamente nos dados disponíveis do material
+  const analiseIAConsultiva = React.useMemo(() => {
+    // Verificação de dados suficientes para gerar a análise
+    const temDadosSuficientes =
+      Boolean(materialCodigo) &&
+      (carteiraAberta > 0 || estoqueTotal > 0 || programadoTons > 0 || emProducaoTons > 0)
+
+    if (!temDadosSuficientes) {
+      return {
+        temDados: false,
+        itens: [] as {
+          titulo: string
+          descricao: string
+          severidade: 'critico' | 'alerta' | 'ok' | 'info'
+        }[],
+      }
+    }
+
+    const diagnosticos: {
+      titulo: string
+      descricao: string
+      severidade: 'critico' | 'alerta' | 'ok' | 'info'
+    }[] = []
+
+    // 1. Cobertura da Carteira & Estoque
+    if (carteiraAberta > 0 && estoqueDisponivelUtilizavel >= carteiraAberta) {
+      diagnosticos.push({
+        titulo: 'Estoque Suficiente',
+        descricao: `Estoque disponível de ${estoqueDisponivelUtilizavel.toFixed(3).replace('.', ',')} t cobre integralmente a carteira aberta de ${carteiraAberta.toFixed(3).replace('.', ',')} t sem necessidade imediata de novas ordens.`,
+        severidade: 'ok',
+      })
+    } else if (carteiraAberta > 0 && estoqueDisponivelUtilizavel < carteiraAberta) {
+      const defAtual = carteiraAberta - estoqueDisponivelUtilizavel
+      diagnosticos.push({
+        titulo: 'Carteira sem Cobertura Imediata',
+        descricao: `Déficit imediato de ${defAtual.toFixed(3).replace('.', ',')} t entre a carteira em aberto e o estoque disponível utilizável físico.`,
+        severidade: 'critico',
+      })
+    }
+
+    // 2. Programação & Reposição PCP
+    const totalReposicao = programadoTons + emProducaoTons
+    if (carteiraAberta > estoqueDisponivelUtilizavel) {
+      const necessidade = carteiraAberta - estoqueDisponivelUtilizavel
+      if (totalReposicao >= necessidade) {
+        diagnosticos.push({
+          titulo: 'Programação PCP Adequada',
+          descricao: `Volume programado/em processo de ${totalReposicao.toFixed(3).replace('.', ',')} t cobre a necessidade líquida de ${necessidade.toFixed(3).replace('.', ',')} t para atendimento da carteira.`,
+          severidade: 'ok',
+        })
+      } else {
+        const saldoFaltante = necessidade - totalReposicao
+        diagnosticos.push({
+          titulo: 'Programação Insuficiente',
+          descricao: `Mesmo com ${totalReposicao.toFixed(3).replace('.', ',')} t programadas/em processo, resta um déficit projetado de ${saldoFaltante.toFixed(3).replace('.', ',')} t demandando ampliação do plano de produção.`,
+          severidade: 'alerta',
+        })
+      }
+    }
+
+    // 3. Risco de Não Atendimento & Ruptura
+    if (resultadoTemporal.saldoProjetadoT < 0 || resultadoTemporal.temGapRuptura) {
+      diagnosticos.push({
+        titulo: 'Risco de Não Atendimento',
+        descricao: `Identificado risco de ruptura operacional ou atraso de entrega com gap temporal negativo estimado em ${resultadoTemporal.diasEstoqueNegativoFormatado}.`,
+        severidade: 'critico',
+      })
+    }
+
+    // 4. Concentração de Carteira & Curva ABC
+    if (curvaAbc === 'A') {
+      diagnosticos.push({
+        titulo: 'Concentração de Carteira (Curva A)',
+        descricao: `Material de Curva A de alto impacto volumétrico e estratégico na receita; exige monitoramento diário da expedição e tolerância mínima a atrasos.`,
+        severidade: 'alerta',
+      })
+    }
+
+    // 5. Necessidade de Priorização no Sequenciamento
+    if (isDeficit && curvaAbc === 'A') {
+      diagnosticos.push({
+        titulo: 'Necessidade de Priorização',
+        descricao: `Recomenda-se elevação de prioridade (P1) no sequenciamento semanal para assegurar abastecimento dos clientes da carteira sem postergações.`,
+        severidade: 'alerta',
+      })
+    }
+
+    // 6. Matéria-prima / Estoque Bloqueado / Restrições
+    if (estoqueBloqueado > 0) {
+      diagnosticos.push({
+        titulo: 'Verificar Matéria-Prima & Restrições',
+        descricao: `Há ${estoqueBloqueado.toFixed(3).replace('.', ',')} t em estoque bloqueado/restrito no centro ${centro}. Verificar com Qualidade/SGQ o status de liberação do lote.`,
+        severidade: 'alerta',
+      })
+    }
+
+    // 7. Risco de Data de Entrega
+    if (dataProgramada && (genItem?.data_desejada || sdcItem?.data_prevista)) {
+      const dataDesejadaRef = genItem?.data_desejada || sdcItem?.data_prevista
+      if (dataDesejadaRef && dataProgramada > dataDesejadaRef) {
+        diagnosticos.push({
+          titulo: 'Risco de Data de Entrega',
+          descricao: `Data prevista de produção (${dataProgramada}) é posterior à data desejada pelo cliente (${dataDesejadaRef}), indicando risco de atraso contratual.`,
+          severidade: 'critico',
+        })
+      }
+    }
+
+    return {
+      temDados: diagnosticos.length > 0,
+      itens: diagnosticos,
+    }
+  }, [
+    materialCodigo,
+    carteiraAberta,
+    estoqueTotal,
+    estoqueDisponivelUtilizavel,
+    estoqueBloqueado,
+    programadoTons,
+    emProducaoTons,
+    resultadoTemporal,
+    curvaAbc,
+    isDeficit,
+    centro,
+    dataProgramada,
+    genItem?.data_desejada,
+    sdcItem?.data_prevista,
+  ])
+
+  const tituloPadrao = `Detalhe do Material • ${materialCodigo || 'Material'}`
+
+  if (!resolvedItem && !materialProp) return null
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="modal-analitico w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)] p-0 flex flex-col overflow-hidden">
@@ -296,12 +429,14 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2
-                  className="font-bold text-white tracking-tight truncate leading-tight"
-                  style={{ fontSize: 'clamp(18px, 1.8vw, 24px)' }}
-                >
-                  {descricao}
-                </h2>
+                <DialogTitle asChild>
+                  <h2
+                    className="font-bold text-white tracking-tight truncate leading-tight"
+                    style={{ fontSize: 'clamp(18px, 1.8vw, 24px)' }}
+                  >
+                    {tituloPadrao}
+                  </h2>
+                </DialogTitle>
                 <Badge className="bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold border-white/30">
                   Carteira {origemCarteira} &bull; Centro {centro}
                 </Badge>
@@ -314,14 +449,17 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                   </Badge>
                 )}
               </div>
-              <p
-                className="text-white/80 mt-0.5 truncate"
-                style={{ fontSize: 'clamp(12px, 0.95vw, 14px)' }}
-              >
-                Família: <strong className="text-white">{familia}</strong> &bull; Bitola:{' '}
-                <strong className="text-white">{bitola}</strong> &bull; Origem:{' '}
-                <strong className="text-white">{origemCarteira}</strong>
-              </p>
+              <DialogDescription asChild>
+                <p
+                  className="text-white/80 mt-0.5 truncate"
+                  style={{ fontSize: 'clamp(12px, 0.95vw, 14px)' }}
+                >
+                  <strong className="text-white">{descricao}</strong> &bull; Família:{' '}
+                  <strong className="text-white">{familia}</strong> &bull; Bitola:{' '}
+                  <strong className="text-white">{bitola}</strong> &bull; Origem:{' '}
+                  <strong className="text-white">{origemCarteira}</strong>
+                </p>
+              </DialogDescription>
             </div>
           </div>
 
@@ -915,6 +1053,99 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* 5. SEÇÃO CONSULTIVA: Análise IA • Síntese da Situação do Material */}
+          <div className="bg-white border-2 border-slate-200 rounded-xl p-4 space-y-3 mt-1">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-[#004C97] text-white rounded-lg">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Análise IA &bull; Síntese da Situação do Material
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Diagnóstico consultivo de apoio à decisão para planejamento e sequenciamento PCP
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
+                Consultivo &bull; Apoio à Decisão
+              </Badge>
+            </div>
+
+            {!analiseIAConsultiva.temDados ? (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 italic flex items-center gap-2">
+                <Info className="w-4 h-4 text-slate-400 shrink-0" />
+                <span>Dados insuficientes para gerar esta análise.</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                  {analiseIAConsultiva.itens.map((diag, dIdx) => {
+                    const badgeClasses =
+                      diag.severidade === 'critico'
+                        ? 'bg-rose-50 border-rose-200 text-rose-950'
+                        : diag.severidade === 'alerta'
+                          ? 'bg-amber-50 border-amber-200 text-amber-950'
+                          : diag.severidade === 'ok'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                            : 'bg-blue-50 border-blue-200 text-blue-950'
+
+                    const tagClasses =
+                      diag.severidade === 'critico'
+                        ? 'bg-rose-100 text-rose-800'
+                        : diag.severidade === 'alerta'
+                          ? 'bg-amber-100 text-amber-800'
+                          : diag.severidade === 'ok'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-blue-100 text-[#004C97]'
+
+                    return (
+                      <div key={dIdx} className={`p-3 rounded-lg border ${badgeClasses} space-y-1`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-xs flex items-center gap-1.5">
+                            {diag.severidade === 'critico' ? (
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                            ) : diag.severidade === 'alerta' ? (
+                              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            ) : diag.severidade === 'ok' ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            ) : (
+                              <Info className="w-3.5 h-3.5 text-[#004C97] shrink-0" />
+                            )}
+                            {diag.titulo}
+                          </span>
+                          <span
+                            className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${tagClasses}`}
+                          >
+                            {diag.severidade === 'critico'
+                              ? 'Crítico'
+                              : diag.severidade === 'alerta'
+                                ? 'Atenção'
+                                : diag.severidade === 'ok'
+                                  ? 'Estável'
+                                  : 'Informativo'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-slate-700">
+                          {diag.descricao}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="text-[10px] text-slate-500 pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                  <span>
+                    * Análise estritamente consultiva gerada a partir dos saldos e reposições
+                    presentes no modal. Não altera dados SAP ou programações.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
