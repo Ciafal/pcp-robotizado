@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T19:49:46.771Z",
+  "generatedAt": "2026-11-04T20:25:25.815Z",
   "collections": [
     {
       "name": "users",
@@ -21602,7 +21602,8 @@
             "MATERIAL_NAO_LOCALIZADO",
             "INVENTARIO_PRONTO",
             "PROGRAMACAO_ALTERADA",
-            "REWORK"
+            "REWORK",
+            "REPORT"
           ]
         },
         {

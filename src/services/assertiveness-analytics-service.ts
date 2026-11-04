@@ -73,6 +73,10 @@ export interface AssertivenessOpRow {
 }
 
 export interface LineAnalyticsRow extends LineProductionLossRow {
+  /** Indicadores de tela (rodadas anteriores); opcionais — nem toda linha os traz. */
+  startPct?: number | null
+  volumePct?: number | null
+  sequencePct?: number | null
   /** Tempo disponível planejado (min) somado das OPs da linha no período. */
   tempoDisponivelMin: number | null
   /** Tempo efetivamente produtivo (min) = tempo real − paradas não programadas. */
