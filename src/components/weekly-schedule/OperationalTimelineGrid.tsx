@@ -1504,6 +1504,18 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                                         return null
                                                       })()}
 
+                                                    {/* Badge visual exclusivo de Retrabalho */}
+                                                    {(item.is_rework ||
+                                                      item.rework_info ||
+                                                      item.production_type === 'REWORK') && (
+                                                      <span
+                                                        className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 shadow-2xs shrink-0 cursor-help flex items-center gap-0.5 border border-amber-600 font-sans"
+                                                        title={`Retrabalho • Lote: ${item.rework_info?.rework_lot || item.rework_batch || item.batch_number || 'N/A'} • Origem: ${item.rework_info?.source_stock_type || item.stock_type || 'ESTOQUE'} • Motivo: ${item.rework_info?.rework_reason || item.rework_reason || 'Retrabalho'} • Operação: ${item.rework_info?.rework_operation || 'Geral'}`}
+                                                      >
+                                                        RETRABALHO
+                                                      </span>
+                                                    )}
+
                                                     <span className="font-mono font-extrabold text-[11px] text-slate-900 shrink-0 whitespace-nowrap">
                                                       {item.material_code}
                                                     </span>
@@ -1709,11 +1721,64 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                                   <div>
                                                     <span className="text-slate-400">Regime:</span>{' '}
                                                     <strong className="text-slate-200">
-                                                      {item.order_type === 'MTO'
-                                                        ? `MTO (${item.sales_order_mto || 'Ped'})`
-                                                        : 'MTS (Estoque)'}
+                                                      {item.is_rework ||
+                                                      item.rework_info ||
+                                                      item.production_type === 'REWORK'
+                                                        ? `Retrabalho (${item.rework_info?.source_stock_type || 'Estoque'})`
+                                                        : item.order_type === 'MTO'
+                                                          ? `MTO (${item.sales_order_mto || 'Ped'})`
+                                                          : 'MTS (Estoque)'}
                                                     </strong>
                                                   </div>
+                                                  {(item.is_rework ||
+                                                    item.rework_info ||
+                                                    item.production_type === 'REWORK') && (
+                                                    <div className="col-span-2 text-amber-200 bg-amber-950/60 p-2 rounded mt-1 border border-amber-500/50 space-y-1">
+                                                      <div className="font-bold text-amber-300 flex items-center justify-between border-b border-amber-500/30 pb-0.5">
+                                                        <span>🔄 Detalhes do Retrabalho</span>
+                                                        <span className="text-[10px] font-mono">
+                                                          Lote:{' '}
+                                                          {item.rework_info?.rework_lot ||
+                                                            item.rework_batch ||
+                                                            item.batch_number ||
+                                                            'N/A'}
+                                                        </span>
+                                                      </div>
+                                                      <div className="grid grid-cols-2 gap-1 text-[10px]">
+                                                        <div>
+                                                          <span className="text-slate-400">
+                                                            Origem:
+                                                          </span>{' '}
+                                                          {item.rework_info?.source_stock_type ||
+                                                            item.stock_type ||
+                                                            'Estoque'}
+                                                        </div>
+                                                        <div>
+                                                          <span className="text-slate-400">
+                                                            Local:
+                                                          </span>{' '}
+                                                          {item.rework_info?.location ||
+                                                            item.storage_location ||
+                                                            'N/A'}
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                          <span className="text-slate-400">
+                                                            Motivo:
+                                                          </span>{' '}
+                                                          {item.rework_info?.rework_reason ||
+                                                            item.rework_reason ||
+                                                            'N/A'}
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                          <span className="text-slate-400">
+                                                            Operação:
+                                                          </span>{' '}
+                                                          {item.rework_info?.rework_operation ||
+                                                            'Geral'}
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  )}
                                                   <div>
                                                     <span className="text-slate-400">Status:</span>{' '}
                                                     <strong className="text-slate-200">

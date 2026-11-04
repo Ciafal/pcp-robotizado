@@ -261,6 +261,28 @@ export interface WeeklyScheduleItem {
   metadata?: Record<string, any>
   created?: string
   updated?: string
+  // Rastreabilidade de Retrabalho Exclusivo
+  is_rework?: boolean
+  rework_details?: {
+    material_code: string
+    material_description?: string
+    lot_number: string
+    heat_number?: string
+    stock_origin_type: 'SEMIACABADO' | 'ACABADO'
+    storage_deposit: string
+    storage_location: string
+    available_quantity: number
+    rework_quantity: number
+    unit?: string
+    rework_reason_code?: string
+    rework_reason: string
+    rework_notes?: string
+    rework_operation: string
+    rework_center_code?: string
+    company_code?: string
+    stock_reference_id?: string
+    validated_at?: string
+  }
   // Rastreabilidade de Derivação de Centros (Requisito C)
   is_derived?: boolean
   tipo_geracao?: 'MANUAL' | 'AUTOMATICA'
