@@ -5,7 +5,7 @@
  * pcp_report_sendings. "Incluir resumo de IA" está indisponível (Dados não disponíveis).
  */
 import React, { useEffect, useMemo, useState } from 'react'
-import { Loader2, Mail, BellRing, Search, CheckCircle2, XCircle } from 'lucide-react'
+import { Loader2, Mail, BellRing, Search, CheckCircle2, XCircle, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
