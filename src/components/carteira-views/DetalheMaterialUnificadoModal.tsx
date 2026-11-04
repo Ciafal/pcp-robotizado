@@ -42,6 +42,7 @@ import {
   ResultadoCoberturaTemporal,
 } from '@/services/cobertura-temporal-engine'
 import { ClipboardCheck, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { MaterialHistoricoAlteracoesSection } from './MaterialHistoricoAlteracoesSection'
 
 export interface DetalheMaterialUnificadoModalProps {
   isOpen: boolean
@@ -1147,6 +1148,12 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
               </div>
             )}
           </div>
+
+          {/* SEÇÃO 6: HISTÓRICO DE ALTERAÇÕES DO ITEM */}
+          <MaterialHistoricoAlteracoesSection
+            materialCode={materialCodigo || materialProp || ''}
+            materialDescricao={descricao}
+          />
         </div>
 
         {/* ZONA 4: RODAPÉ FIXO (flex 0 0 auto, 60-80px) */}
