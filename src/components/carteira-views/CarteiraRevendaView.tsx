@@ -10,6 +10,7 @@ import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engi
 import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
+import { resolverCarteiraItem } from '@/lib/carteira-item-helper'
 
 interface CarteiraRevendaViewProps {
   itens: CarteiraItem[]
@@ -340,8 +341,9 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
         tituloCarteira="Carteira Revenda"
         itens={resultadoABCRevenda.itens}
         onSelectMaterial={(itemCalc) => {
-          const ci = itensRevenda.find((i) => i.codigo_material === itemCalc.codigo_material)
-          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+          const itemResolvido = resolverCarteiraItem(itemCalc, itensRevenda)
+          if (onOpenDetalheMaterial) onOpenDetalheMaterial(itemResolvido)
+          else onOpenMemoria(itemResolvido)
         }}
       />
 
@@ -350,8 +352,9 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
         onClose={() => setIsAbcOpen(false)}
         resultadoABC={resultadoABCRevenda}
         onSelectMaterial={(itemCalc) => {
-          const ci = itensRevenda.find((i) => i.codigo_material === itemCalc.codigo_material)
-          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+          const itemResolvido = resolverCarteiraItem(itemCalc, itensRevenda)
+          if (onOpenDetalheMaterial) onOpenDetalheMaterial(itemResolvido)
+          else onOpenMemoria(itemResolvido)
         }}
       />
     </div>

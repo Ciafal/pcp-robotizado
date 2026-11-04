@@ -1526,7 +1526,21 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         itens={resultadoABCSDC.itens}
         onSelectMaterial={(itemCalc) => {
           const sdc = itens.find((i) => i.material === itemCalc.codigo_material)
-          if (sdc) handleOpenDetalhe(sdc)
+          if (sdc) {
+            handleOpenDetalhe(sdc)
+          } else {
+            handleOpenDetalhe({
+              material: itemCalc.codigo_material,
+              descricao: itemCalc.descricao_material,
+              carteira_total_t: itemCalc.carteira_tons,
+              estoque_disponivel_t: itemCalc.estoque_disponivel_tons,
+              programado_t: itemCalc.programado_tons,
+              deficit_atual_t: itemCalc.deficit_tons,
+              curva: itemCalc.curva_abc as any,
+              centro: itemCalc.centro,
+              linha: itemCalc.linha,
+            } as CarteiraSDCItem)
+          }
         }}
       />
 
@@ -1536,7 +1550,21 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         resultadoABC={resultadoABCSDC}
         onSelectMaterial={(itemCalc) => {
           const sdc = itens.find((i) => i.material === itemCalc.codigo_material)
-          if (sdc) handleOpenDetalhe(sdc)
+          if (sdc) {
+            handleOpenDetalhe(sdc)
+          } else {
+            handleOpenDetalhe({
+              material: itemCalc.codigo_material,
+              descricao: itemCalc.descricao_material,
+              carteira_total_t: itemCalc.carteira_tons,
+              estoque_disponivel_t: itemCalc.estoque_disponivel_tons,
+              programado_t: itemCalc.programado_tons,
+              deficit_atual_t: itemCalc.deficit_tons,
+              curva: itemCalc.curva_abc as any,
+              centro: itemCalc.centro,
+              linha: itemCalc.linha,
+            } as CarteiraSDCItem)
+          }
         }}
       />
 

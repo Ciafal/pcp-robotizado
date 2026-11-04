@@ -42,6 +42,8 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
   const [apenasComDeficit, setApenasComDeficit] = useState(false)
   const [paginaAtual, setPaginaAtual] = useState(1)
   const ITENS_POR_PAGINA = 25
+  const [carregandoMaterial, setCarregandoMaterial] = useState<string | null>(null)
+  const [erroDetalhe, setErroDetalhe] = useState<string | null>(null)
 
   // Listas para selects
   const centrosDisponiveis = useMemo(() => {
@@ -103,10 +105,23 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
   }, [itensFiltrados])
 
   const handleDetalhar = (item: ItemCurvaAbcCalculado) => {
-    if (onOpenDetalheMaterialOriginal) {
-      onOpenDetalheMaterialOriginal(item)
-    } else if (onSelectMaterial) {
-      onSelectMaterial(item)
+    if (carregandoMaterial) return // Evitar cliques duplos simultâneos
+    try {
+      setErroDetalhe(null)
+      setCarregandoMaterial(item.codigo_material)
+      if (onOpenDetalheMaterialOriginal) {
+        onOpenDetalheMaterialOriginal(item)
+      } else if (onSelectMaterial) {
+        onSelectMaterial(item)
+      }
+    } catch (err) {
+      console.error('[PortfolioDrilldown] Falha técnica ao abrir detalhamento:', err)
+      setErroDetalhe('Não foi possível carregar o detalhamento do material. Tente novamente.')
+    } finally {
+      // Pequeno timeout defensivo para resetar o estado de loading e desbloquear novos cliques
+      setTimeout(() => {
+        setCarregandoMaterial(null)
+      }, 300)
     }
   }
 
@@ -220,6 +235,27 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
       }
     >
       <div className="space-y-4">
+        {/* Banner de Feedback (Carregando / Erro) */}
+        {carregandoMaterial && (
+          <div className="p-3 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl text-xs flex items-center gap-2 animate-pulse">
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+            <span>Carregando detalhamento do material...</span>
+          </div>
+        )}
+        {erroDetalhe && (
+          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center justify-between gap-2">
+            <span>{erroDetalhe}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setErroDetalhe(null)}
+              className="h-6 px-2 text-xs text-rose-700 hover:bg-rose-100"
+            >
+              Fechar
+            </Button>
+          </div>
+        )}
+
         {/* 4 MINI-CARDS OPERACIONAIS NO TOPO DO DRILL-DOWN */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Card 1: Itens no Filtro e Volume */}
@@ -505,11 +541,13 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                           <Button
                             size="sm"
                             variant="ghost"
+                            disabled={carregandoMaterial === it.codigo_material}
                             onClick={() => handleDetalhar(it)}
-                            className="h-6 w-6 p-0 text-[#004C97] hover:bg-blue-100 rounded"
-                            title="Visualizar Detalhes"
+                            className="h-8 w-8 min-w-[32px] min-h-[32px] p-0 text-[#004C97] hover:bg-blue-100 rounded cursor-pointer transition-colors focus:ring-2 focus:ring-[#004C97] focus:outline-none flex items-center justify-center m-auto"
+                            title="Visualizar detalhes"
+                            aria-label="Visualizar detalhes do material"
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Eye className="w-4 h-4 shrink-0" />
                           </Button>
                         </td>
                       </tr>

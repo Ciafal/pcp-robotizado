@@ -10,6 +10,7 @@ import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engi
 import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
+import { resolverCarteiraItem, criarCarteiraItemMinimo } from '@/lib/carteira-item-helper'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
 import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
@@ -327,8 +328,9 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
         tituloCarteira="Carteira L2"
         itens={resultadoABCL2.itens}
         onSelectMaterial={(itemCalc) => {
-          const ci = itensL2.find((i) => i.codigo_material === itemCalc.codigo_material)
-          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+          const itemResolvido = resolverCarteiraItem(itemCalc, itensL2)
+          if (onOpenDetalheMaterial) onOpenDetalheMaterial(itemResolvido)
+          else onOpenMemoria(itemResolvido)
         }}
       />
 
@@ -337,8 +339,9 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
         onClose={() => setIsAbcOpen(false)}
         resultadoABC={resultadoABCL2}
         onSelectMaterial={(itemCalc) => {
-          const ci = itensL2.find((i) => i.codigo_material === itemCalc.codigo_material)
-          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+          const itemResolvido = resolverCarteiraItem(itemCalc, itensL2)
+          if (onOpenDetalheMaterial) onOpenDetalheMaterial(itemResolvido)
+          else onOpenMemoria(itemResolvido)
         }}
       />
 
@@ -349,8 +352,11 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
         summary={resumoMinimoL2}
         tituloVisao="Carteira L2"
         onSelectMaterial={(mat) => {
-          const ci = itensL2.find((i) => i.codigo_material === mat)
-          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+          const ci =
+            itensL2.find((i) => i.codigo_material === mat) ||
+            criarCarteiraItemMinimo({ codigo_material: mat, linha: 'L2' })
+          if (onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+          else onOpenMemoria(ci)
         }}
       />
     </div>

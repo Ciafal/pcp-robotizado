@@ -43,6 +43,7 @@ import {
   calcularMinimoNaoAtingido,
   MinimoNaoAtingidoSummary,
 } from '@/services/carteira-minimo-nao-atingido-engine'
+import { resolverCarteiraItem } from '@/lib/carteira-item-helper'
 
 interface CarteiraGeralViewProps {
   itens: CarteiraItem[]
@@ -524,18 +525,13 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
   const totalPaginas = Math.ceil(itensFiltrados.length / itensPorPagina) || 1
   const itensExibidos = itensFiltrados.slice((pagina - 1) * itensPorPagina, pagina * itensPorPagina)
 
-  // Disparar abertura de detalhe do material original se for CarteiraItem
+  // Disparar abertura de detalhe do material original - SEMPRE resolutivo, NUNCA silencioso
   const handleAbrirDetalhe = (itemCalc: ItemCurvaAbcCalculado) => {
-    if (itemCalc.origemItemOriginal) {
-      if ('ordem_venda' in itemCalc.origemItemOriginal && onOpenDetalheMaterial) {
-        onOpenDetalheMaterial(itemCalc.origemItemOriginal as CarteiraItem)
-        return
-      }
-    }
-    // Fallback: abrir memória de cálculo
-    const ci = itens.find((i) => i.codigo_material === itemCalc.codigo_material)
-    if (ci) {
-      onOpenMemoria(ci)
+    const itemResolvido = resolverCarteiraItem(itemCalc, itens, sdcItens)
+    if (onOpenDetalheMaterial) {
+      onOpenDetalheMaterial(itemResolvido)
+    } else {
+      onOpenMemoria(itemResolvido)
     }
   }
 
