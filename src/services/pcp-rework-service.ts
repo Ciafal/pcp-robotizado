@@ -479,6 +479,35 @@ export class PcpReworkService {
       return res as ValidateReworkStockResult
     } catch (err: any) {
       // Tratar respostas 409 (estoque mudou) ou 422 (excede disponível)
+      const isStockChanged =
+        err?.status === 409 ||
+        err?.data?.code === 'STOCK_CHANGED' ||
+        err?.data?.message?.toLowerCase()?.includes('alterado') ||
+        err?.message?.toLowerCase()?.includes('alterado')
+
+      if (isStockChanged) {
+        const first = payload.items[0]
+        if (first) {
+          const changedAvail =
+            err?.data?.item?.available_quantity !== undefined
+              ? Number(err.data.item.available_quantity)
+              : undefined
+          this.notifyReworkEvent('STOCK_VALIDATION_FAILED', {
+            materialCode: first.material_code,
+            lotNumber: first.lot_number,
+            availableQuantity: changedAvail ?? first.available_quantity,
+            unit: first.unit,
+            targetCenter: payload.rework_center_code,
+            line: payload.rework_center_code,
+          }).catch((notifErr) => {
+            console.warn(
+              '[PcpReworkService] Erro ao emitir notificação de estoque alterado no catch:',
+              notifErr,
+            )
+          })
+        }
+      }
+
       if (err?.data?.message) {
         throw new Error(err.data.message)
       }
@@ -631,7 +660,10 @@ export class PcpReworkService {
       let message = ''
       let severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO'
 
-      const actionUrl = '/pcp/montagem-semanal'
+      const targetLine = data.line || data.targetCenter || ''
+      const actionUrl = targetLine
+        ? `/pcp/montagem-semanal?line=${targetLine}`
+        : '/pcp/montagem-semanal'
 
       if (event === 'ADDED') {
         title = 'Novo item de Retrabalho'

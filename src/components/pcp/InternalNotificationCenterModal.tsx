@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Bell,
   AlertTriangle,
@@ -9,6 +10,7 @@ import {
   Check,
   RefreshCw,
   X,
+  ArrowRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { HubInternalNotification } from '@/types/pcp-integration-contracts'
 import { NotificationAdapter } from '@/services/pcp-adapters-service'
+import { useRealtime } from '@/hooks/use-realtime'
 
 interface InternalNotificationCenterModalProps {
   open: boolean
@@ -36,11 +39,12 @@ export const InternalNotificationCenterModal: React.FC<InternalNotificationCente
   targetAudience = 'ALL',
   onSelectOrder,
 }) => {
+  const navigate = useNavigate()
   const [notifications, setNotifications] = useState<HubInternalNotification[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'UNREAD' | 'CRITICAL'>('ALL')
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     setLoading(true)
     try {
       const list = await NotificationAdapter.listNotifications(targetAudience)
@@ -48,18 +52,91 @@ export const InternalNotificationCenterModal: React.FC<InternalNotificationCente
     } finally {
       setLoading(false)
     }
-  }
+  }, [targetAudience])
 
   useEffect(() => {
     if (open) {
       loadNotifications()
     }
-  }, [open, targetAudience])
+  }, [open, loadNotifications])
+
+  // Realtime subscription para a coleção central de notificações internas
+  useRealtime('pcp_internal_notifications', (data) => {
+    if (!open) return
+    if (data.action === 'create') {
+      const record = data.record as any
+      // Respeitar filtro de targetAudience se configurado
+      if (
+        targetAudience === 'ALL' ||
+        !record?.target_audience ||
+        record?.target_audience === 'ALL' ||
+        record?.target_audience === targetAudience
+      ) {
+        const newNotif: HubInternalNotification = {
+          id: record.id,
+          notification_code: record.notification_code || `NOTIF-${record.id}`,
+          target_audience: record.target_audience || 'ALL',
+          type: record.type || 'INFO',
+          title: record.title || 'Nova Notificação',
+          message: record.message || '',
+          order_number: record.order_number,
+          material_code: record.material_code,
+          heat_number: record.heat_number,
+          line: record.line,
+          expected_time: record.expected_time,
+          required_pieces: record.required_pieces,
+          inventoried_pieces: record.inventoried_pieces,
+          missing_pieces: record.missing_pieces,
+          action_url: record.action_url,
+          severity: record.severity || 'INFO',
+          is_read: Boolean(record.is_read),
+          timestamp: record.timestamp || record.created || new Date().toISOString(),
+        }
+        setNotifications((prev) => {
+          if (prev.some((n) => n.id === newNotif.id)) return prev
+          return [newNotif, ...prev]
+        })
+      }
+    } else if (data.action === 'update') {
+      const record = data.record as any
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === record.id
+            ? {
+                ...n,
+                is_read: Boolean(record.is_read),
+                title: record.title || n.title,
+                message: record.message || n.message,
+                severity: record.severity || n.severity,
+              }
+            : n,
+        ),
+      )
+    } else if (data.action === 'delete') {
+      const record = data.record as any
+      setNotifications((prev) => prev.filter((n) => n.id !== record.id))
+    }
+  })
 
   const handleMarkAsRead = async (id?: string) => {
     if (!id) return
     await NotificationAdapter.markAsRead(id)
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)))
+  }
+
+  const handleNotificationActionClick = async (notif: HubInternalNotification) => {
+    if (!notif.is_read && notif.id) {
+      await handleMarkAsRead(notif.id)
+    }
+
+    onClose()
+
+    if (notif.action_url) {
+      navigate(notif.action_url)
+    } else if (notif.type === 'REWORK') {
+      const lineParam = notif.line ? `?line=${notif.line}` : ''
+      navigate(`/pcp/montagem-semanal${lineParam}`)
+    }
   }
 
   const filtered = notifications.filter((n) => {
@@ -161,7 +238,16 @@ export const InternalNotificationCenterModal: React.FC<InternalNotificationCente
                 return (
                   <div
                     key={notif.id || idx}
+                    onClick={() => {
+                      if (notif.action_url || notif.type === 'REWORK') {
+                        handleNotificationActionClick(notif)
+                      }
+                    }}
                     className={`p-3 rounded-lg border transition-all text-xs ${
+                      notif.action_url || notif.type === 'REWORK'
+                        ? 'cursor-pointer hover:shadow-sm hover:border-[#004C97]/50'
+                        : ''
+                    } ${
                       !notif.is_read
                         ? isCritical
                           ? 'bg-rose-50/70 border-rose-300'
@@ -228,12 +314,30 @@ export const InternalNotificationCenterModal: React.FC<InternalNotificationCente
                       <div className="text-[9px] text-slate-400 font-mono">
                         Canais externos: E-mail (Aguardando) • Teams (Aguardando)
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div
+                        className="flex items-center gap-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {(notif.action_url || notif.type === 'REWORK') && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleNotificationActionClick(notif)
+                            }}
+                            className="h-6 px-2 text-[10px] font-bold bg-[#004C97] hover:bg-blue-800 text-white"
+                          >
+                            <ArrowRight className="w-3 h-3 mr-1" />
+                            Ir à Programação
+                          </Button>
+                        )}
                         {notif.order_number && onSelectOrder && (
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation()
                               onSelectOrder(notif.order_number!)
                               onClose()
                             }}
@@ -246,7 +350,10 @@ export const InternalNotificationCenterModal: React.FC<InternalNotificationCente
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleMarkAsRead(notif.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleMarkAsRead(notif.id)
+                            }}
                             className="h-6 px-2 text-[10px] text-slate-500 hover:text-slate-800"
                           >
                             <Check className="w-3 h-3 mr-1" />

@@ -95,6 +95,7 @@ import {
   AddReworkItemModal,
   SelectedLotReworkConfig,
 } from '@/components/weekly-schedule/AddReworkItemModal'
+import { PcpReworkService } from '@/services/pcp-rework-service'
 import { WeeklyScheduleModalErrorBoundary } from '@/components/weekly-schedule/WeeklyScheduleModalErrorBoundary'
 import { LocalErrorBoundary } from '@/components/common/LocalErrorBoundary'
 import { DerivedProgrammingModal } from '@/components/weekly-schedule/DerivedProgrammingModal'
@@ -2731,6 +2732,42 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           description:
             'As programações vinculadas não foram apagadas para preservar a rastreabilidade.',
           variant: 'destructive',
+        })
+      }
+
+      // 4. Se o item for de RETRABALHO, emitir notificação interna do tipo REMOVED
+      const isReworkItem =
+        target.is_rework === true ||
+        target.rework_batch !== undefined ||
+        target.rework_details !== undefined ||
+        target.rework_info !== undefined ||
+        selectedProgrammingType === 'REWORK' ||
+        target.pcp_notes?.startsWith('[RETRABALHO]')
+
+      if (isReworkItem) {
+        const lotNumber =
+          target.rework_batch ||
+          target.rework_info?.rework_lot ||
+          target.rework_details?.lot_number ||
+          target.batch_number ||
+          ''
+        const reworkReason =
+          target.rework_reason ||
+          target.rework_info?.rework_reason ||
+          target.rework_details?.rework_reason ||
+          'Remoção pelo operador na programação'
+
+        PcpReworkService.notifyReworkEvent('REMOVED', {
+          materialCode: target.material_code,
+          lotNumber: lotNumber,
+          reason: reworkReason,
+          targetCenter: selectedLineCode || headerFilter.lineCode,
+          line: selectedLineCode || headerFilter.lineCode,
+        }).catch((notifErr) => {
+          console.warn(
+            '[WeeklyScheduleOperationalPage] Falha ao notificar remoção de item de retrabalho:',
+            notifErr,
+          )
         })
       }
 

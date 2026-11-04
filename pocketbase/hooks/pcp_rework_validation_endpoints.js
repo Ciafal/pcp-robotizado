@@ -58,6 +58,38 @@ routerAdd('POST', '/backend/v1/pcp/rework/validate-stock', (e) => {
 
             // Diferença tolerada de 0.001 toneladas
             if (Math.abs(currentAvailable - queriedAvailable) > 0.001) {
+              // Emissão de notificação na falha de revalidação de estoque (tipo REWORK / estoque alterado)
+              try {
+                if ($app.hasTable && $app.hasTable('pcp_internal_notifications')) {
+                  const notifCol = $app.findCollectionByNameOrId('pcp_internal_notifications')
+                  const notif = new Record(notifCol)
+                  const pad = (n) => String(n).padStart(2, '0')
+                  const d = new Date()
+                  const code = `NOTIF-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+                  const targetLine = reworkCenterCode || item.rework_center_code || 'L1'
+                  notif.set('notification_code', code)
+                  notif.set('target_audience', 'PCP')
+                  notif.set('type', 'REWORK')
+                  notif.set('title', 'Estoque de lote alterado na confirmação')
+                  notif.set(
+                    'message',
+                    `O lote ${item.lot_number} do material ${item.material_code} teve alteração de saldo antes da confirmação. Saldo disponível atual: ${currentAvailable} ${item.unit || 't'}.`,
+                  )
+                  notif.set('material_code', item.material_code)
+                  notif.set('line', targetLine)
+                  notif.set('action_url', `/pcp/montagem-semanal?line=${targetLine}`)
+                  notif.set('severity', 'WARNING')
+                  notif.set('is_read', false)
+                  notif.set('timestamp', d.toISOString())
+                  $app.save(notif)
+                }
+              } catch (nErr) {
+                console.log(
+                  '[REWORK-STOCK-VALIDATION] Erro ao gravar notificação interna de estoque alterado:',
+                  nErr,
+                )
+              }
+
               return e.json(409, {
                 code: 'STOCK_CHANGED',
                 message: `O estoque deste lote foi alterado desde a consulta. Disponível atualmente: ${currentAvailable} ${item.unit || 't'}. Revise a quantidade antes de continuar.`,
