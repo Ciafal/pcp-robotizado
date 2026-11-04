@@ -52,7 +52,9 @@ import {
   AlertTriangle,
   RefreshCw,
   Plus,
+  BoxSelect as TarugoIcon,
 } from 'lucide-react'
+import { TarugoPlansTab } from '@/components/mp-optimization/TarugoPlansTab'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { ResponsiveHorizontalNav } from '@/components/common/ResponsiveHorizontalNav'
@@ -74,6 +76,7 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
   const validTabs = useMemo(
     () => [
       'CENARIOS',
+      'PLANO_TARUGOS',
       'CORTE_MULTIPLO',
       'HISTORICO',
       'NOVO_PLANO',
@@ -580,6 +583,11 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                 icon: Sliders,
               },
               {
+                id: 'PLANO_TARUGOS',
+                label: 'Plano Tarugos',
+                icon: TarugoIcon,
+              },
+              {
                 id: 'CORTE_MULTIPLO',
                 label: 'Plano de Corte Múltiplo',
                 badge: (
@@ -721,6 +729,11 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
             <span className="text-[10px] text-rose-600">Qualidade/SAP</span>
           </div>
         </div>
+
+        {/* ABA: PLANO TARUGOS */}
+        <TabsContent value="PLANO_TARUGOS" className="space-y-4">
+          <TarugoPlansTab />
+        </TabsContent>
 
         {/* ABA 3: PLANO BLOCOS (Integrada aos Padrões de Peso para Corte) */}
         <TabsContent value="CENARIOS" className="space-y-4">

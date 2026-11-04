@@ -19,7 +19,6 @@ import {
 import {
   tarugoPlansService,
   type TarugoPlanRecord,
-  type TarugoPlanInput,
   type ValidationError,
 } from '@/services/tarugo-plans-service'
 
@@ -45,7 +44,7 @@ export function TarugoPlanDuplicateModal({ source, onClose, onDuplicated }: Prop
     }
   }, [source])
 
-  const payload: TarugoPlanInput | null = useMemo(() => {
+  const payload = useMemo(() => {
     if (!source) return null
     return {
       company: source.company,
@@ -53,18 +52,6 @@ export function TarugoPlanDuplicateModal({ source, onClose, onDuplicated }: Prop
       line: source.line,
       cutting_plan: planCode.trim(),
       plan_description: description,
-      status: 'Ativo',
-      main_material_code: source.main_material_code,
-      main_description: source.main_description || '',
-      main_steel_family: source.main_steel_family || '',
-      main_supplier_code: source.main_supplier_code || '',
-      main_supplier_name: source.main_supplier_name || '',
-      main_dimension_section: source.main_dimension_section || '',
-      main_length_m: source.main_length_m,
-      main_length_min_m: source.main_length_min_m ?? undefined,
-      main_length_max_m: source.main_length_max_m ?? undefined,
-      main_weight_kg: source.main_weight_kg,
-      alternatives: (source.alternatives || []).map((a) => ({ ...a })),
     }
   }, [source, planCode, description])
 
@@ -79,9 +66,7 @@ export function TarugoPlanDuplicateModal({ source, onClose, onDuplicated }: Prop
       setErrors([{ field: 'cutting_plan', message: 'Informe o novo código do Plano de Corte.' }])
       return
     }
-    if (
-      payload.cutting_plan.toUpperCase() === source.cutting_plan.toUpperCase()
-    ) {
+    if (payload.cutting_plan.toUpperCase() === source.cutting_plan.toUpperCase()) {
       setErrors([
         {
           field: 'cutting_plan',
@@ -108,7 +93,7 @@ export function TarugoPlanDuplicateModal({ source, onClose, onDuplicated }: Prop
         )
         return
       }
-      await tarugoPlansService.duplicatePlan(source, payload.cutting_plan, description)
+      await tarugoPlansService.duplicatePlan(source, payload.cutting_plan)
       toast.success(`Plano de Tarugos ${payload.cutting_plan} salvo com sucesso.`)
       onDuplicated()
     } catch (err: any) {

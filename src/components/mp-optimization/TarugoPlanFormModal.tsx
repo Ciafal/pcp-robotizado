@@ -222,8 +222,12 @@ export function TarugoPlanFormModal({ open, editing, onClose, onSaved }: Props) 
       main_supplier_name: form.main_supplier_name,
       main_dimension_section: form.main_dimension_section,
       main_length_m: num(form.main_length_m) ?? 0,
-      main_length_min_m: form.use_length_range ? num(form.main_length_min_m) ?? undefined : undefined,
-      main_length_max_m: form.use_length_range ? num(form.main_length_max_m) ?? undefined : undefined,
+      main_length_min_m: form.use_length_range
+        ? (num(form.main_length_min_m) ?? undefined)
+        : undefined,
+      main_length_max_m: form.use_length_range
+        ? (num(form.main_length_max_m) ?? undefined)
+        : undefined,
       main_weight_kg: num(form.main_weight_kg) ?? 0,
       alternatives: form.alternatives.map(({ _key, ...rest }) => ({
         ...rest,
@@ -369,9 +373,7 @@ export function TarugoPlanFormModal({ open, editing, onClose, onSaved }: Props) 
                   onChange={(e) => set('cutting_plan', e.target.value)}
                 />
                 {errBelow('cutting_plan')}
-                {duplicateKeyError && (
-                  <p className="text-xs text-red-600">{duplicateKeyError}</p>
-                )}
+                {duplicateKeyError && <p className="text-xs text-red-600">{duplicateKeyError}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label>Status *</Label>
@@ -539,7 +541,9 @@ export function TarugoPlanFormModal({ open, editing, onClose, onSaved }: Props) 
                           step="0.1"
                           min="0"
                           value={alt.weight_kg || ''}
-                          onChange={(e) => setAlt(alt._key, { weight_kg: Number(e.target.value) || 0 })}
+                          onChange={(e) =>
+                            setAlt(alt._key, { weight_kg: Number(e.target.value) || 0 })
+                          }
                         />
                         {errBelow(`alt_weight_${idx}`)}
                       </div>
@@ -549,7 +553,9 @@ export function TarugoPlanFormModal({ open, editing, onClose, onSaved }: Props) 
                           type="number"
                           min="1"
                           value={alt.quantity || ''}
-                          onChange={(e) => setAlt(alt._key, { quantity: Number(e.target.value) || 0 })}
+                          onChange={(e) =>
+                            setAlt(alt._key, { quantity: Number(e.target.value) || 0 })
+                          }
                         />
                         {errBelow(`alt_quantity_${idx}`)}
                       </div>
@@ -560,7 +566,9 @@ export function TarugoPlanFormModal({ open, editing, onClose, onSaved }: Props) 
                           step="0.01"
                           min="0"
                           value={alt.length_m || ''}
-                          onChange={(e) => setAlt(alt._key, { length_m: Number(e.target.value) || 0 })}
+                          onChange={(e) =>
+                            setAlt(alt._key, { length_m: Number(e.target.value) || 0 })
+                          }
                         />
                       </div>
                       <div className="space-y-1.5 sm:col-span-2 lg:col-span-4">

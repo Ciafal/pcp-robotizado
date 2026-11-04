@@ -4,11 +4,7 @@
  * Comprimento | Fornecedor | Status) + ações Editar/Duplicar/Inativar/Histórico.
  */
 import { useState } from 'react'
-import {
-  Copy,
-  History,
-  Pencil,
-} from 'lucide-react'
+import { Copy, History, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -117,10 +113,16 @@ export function TarugoPlanDetailModal({ plan, onClose, onEdit, onDuplicate, onHi
             <Field label="Seção/Dimensão" value={plan.main_dimension_section} />
             <Field label="Comprimento" value={tarugoFormatters.meters(plan.main_length_m)} />
             {plan.main_length_min_m != null && (
-              <Field label="Comprimento mínimo" value={tarugoFormatters.meters(plan.main_length_min_m)} />
+              <Field
+                label="Comprimento mínimo"
+                value={tarugoFormatters.meters(plan.main_length_min_m)}
+              />
             )}
             {plan.main_length_max_m != null && (
-              <Field label="Comprimento máximo" value={tarugoFormatters.meters(plan.main_length_max_m)} />
+              <Field
+                label="Comprimento máximo"
+                value={tarugoFormatters.meters(plan.main_length_max_m)}
+              />
             )}
             <Field label="Peso padrão do tarugo" value={tarugoFormatters.kg(plan.main_weight_kg)} />
           </div>
@@ -153,7 +155,9 @@ export function TarugoPlanDetailModal({ plan, onClose, onEdit, onDuplicate, onHi
                     .map((alt, i) => (
                       <TableRow key={`${alt.material_code}-${i}`}>
                         <TableCell>{alt.priority}</TableCell>
-                        <TableCell className="font-mono text-xs">{alt.material_code || '—'}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {alt.material_code || '—'}
+                        </TableCell>
                         <TableCell className="max-w-[220px] truncate">
                           {alt.description || 'Dados não disponíveis'}
                         </TableCell>
@@ -185,7 +189,12 @@ export function TarugoPlanDetailModal({ plan, onClose, onEdit, onDuplicate, onHi
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onEdit(plan)}>
               <Pencil className="h-3.5 w-3.5" /> Editar
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onDuplicate(plan)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => onDuplicate(plan)}
+            >
               <Copy className="h-3.5 w-3.5" /> Duplicar
             </Button>
           </Can>

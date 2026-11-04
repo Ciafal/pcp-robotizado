@@ -52,7 +52,8 @@ export function useHierarchyOptions(): TarugoHierarchyData {
         })
       } catch (err) {
         console.warn('[TarugoHierarchy] Falha ao carregar hierarquia:', err)
-        if (isMounted) setData((d) => ({ ...d, companies: [], centers: [], lines: [], loading: false }))
+        if (isMounted)
+          setData((d) => ({ ...d, companies: [], centers: [], lines: [], loading: false }))
       }
     }
     load()

@@ -54,6 +54,41 @@ export interface TarugoPlanRecord {
   created: string
 }
 
+export type TarugoPlan = TarugoPlanRecord
+export type TarugoPlanInput = {
+  company: string
+  center: string
+  line: string
+  cutting_plan: string
+  plan_description?: string
+  status: 'Ativo' | 'Inativo'
+  main_material_code: string
+  main_description?: string
+  main_steel_family?: string
+  main_supplier_code?: string
+  main_supplier_name?: string
+  main_dimension_section?: string
+  main_length_m: number
+  main_length_min_m?: number
+  main_length_max_m?: number
+  main_weight_kg: number
+  alternatives: TarugoAlternative[]
+}
+export type CreateTarugoPlanInput = TarugoPlanInput
+export type TarugoPlanAuditLog = {
+  id: string
+  acao: string
+  detalhes: string
+  data_hora: string
+  usuario_nome?: string
+  usuario_email?: string
+  plano_corte: string
+  empresa: string
+  centro: string
+  valores_anteriores?: any
+  valores_novos?: any
+}
+
 export interface TarugoPlanFilters {
   search?: string
   company?: string
@@ -164,10 +199,12 @@ class TarugoPlansService {
     if (filters?.line) clauses.push(`line="${filters.line.replace(/"/g, '')}"`)
     if (filters?.cuttingPlan)
       clauses.push(`cutting_plan="${filters.cuttingPlan.replace(/"/g, '')}"`)
-    if (filters?.material) clauses.push(`main_material_code="${filters.material.replace(/"/g, '')}"`)
+    if (filters?.material)
+      clauses.push(`main_material_code="${filters.material.replace(/"/g, '')}"`)
     if (filters?.steelFamily)
       clauses.push(`main_steel_family="${filters.steelFamily.replace(/"/g, '')}"`)
-    if (filters?.supplier) clauses.push(`main_supplier_name="${filters.supplier.replace(/"/g, '')}"`)
+    if (filters?.supplier)
+      clauses.push(`main_supplier_name="${filters.supplier.replace(/"/g, '')}"`)
     if (filters?.status && filters.status !== 'Todos') {
       clauses.push(`status="${filters.status}"`)
     }
@@ -203,13 +240,11 @@ class TarugoPlansService {
     cutting_plan: string
   }): Promise<TarugoPlanRecord | null> {
     const esc = (v: string) => String(v).replace(/"/g, '')
-    const records = await pb
-      .collection(COLLECTION)
-      .getFullList({
-        filter: `company="${esc(params.company)}" && center="${esc(params.center)}" && line="${esc(
-          params.line,
-        )}" && cutting_plan="${esc(params.cutting_plan)}"`,
-      })
+    const records = await pb.collection(COLLECTION).getFullList({
+      filter: `company="${esc(params.company)}" && center="${esc(params.center)}" && line="${esc(
+        params.line,
+      )}" && cutting_plan="${esc(params.cutting_plan)}"`,
+    })
     return records.length ? mapRecord(records[0]) : null
   }
 
@@ -217,11 +252,7 @@ class TarugoPlansService {
    * Interface de consulta para o motor (contrato estável):
    * centro/linha/família/material/peso padrão + alternativas permitidas por prioridade.
    */
-  async getCuttingEngineOptions(params: {
-    company: string
-    center: string
-    line: string
-  }): Promise<
+  async getCuttingEngineOptions(params: { company: string; center: string; line: string }): Promise<
     Array<{
       cutting_plan: string
       steel_family: string
@@ -269,7 +300,8 @@ class TarugoPlansService {
       errors.push({ field: 'company', message: 'Informe a Empresa.' })
     if (!input.center || !input.center.trim())
       errors.push({ field: 'center', message: 'Informe o Centro.' })
-    if (!input.line || !input.line.trim()) errors.push({ field: 'line', message: 'Informe a Linha.' })
+    if (!input.line || !input.line.trim())
+      errors.push({ field: 'line', message: 'Informe a Linha.' })
     if (!input.cutting_plan || !input.cutting_plan.trim())
       errors.push({ field: 'cutting_plan', message: 'Informe o Plano de Corte.' })
     if (!input.main_material_code || !input.main_material_code.trim())
@@ -634,6 +666,23 @@ class TarugoPlansService {
       new_state: r.new_state || undefined,
       details: r.details || '',
       event_timestamp: r.event_timestamp || r.created,
+    }))
+  }
+
+  async getPlanAuditLogs(planId: string): Promise<TarugoPlanAuditLog[]> {
+    const history = await this.listHistory(planId)
+    return history.map((h) => ({
+      id: h.id,
+      acao: h.event_type,
+      detalhes: h.details || h.event_label,
+      data_hora: h.event_timestamp,
+      usuario_nome: h.user_name,
+      usuario_email: h.user_email,
+      plano_corte: h.cutting_plan,
+      empresa: h.company,
+      centro: h.center,
+      valores_anteriores: h.previous_state,
+      valores_novos: h.new_state,
     }))
   }
 }
