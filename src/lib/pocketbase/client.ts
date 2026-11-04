@@ -1,6 +1,8 @@
 import PocketBase from 'pocketbase'
 
-export const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL)
-pb.autoCancellation(false)
+const pbInstance = new PocketBase(import.meta.env.VITE_POCKETBASE_URL)
+pbInstance.autoCancellation(false)
 
-export default pb
+// Export duplo permanente: regressão crônica nº 21+ do projeto — NÃO remover.
+export const pb = pbInstance
+export default pbInstance

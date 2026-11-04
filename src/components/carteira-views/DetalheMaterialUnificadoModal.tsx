@@ -43,6 +43,7 @@ import {
 } from '@/services/cobertura-temporal-engine'
 import { ClipboardCheck, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { MaterialHistoricoAlteracoesSection } from './MaterialHistoricoAlteracoesSection'
+import { MaterialReworkHistorySection } from './MaterialReworkHistorySection'
 
 export interface DetalheMaterialUnificadoModalProps {
   isOpen: boolean
@@ -1151,6 +1152,12 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
 
           {/* SEÇÃO 6: HISTÓRICO DE ALTERAÇÕES DO ITEM */}
           <MaterialHistoricoAlteracoesSection
+            materialCode={materialCodigo || materialProp || ''}
+            materialDescricao={descricao}
+          />
+
+          {/* SEÇÃO 7: HISTÓRICO DE RETRABALHO DO MATERIAL */}
+          <MaterialReworkHistorySection
             materialCode={materialCodigo || materialProp || ''}
             materialDescricao={descricao}
           />
