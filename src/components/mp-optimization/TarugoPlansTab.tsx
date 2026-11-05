@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Can } from '@/components/auth/Can'
+import { usePermission } from '@/components/auth/Can'
 import {
   tarugoPlansService,
   tarugoFormatters,
@@ -72,6 +72,8 @@ export function TarugoPlansTab() {
   const [busy, setBusy] = useState(false)
   const hierarchy = useHierarchyOptions()
   const [filters, setFilters] = useState<TarugoPlanFilters>(emptyFilters())
+  const { canAny } = usePermission()
+  const canManageTarugoPlans = canAny(['pcp.mp_opt.simulate', 'pcp.mp_opt.modify_app'])
 
   const loadPlans = async () => {
     setLoading(true)
@@ -178,7 +180,7 @@ export function TarugoPlansTab() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Can permission="PCP_PROGRAMMER">
+          {canManageTarugoPlans && (
             <Button
               onClick={() => setFormOpen(true)}
               disabled={loading}
@@ -191,7 +193,7 @@ export function TarugoPlansTab() {
               )}
               <span>+ Criar Plano</span>
             </Button>
-          </Can>
+          )}
         </div>
       </div>
 
@@ -338,11 +340,11 @@ export function TarugoPlansTab() {
               <p className="text-sm text-slate-600">
                 Nenhum Plano de Tarugos encontrado para os filtros selecionados.
               </p>
-              <Can permission="PCP_PROGRAMMER">
+              {canManageTarugoPlans && (
                 <Button className="mt-3" onClick={() => setFormOpen(true)}>
                   Cadastrar primeiro plano
                 </Button>
-              </Can>
+              )}
             </div>
           ) : (
             <>
@@ -414,47 +416,49 @@ export function TarugoPlansTab() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Can permission="PCP_PROGRAMMER">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => {
-                                  setEditingPlan(plan)
-                                  setFormOpen(true)
-                                }}
-                                title="Editar"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => setDuplicateSource(plan)}
-                                title="Duplicar plano"
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => setConfirmAction({ kind: 'toggle', plan })}
-                                title={plan.status === 'Ativo' ? 'Inativar' : 'Ativar'}
-                              >
-                                <Activity className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => setConfirmAction({ kind: 'delete', plan })}
-                                title="Excluir (exclusão lógica)"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </Can>
+                            {canManageTarugoPlans && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => {
+                                    setEditingPlan(plan)
+                                    setFormOpen(true)
+                                  }}
+                                  title="Editar"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => setDuplicateSource(plan)}
+                                  title="Duplicar plano"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => setConfirmAction({ kind: 'toggle', plan })}
+                                  title={plan.status === 'Ativo' ? 'Inativar' : 'Ativar'}
+                                >
+                                  <Activity className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => setConfirmAction({ kind: 'delete', plan })}
+                                  title="Excluir (exclusão lógica)"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"

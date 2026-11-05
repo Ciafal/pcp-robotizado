@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Can } from '@/components/auth/Can'
+import { usePermission } from '@/components/auth/Can'
 import type { TarugoPlanRecord } from '@/services/tarugo-plans-service'
 import { tarugoFormatters } from '@/services/tarugo-plans-service'
 
@@ -36,6 +36,8 @@ interface Props {
 
 export function TarugoPlanDetailModal({ plan, onClose, onEdit, onDuplicate, onHistory }: Props) {
   const [tab, setTab] = useState<'identificacao' | 'principal' | 'alternativas'>('identificacao')
+  const { canAny } = usePermission()
+  const canManageTarugoPlans = canAny(['pcp.mp_opt.simulate', 'pcp.mp_opt.modify_app'])
 
   const Field = ({ label, value }: { label: string; value?: string | number | null }) => (
     <div className="space-y-0.5">
@@ -185,19 +187,21 @@ export function TarugoPlanDetailModal({ plan, onClose, onEdit, onDuplicate, onHi
         )}
 
         <div className="flex flex-wrap justify-end gap-2 border-t pt-3">
-          <Can permission="PCP_PROGRAMMER">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onEdit(plan)}>
-              <Pencil className="h-3.5 w-3.5" /> Editar
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => onDuplicate(plan)}
-            >
-              <Copy className="h-3.5 w-3.5" /> Duplicar
-            </Button>
-          </Can>
+          {canManageTarugoPlans && (
+            <>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onEdit(plan)}>
+                <Pencil className="h-3.5 w-3.5" /> Editar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => onDuplicate(plan)}
+              >
+                <Copy className="h-3.5 w-3.5" /> Duplicar
+              </Button>
+            </>
+          )}
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onHistory(plan)}>
             <History className="h-3.5 w-3.5" /> Histórico
           </Button>
