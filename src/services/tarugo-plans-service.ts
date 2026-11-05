@@ -134,8 +134,8 @@ export interface ValidationError {
   message: string
 }
 
-const COLLECTION = 'pc_tarugo_plans'
-const HISTORY_COLLECTION = 'pc_tarugo_plan_history'
+const COLLECTION = 'pcp_tarugo_cut_plans'
+const HISTORY_COLLECTION = 'pcp_tarugo_plan_history'
 
 function mapRecord(rec: any): TarugoPlanRecord {
   return {
@@ -210,20 +210,26 @@ class TarugoPlansService {
     }
 
     let records: any[] = []
-    if (filters?.search && filters.search.trim()) {
-      const q = filters.search.trim().replace(/"/g, '')
-      const searchClause = `(cutting_plan~"${q}" || main_material_code~"${q}" || main_description~"${q}" || main_supplier_name~"${q}" || main_steel_family~"${q}")`
-      const baseFilter = clauses.length ? clauses.join(' && ') : ''
-      const finalFilter = baseFilter ? `${searchClause} && (${baseFilter})` : searchClause
-      records = await pb.collection(COLLECTION).getFullList({
-        filter: finalFilter,
-        sort: '-created',
-      })
-    } else {
-      records = await pb.collection(COLLECTION).getFullList({
-        filter: clauses.length ? clauses.join(' && ') : '',
-        sort: '-created',
-      })
+    try {
+      if (filters?.search && filters.search.trim()) {
+        const q = filters.search.trim().replace(/"/g, '')
+        const searchClause = `(cutting_plan~"${q}" || main_material_code~"${q}" || main_description~"${q}" || main_supplier_name~"${q}" || main_steel_family~"${q}")`
+        const baseFilter = clauses.length ? clauses.join(' && ') : ''
+        const finalFilter = baseFilter ? `${searchClause} && (${baseFilter})` : searchClause
+        records = await pb.collection(COLLECTION).getFullList({
+          filter: finalFilter,
+          sort: '-created',
+        })
+      } else {
+        const finalFilter = clauses.length ? clauses.join(' && ') : undefined
+        records = await pb.collection(COLLECTION).getFullList({
+          filter: finalFilter,
+          sort: '-created',
+        })
+      }
+    } catch (err) {
+      console.warn(`[tarugoPlansService] Falha ao consultar ${COLLECTION}:`, err)
+      return []
     }
 
     return records.map(mapRecord)
@@ -240,12 +246,17 @@ class TarugoPlansService {
     cutting_plan: string
   }): Promise<TarugoPlanRecord | null> {
     const esc = (v: string) => String(v).replace(/"/g, '')
-    const records = await pb.collection(COLLECTION).getFullList({
-      filter: `company="${esc(params.company)}" && center="${esc(params.center)}" && line="${esc(
-        params.line,
-      )}" && cutting_plan="${esc(params.cutting_plan)}"`,
-    })
-    return records.length ? mapRecord(records[0]) : null
+    try {
+      const records = await pb.collection(COLLECTION).getFullList({
+        filter: `company="${esc(params.company)}" && center="${esc(params.center)}" && line="${esc(
+          params.line,
+        )}" && cutting_plan="${esc(params.cutting_plan)}"`,
+      })
+      return records.length ? mapRecord(records[0]) : null
+    } catch (err) {
+      console.warn(`[tarugoPlansService] Falha ao consultar ${COLLECTION} getPlanByKey:`, err)
+      return null
+    }
   }
 
   /**
@@ -649,24 +660,29 @@ class TarugoPlansService {
 
   /** Histórico do plano, mais recente primeiro. */
   async listHistory(planId: string): Promise<TarugoPlanHistoryEntry[]> {
-    const records = await pb
-      .collection(HISTORY_COLLECTION)
-      .getFullList({ filter: `plan_record_id="${planId.replace(/"/g, '')}"`, sort: '-created' })
-    return records.map((r: any) => ({
-      id: r.id,
-      cutting_plan: r.cutting_plan || '',
-      company: r.company || '',
-      center: r.center || '',
-      line: r.line || '',
-      event_type: r.event_type,
-      event_label: TARUGO_EVENT_LABELS[r.event_type] || r.event_type,
-      user_name: r.user_name || '',
-      user_email: r.user_email || '',
-      previous_state: r.previous_state || undefined,
-      new_state: r.new_state || undefined,
-      details: r.details || '',
-      event_timestamp: r.event_timestamp || r.created,
-    }))
+    try {
+      const records = await pb
+        .collection(HISTORY_COLLECTION)
+        .getFullList({ filter: `plan_record_id="${planId.replace(/"/g, '')}"`, sort: '-created' })
+      return records.map((r: any) => ({
+        id: r.id,
+        cutting_plan: r.cutting_plan || '',
+        company: r.company || '',
+        center: r.center || '',
+        line: r.line || '',
+        event_type: r.event_type,
+        event_label: TARUGO_EVENT_LABELS[r.event_type] || r.event_type,
+        user_name: r.user_name || '',
+        user_email: r.user_email || '',
+        previous_state: r.previous_state || undefined,
+        new_state: r.new_state || undefined,
+        details: r.details || '',
+        event_timestamp: r.event_timestamp || r.created,
+      }))
+    } catch (err) {
+      console.warn(`[tarugoPlansService] Falha ao consultar ${HISTORY_COLLECTION}:`, err)
+      return []
+    }
   }
 
   async getPlanAuditLogs(planId: string): Promise<TarugoPlanAuditLog[]> {

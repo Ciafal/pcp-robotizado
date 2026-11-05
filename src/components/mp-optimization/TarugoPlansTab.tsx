@@ -3,7 +3,7 @@
  *
  * Listagem, filtros combinados, cadastro grande (3 blocos), detalhamento,
  * duplicação, ativar/inativar, exclusão lógica e histórico — operações reais
- * contra a collection pc_tarugo_plans via tarugoPlansService.
+ * contra a collection pcp_tarugo_cut_plans via tarugoPlansService.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'

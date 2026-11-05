@@ -68,8 +68,9 @@ describe('TarugoPlansService - Cenários C1 a C7 de Plano Tarugos', () => {
           weight_kg: 0, // inválido
           quantity: 0, // inválido
           material_code: '', // inválido
+          description: '',
           length_m: -1, // inválido
-          priority: 1,
+          priority: '1ª opção',
           status: 'Ativo' as const,
         },
       ],
@@ -98,8 +99,9 @@ describe('TarugoPlansService - Cenários C1 a C7 de Plano Tarugos', () => {
           weight_kg: 525,
           quantity: 2,
           material_code: 'ALT-1020-A',
+          description: 'Alt A',
           length_m: 12,
-          priority: 1,
+          priority: '1ª opção',
           status: 'Ativo' as const,
         },
         {
@@ -107,8 +109,9 @@ describe('TarugoPlansService - Cenários C1 a C7 de Plano Tarugos', () => {
           weight_kg: 525,
           quantity: 1,
           material_code: 'ALT-1020-A', // duplicado
+          description: 'Alt A duplicada',
           length_m: 12,
-          priority: 2,
+          priority: '2ª opção',
           status: 'Ativo' as const,
         },
       ],
@@ -135,9 +138,9 @@ describe('TarugoPlansService - Cenários C1 a C7 de Plano Tarugos', () => {
           quantity: 2,
           material_code: 'ALT-1020-01',
           description: 'Tarugo 130 - Alternativa 1',
-          supplier: 'ArcelorMittal',
+          supplier_name: 'ArcelorMittal',
           length_m: 12,
-          priority: 1,
+          priority: '1ª opção',
           status: 'Ativo' as const,
         },
         {
@@ -146,9 +149,9 @@ describe('TarugoPlansService - Cenários C1 a C7 de Plano Tarugos', () => {
           quantity: 1,
           material_code: 'ALT-1020-02',
           description: 'Tarugo 130 - Alternativa 2',
-          supplier: 'Sidercentro',
+          supplier_name: 'Sidercentro',
           length_m: 12,
-          priority: 2,
+          priority: '2ª opção',
           status: 'Ativo' as const,
         },
       ],
