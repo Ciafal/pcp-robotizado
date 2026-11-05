@@ -15,16 +15,23 @@ import {
   ArrowUpDown,
   Building2,
   Package,
+  Info,
 } from 'lucide-react'
 import { CarteiraItem, StatusRuptura, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CarteiraSDCItem } from '@/types/carteira-sdc'
-import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { formatNumberPTBR, formatDatePTBR, formatPercentagePTBR } from '@/lib/formatters-ptbr'
 import {
   CurvaAbcFaturamentoEngine,
   CurvaAbcResultadoConsolidado,
   ItemCurvaAbcCalculado,
 } from '@/services/curva-abc-faturamento-engine'
+import {
+  OPCOES_ORDENACAO_CARTEIRA_GERAL,
+  OrdenacaoCarteiraGeralOpcao,
+  enriquecerItensCarteiraGeral,
+  ordenarItensCarteiraGeral,
+  ItemCarteiraGeralEnriquecido,
+} from '@/services/carteira-geral-ordenacao-engine'
 import { CurvaAbcParametrosBackend } from '@/services/sap-carteira-rfc-service'
 import { PortfolioCardsGrid, PortfolioCardMetric } from './PortfolioCardsGrid'
 import { PortfolioDrilldown } from './PortfolioDrilldown'
@@ -77,6 +84,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
   const [filtroEspecial, setFiltroEspecial] = useState<
     'NENHUM' | 'DEFICIT' | 'SEM_PROG' | 'RUPTURA' | 'EXCESSO'
   >('NENHUM')
+  const [ordenarPor, setOrdenarPor] = useState<OrdenacaoCarteiraGeralOpcao>('MATERIAL_DESCRICAO')
   const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
   const [pagina, setPagina] = useState(1)
   const itensPorPagina = 25
@@ -523,8 +531,17 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     filtroEspecial,
   ])
 
-  const totalPaginas = Math.ceil(itensFiltrados.length / itensPorPagina) || 1
-  const itensExibidos = itensFiltrados.slice((pagina - 1) * itensPorPagina, pagina * itensPorPagina)
+  // Itens enriquecidos com métricas temporais e ordenados em tempo real
+  const itensEnriquecidosEOrdenados: ItemCarteiraGeralEnriquecido[] = useMemo(() => {
+    const enriquecidos = enriquecerItensCarteiraGeral(itensFiltrados, entradasFuturas)
+    return ordenarItensCarteiraGeral(enriquecidos, ordenarPor)
+  }, [itensFiltrados, entradasFuturas, ordenarPor])
+
+  const totalPaginas = Math.ceil(itensEnriquecidosEOrdenados.length / itensPorPagina) || 1
+  const itensExibidos = itensEnriquecidosEOrdenados.slice(
+    (pagina - 1) * itensPorPagina,
+    pagina * itensPorPagina,
+  )
 
   // Disparar abertura de detalhe do material original - SEMPRE resolutivo, NUNCA silencioso
   const handleAbrirDetalhe = (itemCalc: ItemCurvaAbcCalculado) => {
@@ -718,6 +735,28 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                   </option>
                 ))}
               </select>
+
+              {/* Filtro Ordenar por (18 opções reais) */}
+              <div className="flex items-center gap-1.5 bg-blue-50/60 p-1 rounded-lg border border-blue-200">
+                <span className="text-[11px] font-bold text-[#004C97] whitespace-nowrap pl-1 flex items-center gap-1">
+                  <ArrowUpDown className="w-3 h-3 text-[#004C97]" />
+                  Ordenar por:
+                </span>
+                <select
+                  value={ordenarPor}
+                  onChange={(e) => {
+                    setOrdenarPor(e.target.value as OrdenacaoCarteiraGeralOpcao)
+                    setPagina(1)
+                  }}
+                  className="text-xs py-1 px-2 rounded-md border border-blue-300 bg-white text-slate-800 font-bold focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                >
+                  {OPCOES_ORDENACAO_CARTEIRA_GERAL.map((op) => (
+                    <option key={op.id} value={op.id}>
+                      {op.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -747,6 +786,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                   setFiltroSaldo('TODOS')
                   setFiltroRuptura('TODOS')
                   setFiltroEspecial('NENHUM')
+                  setOrdenarPor('MATERIAL_DESCRICAO')
                   setPagina(1)
                 }}
                 className="border-slate-300 text-slate-600 hover:bg-slate-50 text-xs h-7"
@@ -758,88 +798,167 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
         </CardContent>
       </Card>
 
-      {/* Tabela Consolidada de Materiais */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#004C97] text-white text-[11px] select-none">
+      {/* Tabela Consolidada de Materiais - 17 Colunas Estritas com Rolagem Horizontal Interna */}
+      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs max-w-full">
+        <div className="overflow-x-auto max-w-full scrollbar-thin">
+          <table className="w-full text-left text-xs border-collapse min-w-[1550px]">
+            <thead className="bg-[#004C97] text-white text-[11px] select-none sticky top-0 z-10 shadow-xs">
               <tr>
-                <th className="p-2.5 font-bold">Material / Descrição</th>
-                <th className="p-2.5 font-bold text-center">Linha</th>
-                <th className="p-2.5 font-bold text-center">Centro</th>
-                <th className="p-2.5 font-bold text-center">Curva ABC</th>
-                <th className="p-2.5 font-bold text-right">Carteira (t)</th>
-                <th className="p-2.5 font-bold text-right">Estoque Disp. (t)</th>
-                <th className="p-2.5 font-bold text-right">Programado (t)</th>
-                <th className="p-2.5 font-bold text-right">Déficit (t)</th>
-                <th className="p-2.5 font-bold text-right">Saldo Proj. (t)</th>
-                <th className="p-2.5 font-bold text-right">Faturamento (t)</th>
-                <th className="p-2.5 font-bold text-right">% Indiv.</th>
-                <th className="p-2.5 font-bold text-center">Risco</th>
-                <th className="p-2.5 font-bold text-center">Ações</th>
+                {/* 1. Código (congelada à esquerda para boa usabilidade) */}
+                <th className="p-2.5 font-bold sticky left-0 z-20 bg-[#004C97] min-w-[120px] shadow-[2px_0_4px_-1px_rgba(0,0,0,0.15)]">
+                  Código
+                </th>
+
+                {/* 2. Material / Descrição */}
+                <th className="p-2.5 font-bold min-w-[240px]">Material / Descrição</th>
+
+                {/* 3. Linha */}
+                <th className="p-2.5 font-bold text-center min-w-[80px]">Linha</th>
+
+                {/* 4. Centro */}
+                <th className="p-2.5 font-bold text-center min-w-[70px]">Centro</th>
+
+                {/* 5. Curva ABC */}
+                <th className="p-2.5 font-bold text-center min-w-[85px]">Curva ABC</th>
+
+                {/* 6. Carteira (t) */}
+                <th className="p-2.5 font-bold text-right min-w-[105px]">Carteira (t)</th>
+
+                {/* 7. Estoque disponível (t) */}
+                <th className="p-2.5 font-bold text-right min-w-[130px]">Estoque disponível (t)</th>
+
+                {/* 8. Programado (t) */}
+                <th className="p-2.5 font-bold text-right min-w-[110px]">Programado (t)</th>
+
+                {/* 9. Déficit (t) */}
+                <th className="p-2.5 font-bold text-right min-w-[95px]">Déficit (t)</th>
+
+                {/* 10. Saldo projetado (t) */}
+                <th className="p-2.5 font-bold text-right min-w-[120px]">Saldo projetado (t)</th>
+
+                {/* 11. Média diária faturamento (t/dia) */}
+                <th
+                  className="p-2.5 font-bold text-right min-w-[145px]"
+                  title="Média física faturada em toneladas no período considerado."
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Média diária faturamento (t/dia)</span>
+                    <Info className="w-3 h-3 text-blue-200 shrink-0" />
+                  </div>
+                </th>
+
+                {/* 12. Dias de estoque */}
+                <th
+                  className="p-2.5 font-bold text-center min-w-[115px]"
+                  title="Estimativa de quantos dias o estoque atual suporta considerando o faturamento médio."
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Dias de estoque</span>
+                    <Info className="w-3 h-3 text-blue-200 shrink-0" />
+                  </div>
+                </th>
+
+                {/* 13. Data fim estoque */}
+                <th
+                  className="p-2.5 font-bold text-center min-w-[120px]"
+                  title="Data projetada de ruptura considerando estoque, consumo e programação disponível."
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Data fim estoque</span>
+                    <Info className="w-3 h-3 text-blue-200 shrink-0" />
+                  </div>
+                </th>
+
+                {/* 14. Dias estoque negativo */}
+                <th
+                  className="p-2.5 font-bold text-center min-w-[130px]"
+                  title="Quantidade estimada de dias em que o saldo projetado permanecerá abaixo de zero antes da recomposição."
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Dias estoque negativo</span>
+                    <Info className="w-3 h-3 text-blue-200 shrink-0" />
+                  </div>
+                </th>
+
+                {/* 15. Representatividade fat. (%) */}
+                <th
+                  className="p-2.5 font-bold text-right min-w-[135px]"
+                  title="Participação percentual do material no faturamento físico em toneladas dentro do universo filtrado."
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>Representatividade fat. (%)</span>
+                    <Info className="w-3 h-3 text-blue-200 shrink-0" />
+                  </div>
+                </th>
+
+                {/* 16. Risco */}
+                <th className="p-2.5 font-bold text-center min-w-[85px]">Risco</th>
+
+                {/* 17. Detalhes */}
+                <th className="p-2.5 font-bold text-center min-w-[100px]">Detalhes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {itensExibidos.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="p-8 text-center text-slate-500">
-                    Nenhum material encontrado com os filtros aplicados.
+                  <td colSpan={17} className="p-8 text-center text-slate-500">
+                    Nenhum material encontrado para os filtros selecionados.
                   </td>
                 </tr>
               ) : (
-                itensExibidos.map((it, idx) => {
-                  let textoFaturamentoTons = 'Dado não disponível'
-                  try {
-                    const itemOrig = it.origemItemOriginal as CarteiraItem | undefined
-                    const qtdFaturada =
-                      itemOrig &&
-                      typeof itemOrig.qtd_faturada_tons === 'number' &&
-                      !isNaN(itemOrig.qtd_faturada_tons)
-                        ? itemOrig.qtd_faturada_tons
-                        : null
-                    if (qtdFaturada !== null && qtdFaturada > 0) {
-                      textoFaturamentoTons = `${formatNumberPTBR(qtdFaturada, 2)} t`
-                    } else {
-                      textoFaturamentoTons = 'Dado não disponível'
-                    }
-                  } catch {
-                    textoFaturamentoTons = 'Informação temporariamente indisponível'
-                  }
+                itensExibidos.map((enriq, idx) => {
+                  const it = enriq.item
+                  const isLinhaCritica = it.curva_abc === 'A' && it.deficit_tons > 0
 
                   return (
                     <tr
                       key={it.codigo_material + idx}
                       onClick={() => handleAbrirDetalhe(it)}
                       className={`hover:bg-blue-50/50 transition-colors text-[11px] cursor-pointer ${
-                        it.curva_abc === 'A' && it.deficit_tons > 0
-                          ? 'bg-rose-50/30'
-                          : idx % 2 === 0
-                            ? 'bg-white'
-                            : 'bg-slate-50/30'
+                        isLinhaCritica
+                          ? 'bg-rose-50/35'
+                          : enriq.isEstoqueNegativo && it.saldo_projetado_tons < 0
+                            ? 'bg-amber-50/25'
+                            : idx % 2 === 0
+                              ? 'bg-white'
+                              : 'bg-slate-50/30'
                       }`}
                     >
-                      <td className="p-2.5">
-                        <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
-                          {it.codigo_material}
+                      {/* 1. Código (congelada) */}
+                      <td className="p-2.5 font-mono font-bold text-slate-900 sticky left-0 z-1 bg-inherit shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">
+                        <div className="flex items-center gap-1.5">
+                          <span>{it.codigo_material}</span>
                           {it.curva_abc === 'A' && (
-                            <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[9px] font-bold">
+                            <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[9px] font-bold px-1 py-0">
                               A
                             </Badge>
                           )}
                         </div>
-                        <span className="text-[10px] text-slate-500 block truncate max-w-[220px]">
-                          {it.descricao_material}
+                      </td>
+
+                      {/* 2. Material / Descrição */}
+                      <td className="p-2.5">
+                        <span
+                          className="text-slate-800 font-medium block truncate max-w-[260px]"
+                          title={it.descricao_material}
+                        >
+                          {it.descricao_material || 'Sem descrição cadastrada'}
                         </span>
                       </td>
 
+                      {/* 3. Linha */}
                       <td className="p-2.5 text-center">
                         <Badge className="bg-slate-100 text-[#004C97] font-bold border-slate-200 text-[10px]">
                           {it.linha}
                         </Badge>
                       </td>
 
-                      <td className="p-2.5 text-center font-mono text-slate-600">{it.centro}</td>
+                      {/* 4. Centro */}
+                      <td className="p-2.5 text-center font-mono text-slate-600 font-semibold">
+                        {it.centro}
+                      </td>
 
+                      {/* 5. Curva ABC */}
                       <td className="p-2.5 text-center font-bold">
                         <span
                           className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
@@ -851,41 +970,102 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                           }`}
                         >
                           {it.curva_abc || 'C'}
-                        </span>{' '}
+                        </span>
                       </td>
 
+                      {/* 6. Carteira (t) */}
                       <td className="p-2.5 text-right font-mono font-bold text-blue-950">
-                        {formatNumberPTBR(it.carteira_tons, 2)}
+                        {formatNumberPTBR(it.carteira_tons, 2)} t
                       </td>
 
-                      <td className="p-2.5 text-right font-mono text-slate-700">
-                        {formatNumberPTBR(it.estoque_disponivel_tons, 2)}
+                      {/* 7. Estoque disponível (t) */}
+                      <td className="p-2.5 text-right font-mono text-slate-700 font-medium">
+                        {formatNumberPTBR(it.estoque_disponivel_tons, 2)} t
                       </td>
 
+                      {/* 8. Programado (t) */}
                       <td className="p-2.5 text-right font-mono text-indigo-700 font-semibold">
-                        {formatNumberPTBR(it.programado_tons, 2)}
+                        {formatNumberPTBR(it.programado_tons, 2)} t
                       </td>
 
+                      {/* 9. Déficit (t) */}
                       <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                        {it.deficit_tons > 0 ? formatNumberPTBR(it.deficit_tons, 2) : '-'}
+                        {it.deficit_tons > 0
+                          ? `${formatNumberPTBR(it.deficit_tons, 2)} t`
+                          : '0,00 t'}
                       </td>
 
+                      {/* 10. Saldo projetado (t) */}
                       <td
                         className={`p-2.5 text-right font-mono font-bold ${
                           it.saldo_projetado_tons < 0 ? 'text-rose-700' : 'text-emerald-700'
                         }`}
                       >
-                        {formatNumberPTBR(it.saldo_projetado_tons, 2)}
+                        {formatNumberPTBR(it.saldo_projetado_tons, 2)} t
                       </td>
 
-                      <td className="p-2.5 text-right font-mono text-slate-900">
-                        {textoFaturamentoTons}
+                      {/* 11. Média diária faturamento (t/dia) */}
+                      <td className="p-2.5 text-right font-mono text-slate-800">
+                        {enriq.mediaDiariaTexto === 'Sem consumo histórico' ? (
+                          <span className="text-slate-400 text-[10px] italic">
+                            Sem consumo histórico
+                          </span>
+                        ) : (
+                          <span className="font-semibold">{enriq.mediaDiariaTexto}</span>
+                        )}
                       </td>
 
-                      <td className="p-2.5 text-right font-mono text-slate-700">
-                        {formatPercentagePTBR(it.participacao_individual_pct, 2)}
+                      {/* 12. Dias de estoque */}
+                      <td className="p-2.5 text-center font-mono">
+                        {enriq.diasEstoqueTexto === 'Sem consumo histórico' ? (
+                          <span className="text-slate-400 text-[10px] italic">
+                            Sem consumo histórico
+                          </span>
+                        ) : (
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              enriq.diasEstoqueNivel === 'CRITICO'
+                                ? 'bg-rose-100 text-rose-900 border border-rose-200'
+                                : enriq.diasEstoqueNivel === 'ATENCAO'
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                  : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                            }`}
+                          >
+                            {enriq.diasEstoqueTexto}
+                          </span>
+                        )}
                       </td>
 
+                      {/* 13. Data fim estoque */}
+                      <td className="p-2.5 text-center font-mono text-slate-700">
+                        {enriq.dataFimEstoqueTexto === 'Sem previsão' ? (
+                          <span className="text-slate-400 text-[10px] italic">Sem previsão</span>
+                        ) : (
+                          <span className="font-semibold text-slate-900">
+                            {enriq.dataFimEstoqueTexto}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 14. Dias estoque negativo */}
+                      <td className="p-2.5 text-center font-mono">
+                        {enriq.isEstoqueNegativo ? (
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            {enriq.diasEstoqueNegativoTexto}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600 text-[10px]">
+                            {enriq.diasEstoqueNegativoTexto}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 15. Representatividade fat. (%) */}
+                      <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                        {enriq.representatividadeFatTexto}
+                      </td>
+
+                      {/* 16. Risco */}
                       <td className="p-2.5 text-center">
                         <Badge
                           className={`text-[9px] font-bold ${
@@ -900,14 +1080,16 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                         </Badge>
                       </td>
 
+                      {/* 17. Detalhes */}
                       <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => handleAbrirDetalhe(it)}
-                          className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
+                          className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-bold gap-1"
+                          title="Ver detalhes do material"
                         >
-                          <Eye className="w-3 h-3" /> Ficha
+                          <Eye className="w-3 h-3 text-[#004C97]" /> Ver detalhes
                         </Button>
                       </td>
                     </tr>
@@ -922,7 +1104,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
         <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
           <span>
             Exibindo <strong>{itensExibidos.length}</strong> de{' '}
-            <strong>{itensFiltrados.length}</strong> materiais
+            <strong>{itensEnriquecidosEOrdenados.length}</strong> materiais
           </span>
           <div className="flex items-center gap-1.5">
             <Button
