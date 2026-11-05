@@ -145,7 +145,16 @@ describe('lineGaugeRestrictionService e Auditoria', () => {
   })
 
   it('11. Criação de restrição chama pcpAuditService com detalhes completos', async () => {
-    const logSpy = vi.spyOn(pcpAuditService, 'logAction').mockResolvedValue(true)
+    const logSpy = vi.spyOn(pcpAuditService, 'recordLog').mockResolvedValue({
+      id: 'audit_test_1',
+      event_id: 'LOG-TEST',
+      created: '2026-11-05T12:00:00Z',
+      action: 'Criação de Restrição Mínima: Horas - 8 Horas',
+      event_type: 'Criação',
+      source: 'Usuário',
+      status: 'Concluída',
+      outcome: 'SUCCESS',
+    } as any)
 
     // Mock lineGaugeRestrictionService.create
     const fakeRecord: LineGaugeMinRestriction = {
@@ -156,27 +165,27 @@ describe('lineGaugeRestrictionService e Auditoria', () => {
       reason: 'Permanência mínima na mesma bitola',
       reason_category: 'Sequenciamento',
       rule_description: 'Manter no mínimo 8 horas consecutivas de produção da mesma bitola',
-      min_value: '8.00',
+      min_value: 8,
       min_value_numeric: 8,
       unit_of_measure: 'Horas',
       unit: 'Horas',
       status: 'ATIVA',
-      created_by_user: 'pcp_admin',
-      updated_by_user: 'pcp_admin',
+      created_by_user_id: 'pcp_admin',
+      updated_by_user_id: 'pcp_admin',
       created: '2026-11-05T12:00:00Z',
       updated: '2026-11-05T12:00:00Z',
     }
 
     vi.spyOn(lineGaugeRestrictionService, 'create').mockImplementation(async (payload) => {
-      await pcpAuditService.logAction({
+      await pcpAuditService.recordLog({
         module: 'CADASTROS',
         screen: 'CENTROS_FICHA_MESTRA',
         action: 'CRIAR_RESTRICAO_MINIMA',
         record_id: fakeRecord.id,
         user_name: 'pcp_admin',
-        summary: `Criou restrição mínima do tipo "${payload.restriction_type}" para o centro ${payload.line_code || payload.line_id}`,
-        old_value: null,
-        new_value: {
+        reason: payload.reason,
+        event_type: 'Criação',
+        details: {
           restriction_type: payload.restriction_type,
           reason: payload.reason,
           rule_description: payload.rule_description,
@@ -204,7 +213,8 @@ describe('lineGaugeRestrictionService e Auditoria', () => {
       expect.objectContaining({
         action: 'CRIAR_RESTRICAO_MINIMA',
         record_id: 'restr_test_1',
-        new_value: expect.objectContaining({
+        reason: 'Permanência mínima na mesma bitola',
+        details: expect.objectContaining({
           restriction_type: 'Horas',
           reason: 'Permanência mínima na mesma bitola',
         }),
@@ -261,12 +271,12 @@ describe('lineGaugeRestrictionService e Auditoria', () => {
       line_code: 'LAM-01',
       restriction_type: 'Horas',
       rule_description: 'Regra antiga sem motivo preenchido',
-      min_value: '12.00',
+      min_value: 12,
       min_value_numeric: 12,
       unit_of_measure: 'Horas',
       status: 'ATIVA',
-      created_by_user: 'legado',
-      updated_by_user: 'legado',
+      created_by_name: 'legado',
+      updated_by_name: 'legado',
     }
 
     expect(legacyRecord.reason).toBeUndefined()

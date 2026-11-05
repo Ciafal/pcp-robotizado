@@ -14,6 +14,70 @@ export type OfficialRestrictionType =
 
 export type RestrictionType = OfficialRestrictionType | string
 
+export const RESTRICTION_TYPES: OfficialRestrictionType[] = [
+  'Horas',
+  'Dias',
+  'Quantidade',
+  'Carga de Enfornamento',
+  'Qualidade',
+  'Montagem',
+  'Sequenciamento',
+]
+
+export const ORDERED_RESTRICTION_TYPES: OfficialRestrictionType[] = RESTRICTION_TYPES
+
+export const RESTRICTION_TYPE_LABELS: Record<OfficialRestrictionType, string> = {
+  Horas: 'Horas',
+  Dias: 'Dias',
+  Quantidade: 'Quantidade',
+  'Carga de Enfornamento': 'Carga de Enfornamento',
+  Qualidade: 'Qualidade',
+  Montagem: 'Montagem',
+  Sequenciamento: 'Sequenciamento',
+}
+
+export interface RestrictionTypeOption {
+  order: number
+  value: OfficialRestrictionType
+  label: string
+  defaultUnit: string
+}
+
+export const RESTRICTION_TYPE_OPTIONS: RestrictionTypeOption[] = [
+  { order: 1, value: 'Horas', label: 'Horas', defaultUnit: 'h' },
+  { order: 2, value: 'Dias', label: 'Dias', defaultUnit: 'dias' },
+  { order: 3, value: 'Quantidade', label: 'Quantidade', defaultUnit: 't' },
+  { order: 4, value: 'Carga de Enfornamento', label: 'Carga de Enfornamento', defaultUnit: 't' },
+  { order: 5, value: 'Qualidade', label: 'Qualidade', defaultUnit: 'peças' },
+  { order: 6, value: 'Montagem', label: 'Montagem', defaultUnit: 'h' },
+  { order: 7, value: 'Sequenciamento', label: 'Sequenciamento', defaultUnit: 'peças' },
+]
+
+export const QUANTITY_UNITS: string[] = ['t', 'peças', 'm', 'kg']
+
+export type RestrictionUnit = 'h' | 'dias' | 't' | 'peças' | 'm' | 'kg' | 'min' | string
+
+export const DEFAULT_UNITS_BY_TYPE: Record<OfficialRestrictionType, string> = {
+  Horas: 'h',
+  Dias: 'dias',
+  Quantidade: 't',
+  'Carga de Enfornamento': 't',
+  Qualidade: 'peças',
+  Montagem: 'h',
+  Sequenciamento: 'peças',
+}
+
+export const RESTRICTION_RULE_PLACEHOLDERS: Record<OfficialRestrictionType, string> = {
+  Horas: 'Ex.: Manter no mínimo 8 horas consecutivas na mesma bitola para viabilidade operacional',
+  Dias: 'Ex.: Produzir no mínimo 2 dias na mesma campanha antes de trocar ferramentais',
+  Quantidade: 'Ex.: Lote mínimo de 50t para justificar setup e rendimento térmico do forno',
+  'Carga de Enfornamento': 'Ex.: Carga mínima de enfornamento de 30t para manter perfil térmico',
+  Qualidade:
+    'Ex.: Mínimo 10 peças após acerto de bitola para liberação da CQ antes de acelerar ritmo',
+  Montagem: 'Ex.: Tempo mínimo de 4h de montagem de cilindros e guias antes de liberar laminação',
+  Sequenciamento: 'Ex.: Mínimo 100 barras da bitola base antes de transição para bitola fina',
+}
+
 export type RestrictionStatus = 'ATIVA' | 'INATIVA'
 
 export interface LineGaugeMinRestriction {

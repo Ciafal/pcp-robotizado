@@ -411,25 +411,50 @@ export {
   DEFAULT_UNITS_BY_TYPE,
   RESTRICTION_RULE_PLACEHOLDERS,
   type RestrictionType,
-  type CreateGaugeMinRestrictionDTO,
-  type UpdateGaugeMinRestrictionDTO,
-  type GaugeRestrictionEvaluationResult,
+  type RestrictionUnit,
+  type LineGaugeMinRestriction,
+  type GaugeMinRestrictionEvaluation as GaugeRestrictionEvaluationResult,
 } from './line-gauge-restriction'
-
 export type ReasonItem = RestrictionReasonItem
-export const RESTRICTION_REASONS_CATALOG = ALL_RESTRICTION_REASONS
+export const RESTRICTION_REASONS_CATALOG = ALL_RESTRICTION_REASONS.map((item) => ({
+  ...item,
+  reason: item.label,
+}))
 
 export function getReasonCategory(reason: string): string {
   return REASON_TO_CATEGORY_MAP[reason] || 'Outros'
 }
 
+export type PrioritizedReasonItem = RestrictionReasonItem & {
+  reason: string
+}
+
 export function getPrioritizedReasonsForType(
   type: RestrictionType,
-): Array<{ reason: string; category: string }> {
+): Array<PrioritizedReasonItem> & {
+  prioritized: PrioritizedReasonItem[]
+  others: PrioritizedReasonItem[]
+  prioritizedCount: number
+} {
   const result = getOrderedRestrictionReasons(type)
-  const combined = [...result.prioritized, ...result.others]
-  return combined.map((item) => ({
+  const mapItem = (item: RestrictionReasonItem): PrioritizedReasonItem => ({
+    ...item,
     reason: item.label,
-    category: item.category,
-  }))
+  })
+
+  const prioritizedMapped = result.prioritized.map(mapItem)
+  const othersMapped = result.others.map(mapItem)
+  const combined = [...prioritizedMapped, ...othersMapped]
+
+  const output = combined as Array<PrioritizedReasonItem> & {
+    prioritized: PrioritizedReasonItem[]
+    others: PrioritizedReasonItem[]
+    prioritizedCount: number
+  }
+
+  output.prioritized = prioritizedMapped
+  output.others = othersMapped
+  output.prioritizedCount = prioritizedMapped.length
+
+  return output
 }
