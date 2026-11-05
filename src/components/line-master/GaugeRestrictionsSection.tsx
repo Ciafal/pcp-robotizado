@@ -49,26 +49,21 @@ import {
   AlertTriangle,
   Info,
   Layers,
+  Flame,
+  ShieldCheck,
+  Wrench,
+  Shuffle,
+  FileText,
 } from 'lucide-react'
-
-// Opções iniciais expansíveis
-const RESTRICTION_TYPES: { label: string; value: RestrictionType; defaultUnit: string }[] = [
-  { label: 'Horas', value: 'Horas', defaultUnit: 'h' },
-  { label: 'Dias', value: 'Dias', defaultUnit: 'dia' },
-  { label: 'Quantidade', value: 'Quantidade', defaultUnit: 't' },
-]
-
-// Unidades produtivas cadastradas no sistema/Centro/Ficha Mestra
-const QUANTITY_UNITS = [
-  't',
-  'kg',
-  'peças',
-  'metros',
-  'unidades',
-  'barras',
-  'tarugos',
-  'palanquilhas',
-]
+import {
+  ORDERED_RESTRICTION_TYPES,
+  RESTRICTION_TYPE_OPTIONS,
+  RESTRICTION_RULE_PLACEHOLDERS,
+  DEFAULT_UNITS_BY_TYPE,
+  QUANTITY_UNITS,
+  getReasonCategory,
+} from '@/types/restriction-reasons-catalog'
+import { RestrictionReasonSelect } from './RestrictionReasonSelect'
 
 interface GaugeRestrictionsSectionProps {
   lineCode: string
@@ -101,11 +96,20 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
 
   // Campos do formulário do modal
   const [formType, setFormType] = useState<RestrictionType>('Horas')
-  const [formMinValue, setFormMinValue] = useState<string>('')
+  const [formReason, setFormReason] = useState<string>('')
+  const [formReasonCategory, setFormReasonCategory] = useState<string>('')
+  const [formMinValue, setFormMinValue] = useState<string>('1')
   const [formUnit, setFormUnit] = useState<string>('h')
   const [formRule, setFormRule] = useState<string>('')
   const [formStatus, setFormStatus] = useState<RestrictionStatus>('ATIVA')
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{
+    type?: string
+    reason?: string
+    rule?: string
+    unit?: string
+    minValue?: string
+  }>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Diálogo de confirmação para Inativar
@@ -119,65 +123,125 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
   const handleOpenCreateModal = () => {
     setEditingItem(null)
     setFormType('Horas')
-    setFormMinValue('')
+    setFormReason('')
+    setFormReasonCategory('')
+    setFormMinValue('1')
     setFormUnit('h')
     setFormRule('')
     setFormStatus('ATIVA')
     setValidationError(null)
+    setFieldErrors({})
     setModalOpen(true)
   }
 
   const handleOpenEditModal = (item: LineGaugeMinRestriction) => {
     setEditingItem(item)
-    setFormType(item.restriction_type || 'Horas')
-    setFormMinValue(String(item.min_value ?? ''))
-    setFormUnit(
-      item.unit_of_measure ||
-        (item.restriction_type === 'Horas' ? 'h' : item.restriction_type === 'Dias' ? 'dia' : 't'),
+    const currentType = (item.restriction_type as RestrictionType) || 'Horas'
+    setFormType(currentType)
+    setFormReason(item.reason || '')
+    setFormReasonCategory(
+      item.reason_category || (item.reason ? getReasonCategory(item.reason) : ''),
     )
+    setFormMinValue(String(item.min_value ?? item.min_value_numeric ?? '1'))
+    setFormUnit(item.unit_of_measure || item.unit || DEFAULT_UNITS_BY_TYPE[currentType] || 'un')
     setFormRule(item.rule_description || '')
     setFormStatus(item.status || 'ATIVA')
     setValidationError(null)
+    setFieldErrors({})
     setModalOpen(true)
   }
 
   const handleTypeChange = (newType: RestrictionType) => {
     setFormType(newType)
+    setFieldErrors((prev) => ({ ...prev, type: undefined }))
     if (newType === 'Horas') {
       setFormUnit('h')
     } else if (newType === 'Dias') {
       setFormUnit('dia')
     } else if (newType === 'Quantidade') {
-      setFormUnit((prev) => (QUANTITY_UNITS.includes(prev) ? prev : 't'))
+      setFormUnit((prev) => (QUANTITY_UNITS.includes(prev as any) ? prev : 't'))
+    } else {
+      setFormUnit(DEFAULT_UNITS_BY_TYPE[newType] || 'un')
+    }
+  }
+
+  const handleReasonChange = (reason: string, category: string) => {
+    setFormReason(reason)
+    setFormReasonCategory(category)
+    if (reason) {
+      setFieldErrors((prev) => ({ ...prev, reason: undefined }))
+      if (validationError) setValidationError(null)
     }
   }
 
   const handleSaveModal = async () => {
-    // Validações estritas
-    const numValue = Number(formMinValue)
+    // Validações estritas campo a campo com mensagens claras abaixo e foco no primeiro erro
+    const errors: {
+      type?: string
+      reason?: string
+      rule?: string
+      unit?: string
+      minValue?: string
+    } = {}
 
-    if (!formType || !formMinValue.trim() || isNaN(numValue) || numValue <= 0 || !formRule.trim()) {
-      setValidationError('Preencha os campos obrigatórios da restrição mínima.')
-      toast({
-        variant: 'destructive',
-        title: 'Validação',
-        description: 'Preencha os campos obrigatórios da restrição mínima.',
-      })
-      return
+    if (!formType) {
+      errors.type = 'Selecione o Tipo da Restrição.'
+    }
+
+    if (!formReason || !formReason.trim()) {
+      errors.reason = 'O Motivo da Restrição é obrigatório. Selecione uma opção da lista.'
+    }
+
+    if (!formRule || !formRule.trim()) {
+      errors.rule = 'O campo Restrição / Regra é obrigatório. Descreva a regra operacional.'
+    }
+
+    const numValue = formMinValue.trim() ? Number(formMinValue) : NaN
+    const isQuantitativeType =
+      formType === 'Horas' || formType === 'Dias' || formType === 'Quantidade'
+
+    if (isQuantitativeType) {
+      if (!formMinValue.trim() || isNaN(numValue) || numValue <= 0) {
+        errors.minValue = 'Informe um valor numérico válido maior que zero.'
+      }
     }
 
     if (formType === 'Quantidade' && !formUnit.trim()) {
-      setValidationError('Unidade de Medida é obrigatória para restrições por Quantidade.')
+      errors.unit = 'Unidade de Medida é obrigatória para restrições por Quantidade.'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setValidationError('Preencha todos os campos obrigatórios destacados abaixo.')
       toast({
         variant: 'destructive',
-        title: 'Validação',
-        description: 'Unidade de Medida é obrigatória para restrições por Quantidade.',
+        title: 'Campos obrigatórios não preenchidos',
+        description: 'Revise os campos destacados em vermelho antes de salvar.',
       })
+
+      // Foco no primeiro erro
+      setTimeout(() => {
+        if (errors.type) {
+          document.getElementById('tipo-restricao-select')?.focus()
+        } else if (errors.reason) {
+          document.getElementById('motivo-restricao-input')?.focus()
+        } else if (errors.minValue) {
+          document.getElementById('valor-minimo-input')?.focus()
+        } else if (errors.rule) {
+          document.getElementById('restricao-regra-textarea')?.focus()
+        }
+      }, 50)
+
       return
     }
 
+    setFieldErrors({})
     setValidationError(null)
     setIsSubmitting(true)
+
+    const effectiveMinValue = !isNaN(numValue) && numValue > 0 ? numValue : 1
+    const effectiveUnit = formUnit.trim() || DEFAULT_UNITS_BY_TYPE[formType] || 'un'
+    const category = formReasonCategory || getReasonCategory(formReason)
 
     try {
       if (editingItem) {
@@ -185,10 +249,15 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
         if (onUpdateRestriction) {
           await onUpdateRestriction(editingItem.id, {
             restriction_type: formType,
-            min_value: numValue,
-            unit_of_measure: formUnit.trim(),
+            reason: formReason.trim(),
+            reason_category: category,
+            min_value: effectiveMinValue,
+            min_value_numeric: effectiveMinValue,
+            unit_of_measure: effectiveUnit,
+            unit: effectiveUnit,
             rule_description: formRule.trim(),
             status: formStatus,
+            is_active: formStatus === 'ATIVA',
           })
         }
         toast({
@@ -202,10 +271,15 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
             line_id: lineId,
             line_code: lineCode,
             restriction_type: formType,
-            min_value: numValue,
-            unit_of_measure: formUnit.trim(),
+            reason: formReason.trim(),
+            reason_category: category,
+            min_value: effectiveMinValue,
+            min_value_numeric: effectiveMinValue,
+            unit_of_measure: effectiveUnit,
+            unit: effectiveUnit,
             rule_description: formRule.trim(),
             status: formStatus,
+            is_active: formStatus === 'ATIVA',
           })
         }
         toast({
@@ -277,6 +351,14 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
         return <Calendar className="w-3.5 h-3.5 text-indigo-600" />
       case 'Quantidade':
         return <Scale className="w-3.5 h-3.5 text-amber-600" />
+      case 'Carga de Enfornamento':
+        return <Flame className="w-3.5 h-3.5 text-orange-600" />
+      case 'Qualidade':
+        return <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+      case 'Montagem':
+        return <Wrench className="w-3.5 h-3.5 text-cyan-600" />
+      case 'Sequenciamento':
+        return <Shuffle className="w-3.5 h-3.5 text-purple-600" />
       default:
         return <Layers className="w-3.5 h-3.5 text-slate-600" />
     }
@@ -340,6 +422,7 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider">
               <tr>
                 <th className="py-2 px-3">Tipo</th>
+                <th className="py-2 px-3">Motivo</th>
                 <th className="py-2 px-3">Mínimo</th>
                 <th className="py-2 px-3">Unidade</th>
                 <th className="py-2 px-3">Restrição / Regra</th>
@@ -359,15 +442,36 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
                     }`}
                   >
                     <td className="py-2.5 px-3 font-medium">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
                         {getTypeIcon(item.restriction_type)}
                         <span>{item.restriction_type}</span>
                       </div>
                     </td>
-                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
-                      {item.min_value}
+                    <td className="py-2.5 px-3">
+                      {item.reason ? (
+                        <div className="space-y-0.5">
+                          <span
+                            className="font-medium text-slate-900 block truncate max-w-[180px]"
+                            title={item.reason}
+                          >
+                            {item.reason}
+                          </span>
+                          {item.reason_category && (
+                            <span className="text-[9px] text-slate-400 block truncate max-w-[180px]">
+                              {item.reason_category}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-[11px]">Não especificado</span>
+                      )}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-600">{item.unit_of_measure}</td>
+                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                      {item.min_value ?? item.min_value_numeric ?? '-'}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">
+                      {item.unit_of_measure || item.unit || '-'}
+                    </td>
                     <td className="py-2.5 px-3 text-[11px] max-w-xs break-words">
                       {item.rule_description}
                     </td>
@@ -471,13 +575,14 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
 
       {/* Modal Criar / Editar Restrição Mínima */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-md bg-white border-slate-200 text-xs">
+        <DialogContent className="max-w-md sm:max-w-lg bg-white border-slate-200 text-xs">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold text-slate-900">
+            <DialogTitle className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-[#004C97]" />
               {editingItem ? 'Editar Restrição Mínima' : 'Criar Restrição Mínima'}
             </DialogTitle>
             <DialogDescription className="text-[11px] text-slate-500">
-              Parametrize as regras mínimas para a permanência na bitola antes da troca.
+              Parametrize as regras mínimas operacionais do centro para auditoria e controle do PCP.
             </DialogDescription>
           </DialogHeader>
 
@@ -485,89 +590,160 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
             {validationError && (
               <div className="p-2.5 bg-rose-50 border border-rose-200 rounded text-rose-700 text-xs flex items-center gap-1.5 font-medium">
                 <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-                {validationError}
+                <span>{validationError}</span>
               </div>
             )}
 
-            {/* 1. Tipo / Unidade da Restrição * */}
+            {/* 1. Tipo da Restrição * (7 opções ordenadas) */}
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-slate-700">Tipo da Restrição *</Label>
+              <Label
+                htmlFor="tipo-restricao-select"
+                className="text-xs font-semibold text-slate-700"
+              >
+                Tipo da Restrição *
+              </Label>
               <select
+                id="tipo-restricao-select"
                 value={formType}
                 onChange={(e) => handleTypeChange(e.target.value as RestrictionType)}
-                className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
+                className={`w-full bg-slate-50 border rounded px-2.5 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97] ${
+                  fieldErrors.type ? 'border-rose-500 bg-rose-50/40' : 'border-slate-300'
+                }`}
               >
-                {RESTRICTION_TYPES.map((t) => (
+                {RESTRICTION_TYPE_OPTIONS.map((t) => (
                   <option key={t.value} value={t.value}>
-                    {t.label}
+                    {t.order}. {t.label}
                   </option>
                 ))}
               </select>
+              {fieldErrors.type && (
+                <p className="text-[11px] text-rose-600 font-medium">{fieldErrors.type}</p>
+              )}
             </div>
 
-            {/* 2. Valor Mínimo * e Unidade de Medida */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">Valor Mínimo *</Label>
-                <Input
-                  type="number"
-                  min="0.1"
-                  step="any"
-                  value={formMinValue}
-                  onChange={(e) => {
-                    setFormMinValue(e.target.value)
-                    if (validationError) setValidationError(null)
-                  }}
-                  placeholder="Ex: 8, 100, 1"
-                  className="h-8 text-xs font-mono font-bold bg-slate-50"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">
-                  {formType === 'Quantidade' ? 'Unidade de Medida *' : 'Unidade'}
-                </Label>
-                {formType === 'Quantidade' ? (
-                  <select
-                    value={formUnit}
-                    onChange={(e) => setFormUnit(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
-                  >
-                    {QUANTITY_UNITS.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <Input
-                    readOnly
-                    value={formType === 'Horas' ? 'Horas (h)' : 'Dias'}
-                    className="h-8 text-xs bg-slate-100 text-slate-600 font-mono cursor-not-allowed"
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* 3. Restrição / Regra * */}
+            {/* 2. Motivo da Restrição * (Novo campo obrigatório, pesquisável, rolagem interna, ordenado por relevância ao Tipo) */}
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-slate-700">Restrição / Regra *</Label>
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="motivo-restricao-input"
+                  className="text-xs font-semibold text-slate-700"
+                >
+                  Motivo da Restrição *
+                </Label>
+                <span className="text-[10px] text-slate-400">
+                  Sugestões priorizadas para: <strong className="text-slate-600">{formType}</strong>
+                </span>
+              </div>
+              <RestrictionReasonSelect
+                id="motivo-restricao-input"
+                value={formReason}
+                onChange={handleReasonChange}
+                restrictionType={formType}
+                hasError={Boolean(fieldErrors.reason)}
+              />
+              {fieldErrors.reason && (
+                <p className="text-[11px] text-rose-600 font-medium">{fieldErrors.reason}</p>
+              )}
+            </div>
+
+            {/* 3. Restrição / Regra * (com placeholder dinâmico por tipo) */}
+            <div className="space-y-1">
+              <Label
+                htmlFor="restricao-regra-textarea"
+                className="text-xs font-semibold text-slate-700"
+              >
+                Restrição / Regra *
+              </Label>
               <Textarea
+                id="restricao-regra-textarea"
                 rows={3}
                 value={formRule}
                 onChange={(e) => {
                   setFormRule(e.target.value)
+                  if (fieldErrors.rule) setFieldErrors((prev) => ({ ...prev, rule: undefined }))
                   if (validationError) setValidationError(null)
                 }}
-                placeholder="Ex: Manter no mínimo 8 horas consecutivas de produção da mesma bitola antes de permitir troca."
-                className="text-xs bg-slate-50 resize-none"
+                placeholder={RESTRICTION_RULE_PLACEHOLDERS[formType]}
+                className={`text-xs bg-slate-50 resize-none ${
+                  fieldErrors.rule ? 'border-rose-500 bg-rose-50/40' : 'border-slate-300'
+                }`}
               />
-              <p className="text-[10px] text-slate-400">
-                Descreva claramente a regra operacional para auditoria e acompanhamento do PCP.
-              </p>
+              {fieldErrors.rule ? (
+                <p className="text-[11px] text-rose-600 font-medium">{fieldErrors.rule}</p>
+              ) : (
+                <p className="text-[10px] text-slate-400">
+                  Descreva claramente a regra operacional para auditoria e acompanhamento do PCP.
+                </p>
+              )}
             </div>
 
-            {/* 4. Status (Ativa / Inativa) */}
+            {/* 4. Valor Mínimo e Unidade de Medida (compatibilidade quantitativa quando aplicável) */}
+            {(formType === 'Horas' || formType === 'Dias' || formType === 'Quantidade') && (
+              <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50/70 border border-slate-200 rounded">
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="valor-minimo-input"
+                    className="text-[11px] font-semibold text-slate-700"
+                  >
+                    Valor Mínimo *
+                  </Label>
+                  <Input
+                    id="valor-minimo-input"
+                    type="number"
+                    min="0.1"
+                    step="any"
+                    value={formMinValue}
+                    onChange={(e) => {
+                      setFormMinValue(e.target.value)
+                      if (fieldErrors.minValue)
+                        setFieldErrors((prev) => ({ ...prev, minValue: undefined }))
+                      if (validationError) setValidationError(null)
+                    }}
+                    placeholder="Ex: 8, 100, 1"
+                    className={`h-7 text-xs font-mono font-bold bg-white ${
+                      fieldErrors.minValue ? 'border-rose-500 bg-rose-50/40' : 'border-slate-300'
+                    }`}
+                  />
+                  {fieldErrors.minValue && (
+                    <p className="text-[10px] text-rose-600 font-medium">{fieldErrors.minValue}</p>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-slate-700">
+                    {formType === 'Quantidade' ? 'Unidade de Medida *' : 'Unidade'}
+                  </Label>
+                  {formType === 'Quantidade' ? (
+                    <select
+                      value={formUnit}
+                      onChange={(e) => {
+                        setFormUnit(e.target.value)
+                        if (fieldErrors.unit)
+                          setFieldErrors((prev) => ({ ...prev, unit: undefined }))
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded px-2 h-7 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
+                    >
+                      {QUANTITY_UNITS.map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      readOnly
+                      value={formType === 'Horas' ? 'Horas (h)' : 'Dias'}
+                      className="h-7 text-xs bg-slate-100 text-slate-600 font-mono cursor-not-allowed"
+                    />
+                  )}
+                  {fieldErrors.unit && (
+                    <p className="text-[10px] text-rose-600 font-medium">{fieldErrors.unit}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 5. Status (Ativa / Inativa) */}
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-slate-700">Status Operacional</Label>
               <div className="flex gap-2">

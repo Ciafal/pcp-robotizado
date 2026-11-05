@@ -3,7 +3,16 @@
  * Conforme Requisitos do PCP Robotizado CIAFAL
  */
 
-export type RestrictionType = 'Horas' | 'Dias' | 'Quantidade' | string
+export type OfficialRestrictionType =
+  | 'Horas'
+  | 'Dias'
+  | 'Quantidade'
+  | 'Carga de Enfornamento'
+  | 'Qualidade'
+  | 'Montagem'
+  | 'Sequenciamento'
+
+export type RestrictionType = OfficialRestrictionType | string
 
 export type RestrictionStatus = 'ATIVA' | 'INATIVA'
 
@@ -18,6 +27,29 @@ export interface LineGaugeMinRestriction {
   unit_of_measure: string
   rule_description: string
   status: RestrictionStatus
+  reason?: string
+  reason_category?: string
+  min_value_numeric?: number
+  max_value_numeric?: number
+  target_value?: number
+  unit?: string
+  product_code?: string
+  family_code?: string
+  gauge_dimension?: string
+  steel_grade?: string
+  raw_material_code?: string
+  origin_center_code?: string
+  target_center_code?: string
+  product_from?: string
+  product_to?: string
+  gauge_from?: string
+  gauge_to?: string
+  valid_from?: string
+  valid_until?: string
+  rule_priority?: number
+  created_by_user_id?: string
+  updated_by_user_id?: string
+  is_active?: boolean
   created_by_name?: string
   updated_by_name?: string
   has_scheduling_history?: boolean
@@ -30,10 +62,33 @@ export interface CreateGaugeMinRestrictionDTO {
   line_id?: string
   line_code: string
   restriction_type: RestrictionType
-  min_value: number
-  unit_of_measure: string
+  min_value?: number
+  unit_of_measure?: string
   rule_description: string
   status?: RestrictionStatus
+  reason?: string
+  reason_category?: string
+  min_value_numeric?: number
+  max_value_numeric?: number
+  target_value?: number
+  unit?: string
+  product_code?: string
+  family_code?: string
+  gauge_dimension?: string
+  steel_grade?: string
+  raw_material_code?: string
+  origin_center_code?: string
+  target_center_code?: string
+  product_from?: string
+  product_to?: string
+  gauge_from?: string
+  gauge_to?: string
+  valid_from?: string
+  valid_until?: string
+  rule_priority?: number
+  created_by_user_id?: string
+  updated_by_user_id?: string
+  is_active?: boolean
   created_by_name?: string
   notes?: string
 }

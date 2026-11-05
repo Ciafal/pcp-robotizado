@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-05T14:39:12.633Z",
+  "generatedAt": "2026-11-05T16:57:56.682Z",
   "collections": [
     {
       "name": "users",
@@ -22436,6 +22436,144 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reason_category",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "min_value_numeric",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_value_numeric",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_value",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gauge_dimension",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origin_center_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_center_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_from",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_to",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gauge_from",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gauge_to",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rule_priority",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "updated_by_user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

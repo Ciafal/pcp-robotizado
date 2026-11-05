@@ -107,10 +107,40 @@ export const lineGaugeRestrictionService = {
       line_id: data.line_id || null,
       line_code: data.line_code?.trim().toUpperCase(),
       restriction_type: data.restriction_type?.trim() || 'Horas',
-      min_value: Number(data.min_value),
+      min_value:
+        data.min_value !== undefined && data.min_value !== null ? Number(data.min_value) : 1,
       unit_of_measure: data.unit_of_measure?.trim() || 'h',
       rule_description: data.rule_description?.trim() || '',
       status: data.status || 'ATIVA',
+      reason: data.reason?.trim() || '',
+      reason_category: data.reason_category?.trim() || '',
+      min_value_numeric:
+        data.min_value_numeric !== undefined
+          ? Number(data.min_value_numeric)
+          : data.min_value !== undefined
+            ? Number(data.min_value)
+            : undefined,
+      max_value_numeric:
+        data.max_value_numeric !== undefined ? Number(data.max_value_numeric) : undefined,
+      target_value: data.target_value !== undefined ? Number(data.target_value) : undefined,
+      unit: data.unit || data.unit_of_measure || undefined,
+      product_code: data.product_code || undefined,
+      family_code: data.family_code || undefined,
+      gauge_dimension: data.gauge_dimension || undefined,
+      steel_grade: data.steel_grade || undefined,
+      raw_material_code: data.raw_material_code || undefined,
+      origin_center_code: data.origin_center_code || undefined,
+      target_center_code: data.target_center_code || undefined,
+      product_from: data.product_from || undefined,
+      product_to: data.product_to || undefined,
+      gauge_from: data.gauge_from || undefined,
+      gauge_to: data.gauge_to || undefined,
+      valid_from: data.valid_from || undefined,
+      valid_until: data.valid_until || undefined,
+      rule_priority: data.rule_priority !== undefined ? Number(data.rule_priority) : undefined,
+      created_by_user_id: data.created_by_user_id || undefined,
+      updated_by_user_id: data.updated_by_user_id || undefined,
+      is_active: data.status === 'INATIVA' ? false : true,
       created_by_name: data.created_by_name?.trim() || 'PCP Robotizado',
       has_scheduling_history: false,
       notes: data.notes?.trim() || '',
@@ -192,10 +222,43 @@ export const lineGaugeRestrictionService = {
 
     const payload: any = {}
     if (data.restriction_type !== undefined) payload.restriction_type = data.restriction_type.trim()
-    if (data.min_value !== undefined) payload.min_value = Number(data.min_value)
-    if (data.unit_of_measure !== undefined) payload.unit_of_measure = data.unit_of_measure.trim()
+    if (data.min_value !== undefined) {
+      payload.min_value = Number(data.min_value)
+      payload.min_value_numeric = Number(data.min_value)
+    }
+    if (data.unit_of_measure !== undefined) {
+      payload.unit_of_measure = data.unit_of_measure.trim()
+      payload.unit = data.unit_of_measure.trim()
+    }
     if (data.rule_description !== undefined) payload.rule_description = data.rule_description.trim()
-    if (data.status !== undefined) payload.status = data.status
+    if (data.status !== undefined) {
+      payload.status = data.status
+      payload.is_active = data.status === 'ATIVA'
+    }
+    if (data.reason !== undefined) payload.reason = data.reason.trim()
+    if (data.reason_category !== undefined) payload.reason_category = data.reason_category.trim()
+    if (data.min_value_numeric !== undefined)
+      payload.min_value_numeric = Number(data.min_value_numeric)
+    if (data.max_value_numeric !== undefined)
+      payload.max_value_numeric = Number(data.max_value_numeric)
+    if (data.target_value !== undefined) payload.target_value = Number(data.target_value)
+    if (data.unit !== undefined) payload.unit = data.unit
+    if (data.product_code !== undefined) payload.product_code = data.product_code
+    if (data.family_code !== undefined) payload.family_code = data.family_code
+    if (data.gauge_dimension !== undefined) payload.gauge_dimension = data.gauge_dimension
+    if (data.steel_grade !== undefined) payload.steel_grade = data.steel_grade
+    if (data.raw_material_code !== undefined) payload.raw_material_code = data.raw_material_code
+    if (data.origin_center_code !== undefined) payload.origin_center_code = data.origin_center_code
+    if (data.target_center_code !== undefined) payload.target_center_code = data.target_center_code
+    if (data.product_from !== undefined) payload.product_from = data.product_from
+    if (data.product_to !== undefined) payload.product_to = data.product_to
+    if (data.gauge_from !== undefined) payload.gauge_from = data.gauge_from
+    if (data.gauge_to !== undefined) payload.gauge_to = data.gauge_to
+    if (data.valid_from !== undefined) payload.valid_from = data.valid_from
+    if (data.valid_until !== undefined) payload.valid_until = data.valid_until
+    if (data.rule_priority !== undefined) payload.rule_priority = Number(data.rule_priority)
+    if (data.updated_by_user_id !== undefined) payload.updated_by_user_id = data.updated_by_user_id
+    if (data.is_active !== undefined) payload.is_active = data.is_active
     if (data.updated_by_name !== undefined) payload.updated_by_name = data.updated_by_name.trim()
     if (data.has_scheduling_history !== undefined)
       payload.has_scheduling_history = Boolean(data.has_scheduling_history)
@@ -288,6 +351,7 @@ export const lineGaugeRestrictionService = {
 
     await pb.collection('line_gauge_min_restrictions').update(id, {
       status,
+      is_active: status === 'ATIVA',
     })
 
     const confirmed = await this.getById(id)
