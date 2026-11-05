@@ -19,12 +19,7 @@ import {
 import { CarteiraItem, StatusRuptura, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CarteiraSDCItem } from '@/types/carteira-sdc'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
-import {
-  formatNumberPTBR,
-  formatDatePTBR,
-  formatCurrencyPTBR,
-  formatPercentagePTBR,
-} from '@/lib/formatters-ptbr'
+import { formatNumberPTBR, formatDatePTBR, formatPercentagePTBR } from '@/lib/formatters-ptbr'
 import {
   CurvaAbcFaturamentoEngine,
   CurvaAbcResultadoConsolidado,
@@ -163,13 +158,26 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     const itensRiscoRupturaCount = todosItensCalculados.filter(
       (i) => i.deficit_tons > 0 && i.saldo_projetado_tons < 0,
     ).length
-    const valorTotalCarteiraBrl = resultadoABC.faturamentoTotal_brl
-    const faturamentoRelacionadoBrl = resultadoABC.faturamentoTotal_brl
+    let faturamentoFisicoTotalT = 0
+    let erroFaturamentoFisico = false
+    try {
+      faturamentoFisicoTotalT = todosItensCalculados.reduce((acc, it) => {
+        const orig = it.origemItemOriginal as CarteiraItem | undefined
+        const faturado =
+          orig && typeof orig.qtd_faturada_tons === 'number' && !isNaN(orig.qtd_faturada_tons)
+            ? orig.qtd_faturada_tons
+            : 0
+        return acc + faturado
+      }, 0)
+    } catch {
+      erroFaturamentoFisico = true
+    }
+    const temFaturamentoFisico = !erroFaturamentoFisico && faturamentoFisicoTotalT > 0
 
     return [
       {
         id: 'CARTEIRA_TOTAL',
-        titulo: 'Carteira Total',
+        titulo: 'Carteira (t)',
         valor: carteiraTotalT,
         tipoFormato: 'tonelada',
         cor: 'azul',
@@ -189,11 +197,11 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
       },
       {
         id: 'ESTOQUE_DISPONIVEL',
-        titulo: 'Estoque Disponível',
+        titulo: 'Estoque disponível (t)',
         valor: estoqueDisponivelT,
         tipoFormato: 'tonelada',
         cor: 'verde',
-        subtitulo: 'Pronto para faturamento',
+        subtitulo: 'Pronto para atendimento',
         tooltip: 'Estoque físico livre deduzido de bloqueios e reservas',
       },
       {
@@ -217,7 +225,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
       },
       {
         id: 'DEFICIT_ATUAL',
-        titulo: 'Déficit Atual',
+        titulo: 'Déficit (t)',
         valor: deficitAtualT,
         tipoFormato: 'tonelada',
         cor: 'vermelho',
@@ -247,7 +255,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
       },
       {
         id: 'COBERTURA_PROGRAMADA',
-        titulo: 'Cobertura Programada',
+        titulo: 'Programado (t)',
         valor: coberturaProgramadaT,
         tipoFormato: 'tonelada',
         cor: 'azul',
@@ -299,23 +307,17 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
         tooltip: 'Materiais onde a programação cadastrada é insuficiente para cobrir o déficit',
       },
       {
-        id: 'VALOR_TOTAL_CARTEIRA',
-        titulo: 'Valor Total da Carteira',
-        valor: valorTotalCarteiraBrl,
-        tipoFormato: 'moeda',
+        id: 'FATURAMENTO_FISICO',
+        titulo: 'Faturamento Físico (t)',
+        valor: erroFaturamentoFisico
+          ? 'Informação temporariamente indisponível'
+          : temFaturamentoFisico
+            ? faturamentoFisicoTotalT
+            : 'Dado não disponível',
+        tipoFormato: temFaturamentoFisico ? 'tonelada' : 'texto',
         cor: 'azul',
-        subtitulo: 'Base faturamento R$',
-        tooltip:
-          'Faturamento total estimado da carteira com base no preço médio SAP ECC por família',
-      },
-      {
-        id: 'FATURAMENTO_RELACIONADO',
-        titulo: 'Faturamento Relacionado',
-        valor: faturamentoRelacionadoBrl,
-        tipoFormato: 'moeda',
-        cor: 'padrao',
-        subtitulo: 'Exposição comercial total',
-        tooltip: 'Faturamento global associado ao lote de pedidos sob gestão',
+        subtitulo: 'Últimos 3 meses + atual',
+        tooltip: 'Volume físico faturado em toneladas (últimos 3 meses completos + mês atual)',
       },
       {
         id: 'CURVA_A',
@@ -358,8 +360,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     switch (cardId) {
       case 'CARTEIRA_TOTAL':
       case 'TOTAL_ITENS':
-      case 'VALOR_TOTAL_CARTEIRA':
-      case 'FATURAMENTO_RELACIONADO':
+      case 'FATURAMENTO_FISICO':
         setDrilldownConfig({
           isOpen: true,
           nome: 'Carteira Total Consolidada',
@@ -533,6 +534,21 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     } else {
       onOpenMemoria(itemResolvido)
     }
+  }
+
+  // Skeleton de carregamento da Carteira Geral
+  if (isLoading) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="p-3 bg-white rounded-xl border border-slate-200 h-14" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="h-24 bg-slate-100 rounded-xl border border-slate-200" />
+          ))}
+        </div>
+        <div className="h-72 bg-white rounded-xl border border-slate-200" />
+      </div>
+    )
   }
 
   // Estado de indisponibilidade oficial da RFC SAP ECC
@@ -757,7 +773,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                 <th className="p-2.5 font-bold text-right">Programado (t)</th>
                 <th className="p-2.5 font-bold text-right">Déficit (t)</th>
                 <th className="p-2.5 font-bold text-right">Saldo Proj. (t)</th>
-                <th className="p-2.5 font-bold text-right">Faturamento (R$)</th>
+                <th className="p-2.5 font-bold text-right">Faturamento (t)</th>
                 <th className="p-2.5 font-bold text-right">% Indiv.</th>
                 <th className="p-2.5 font-bold text-center">Risco</th>
                 <th className="p-2.5 font-bold text-center">Ações</th>
@@ -771,112 +787,132 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                itensExibidos.map((it, idx) => (
-                  <tr
-                    key={it.codigo_material + idx}
-                    onClick={() => handleAbrirDetalhe(it)}
-                    className={`hover:bg-blue-50/50 transition-colors text-[11px] cursor-pointer ${
-                      it.curva_abc === 'A' && it.deficit_tons > 0
-                        ? 'bg-rose-50/30'
-                        : idx % 2 === 0
-                          ? 'bg-white'
-                          : 'bg-slate-50/30'
-                    }`}
-                  >
-                    <td className="p-2.5">
-                      <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
-                        {it.codigo_material}
-                        {it.curva_abc === 'A' && (
-                          <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[9px] font-bold">
-                            A
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-500 block truncate max-w-[220px]">
-                        {it.descricao_material}
-                      </span>
-                    </td>
+                itensExibidos.map((it, idx) => {
+                  let textoFaturamentoTons = 'Dado não disponível'
+                  try {
+                    const itemOrig = it.origemItemOriginal as CarteiraItem | undefined
+                    const qtdFaturada =
+                      itemOrig &&
+                      typeof itemOrig.qtd_faturada_tons === 'number' &&
+                      !isNaN(itemOrig.qtd_faturada_tons)
+                        ? itemOrig.qtd_faturada_tons
+                        : null
+                    if (qtdFaturada !== null && qtdFaturada > 0) {
+                      textoFaturamentoTons = `${formatNumberPTBR(qtdFaturada, 2)} t`
+                    } else {
+                      textoFaturamentoTons = 'Dado não disponível'
+                    }
+                  } catch {
+                    textoFaturamentoTons = 'Informação temporariamente indisponível'
+                  }
 
-                    <td className="p-2.5 text-center">
-                      <Badge className="bg-slate-100 text-[#004C97] font-bold border-slate-200 text-[10px]">
-                        {it.linha}
-                      </Badge>
-                    </td>
-
-                    <td className="p-2.5 text-center font-mono text-slate-600">{it.centro}</td>
-
-                    <td className="p-2.5 text-center font-bold">
-                      <span
-                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          it.curva_abc === 'A'
-                            ? 'bg-blue-100 text-[#004C97] border border-blue-300'
-                            : it.curva_abc === 'B'
-                              ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                              : 'bg-slate-100 text-slate-700 border border-slate-300'
-                        }`}
-                      >
-                        {it.curva_abc || 'C'}
-                      </span>{' '}
-                    </td>
-
-                    <td className="p-2.5 text-right font-mono font-bold text-blue-950">
-                      {formatNumberPTBR(it.carteira_tons, 2)}
-                    </td>
-
-                    <td className="p-2.5 text-right font-mono text-slate-700">
-                      {formatNumberPTBR(it.estoque_disponivel_tons, 2)}
-                    </td>
-
-                    <td className="p-2.5 text-right font-mono text-indigo-700 font-semibold">
-                      {formatNumberPTBR(it.programado_tons, 2)}
-                    </td>
-
-                    <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                      {it.deficit_tons > 0 ? formatNumberPTBR(it.deficit_tons, 2) : '-'}
-                    </td>
-
-                    <td
-                      className={`p-2.5 text-right font-mono font-bold ${
-                        it.saldo_projetado_tons < 0 ? 'text-rose-700' : 'text-emerald-700'
+                  return (
+                    <tr
+                      key={it.codigo_material + idx}
+                      onClick={() => handleAbrirDetalhe(it)}
+                      className={`hover:bg-blue-50/50 transition-colors text-[11px] cursor-pointer ${
+                        it.curva_abc === 'A' && it.deficit_tons > 0
+                          ? 'bg-rose-50/30'
+                          : idx % 2 === 0
+                            ? 'bg-white'
+                            : 'bg-slate-50/30'
                       }`}
                     >
-                      {formatNumberPTBR(it.saldo_projetado_tons, 2)}
-                    </td>
+                      <td className="p-2.5">
+                        <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
+                          {it.codigo_material}
+                          {it.curva_abc === 'A' && (
+                            <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[9px] font-bold">
+                              A
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-500 block truncate max-w-[220px]">
+                          {it.descricao_material}
+                        </span>
+                      </td>
 
-                    <td className="p-2.5 text-right font-mono text-slate-900">
-                      {formatCurrencyPTBR(it.faturamento_brl)}
-                    </td>
+                      <td className="p-2.5 text-center">
+                        <Badge className="bg-slate-100 text-[#004C97] font-bold border-slate-200 text-[10px]">
+                          {it.linha}
+                        </Badge>
+                      </td>
 
-                    <td className="p-2.5 text-right font-mono text-slate-700">
-                      {formatPercentagePTBR(it.participacao_individual_pct, 2)}
-                    </td>
+                      <td className="p-2.5 text-center font-mono text-slate-600">{it.centro}</td>
 
-                    <td className="p-2.5 text-center">
-                      <Badge
-                        className={`text-[9px] font-bold ${
-                          it.risco === 'CRITICO'
-                            ? 'bg-rose-100 text-rose-900 border-rose-300'
-                            : it.risco === 'ATENCAO'
-                              ? 'bg-amber-100 text-amber-900 border-amber-300'
-                              : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                      <td className="p-2.5 text-center font-bold">
+                        <span
+                          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            it.curva_abc === 'A'
+                              ? 'bg-blue-100 text-[#004C97] border border-blue-300'
+                              : it.curva_abc === 'B'
+                                ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                : 'bg-slate-100 text-slate-700 border border-slate-300'
+                          }`}
+                        >
+                          {it.curva_abc || 'C'}
+                        </span>{' '}
+                      </td>
+
+                      <td className="p-2.5 text-right font-mono font-bold text-blue-950">
+                        {formatNumberPTBR(it.carteira_tons, 2)}
+                      </td>
+
+                      <td className="p-2.5 text-right font-mono text-slate-700">
+                        {formatNumberPTBR(it.estoque_disponivel_tons, 2)}
+                      </td>
+
+                      <td className="p-2.5 text-right font-mono text-indigo-700 font-semibold">
+                        {formatNumberPTBR(it.programado_tons, 2)}
+                      </td>
+
+                      <td className="p-2.5 text-right font-mono font-bold text-rose-700">
+                        {it.deficit_tons > 0 ? formatNumberPTBR(it.deficit_tons, 2) : '-'}
+                      </td>
+
+                      <td
+                        className={`p-2.5 text-right font-mono font-bold ${
+                          it.saldo_projetado_tons < 0 ? 'text-rose-700' : 'text-emerald-700'
                         }`}
                       >
-                        {it.risco}
-                      </Badge>
-                    </td>
+                        {formatNumberPTBR(it.saldo_projetado_tons, 2)}
+                      </td>
 
-                    <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleAbrirDetalhe(it)}
-                        className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
-                      >
-                        <Eye className="w-3 h-3" /> Ficha
-                      </Button>
-                    </td>
-                  </tr>
-                ))
+                      <td className="p-2.5 text-right font-mono text-slate-900">
+                        {textoFaturamentoTons}
+                      </td>
+
+                      <td className="p-2.5 text-right font-mono text-slate-700">
+                        {formatPercentagePTBR(it.participacao_individual_pct, 2)}
+                      </td>
+
+                      <td className="p-2.5 text-center">
+                        <Badge
+                          className={`text-[9px] font-bold ${
+                            it.risco === 'CRITICO'
+                              ? 'bg-rose-100 text-rose-900 border-rose-300'
+                              : it.risco === 'ATENCAO'
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                          }`}
+                        >
+                          {it.risco}
+                        </Badge>
+                      </td>
+
+                      <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleAbrirDetalhe(it)}
+                          className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
+                        >
+                          <Eye className="w-3 h-3" /> Ficha
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
