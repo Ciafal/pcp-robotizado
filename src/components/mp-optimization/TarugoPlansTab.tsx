@@ -7,7 +7,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Activity, Copy, Eye, History, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Activity, Copy, Eye, History, Loader2, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -179,8 +179,17 @@ export function TarugoPlansTab() {
         </div>
         <div className="flex items-center gap-2">
           <Can permission="PCP_PROGRAMMER">
-            <Button onClick={() => setFormOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" /> Novo Plano de Tarugos
+            <Button
+              onClick={() => setFormOpen(true)}
+              disabled={loading}
+              className="gap-2 bg-[#004C97] hover:bg-[#003870] text-white rounded-md transition-colors shadow-xs"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              <span>+ Criar Plano</span>
             </Button>
           </Can>
         </div>

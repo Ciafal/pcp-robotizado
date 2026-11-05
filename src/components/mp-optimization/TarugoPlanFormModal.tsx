@@ -278,7 +278,7 @@ export function TarugoPlanFormModal({ open, editing, onClose, onSaved }: Props) 
         toast.success(`Plano de Tarugos ${payload.cutting_plan} atualizado com sucesso.`)
       } else {
         await tarugoPlansService.createPlan(payload, 'HUB')
-        toast.success(`Plano de Tarugos ${payload.cutting_plan} salvo com sucesso.`)
+        toast.success(`Plano de Tarugos ${payload.cutting_plan} cadastrado com sucesso.`)
       }
       onSaved()
     } catch (err: any) {
