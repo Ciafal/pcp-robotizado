@@ -50,7 +50,7 @@ import {
   SummaryTemplateSectionConfig,
   SectionContentComponent,
   CustomTableConfig,
-  RealCenterOption,
+  CentroOption,
   pcpMonthlySummaryService,
 } from '@/services/pcp-monthly-summaries'
 import { useAuth } from '@/contexts/AuthContext'
@@ -59,7 +59,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 interface TemplateManagementModalProps {
   isOpen: boolean
   onClose: () => void
-  centers: RealCenterOption[]
+  centers: CentroOption[]
   onTemplateSelected?: (template: PCPMonthlySummaryTemplateRecord) => void
 }
 

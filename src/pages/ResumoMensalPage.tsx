@@ -16,9 +16,13 @@ import {
   pcpMonthlySummaryService,
   PCPMonthlySummaryRecord,
   SummarySectionsData,
-  RealCenterOption,
+  CentroOption,
+  MasterCompanyOption,
+  MasterLineOption,
   VerificationIssue,
 } from '@/services/pcp-monthly-summaries'
+import { useAuth } from '@/contexts/AuthContext'
+import type { AccessScope } from '@/types/pcp-auth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -54,12 +58,20 @@ import { SummaryTableRenderer } from '@/components/pcp/entregas/SummaryTableRend
 
 export const ResumoMensalPage: React.FC = () => {
   const { toast } = useToast()
+  const authContext = useAuth() as any
 
   // Estados de dados
   const [summaries, setSummaries] = useState<PCPMonthlySummaryRecord[]>([])
   const [selectedSummary, setSelectedSummary] = useState<PCPMonthlySummaryRecord | null>(null)
-  const [centers, setCenters] = useState<RealCenterOption[]>([])
+  const [centers, setCenters] = useState<CentroOption[]>([])
+  const [companies, setCompanies] = useState<MasterCompanyOption[]>([])
+  const [lines, setLines] = useState<MasterLineOption[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isLoadingMasterData, setIsLoadingMasterData] = useState<boolean>(true)
+
+  // Escopos do usuário para filtrar linhas disponíveis conforme permissões
+  const userScopes: AccessScope[] = authContext?.scopes || []
+  const isGlobalUser: boolean = authContext?.isGlobal ?? true
 
   // Filtros principais
   const [filterEmpresa, setFilterEmpresa] = useState<string>('ALL')
@@ -96,13 +108,29 @@ export const ResumoMensalPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState<boolean>(false)
   const [editableSections, setEditableSections] = useState<SummarySectionsData | null>(null)
 
-  // Carregar Centros Reais e Resumos
-  const loadInitialData = async () => {
+  // Carregar cadastros mestres (Empresa / Linha / Centro) uma única vez, na abertura da tela
+  const loadMasterData = async () => {
+    setIsLoadingMasterData(true)
+    try {
+      const opts = await pcpMonthlySummaryService.loadMasterFilterOptions()
+      setCompanies(opts.companies)
+      setLines(opts.lines)
+      setCenters(opts.centers)
+    } catch (err) {
+      console.error('Erro ao carregar cadastros mestres do Resumo Mensal:', err)
+    } finally {
+      setIsLoadingMasterData(false)
+    }
+  }
+
+  useEffect(() => {
+    loadMasterData()
+  }, [])
+
+  // Carregar resumos conforme os filtros vigentes
+  const loadSummaries = async () => {
     setIsLoading(true)
     try {
-      const realCenters = await pcpMonthlySummaryService.loadRealCenters()
-      setCenters(realCenters)
-
       const list = await pcpMonthlySummaryService.listSummaries({
         empresa: filterEmpresa,
         centro: filterCentro,
@@ -125,8 +153,49 @@ export const ResumoMensalPage: React.FC = () => {
   }
 
   useEffect(() => {
-    loadInitialData()
+    loadSummaries()
   }, [filterEmpresa, filterCentro, filterLinha, filterAno, filterMes, filterStatus])
+
+  // Linhas visíveis: cadastro da Hierarquia, respeitando permissões do usuário e a Empresa selecionada
+  const visibleLines = useMemo(() => {
+    let base = lines
+    if (!isGlobalUser) {
+      const allowed = new Set(
+        userScopes
+          .filter((s) => s.active && s.scope_type === 'PRODUCTION_LINE' && s.target_code)
+          .map((s) => (s.target_code || '').trim().toUpperCase()),
+      )
+      if (allowed.size > 0) {
+        base = base.filter((l) => allowed.has(l.code.trim().toUpperCase()))
+      }
+    }
+    if (filterEmpresa !== 'ALL') {
+      const companyId = companies.find((c) => c.code === filterEmpresa)?.id
+      base = companyId ? base.filter((l) => l.companyId === companyId) : []
+    }
+    return base
+  }, [lines, companies, filterEmpresa, userScopes, isGlobalUser])
+
+  // Centros visíveis: centros cadastrados da Linha selecionada (Hierarquia / Ficha Mestra)
+  const visibleCenters = useMemo(() => {
+    if (filterLinha === 'ALL') return centers
+    return centers.filter(
+      (c) => (c as CentroOption & { lineCode?: string }).lineCode === filterLinha,
+    )
+  }, [centers, filterLinha])
+
+  // Mudança de Empresa: limpa Linha e Centro (recarregados apenas com opções válidas da nova Empresa)
+  const handleEmpresaChange = (code: string) => {
+    setFilterEmpresa(code)
+    setFilterLinha('ALL')
+    setFilterCentro('ALL')
+  }
+
+  // Mudança de Linha: limpa Centro que não pertença à nova Linha
+  const handleLinhaChange = (code: string) => {
+    setFilterLinha(code)
+    setFilterCentro('ALL')
+  }
 
   // Troca de resumo ativo
   const handleSelectSummary = (sum: PCPMonthlySummaryRecord) => {
@@ -472,78 +541,72 @@ export const ResumoMensalPage: React.FC = () => {
         }
       />
 
-      {/* Dashboard de KPIs do Resumo Mensal com grade responsiva sem compressão horizontal */}
-      <div
-        className="grid gap-3"
-        style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        }}
-      >
-        <CiafalKPICard title="Resumos" value={totalSummariesCount} status="NORMAL" />
-        <CiafalKPICard title="Rascunhos" value={rascunhosCount} status="NORMAL" />
-        <CiafalKPICard title="Em Edição" value={emEdicaoCount} status="NORMAL" />
-        <CiafalKPICard title="Em Aprovação" value={aguardandoAprovacaoCount} status="ATENCAO" />
-        <CiafalKPICard title="Publicados" value={publicadosCount} status="SUCESSO" />
-        <CiafalKPICard
-          title="Leituras Pendentes"
-          value={leiturasPendentes}
-          status={leiturasPendentes > 0 ? 'ATENCAO' : 'NORMAL'}
-        />
-        <CiafalKPICard title="Leituras Confirmadas" value={leiturasConfirmadas} status="SUCESSO" />
-        <CiafalKPICard
-          title="Versão Atual"
-          value={selectedSummary?.version_tag || 'V01'}
-          status="NORMAL"
-        />
-      </div>
-
-      {/* Barra de Filtros Rigorosos (Centros Reais da Ficha Mestra) */}
+      {/* Barra de Filtros (Empresa, Linha e Centro vindos dos Cadastros Mestres) */}
       <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Empresa */}
+          {/* Empresa (Cadastros Mestres) */}
           <div className="flex items-center gap-1">
             <span className="text-[11px] font-bold text-slate-600">Empresa:</span>
             <select
               value={filterEmpresa}
-              onChange={(e) => setFilterEmpresa(e.target.value)}
-              className="h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800"
+              disabled={isLoadingMasterData}
+              onChange={(e) => handleEmpresaChange(e.target.value)}
+              className="h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
             >
               <option value="ALL">Todas</option>
-              <option value="CIAFAL">CIAFAL</option>
-            </select>
-          </div>
-
-          {/* Centro Real lido de Cadastros -> Centros e Ficha Mestra */}
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] font-bold text-slate-600">Centro Real:</span>
-            <select
-              value={filterCentro}
-              onChange={(e) => setFilterCentro(e.target.value)}
-              className="h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800"
-            >
-              <option value="ALL">Todos os Centros</option>
-              {centers.map((c) => (
-                <option key={c.code} value={c.code}>
+              {companies.map((c) => (
+                <option key={c.id} value={c.code}>
                   {c.name}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Linha Fabril */}
+          {/* Linha (Cadastros -> Hierarquia das Linhas e Centros de Produção) */}
           <div className="flex items-center gap-1">
             <span className="text-[11px] font-bold text-slate-600">Linha:</span>
             <select
               value={filterLinha}
-              onChange={(e) => setFilterLinha(e.target.value)}
-              className="h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 font-bold"
+              disabled={isLoadingMasterData}
+              onChange={(e) => handleLinhaChange(e.target.value)}
+              className="h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 font-bold disabled:bg-slate-100 disabled:text-slate-400"
             >
               <option value="ALL">Todas as Linhas</option>
-              <option value="L1">Linha L1 (Tubos & Perfis Leves)</option>
-              <option value="L2">Linha L2 (Perfis & Estruturais)</option>
-              <option value="SDC">Linha SDC (Sidercentro)</option>
+              {visibleLines.map((l) => (
+                <option key={l.id} value={l.code}>
+                  {l.name !== l.code ? `${l.code} - ${l.name}` : l.code}
+                </option>
+              ))}
             </select>
           </div>
+
+          {/* Centro (Cadastros -> Centros e Ficha Mestra, conforme Hierarquia) */}
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-bold text-slate-600">Centro:</span>
+            {filterLinha !== 'ALL' && visibleCenters.length === 0 ? (
+              <span className="h-8 flex items-center text-[11px] italic text-slate-500 px-2">
+                Nenhum centro cadastrado para esta linha.
+              </span>
+            ) : (
+              <select
+                value={filterCentro}
+                disabled={isLoadingMasterData}
+                onChange={(e) => setFilterCentro(e.target.value)}
+                className="h-8 border border-slate-300 rounded text-xs px-2 bg-white text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                <option value="ALL">Todos os Centros</option>
+                {visibleCenters.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {isLoadingMasterData && (
+            <span className="text-[11px] text-slate-500 italic">Carregando cadastros...</span>
+          )}
 
           {/* Ano */}
           <div className="flex items-center gap-1">
@@ -629,6 +692,31 @@ export const ResumoMensalPage: React.FC = () => {
             <span>Painel de Leituras</span>
           </Button>
         </div>
+      </div>
+
+      {/* Dashboard de KPIs do Resumo Mensal com grade responsiva sem compressão horizontal */}
+      <div
+        className="grid gap-3"
+        style={{
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        }}
+      >
+        <CiafalKPICard title="Resumos" value={totalSummariesCount} status="NORMAL" />
+        <CiafalKPICard title="Rascunhos" value={rascunhosCount} status="NORMAL" />
+        <CiafalKPICard title="Em Edição" value={emEdicaoCount} status="NORMAL" />
+        <CiafalKPICard title="Em Aprovação" value={aguardandoAprovacaoCount} status="ATENCAO" />
+        <CiafalKPICard title="Publicados" value={publicadosCount} status="SUCESSO" />
+        <CiafalKPICard
+          title="Leituras Pendentes"
+          value={leiturasPendentes}
+          status={leiturasPendentes > 0 ? 'ATENCAO' : 'NORMAL'}
+        />
+        <CiafalKPICard title="Leituras Confirmadas" value={leiturasConfirmadas} status="SUCESSO" />
+        <CiafalKPICard
+          title="Versão Atual"
+          value={selectedSummary?.version_tag || 'V01'}
+          status="NORMAL"
+        />
       </div>
 
       {/* Seleção Rápida entre Resumos Carregados */}

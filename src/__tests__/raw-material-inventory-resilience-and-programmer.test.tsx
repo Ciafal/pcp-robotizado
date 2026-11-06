@@ -27,13 +27,27 @@ describe('Inventário de matéria-prima — Cenários de Resiliência, PCP_PROGR
     } as any)
   })
 
-  it('1. loadRealCenters nunca quebra e utiliza source_center_code com fallback seguro', async () => {
-    const centers = await pcpMonthlySummaryService.loadRealCenters()
+  it('1. loadCenters nunca quebra e utiliza centros cadastrados nos cadastros mestres', async () => {
+    const centers = await pcpMonthlySummaryService.loadCenters()
     expect(Array.isArray(centers)).toBe(true)
     expect(centers.length).toBeGreaterThan(0)
     // Centros devem ter code e name válidos
     expect(centers[0]).toHaveProperty('code')
     expect(centers[0]).toHaveProperty('name')
+  })
+
+  it('1b. loadMasterFilterOptions nunca quebra e retorna listas de cadastros mestres', async () => {
+    const opts = await pcpMonthlySummaryService.loadMasterFilterOptions()
+    expect(Array.isArray(opts.companies)).toBe(true)
+    expect(Array.isArray(opts.lines)).toBe(true)
+    expect(Array.isArray(opts.centers)).toBe(true)
+    expect(opts.companies.length).toBeGreaterThan(0)
+    expect(opts.lines.length).toBeGreaterThan(0)
+    // Empresa e Linha devem ter id e code reais dos cadastros
+    expect(opts.companies[0]).toHaveProperty('id')
+    expect(opts.companies[0]).toHaveProperty('code')
+    expect(opts.lines[0]).toHaveProperty('id')
+    expect(opts.lines[0]).toHaveProperty('code')
   })
 
   it('2. evaluateItemAlerts e buildOrderTimeline são resilientes a itens com campos nulos ou indefinidos', () => {

@@ -269,7 +269,7 @@ export interface PCPMonthlySummaryRecord {
   updated?: string
 }
 
-export interface RealCenterOption {
+export interface CentroOption {
   code: string
   name: string
   company: string
@@ -433,82 +433,153 @@ export interface CreateTemplateInput {
   sections_config: SummaryTemplateSectionConfig[]
 }
 
+/**
+ * Opções de filtro vindas dos cadastros mestres do PCP (fonte única de verdade)
+ */
+export interface MasterCompanyOption {
+  id: string
+  code: string
+  name: string
+}
+
+export interface MasterLineOption {
+  id: string
+  code: string
+  name: string
+  companyId?: string
+}
+
 class PcpMonthlySummaryService {
   /**
-   * Busca centros reais da Ficha Mestra / Cadastros de Centros e derivações
+   * Carrega as opções de Empresa, Linha e Centro diretamente dos cadastros mestres do PCP:
+   * - Empresa: coleção `companies` (ativos)
+   * - Linha: coleção `production_lines` (Hierarquia das Linhas e Centros de Produção, ativas),
+   *   com vínculo de empresa via `plants` (planta da linha)
+   * - Centro: coleções `pcp_center_derivations` (Cadastros -> Centros e Ficha Mestra / derivações)
+   * Sem listas locais hardcoded e sem dados fictícios: em caso de falha devolve listas vazias.
    */
-  async loadRealCenters(): Promise<RealCenterOption[]> {
-    const list: RealCenterOption[] = []
-    const seen = new Set<string>()
-
-    try {
-      // 1. Centros cadastrados em pcp_center_derivations
-      const derivations = await pb
-        .collection('pcp_center_derivations')
-        .getFullList({
-          sort: 'source_center_code',
-        })
+  async loadMasterFilterOptions(): Promise<{
+    companies: MasterCompanyOption[]
+    lines: MasterLineOption[]
+    centers: (CentroOption & { lineCode?: string })[]
+  }> {
+    const [companies, plants, lines, derivations] = await Promise.all([
+      pb
+        .collection('companies')
+        .getFullList<any>({ filter: "status = 'ACTIVE'", sort: 'name' })
         .catch((err) => {
-          console.warn('pcp_center_derivations query fallback:', err)
-          return []
-        })
-      derivations.forEach((d: any) => {
-        const centerCode = d.source_center_code || d.center_code
-        if (centerCode && !seen.has(centerCode)) {
-          seen.add(centerCode)
-          list.push({
-            code: centerCode,
-            name: `${centerCode} - ${d.source_center_name || 'Centro Industrial'}`,
-            company: d.source_center_company || 'CIAFAL',
-            isPlant: true,
-          })
-        }
-      })
-    } catch {
-      /* intentionally ignored */
-    }
-
-    try {
-      // 2. Centros de line_masters / production_lines
-      const lines = await pb
+          console.warn('companies query fallback:', err)
+          return [] as any[]
+        }),
+      pb
+        .collection('plants')
+        .getFullList<any>({ sort: 'code' })
+        .catch((err) => {
+          console.warn('plants query fallback:', err)
+          return [] as any[]
+        }),
+      pb
         .collection('production_lines')
-        .getFullList({
-          sort: 'code',
-        })
+        .getFullList<any>({ filter: 'is_active = true', sort: 'code' })
         .catch((err) => {
           console.warn('production_lines query fallback:', err)
-          return []
-        })
-      lines.forEach((l: any) => {
-        const center = l.plant_code || l.sap_plant_code || '1010'
-        if (center && !seen.has(center)) {
-          seen.add(center)
-          list.push({
-            code: center,
-            name: `${center} - Planta Fabril CIAFAL`,
-            company: 'CIAFAL',
-            isPlant: true,
-          })
-        }
-      })
-    } catch {
-      /* intentionally ignored */
-    }
+          return [] as any[]
+        }),
+      pb
+        .collection('pcp_center_derivations')
+        .getFullList<any>({ filter: 'deleted = false', sort: 'source_center_code' })
+        .catch((err) => {
+          console.warn('pcp_center_derivations query fallback:', err)
+          return [] as any[]
+        }),
+    ])
 
-    if (list.length === 0) {
-      return [
-        { code: '1010', name: '1010 - Usina Divinópolis Matriz', company: 'CIAFAL', isPlant: true },
-        {
-          code: '1020',
-          name: '1020 - Centro Industrial Contagem',
+    // Vínculo planta -> empresa (relação da Hierarquia)
+    const plantCompanyId = new Map<string, string>()
+    plants.forEach((p: any) => {
+      if (p.id && p.company_id) plantCompanyId.set(p.id, p.company_id)
+    })
+
+    const companyOptions: MasterCompanyOption[] = companies.map((c: any) => ({
+      id: c.id,
+      code: c.code,
+      name: c.name || c.corporate_name || c.code,
+    }))
+
+    const lineOptions: MasterLineOption[] = lines.map((l: any) => ({
+      id: l.id,
+      code: l.code,
+      name: l.name || l.code,
+      companyId: l.plant_id ? plantCompanyId.get(l.plant_id) : undefined,
+    }))
+
+    // Centros cadastrados: centro de origem e centros derivados, com a linha à qual pertencem
+    const centers: (CentroOption & { lineCode?: string })[] = []
+    const seen = new Set<string>()
+
+    // Centros de trabalho da Hierarquia (Cadastros -> Hierarquia das Linhas e Centros de Produção)
+    try {
+      const workCenters = await pb
+        .collection('work_centers')
+        .getFullList<any>({ filter: 'status = "ACTIVE"', sort: 'code' })
+        .catch((err) => {
+          console.warn('work_centers query fallback:', err)
+          return [] as any[]
+        })
+      const lineById = new Map<string, MasterLineOption>()
+      lineOptions.forEach((l) => lineById.set(l.id, l))
+      workCenters.forEach((wc: any) => {
+        const code = (wc.code || '').trim()
+        if (!code || seen.has(code)) return
+        seen.add(code)
+        const line = wc.line_id ? lineById.get(wc.line_id) : undefined
+        centers.push({
+          code,
+          name: `${code} - ${wc.name || 'Centro de Trabalho'}`,
           company: 'CIAFAL',
           isPlant: true,
-        },
-        { code: 'SDPL', name: 'SDPL - Filial Sidercentro', company: 'CIAFAL', isPlant: true },
-      ]
+          lineCode: line?.code,
+        })
+      })
+    } catch {
+      /* ignora falha de carregamento, centros seguem com a fonte alternativa abaixo */
     }
 
-    return list
+    derivations.forEach((d: any) => {
+      const lineCode = (d.source_center_line || '').trim() || undefined
+      const sourceCode = (d.source_center_code || '').trim()
+      if (sourceCode && !seen.has(sourceCode)) {
+        seen.add(sourceCode)
+        centers.push({
+          code: sourceCode,
+          name: `${sourceCode} - ${d.source_center_name || 'Centro Industrial'}`,
+          company: d.source_center_company || 'CIAFAL',
+          isPlant: true,
+          lineCode,
+        })
+      }
+      const derivedCode = (d.center_code || '').trim()
+      if (derivedCode && !seen.has(derivedCode)) {
+        seen.add(derivedCode)
+        centers.push({
+          code: derivedCode,
+          name: `${derivedCode} - ${d.center_name || 'Centro Derivado'}`,
+          company: d.source_center_company || 'CIAFAL',
+          isPlant: false,
+          lineCode,
+        })
+      }
+    })
+
+    return { companies: companyOptions, lines: lineOptions, centers }
+  }
+
+  /**
+   * Compatibilidade: centros vindos exclusivamente dos cadastros mestres (sem dados fictícios)
+   */
+  async loadCenters(): Promise<CentroOption[]> {
+    const opts = await this.loadMasterFilterOptions()
+    return opts.centers
   }
 
   /**
