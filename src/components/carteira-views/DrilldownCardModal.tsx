@@ -513,7 +513,7 @@ const TabelaGenerica = <T extends Record<string, any>>({
                     key={c.key}
                     className={`p-2.5 ${c.align === 'right' ? 'text-right font-mono' : c.align === 'center' ? 'text-center' : ''}`}
                   >
-                    {c.render ? c.render(l) : formatar(l[c.key])}
+                    {c.render ? c.render(l) : formatNumberPTBR(l[c.key])}
                   </td>
                 ))}
               </tr>
