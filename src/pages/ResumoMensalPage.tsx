@@ -55,6 +55,10 @@ import { formatNumberPTBR, formatDatePTBR, formatDateTimePTBR } from '@/lib/form
 import { CreateNewVersionModal } from '@/components/pcp/entregas/CreateNewVersionModal'
 import { TemplateManagementModal } from '@/components/pcp/entregas/TemplateManagementModal'
 import { SummaryTableRenderer } from '@/components/pcp/entregas/SummaryTableRenderer'
+import {
+  getResumoMensalIndicador,
+  type ResumoMensalIndicadorMetadata,
+} from '@/services/pcp-monthly-summary-indicadores'
 
 export const ResumoMensalPage: React.FC = () => {
   const { toast } = useToast()
@@ -358,6 +362,53 @@ export const ResumoMensalPage: React.FC = () => {
   const leiturasTotal = summaries.reduce((acc, s) => acc + (s.total_recipients_count || 8), 0)
   const leiturasConfirmadas = summaries.reduce((acc, s) => acc + (s.read_count || 0), 0)
   const leiturasPendentes = Math.max(0, leiturasTotal - leiturasConfirmadas)
+
+  // Renderização dos Cards de Indicadores (PARTE 2): título por extenso + sigla +
+  // status + valor com unidade de medida (padrão ABNT/SI) via metadata centralizada.
+  const renderResumoMensalKpiCards = () => {
+    const cards: Array<{
+      codigo: string
+      valor: number | string
+      status: 'NORMAL' | 'ATENCAO' | 'SUCESSO'
+    }> = [
+      { codigo: 'resumos', valor: totalSummariesCount, status: 'NORMAL' },
+      { codigo: 'rascunhos', valor: rascunhosCount, status: 'NORMAL' },
+      { codigo: 'emEdicao', valor: emEdicaoCount, status: 'NORMAL' },
+      { codigo: 'aguardandoAprovacao', valor: aguardandoAprovacaoCount, status: 'ATENCAO' },
+      { codigo: 'publicados', valor: publicadosCount, status: 'SUCESSO' },
+      {
+        codigo: 'leiturasPendentes',
+        valor: leiturasPendentes,
+        status: leiturasPendentes > 0 ? 'ATENCAO' : 'NORMAL',
+      },
+      { codigo: 'leiturasConfirmadas', valor: leiturasConfirmadas, status: 'SUCESSO' },
+      {
+        codigo: 'versaoAtual',
+        valor: selectedSummary?.version_tag || 'V01',
+        status: 'NORMAL',
+      },
+    ]
+
+    return cards.map((card) => {
+      const meta = getResumoMensalIndicador(card.codigo) as ResumoMensalIndicadorMetadata | null
+      const titulo = meta?.titulo ?? card.codigo
+      const sigla = meta?.sigla ?? null
+      // Indicador sem unidade física (ex.: versão) NÃO recebe unidade inventada.
+      const unidade = typeof card.valor === 'number' ? (meta?.unidade ?? '') : ''
+
+      return (
+        <CiafalKPICard
+          key={card.codigo}
+          title={titulo}
+          value={card.valor}
+          unit={unidade}
+          status={card.status}
+          acronym={sigla}
+          infoTooltip={meta?.descricao}
+        />
+      )
+    })
+  }
 
   // Status badge styling
   const renderStatusBadge = (status: PCPMonthlySummaryRecord['status']) => {
@@ -695,28 +746,8 @@ export const ResumoMensalPage: React.FC = () => {
       </div>
 
       {/* Dashboard de KPIs do Resumo Mensal com grade responsiva sem compressão horizontal */}
-      <div
-        className="grid gap-3"
-        style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        }}
-      >
-        <CiafalKPICard title="Resumos" value={totalSummariesCount} status="NORMAL" />
-        <CiafalKPICard title="Rascunhos" value={rascunhosCount} status="NORMAL" />
-        <CiafalKPICard title="Em Edição" value={emEdicaoCount} status="NORMAL" />
-        <CiafalKPICard title="Em Aprovação" value={aguardandoAprovacaoCount} status="ATENCAO" />
-        <CiafalKPICard title="Publicados" value={publicadosCount} status="SUCESSO" />
-        <CiafalKPICard
-          title="Leituras Pendentes"
-          value={leiturasPendentes}
-          status={leiturasPendentes > 0 ? 'ATENCAO' : 'NORMAL'}
-        />
-        <CiafalKPICard title="Leituras Confirmadas" value={leiturasConfirmadas} status="SUCESSO" />
-        <CiafalKPICard
-          title="Versão Atual"
-          value={selectedSummary?.version_tag || 'V01'}
-          status="NORMAL"
-        />
+      <div className="grid grid-cols-2 gap-3 min-w-0 w-full sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+        {renderResumoMensalKpiCards()}
       </div>
 
       {/* Seleção Rápida entre Resumos Carregados */}

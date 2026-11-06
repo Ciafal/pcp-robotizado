@@ -343,6 +343,8 @@ export interface CiafalKPICardProps {
   updatedAt?: string | Date | null
   infoTooltip?: string
   icon?: React.ComponentType<{ className?: string }>
+  /** Sigla opcional do indicador, exibida como chip pequena junto ao status */
+  acronym?: string | null
 }
 
 export const CiafalKPICard: React.FC<CiafalKPICardProps> = ({
@@ -358,6 +360,7 @@ export const CiafalKPICard: React.FC<CiafalKPICardProps> = ({
   updatedAt,
   infoTooltip,
   icon: Icon,
+  acronym,
 }) => {
   const formattedVal =
     typeof value === 'number' ? formatAbntNumber(value, decimals) : sanitizeDisplay(value)
@@ -385,8 +388,16 @@ export const CiafalKPICard: React.FC<CiafalKPICardProps> = ({
             </TooltipProvider>
           )}
         </div>
-        <div className="self-start pt-0.5">
+        <div className="flex flex-wrap items-center gap-1 pt-0.5 min-w-0">
           <CiafalStatus status={status} size="sm" />
+          {acronym && (
+            <span
+              title={title}
+              className="inline-flex items-center px-1.5 py-0.5 rounded border border-blue-200 bg-blue-50 text-[#004C97] text-[10px] font-bold font-mono tracking-wide uppercase"
+            >
+              {acronym}
+            </span>
+          )}
         </div>
       </div>
 
