@@ -39,6 +39,11 @@ import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
 import { PortfolioAISection } from './PortfolioAISection'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
+import {
+  SaldoSemiacabadoCard,
+  saldoSemiacabadoItemTons,
+  TOOLTIP_SALDO_SEMIACABADO,
+} from './SaldoSemiacabadoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
 import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
@@ -144,6 +149,23 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     return Array.from(s).sort()
   }, [todosItensCalculados])
 
+  // Saldo Semiacabado consolidado (Geral + SDC). Fonte: campo real da carteira
+  // populado pelo motor. Sem dupla contagem: soma por material apenas uma vez
+  // (Semi CIAFAL/consolidado + Semi Vallourec), nunca re-somando o estoque disponível.
+  const saldoSemiacabadoConsolidado = useMemo(() => {
+    const mapa = new Map<string, number>()
+    todosItensCalculados.forEach((i) => {
+      const orig = i.origemItemOriginal as CarteiraItem | undefined
+      if (orig) {
+        const atual = mapa.get(i.codigo_material) || 0
+        mapa.set(i.codigo_material, atual + saldoSemiacabadoItemTons(orig))
+      }
+    })
+    const totalT = Array.from(mapa.values()).reduce((a, b) => a + b, 0)
+    const materiaisCount = Array.from(mapa.values()).filter((v) => v > 0).length
+    return { totalT, materiaisCount }
+  }, [todosItensCalculados])
+
   // 2. Os 17 Cards Executivos Consolidados da Carteira Geral
   const cardsExecutivos: PortfolioCardMetric[] = useMemo(() => {
     const totalItens = todosItensCalculados.length
@@ -183,6 +205,15 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     const temFaturamentoFisico = !erroFaturamentoFisico && faturamentoFisicoTotalT > 0
 
     return [
+      {
+        id: 'SALDO_SEMIACABADO',
+        titulo: 'Saldo Semiacabado',
+        valor: saldoSemiacabadoConsolidado.totalT,
+        tipoFormato: 'tonelada',
+        cor: 'azul',
+        subtitulo: `${saldoSemiacabadoConsolidado.materiaisCount} materiais`,
+        tooltip: TOOLTIP_SALDO_SEMIACABADO,
+      },
       {
         id: 'CARTEIRA_TOTAL',
         titulo: 'Carteira (t)',
@@ -361,7 +392,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
         tooltip: `Materiais de cauda longa (concentram ${formatPercentagePTBR(resultadoABC.tonelagemTotal_t > 0 ? (resultadoABC.resumoC.toneladas / resultadoABC.tonelagemTotal_t) * 100 : 0, 1)} do volume)`,
       },
     ]
-  }, [todosItensCalculados, resultadoABC, parametrosCurvaAbc])
+  }, [todosItensCalculados, resultadoABC, parametrosCurvaAbc, saldoSemiacabadoConsolidado])
 
   // Drill-down dos cards executivos
   const handleCardClick = (cardId: string) => {
@@ -374,6 +405,17 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
           nome: 'Carteira Total Consolidada',
           descricao: 'Todos os materiais com ordens abertas no SAP ECC ZSD28C',
           itens: todosItensCalculados,
+        })
+        break
+      case 'SALDO_SEMIACABADO':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais com Saldo Semiacabado',
+          descricao: 'Saldo disponível de materiais semiacabados aplicáveis à carteira selecionada',
+          itens: todosItensCalculados.filter((i) => {
+            const orig = i.origemItemOriginal as CarteiraItem | undefined
+            return orig ? saldoSemiacabadoItemTons(orig) > 0 : false
+          }),
         })
         break
       case 'ESTOQUE_DISPONIVEL':
@@ -641,6 +683,14 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
       {/* Grid de Cards Executivos Consolidados com o Card 'Mínimo não atingido' integrado responsivamente */}
       <div className="space-y-2.5">
         <PortfolioCardsGrid cards={cardsExecutivos} onCardClick={handleCardClick} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+          <SaldoSemiacabadoCard
+            testid="card-saldo-semiacabado-geral"
+            valorTons={saldoSemiacabadoConsolidado.totalT}
+            materiaisCount={saldoSemiacabadoConsolidado.materiaisCount}
+            notaComposicao="Semi CIAFAL + Semi Vallourec • Geral + SDC"
+          />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
           <MinimoNaoAtingidoCard
             summary={resumoMinimoNaoAtingido}

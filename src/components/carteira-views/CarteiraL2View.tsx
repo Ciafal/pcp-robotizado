@@ -12,6 +12,7 @@ import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
 import { resolverCarteiraItem, criarCarteiraItemMinimo } from '@/lib/carteira-item-helper'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
+import { SaldoSemiacabadoCard, saldoSemiacabadoItemTons } from './SaldoSemiacabadoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
 import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
@@ -83,6 +84,10 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
     })
   }, [itens, replicaSapLoteMinimo])
 
+  // Agregação Semiacabado L2: Semi CIAFAL + Semi Vallourec (composição própria da L2)
+  const totalSemiacabadoL2 = itensL2.reduce((s, i) => s + saldoSemiacabadoItemTons(i), 0)
+  const materiaisSemiacabadoL2 = itensL2.filter((i) => saldoSemiacabadoItemTons(i) > 0).length
+
   return (
     <div className="space-y-4">
       {/* Alertas & IA • Análise Automática da Carteira L2 */}
@@ -98,8 +103,14 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
         }}
       />
 
-      {/* Card Executivo 'Mínimo não atingido' Linha L2 */}
+      {/* Cards Executivos Linha L2: Saldo Semiacabado + Mínimo não atingido */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+        <SaldoSemiacabadoCard
+          testid="card-saldo-semiacabado-l2"
+          valorTons={totalSemiacabadoL2}
+          materiaisCount={materiaisSemiacabadoL2}
+          notaComposicao="Semi CIAFAL + Semi Vallourec"
+        />
         <MinimoNaoAtingidoCard
           summary={resumoMinimoL2}
           onClick={() => setIsMinimoModalOpen(true)}

@@ -25,6 +25,7 @@ import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
 import { resolverCarteiraItem, criarCarteiraItemMinimo } from '@/lib/carteira-item-helper'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
+import { SaldoSemiacabadoCard } from './SaldoSemiacabadoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
 import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
@@ -86,6 +87,7 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
   const totalEstoqueLivreL1 = itensL1.reduce((s, i) => s + (i.estoque_livre_tons || 0), 0)
   const totalEstoqueMtoL1 = itensL1.reduce((s, i) => s + (i.estoque_mto_tons || 0), 0)
   const totalSemiacabadoL1 = itensL1.reduce((s, i) => s + (i.estoque_semiacabado_tons || 0), 0)
+  const materiaisSemiacabadoL1 = itensL1.filter((i) => (i.estoque_semiacabado_tons || 0) > 0).length
   const totalSaldoPositivoL1 = itensL1.reduce((s, i) => s + (i.saldo_positivo_tons || 0), 0)
   const totalSaldoNegativoL1 = itensL1.reduce((s, i) => s + (i.saldo_negativo_tons || 0), 0)
 
@@ -126,8 +128,14 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
         }}
       />
 
-      {/* Card Executivo 'Mínimo não atingido' Linha L1 */}
+      {/* Cards Executivos Linha L1: Saldo Semiacabado + Mínimo não atingido */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+        <SaldoSemiacabadoCard
+          testid="card-saldo-semiacabado-l1"
+          valorTons={totalSemiacabadoL1}
+          materiaisCount={materiaisSemiacabadoL1}
+          notaComposicao="Já compõe o Estoque Disponível"
+        />
         <MinimoNaoAtingidoCard
           summary={resumoMinimoL1}
           onClick={() => setIsMinimoModalOpen(true)}

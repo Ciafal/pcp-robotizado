@@ -41,6 +41,7 @@ import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engi
 import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
+import { SaldoSemiacabadoCard } from './SaldoSemiacabadoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
 import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
@@ -939,6 +940,15 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           </div>
           <span className="text-[10px] text-rose-600 block mt-1">Sem prog / Sem estoque</span>
         </div>
+
+        {/* 10. SALDO SEMIACABADO — CarteiraSDCItem não expõe saldo semiacabado (sem campo
+            dedicado na RFC ZSD28C da SDC). Estado controlado INDISPONIVEL: nunca 0,00 t
+            silencioso e nunca fonte inventada, até existir campo real de semiacabado. */}
+        <SaldoSemiacabadoCard
+          testid="card-saldo-semiacabado-sdc"
+          indisponivel
+          notaComposicao="Fonte não disponível na RFC SDC"
+        />
       </div>
 
       {/* Card Executivo 'Mínimo não atingido' Carteira SDC */}
