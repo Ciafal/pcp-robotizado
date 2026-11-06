@@ -27,6 +27,8 @@ import { resolverCarteiraItem, criarCarteiraItemMinimo } from '@/lib/carteira-it
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
 import { SaldoSemiacabadoCard } from './SaldoSemiacabadoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import { DrilldownCardModal } from './DrilldownCardModal'
+import { buildConfigCardL1, TITULOS_CARDS_L1 } from './drilldown-l1'
 import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
   calcularMinimoNaoAtingido,
@@ -91,6 +93,27 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
   const totalSaldoPositivoL1 = itensL1.reduce((s, i) => s + (i.saldo_positivo_tons || 0), 0)
   const totalSaldoNegativoL1 = itensL1.reduce((s, i) => s + (i.saldo_negativo_tons || 0), 0)
 
+  // ===== Drill-down dos cards executivos da L1 =====
+  // Estado interno: abrir/fechar o drill NÃO altera filtros nem posição da view.
+  const [drillCardId, setDrillCardId] = useState<string | null>(null)
+  const filtrosAtivosL1 = useMemo(() => {
+    const f: Record<string, string> = {}
+    if (filtroFamilia !== 'TODAS') f['Família'] = filtroFamilia
+    if (filtroOrigem !== 'TODAS') f['Origem'] = filtroOrigem
+    if (filtroCurva !== 'TODAS') f['Curva ABC'] = filtroCurva
+    return f
+  }, [filtroFamilia, filtroOrigem, filtroCurva])
+  const drillConfig = useMemo(() => {
+    if (!drillCardId) return null
+    return buildConfigCardL1({
+      cardId: drillCardId,
+      tituloCard: TITULOS_CARDS_L1[drillCardId] || drillCardId,
+      itensL1,
+      mapaCurva: mapaAbcL1,
+      filtrosHerdados: filtrosAtivosL1,
+    })
+  }, [drillCardId, itensL1, mapaAbcL1, filtrosAtivosL1])
+
   // Análise automática Alertas & IA da Carteira L1
   const analiseL1 = React.useMemo(() => {
     return CarteiraAnaliseEngine.analisarCarteiraGenerica('L1', itens, entradasFuturas)
@@ -135,6 +158,7 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
           valorTons={totalSemiacabadoL1}
           materiaisCount={materiaisSemiacabadoL1}
           notaComposicao="Já compõe o Estoque Disponível"
+          onClick={() => setDrillCardId('SALDO_SEMIACABADO')}
         />
         <MinimoNaoAtingidoCard
           summary={resumoMinimoL1}
@@ -430,6 +454,13 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
           if (onOpenDetalheMaterial) onOpenDetalheMaterial(itemResolvido)
           else onOpenMemoria(itemResolvido)
         }}
+      />
+
+      {/* Drill-down único dos cards executivos da L1 (DrilldownCardModal) */}
+      <DrilldownCardModal
+        isOpen={!!drillCardId}
+        onClose={() => setDrillCardId(null)}
+        config={drillConfig}
       />
 
       {/* Modal Mínimo Não Atingido L1 */}
