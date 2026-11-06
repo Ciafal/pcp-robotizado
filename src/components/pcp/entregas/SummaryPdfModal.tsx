@@ -104,7 +104,7 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
   summary,
   isExecutiveMode = false,
 }) => {
-  const sec = summary.sections_data || {}
+  const sec = (summary.sections_data || {}) as any
   const emitidoEm = new Date().toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',

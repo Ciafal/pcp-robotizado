@@ -10,7 +10,7 @@ export interface ItemCurvaAbcCalculado {
   centro: string
   cliente?: string
   carteira_tons: number
-  estoque_livre_tons: number
+  estoque_livre_tons?: number
   estoque_qualidade_tons: number
   estoque_bloqueado_tons: number
   estoque_disponivel_tons: number
