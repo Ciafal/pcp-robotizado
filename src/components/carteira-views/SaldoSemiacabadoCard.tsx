@@ -1,6 +1,6 @@
 import React from 'react'
 import { Card } from '@/components/ui/card'
-import { Layers, AlertTriangle } from 'lucide-react'
+import { Layers, AlertTriangle, MousePointerClick } from 'lucide-react'
 import { formatNumberPTBR } from '@/lib/formatters-ptbr'
 import { CarteiraItem } from '@/types/carteira-analise'
 
@@ -52,11 +52,13 @@ interface SaldoSemiacabadoCardProps {
   notaComposicao?: string
   /** data-testid específico da visão. */
   testid?: string
+  /** Quando informado, o card fica clicável e abre o drill-down (Geral). */
+  onClick?: () => void
 }
 
 /**
  * Card executivo "Saldo Semiacabado" — padrão visual dos cards de estoque das visões
- * de carteira (L1, L2, Geral e SDC). Não abre drill-down nesta fase.
+ * de carteira (L1, L2, Geral e SDC). Na Geral recebe onClick e abre o drill-down.
  */
 export const SaldoSemiacabadoCard: React.FC<SaldoSemiacabadoCardProps> = ({
   valorTons,
@@ -64,18 +66,26 @@ export const SaldoSemiacabadoCard: React.FC<SaldoSemiacabadoCardProps> = ({
   indisponivel = false,
   notaComposicao,
   testid,
+  onClick,
 }) => {
   return (
     <Card
       data-testid={testid || 'card-saldo-semiacabado'}
       title={TOOLTIP_SALDO_SEMIACABADO}
-      className="p-3 bg-white rounded-xl border border-sky-200 hover:border-[#004C97] shadow-xs transition-all flex flex-col justify-between min-w-0 group"
+      onClick={onClick}
+      className={`p-3 bg-white rounded-xl border border-sky-200 hover:border-[#004C97] shadow-xs transition-all flex flex-col justify-between min-w-0 group ${
+        onClick ? 'cursor-pointer select-none' : ''
+      }`}
     >
       <div className="flex items-center justify-between gap-1.5">
         <span className="text-[10px] uppercase font-bold text-slate-600 group-hover:text-[#004C97] block leading-tight transition-colors">
           Saldo Semiacabado
         </span>
-        <Layers className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        {onClick ? (
+          <MousePointerClick className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#004C97] shrink-0 transition-colors" />
+        ) : (
+          <Layers className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        )}
       </div>
       <div className="flex items-baseline gap-1 mt-1 min-h-[26px]">
         {indisponivel ? (
