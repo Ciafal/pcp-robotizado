@@ -14,6 +14,8 @@ import { resolverCarteiraItem, criarCarteiraItemMinimo } from '@/lib/carteira-it
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
 import { SaldoSemiacabadoCard, saldoSemiacabadoItemTons } from './SaldoSemiacabadoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import { DrilldownCardModal } from './DrilldownCardModal'
+import { buildConfigCardL2, TITULOS_CARDS_L2 } from './drilldown-l2'
 import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
   calcularMinimoNaoAtingido,
@@ -57,6 +59,26 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
     resultadoABCL2.itens.forEach((i) => m.set(i.codigo_material, i.curva_abc))
     return m
   }, [resultadoABCL2])
+
+  // ===== Drill-down dos cards executivos da L2 =====
+  // Estado interno: abrir/fechar o drill NÃO altera filtros nem posição da view.
+  const [drillCardId, setDrillCardId] = useState<string | null>(null)
+  const filtrosAtivosL2 = useMemo(() => {
+    const f: Record<string, string> = {}
+    if (filtroFamilia !== 'TODAS') f['Família'] = filtroFamilia
+    if (filtroCurva !== 'TODAS') f['Curva ABC'] = filtroCurva
+    return f
+  }, [filtroFamilia, filtroCurva])
+  const drillConfig = useMemo(() => {
+    if (!drillCardId) return null
+    return buildConfigCardL2({
+      cardId: drillCardId,
+      tituloCard: TITULOS_CARDS_L2[drillCardId] || drillCardId,
+      itensL2,
+      mapaCurva: mapaAbcL2,
+      filtrosHerdados: filtrosAtivosL2,
+    })
+  }, [drillCardId, itensL2, mapaAbcL2, filtrosAtivosL2])
 
   const itensFiltrados = itensL2.filter((i) => {
     if (filtroFamilia !== 'TODAS' && i.familia !== filtroFamilia) return false
@@ -110,6 +132,7 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
           valorTons={totalSemiacabadoL2}
           materiaisCount={materiaisSemiacabadoL2}
           notaComposicao="Semi CIAFAL + Semi Vallourec"
+          onClick={() => setDrillCardId('SALDO_SEMIACABADO')}
         />
         <MinimoNaoAtingidoCard
           summary={resumoMinimoL2}
@@ -331,6 +354,13 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Drill-down único dos cards executivos da L2 (DrilldownCardModal) */}
+      <DrilldownCardModal
+        isOpen={!!drillCardId}
+        onClose={() => setDrillCardId(null)}
+        config={drillConfig}
+      />
 
       {/* Modais Analíticos */}
       <PortfolioCharts
