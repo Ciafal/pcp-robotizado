@@ -158,6 +158,20 @@ const AnaliseFacaPage = lazyWithRetry(
     })),
   'AnaliseFacaPage',
 )
+const PedidosCarteiraPage = lazyWithRetry(
+  () =>
+    import('@/pages/PedidosCarteiraPage').then((m) => ({
+      default: m.default ?? m.PedidosCarteiraPage,
+    })),
+  'PedidosCarteiraPage',
+)
+const PedidosSaldosResiduaisPage = lazyWithRetry(
+  () =>
+    import('@/pages/PedidosSaldosResiduaisPage').then((m) => ({
+      default: m.default ?? m.PedidosSaldosResiduaisPage,
+    })),
+  'PedidosSaldosResiduaisPage',
+)
 const KpisCarteiraPage = lazyWithRetry(
   () =>
     import('@/pages/KpisCarteiraPage').then((m) => ({
@@ -1150,6 +1164,26 @@ export const App: React.FC = () => {
                         <PermissionGuard permission="pcp.faca.view">
                           <RouteErrorBoundary moduleName="Análise de FACA">
                             <AnaliseFacaPage />
+                          </RouteErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/analise-carteira/pedidos"
+                      element={
+                        <PermissionGuard permission="pcp.carteira.view">
+                          <RouteErrorBoundary moduleName="Pedidos em Carteira">
+                            <PedidosCarteiraPage />
+                          </RouteErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/analise-carteira/saldos-residuais"
+                      element={
+                        <PermissionGuard permission="pcp.carteira.view">
+                          <RouteErrorBoundary moduleName="Pedidos com Saldos Residuais">
+                            <PedidosSaldosResiduaisPage />
                           </RouteErrorBoundary>
                         </PermissionGuard>
                       }
