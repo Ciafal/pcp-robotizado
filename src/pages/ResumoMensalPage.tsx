@@ -299,7 +299,7 @@ export const ResumoMensalPage: React.FC = () => {
         title: 'Publicado na Agenda HUB CIAFAL',
         description: 'Evento de leitura corporativa gerado com prazo de 5 dias úteis.',
       })
-      loadInitialData()
+      loadSummaries()
     } catch (err: any) {
       toast({
         title: 'Erro ao Publicar na Agenda',
@@ -1774,7 +1774,7 @@ export const ResumoMensalPage: React.FC = () => {
           lineName={selectedSummary.linha_nome || selectedSummary.linha_code}
           mesAno={selectedSummary.mes_ano}
           versionTag={selectedSummary.version_tag}
-          onDispatched={loadInitialData}
+          onDispatched={loadSummaries}
         />
       )}
 
