@@ -43,6 +43,8 @@ import { PortfolioABC } from './PortfolioABC'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
 import { SaldoSemiacabadoCard } from './SaldoSemiacabadoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import { DrilldownCardModal } from './DrilldownCardModal'
+import { buildConfigCardSDC, TITULOS_CARDS_SDC } from './drilldown-sdc'
 import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
   calcularMinimoNaoAtingido,
@@ -92,6 +94,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   const [isChartsOpen, setIsChartsOpen] = useState(false)
   const [isAbcOpen, setIsAbcOpen] = useState(false)
   const [isMinimoModalOpen, setIsMinimoModalOpen] = useState(false)
+  const [drillCardId, setDrillCardId] = useState<string | null>(null)
   const [destaqueMaterial, setDestaqueMaterial] = useState<string | null>(materialAncorado || null)
 
   // Estado do Modal de Detalhamento de Estoque por Centro SAP
@@ -121,11 +124,54 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   })
 
   const handleAbrirDetalheCard = (tipo: TipoCardSDC) => {
+    // Drill-down analítico (padrão L1/L2) para os 6 cards com dado real da SDC;
+    // os demais mantêm os modais próprios (DetalheCardSDCModal / centros / Mínimo).
+    if (TITULOS_CARDS_SDC[tipo]) {
+      setDrillCardId(tipo)
+      return
+    }
     setModalCardSDC({
       isOpen: true,
       tipoCard: tipo,
     })
   }
+
+  const filtrosAtivosSDC = useMemo(() => {
+    const f: Record<string, string> = {}
+    if (busca) f['Busca'] = busca
+    if (filtroFamilia !== 'TODAS') f['Família'] = filtroFamilia
+    if (filtroBitola !== 'TODAS') f['Bitola'] = filtroBitola
+    if (filtroAco !== 'TODOS') f['Aço'] = filtroAco
+    if (filtroCurva !== 'TODAS') f['Curva ABC'] = filtroCurva
+    if (filtroStatus !== 'TODOS') f['Status'] = filtroStatus
+    if (filtroOrigem !== 'TODAS') f['Origem'] = filtroOrigem
+    if (apenasComDeficit) f['Somente com déficit'] = 'Sim'
+    if (apenasComProg) f['Somente programados'] = 'Sim'
+    if (apenasEmProducao) f['Somente em produção'] = 'Sim'
+    return f
+  }, [
+    busca,
+    filtroFamilia,
+    filtroBitola,
+    filtroAco,
+    filtroCurva,
+    filtroStatus,
+    filtroOrigem,
+    apenasComDeficit,
+    apenasComProg,
+    apenasEmProducao,
+  ])
+
+  // Config do drill: usa o array INTEGRAL `itens` (mesmo do calcularKpis), nunca itensFiltrados
+  const drillConfig = useMemo(() => {
+    if (!drillCardId) return null
+    return buildConfigCardSDC({
+      cardId: drillCardId,
+      tituloCard: TITULOS_CARDS_SDC[drillCardId] || drillCardId,
+      itens,
+      filtrosHerdados: filtrosAtivosSDC,
+    })
+  }, [drillCardId, itens, filtrosAtivosSDC])
 
   // Detalhamento de Estoque Total SDPL por centro (base de dados da Carteira SDC: WERKS = SDPL)
   const centrosEstoqueTotalSdpl: EstoqueCentroDetalhe[] = useMemo(() => {
@@ -1604,6 +1650,13 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         valorConsolidadoT={modalEstoqueCentro.valorConsolidadoT}
         centros={modalEstoqueCentro.centros}
         isLoading={isLoading}
+      />
+
+      {/* Drill-down analítico dos cards SDC (padrão L1/L2) — fechar não altera estado da tela */}
+      <DrilldownCardModal
+        isOpen={!!drillCardId}
+        onClose={() => setDrillCardId(null)}
+        config={drillConfig}
       />
 
       {/* Modal Amplo de Detalhamento Específico para TODOS os Cards da Carteira SDC */}
