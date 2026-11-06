@@ -194,11 +194,356 @@ export class PcpPedidosCarteiraService {
    */
   public static async restaurarPadroes(): Promise<ParametrosSaldoResidual> {
     return this.salvarParametros(
-      { ...PARAMETROS_SALDO_RESIDUAL_PADRAO },
-      'Restauração dos parâmetros padrão da CIAFAL (Saldo <= 2,00 t OU % <= 5,00%)',
+      PARAMETROS_SALDO_RESIDUAL_PADRAO,
+      'Restauração automática para valores padrão CIAFAL',
     )
   }
 
+  /**
+   * Alias de compatibilidade: obterParametrosAtuais
+   */
+  public static async obterParametrosAtuais(): Promise<ParametrosSaldoResidual> {
+    return this.carregarParametros()
+  }
+
+  /**
+   * Alias de compatibilidade: obterPedidosCarteira
+   */
+  public static async obterPedidosCarteira(): Promise<PedidoCarteiraAnalitico[]> {
+    const res = await this.carregarPedidosAnaliticos()
+    return res.itens
+  }
+
+  /**
+   * Alias de compatibilidade: itemAtendeParametros
+   */
+  public static itemAtendeParametros(
+    item: { saldo_aberto_t?: number; percentual_residual?: number; percentual_saldo?: number },
+    parametros: ParametrosSaldoResidual,
+  ): boolean {
+    const saldo = item.saldo_aberto_t ?? 0
+    const pct = item.percentual_residual ?? item.percentual_saldo ?? 0
+    return this.ehSaldoResidual(saldo, pct, parametros)
+  }
+
+  /**
+   * Filtra itens da carteira que atendem aos parâmetros de saldo residual
+   */
+  public static filtrarItensResiduais(
+    itens: PedidoCarteiraAnalitico[],
+    parametros: ParametrosSaldoResidual,
+  ): PedidoCarteiraAnalitico[] {
+    return itens.filter((it) => this.itemAtendeParametros(it, parametros))
+  }
+
+  /**
+   * Calcula KPIs analíticos dos Pedidos em Carteira
+   */
+  public static calcularKpisPedidosCarteira(
+    itens: PedidoCarteiraAnalitico[],
+    parametros: ParametrosSaldoResidual,
+  ): any {
+    const setPedidos = new Set<string>()
+    const setPedidosResiduais = new Set<string>()
+    const setPedidosAtraso = new Set<string>()
+    const setPedidosDeficit = new Set<string>()
+    const setPedidosCobertura = new Set<string>()
+
+    let somaQtdCarteiraT = 0
+    let somaValorCarteiraBrl = 0
+
+    itens.forEach((p) => {
+      setPedidos.add(p.pedido_sap)
+      somaQtdCarteiraT += p.saldo_aberto_t || 0
+      somaValorCarteiraBrl += p.valor_saldo_brl || p.valor_saldo_rs || 0
+
+      const ehResidual = this.itemAtendeParametros(p, parametros)
+      if (ehResidual) {
+        setPedidosResiduais.add(p.pedido_sap)
+      }
+      if (p.tem_atraso || p.atrasado) setPedidosAtraso.add(p.pedido_sap)
+      if (p.tem_deficit_estoque || p.deficit_estoque) setPedidosDeficit.add(p.pedido_sap)
+      if (p.tem_cobertura_disponivel || p.cobertura_disponivel)
+        setPedidosCobertura.add(p.pedido_sap)
+    })
+
+    return {
+      totalPedidos: setPedidos.size,
+      total_pedidos: setPedidos.size,
+      totalItens: itens.length,
+      total_itens: itens.length,
+      quantidadeTotalCarteiraTons: Number(somaQtdCarteiraT.toFixed(2)),
+      quantidade_total_carteira_t: Number(somaQtdCarteiraT.toFixed(2)),
+      valorTotalCarteiraBrl: Number(somaValorCarteiraBrl.toFixed(2)),
+      valor_total_carteira_rs: Number(somaValorCarteiraBrl.toFixed(2)),
+      pedidosComSaldoResidual: setPedidosResiduais.size,
+      pedidos_com_saldo_residual: setPedidosResiduais.size,
+      pedidosComAtraso: setPedidosAtraso.size,
+      pedidos_com_atraso: setPedidosAtraso.size,
+      pedidosComDeficitEstoque: setPedidosDeficit.size,
+      pedidos_com_deficit: setPedidosDeficit.size,
+      pedidosComCoberturaDisponivel: setPedidosCobertura.size,
+      pedidos_cobertura_disponivel: setPedidosCobertura.size,
+    }
+  }
+
+  /**
+   * Calcula KPIs consolidados dos Saldos Residuais
+   */
+  public static calcularKpisSaldosResiduais(
+    itensResiduais: PedidoCarteiraAnalitico[],
+    todosItensCarteira: PedidoCarteiraAnalitico[],
+  ): any {
+    const setPedidos = new Set<string>()
+    const setClientes = new Set<string>()
+    let somaSaldoResidualT = 0
+    let somaValorResidualBrl = 0
+    let pedidosVencidosCount = 0
+
+    itensResiduais.forEach((i) => {
+      setPedidos.add(i.pedido_sap)
+      setClientes.add(
+        i.codigo_cliente || i.cliente_codigo || i.nome_cliente || i.cliente_nome || 'CLI',
+      )
+      somaSaldoResidualT += i.saldo_aberto_t || 0
+      somaValorResidualBrl += i.valor_saldo_brl || i.valor_saldo_rs || 0
+      if (i.tem_atraso || i.atrasado) {
+        pedidosVencidosCount += 1
+      }
+    })
+
+    const somaCarteiraTotalT = todosItensCarteira.reduce(
+      (acc, cur) => acc + (cur.saldo_aberto_t || 0),
+      0,
+    )
+    const percentualCarteira =
+      somaCarteiraTotalT > 0.0001 ? (somaSaldoResidualT / somaCarteiraTotalT) * 100 : 0
+
+    return {
+      totalPedidosComResidual: setPedidos.size,
+      total_pedidos: setPedidos.size,
+      totalItensResiduais: itensResiduais.length,
+      total_itens: itensResiduais.length,
+      saldoResidualTotalTons: Number(somaSaldoResidualT.toFixed(2)),
+      saldo_total_t: Number(somaSaldoResidualT.toFixed(2)),
+      valorFinanceiroResidualBrl: Number(somaValorResidualBrl.toFixed(2)),
+      valor_total_rs: Number(somaValorResidualBrl.toFixed(2)),
+      totalClientesComResiduais: setClientes.size,
+      pedidosResiduaisVencidos: pedidosVencidosCount,
+      pedidos_vencidos: pedidosVencidosCount,
+      percentualCarteiraEmResidual: Number(percentualCarteira.toFixed(2)),
+      percentual_carteira_total: Number(percentualCarteira.toFixed(2)),
+    }
+  }
+
+  /**
+   * Gera análise de IA de Saldos Residuais com base nos itens reais
+   */
+  public static gerarAnaliseIaResiduais(itensResiduais: PedidoCarteiraAnalitico[]): any {
+    let saldoTotalT = 0
+    let valorTotalRs = 0
+    let pedidosVencidos = 0
+
+    const clientesMap = new Map<string, { itens: number; saldo_t: number; valor_rs: number }>()
+    const materiaisMap = new Map<
+      string,
+      { descricao: string; ocorrencias: number; saldo_t: number }
+    >()
+
+    itensResiduais.forEach((i) => {
+      const saldo = i.saldo_aberto_t || 0
+      const valor = i.valor_saldo_brl || i.valor_saldo_rs || 0
+      saldoTotalT += saldo
+      valorTotalRs += valor
+      if (i.tem_atraso || i.atrasado) pedidosVencidos += 1
+
+      const clienteNome = i.nome_cliente || i.cliente_nome || i.codigo_cliente || 'Cliente Diversos'
+      const cliExist = clientesMap.get(clienteNome) || { itens: 0, saldo_t: 0, valor_rs: 0 }
+      cliExist.itens += 1
+      cliExist.saldo_t += saldo
+      cliExist.valor_rs += valor
+      clientesMap.set(clienteNome, cliExist)
+
+      const matCod = i.codigo_material || i.material_codigo || 'MAT'
+      const matDesc = i.descricao_material || i.material_descricao || 'Material'
+      const matExist = materiaisMap.get(matCod) || {
+        descricao: matDesc,
+        ocorrencias: 0,
+        saldo_t: 0,
+      }
+      matExist.ocorrencias += 1
+      matExist.saldo_t += saldo
+      materiaisMap.set(matCod, matExist)
+    })
+
+    const clientesConcentracao = Array.from(clientesMap.entries())
+      .map(([cliente, dados]) => ({
+        cliente,
+        itens: dados.itens,
+        saldo_t: Number(dados.saldo_t.toFixed(2)),
+        valor_rs: Number(dados.valor_rs.toFixed(2)),
+      }))
+      .sort((a, b) => b.saldo_t - a.saldo_t)
+      .slice(0, 5)
+
+    const materiaisRecorrentes = Array.from(materiaisMap.entries())
+      .map(([material, dados]) => ({
+        material,
+        descricao: dados.descricao,
+        ocorrencias: dados.ocorrencias,
+        saldo_t: Number(dados.saldo_t.toFixed(2)),
+      }))
+      .sort((a, b) => b.saldo_t - a.saldo_t)
+      .slice(0, 5)
+
+    const recomendacoes: string[] = []
+    if (pedidosVencidos > 0) {
+      recomendacoes.push(
+        `Existem ${pedidosVencidos} ordens residuais já vencidas no SAP. Priorizar contato com o time comercial via CRM 360° para cancelamento ou agrupamento.`,
+      )
+    }
+    if (clientesConcentracao.length > 0) {
+      recomendacoes.push(
+        `O cliente principal em saldos residuais (${clientesConcentracao[0].cliente}) concentra ${clientesConcentracao[0].saldo_t} t. Propor faturamento conjunto no próximo embarque.`,
+      )
+    }
+    recomendacoes.push(
+      'Itens abaixo do lote mínimo de laminação devem ser direcionados para estoque regulador ou baixa por encerramento comercial.',
+    )
+
+    return {
+      total_itens: itensResiduais.length,
+      qtd_total_residuais: itensResiduais.length,
+      saldo_total_t: Number(saldoTotalT.toFixed(2)),
+      valor_total_rs: Number(valorTotalRs.toFixed(2)),
+      pedidos_vencidos: pedidosVencidos,
+      impacto_planejamento: `Volume residual total de ${saldoTotalT.toFixed(2)} t impactando a ocupação de capacidade e faturamento pendente no SAP ECC.`,
+      clientes_concentracao: clientesConcentracao,
+      materiais_recorrentes: materiaisRecorrentes,
+      recomendacoes_comerciais: recomendacoes,
+    }
+  }
+
+  /**
+   * Obtém pendências de CRM 360° da coleção oficial pcp_crm_revision_pendencies
+   */
+  public static async obterPendenciasCrmResiduais(): Promise<CrmRevisionPendency[]> {
+    try {
+      const records = await pb.collection('pcp_crm_revision_pendencies').getFullList<any>({
+        sort: '-created',
+        requestKey: null,
+      })
+      return records.map((r: any) => ({
+        id: r.id,
+        protocol: r.protocol || `CRM-${r.id.slice(0, 8)}`,
+        sales_order_number: r.sales_order_number || '',
+        sales_order_item: r.sales_order_item || '',
+        client_code: r.client_code || '',
+        client_name: r.client_name || '',
+        material_code: r.material_code || '',
+        material_description: r.material_description || '',
+        tonnage: Number(r.tonnage) || 0,
+        financial_value: Number(r.financial_value) || 0,
+        status: (r.status as StatusAnaliseCrm) || 'PENDENTE',
+        observation: r.observation || '',
+        requested_by_name: r.requested_by_name || 'PCP CIAFAL',
+        requested_at: r.requested_at || r.created || new Date().toISOString(),
+        assigned_team: r.assigned_team,
+        assigned_to: r.assigned_to,
+        history: r.history || [],
+      }))
+    } catch (err) {
+      console.warn('Erro ao consultar pcp_crm_revision_pendencies:', err)
+      return []
+    }
+  }
+
+  /**
+   * Atualiza status de pendência CRM 360°
+   */
+  public static async atualizarStatusCrm(
+    pendencyId: string,
+    novoStatus: StatusAnaliseCrm,
+    nota: string,
+    usuarioNome?: string,
+  ): Promise<boolean> {
+    try {
+      const atual = await pb.collection('pcp_crm_revision_pendencies').getOne<any>(pendencyId, {
+        requestKey: null,
+      })
+      const history = Array.isArray(atual.history) ? [...atual.history] : []
+      history.push({
+        status: novoStatus,
+        updated_at: new Date().toISOString(),
+        updated_by: usuarioNome || 'PCP CIAFAL',
+        note: nota,
+      })
+
+      await pb.collection('pcp_crm_revision_pendencies').update(
+        pendencyId,
+        {
+          status: novoStatus,
+          history,
+        },
+        { requestKey: null },
+      )
+      return true
+    } catch (err) {
+      console.error('Erro ao atualizar status CRM:', err)
+      return false
+    }
+  }
+
+  /**
+   * Envia lote de itens residuais para análise no CRM 360°
+   */
+  public static async enviarLoteParaCrm360(
+    itens: PedidoCarteiraAnalitico[],
+    observacaoGeral: string,
+    usuarioNome: string,
+  ): Promise<{ sucesso: boolean; enviados: number; protocoloLote: string }> {
+    const timestamp = Date.now().toString().slice(-6)
+    const protocoloLote = `CRM-RES-${timestamp}`
+    let count = 0
+
+    for (const it of itens) {
+      try {
+        const payload = {
+          protocol: `${protocoloLote}-${it.pedido_sap}-${it.item_sap}`,
+          sales_order_number: it.pedido_sap,
+          sales_order_item: it.item_sap,
+          client_code: it.codigo_cliente || it.cliente_codigo || '',
+          client_name: it.nome_cliente || it.cliente_nome || '',
+          material_code: it.codigo_material || it.material_codigo || '',
+          material_description: it.descricao_material || it.material_descricao || '',
+          tonnage: it.saldo_aberto_t || 0,
+          financial_value: it.valor_saldo_brl || it.valor_saldo_rs || 0,
+          status: 'PENDENTE',
+          observation: observacaoGeral || 'Solicitação de avaliação comercial para saldo residual',
+          requested_by_name: usuarioNome || 'PCP CIAFAL',
+          requested_at: new Date().toISOString(),
+          history: [
+            {
+              status: 'PENDENTE',
+              updated_at: new Date().toISOString(),
+              updated_by: usuarioNome || 'PCP CIAFAL',
+              note: `Criado em lote sob protocolo ${protocoloLote}.`,
+            },
+          ],
+        }
+        await pb.collection('pcp_crm_revision_pendencies').create(payload, { requestKey: null })
+        count++
+      } catch (err) {
+        console.error('Erro ao salvar item no CRM:', err)
+      }
+    }
+
+    return {
+      sucesso: count > 0,
+      enviados: count,
+      protocoloLote,
+    }
+  }
   /**
    * Converte data em dd/mm/aaaa ou aaaa-mm-dd para objeto Date
    */
@@ -370,26 +715,38 @@ export class PcpPedidosCarteiraService {
           item_sap: itemOv,
           codigo_cliente: it.codigo_cliente || 'CLI-001',
           nome_cliente: it.nome_cliente || 'Cliente CIAFAL',
+          cliente_codigo: it.codigo_cliente || 'CLI-001',
+          cliente_nome: it.nome_cliente || 'Cliente CIAFAL',
           codigo_material: it.codigo_material || 'MAT-000',
           descricao_material: it.descricao_material || 'PRODUTO LAMINADO CIAFAL',
           familia: it.familia || familia,
           bitola: bitola !== 'Classificação não identificada' ? bitola : it.bitola || '-',
           centro: it.centro || '1000',
           linha: it.linha || 'L1',
+          empresa: it.empresa || (it.centro === '1000' ? 'CIAFAL' : 'SIDERCENTRO'),
+          material_codigo: it.codigo_material || 'MAT-000',
+          material_descricao: it.descricao_material || 'PRODUTO LAMINADO CIAFAL',
           qtd_original_t: qtdOriginalT,
+          quantidade_original_t: qtdOriginalT,
+          percentual_saldo: percentualResidual,
           qtd_entregue_t: qtdFaturadaT,
           saldo_aberto_t: saldoAbertoT,
           percentual_residual: percentualResidual,
           data_pedido: it.data_ordem || '-',
           data_prevista: it.data_desejada || it.data_ordem || '-',
+          data_desejada: it.data_desejada || it.data_ordem || '-',
           valor_saldo_brl: valorSaldoBrl,
+          valor_saldo_rs: valorSaldoBrl,
           preco_unitario_brl: precoUnitario,
           valor_original_brl: valorOriginalBrl,
           status: statusItem,
           dias_atraso: atrasoInfo.dias,
           tem_atraso: atrasoInfo.emAtraso,
+          atrasado: atrasoInfo.emAtraso,
           tem_deficit_estoque: temDeficit,
+          deficit_estoque: temDeficit,
           tem_cobertura_disponivel: temCobertura,
+          cobertura_disponivel: temCobertura,
           eh_saldo_residual: ehResidual,
           estoque_livre_t: Number(it.estoque_livre_tons) || 0,
           estoque_disponivel_t: Number(it.saldo_disponivel_tons) || 0,

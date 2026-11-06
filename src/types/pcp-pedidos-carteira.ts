@@ -55,32 +55,102 @@ export interface PedidoCarteiraAnalitico {
   item_sap: string
   codigo_cliente: string
   nome_cliente: string
+  cliente_codigo?: string
+  cliente_nome?: string
   codigo_material: string
   descricao_material: string
   familia: string
   bitola: string
   centro: string
   linha: string
+  empresa?: string
+  material_codigo?: string
+  material_descricao?: string
   qtd_original_t: number
+  quantidade_original_t?: number
+  percentual_saldo?: number
+  status_analise_crm?: StatusAnaliseCrm
   qtd_entregue_t: number
   saldo_aberto_t: number
   percentual_residual: number
   data_pedido: string
   data_prevista: string
+  data_desejada?: string
   valor_saldo_brl: number
+  valor_saldo_rs?: number
   preco_unitario_brl?: number
   valor_original_brl?: number
   status: StatusItemCarteira
   dias_atraso: number
   tem_atraso: boolean
+  atrasado?: boolean
   tem_deficit_estoque: boolean
+  deficit_estoque?: boolean
   tem_cobertura_disponivel: boolean
+  cobertura_disponivel?: boolean
   eh_saldo_residual: boolean
   estoque_livre_t: number
   estoque_disponivel_t: number
   status_crm?: string
   protocolo_crm?: string
   historico_entregas?: EntregaItemHistorico[]
+}
+
+/** Alias para compatibilidade com testes e componentes */
+export type PedidoCarteiraItem = PedidoCarteiraAnalitico
+
+export type StatusAnaliseCrm =
+  | 'PENDENTE'
+  | 'EM_ANALISE'
+  | 'MANTER_PEDIDO'
+  | 'SOLICITAR_AJUSTE'
+  | 'SOLICITAR_CANCELAMENTO'
+  | 'CONCLUIDO'
+
+export interface CrmRevisionPendency {
+  id: string
+  protocol: string
+  sales_order_number: string
+  sales_order_item: string
+  client_code: string
+  client_name: string
+  material_code: string
+  material_description: string
+  tonnage: number
+  financial_value: number
+  status: StatusAnaliseCrm
+  observation?: string
+  requested_by_name: string
+  requested_at: string
+  assigned_team?: string
+  assigned_to?: string
+  history?: Array<{
+    status: StatusAnaliseCrm
+    updated_at: string
+    updated_by: string
+    note: string
+  }>
+}
+
+export interface AnaliseIaResidual {
+  total_itens: number
+  saldo_total_t: number
+  valor_total_rs: number
+  pedidos_vencidos: number
+  impacto_planejamento: string
+  clientes_concentracao: Array<{
+    cliente: string
+    itens: number
+    saldo_t: number
+    valor_rs: number
+  }>
+  materiais_recorrentes: Array<{
+    material: string
+    descricao: string
+    ocorrencias: number
+    saldo_t: number
+  }>
+  recomendacoes_comerciais: string[]
 }
 
 export interface KpisPedidosCarteira {

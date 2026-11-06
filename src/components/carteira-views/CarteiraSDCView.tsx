@@ -123,6 +123,19 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
     tipoCard: 'CARTEIRA_TOTAL',
   })
 
+  // Filtros compactos
+  const [busca, setBusca] = useState('')
+  const [filtroFamilia, setFiltroFamilia] = useState('TODAS')
+  const [filtroBitola, setFiltroBitola] = useState('TODAS')
+  const [filtroAco, setFiltroAco] = useState('TODOS')
+  const [filtroCurva, setFiltroCurva] = useState('TODAS')
+  const [filtroStatus, setFiltroStatus] = useState<string>('TODOS')
+  const [filtroOrigem, setFiltroOrigem] = useState<string>('TODAS')
+  const [apenasComDeficit, setApenasComDeficit] = useState(false)
+  const [apenasComProg, setApenasComProg] = useState(false)
+  const [apenasEmProducao, setApenasEmProducao] = useState(false)
+  const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
+
   const handleAbrirDetalheCard = (tipo: TipoCardSDC) => {
     // Drill-down analítico (padrão L1/L2) para os 6 cards com dado real da SDC;
     // os demais mantêm os modais próprios (DetalheCardSDCModal / centros / Mínimo).
@@ -226,19 +239,6 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
       }
     }
   }, [materialAncorado, abrirDetalheAncorado, itens])
-
-  // Filtros compactos
-  const [busca, setBusca] = useState('')
-  const [filtroFamilia, setFiltroFamilia] = useState('TODAS')
-  const [filtroBitola, setFiltroBitola] = useState('TODAS')
-  const [filtroAco, setFiltroAco] = useState('TODOS')
-  const [filtroCurva, setFiltroCurva] = useState('TODAS')
-  const [filtroStatus, setFiltroStatus] = useState<string>('TODOS')
-  const [filtroOrigem, setFiltroOrigem] = useState<string>('TODAS')
-  const [apenasComDeficit, setApenasComDeficit] = useState(false)
-  const [apenasComProg, setApenasComProg] = useState(false)
-  const [apenasEmProducao, setApenasEmProducao] = useState(false)
-  const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
 
   // Ordenação
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<string>('PRIORIZAR_NECESSIDADE')
