@@ -162,12 +162,12 @@ export const DrilldownCardModal: React.FC<DrilldownCardModalProps> = ({
     return out
   }, [config, filtros, pesquisa])
 
-  if (!config) return null
-
   const somaLinhas = useMemo(() => {
-    if (!config.extrairValorLinha) return null
+    if (!config || !config.extrairValorLinha) return null
     return linhasFiltradas.reduce((s, l) => s + (config.extrairValorLinha!(l) || 0), 0)
   }, [linhasFiltradas, config])
+
+  if (!config) return null
 
   const abrirNivel3 = (linha: any) => {
     setMaterialSelecionado(linha)
