@@ -11,6 +11,9 @@ import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
 import { resolverCarteiraItem } from '@/lib/carteira-item-helper'
+import { SaldoSemiacabadoCard, saldoSemiacabadoItemTons } from './SaldoSemiacabadoCard'
+import { DrilldownCardModal } from './DrilldownCardModal'
+import { buildConfigSemiacabadoGenerico } from './drilldown-semiacabado-helper'
 
 interface CarteiraImportadoViewProps {
   itens: CarteiraItem[]
@@ -29,6 +32,7 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
   const [filtroCurva, setFiltroCurva] = useState<'TODAS' | 'A' | 'B' | 'C'>('TODAS')
   const [isChartsOpen, setIsChartsOpen] = useState(false)
   const [isAbcOpen, setIsAbcOpen] = useState(false)
+  const [isDrilldownSemiacabadoOpen, setIsDrilldownSemiacabadoOpen] = useState(false)
 
   const itensImportados = useMemo(
     () => itens.filter((i) => i.origem_produto === 'IMPORTADO'),
@@ -62,6 +66,10 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
     0,
   )
   const totalEstoqueImportado = itensImportados.reduce((s, i) => s + (i.estoque_livre_tons || 0), 0)
+  const totalSaldoSemiacabado = itensImportados.reduce(
+    (s, i) => s + (i.estoque_semiacabado_tons || 0),
+    0,
+  )
   const totalTransitoPendente = entradasImportadas.reduce(
     (s, i) => s + (i.quantidade_pendente_tons || 0),
     0,
@@ -73,6 +81,16 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
   const analiseImportado = React.useMemo(() => {
     return CarteiraAnaliseEngine.analisarCarteiraGenerica('IMPORTADO', itens, entradasFuturas)
   }, [itens, entradasFuturas])
+
+  const drilldownConfigSemiacabado = useMemo(() => {
+    return buildConfigSemiacabadoGenerico({
+      nomeVisao: 'Carteira Importado',
+      centroLinha: 'Comércio Exterior & Trânsito Marítimo • Produtos Importados',
+      itens: itensImportados,
+      mapaCurva: mapaAbcImportado,
+      filtrosHerdados: { Origem: 'IMPORTADO' },
+    })
+  }, [itensImportados, mapaAbcImportado])
 
   return (
     <div className="space-y-4">
@@ -155,7 +173,7 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
             Carteira Total Importados
@@ -172,6 +190,14 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
             {formatNumberPTBR(totalEstoqueImportado, 2)} t
           </strong>
         </div>
+        <SaldoSemiacabadoCard
+          testid="card-saldo-semiacabado-importado"
+          valorTons={totalSaldoSemiacabado}
+          materiaisCount={
+            itensImportados.filter((i) => (i.estoque_semiacabado_tons || 0) > 0).length
+          }
+          onClick={() => setIsDrilldownSemiacabadoOpen(true)}
+        />
         <div className="p-3 bg-white rounded-xl border border-sky-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-[#004C97] block">
             Importado em Trânsito
@@ -359,6 +385,12 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
           if (onOpenDetalheMaterial) onOpenDetalheMaterial(itemResolvido)
           else onOpenMemoria(itemResolvido)
         }}
+      />
+
+      <DrilldownCardModal
+        isOpen={isDrilldownSemiacabadoOpen}
+        onClose={() => setIsDrilldownSemiacabadoOpen(false)}
+        config={drilldownConfigSemiacabado}
       />
     </div>
   )

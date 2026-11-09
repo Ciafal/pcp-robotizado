@@ -28,6 +28,9 @@ import { PortfolioABC } from './PortfolioABC'
 import { resolverCarteiraItem, criarCarteiraItemMinimo } from '@/lib/carteira-item-helper'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import { SaldoSemiacabadoCard, saldoSemiacabadoItemTons } from './SaldoSemiacabadoCard'
+import { DrilldownCardModal } from './DrilldownCardModal'
+import { buildConfigSemiacabadoGenerico } from './drilldown-semiacabado-helper'
 import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
   calcularMinimoNaoAtingido,
@@ -54,6 +57,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
   const [isChartsOpen, setIsChartsOpen] = useState(false)
   const [isAbcOpen, setIsAbcOpen] = useState(false)
   const [isMinimoModalOpen, setIsMinimoModalOpen] = useState(false)
+  const [isDrilldownSemiacabadoOpen, setIsDrilldownSemiacabadoOpen] = useState(false)
   const [itemRequisitosSelecionado, setItemRequisitosSelecionado] = useState<CarteiraItem | null>(
     null,
   )
@@ -131,11 +135,25 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
   const bloqueadosTons = itensMTO
     .filter((i) => i.bloqueio)
     .reduce((s, i) => s + (i.carteira_aberta_tons || 0), 0)
+  const totalSaldoSemiacabadoMTO = itensMTO.reduce(
+    (s, i) => s + (i.estoque_semiacabado_tons || 0),
+    0,
+  )
 
   // Análise automática Alertas & IA da Carteira MTO com regras estritas de ordens, requisitos e clientes
   const analiseMTO = React.useMemo(() => {
     return CarteiraAnaliseEngine.analisarCarteiraGenerica('MTO', itens, entradasFuturas)
   }, [itens, entradasFuturas])
+
+  const drilldownConfigSemiacabado = useMemo(() => {
+    return buildConfigSemiacabadoGenerico({
+      nomeVisao: 'Carteira MTO',
+      centroLinha: 'Make-to-Order • Ordens, Requisitos e Prazos',
+      itens: itensMTO,
+      mapaCurva: mapaAbcMTO,
+      filtrosHerdados: { TipoOrdem: 'MTO' },
+    })
+  }, [itensMTO, mapaAbcMTO])
 
   return (
     <div className="space-y-4">
@@ -237,7 +255,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
             Total Carteira MTO
@@ -255,6 +273,13 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
             {formatNumberPTBR(aFaturarTons, 2)} t
           </strong>
         </div>
+
+        <SaldoSemiacabadoCard
+          testid="card-saldo-semiacabado-mto"
+          valorTons={totalSaldoSemiacabadoMTO}
+          materiaisCount={itensMTO.filter((i) => (i.estoque_semiacabado_tons || 0) > 0).length}
+          onClick={() => setIsDrilldownSemiacabadoOpen(true)}
+        />
 
         <div className="p-3 bg-white rounded-xl border border-amber-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-amber-700 block">
@@ -562,6 +587,12 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
           if (onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
           else onOpenMemoria(ci)
         }}
+      />
+
+      <DrilldownCardModal
+        isOpen={isDrilldownSemiacabadoOpen}
+        onClose={() => setIsDrilldownSemiacabadoOpen(false)}
+        config={drilldownConfigSemiacabado}
       />
     </div>
   )

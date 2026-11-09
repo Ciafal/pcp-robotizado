@@ -526,6 +526,15 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           </div>
         </div>
 
+        {/* SALDO SEMIACABADO — Posicionado imediatamente após Estoque Total SDPL.
+            CarteiraSDCItem não expõe saldo semiacabado (sem campo dedicado na RFC ZSD28C da SDC).
+            Estado controlado INDISPONIVEL: nunca 0,00 t silencioso e nunca fonte inventada. */}
+        <SaldoSemiacabadoCard
+          testid="card-saldo-semiacabado-sdc"
+          indisponivel
+          notaComposicao="Fonte não disponível na RFC SDC"
+        />
+
         {/* 3. ESTOQUE REMESSA (Centro CFPL via SAP RFC) */}
         <div
           onClick={() => {
@@ -986,15 +995,6 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           </div>
           <span className="text-[10px] text-rose-600 block mt-1">Sem prog / Sem estoque</span>
         </div>
-
-        {/* 10. SALDO SEMIACABADO — CarteiraSDCItem não expõe saldo semiacabado (sem campo
-            dedicado na RFC ZSD28C da SDC). Estado controlado INDISPONIVEL: nunca 0,00 t
-            silencioso e nunca fonte inventada, até existir campo real de semiacabado. */}
-        <SaldoSemiacabadoCard
-          testid="card-saldo-semiacabado-sdc"
-          indisponivel
-          notaComposicao="Fonte não disponível na RFC SDC"
-        />
       </div>
 
       {/* Card Executivo 'Mínimo não atingido' Carteira SDC */}
