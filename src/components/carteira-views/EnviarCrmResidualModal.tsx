@@ -70,7 +70,10 @@ export const EnviarCrmResidualModal: React.FC<Props> = ({
   const totalPedidos = new Set(itensSelecionados.map((i) => i.pedido_sap)).size
   const totalItens = itensSelecionados.length
   const saldoTotalTons = itensSelecionados.reduce((acc, i) => acc + i.saldo_aberto_t, 0)
-  const valorTotalRs = itensSelecionados.reduce((acc, i) => acc + i.valor_saldo_rs, 0)
+  const valorTotalRs = itensSelecionados.reduce(
+    (acc, i) => acc + (i.valor_saldo_brl || i.valor_saldo_rs || 0),
+    0,
+  )
 
   const handleConfirmarEnvio = async () => {
     if (itensSelecionados.length === 0) {

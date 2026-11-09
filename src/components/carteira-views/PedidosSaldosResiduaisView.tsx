@@ -38,9 +38,13 @@ import {
 import { PcpPedidosCarteiraService } from '@/services/pcp-pedidos-carteira-service'
 import {
   CARDS_CONFIG_SALDOS_RESIDUAIS,
-  extratoresCardSaldosResiduais,
+  buildDrilldownSaldosResiduais,
+  LinhaDrillPedido,
 } from '@/components/carteira-views/drilldown-pedidos'
-import { DrilldownCardModal } from '@/components/carteira-views/DrilldownCardModal'
+import {
+  DrilldownCardModal,
+  DrilldownCardConfig,
+} from '@/components/carteira-views/DrilldownCardModal'
 import { ParametrosSaldoResidualModal } from '@/components/carteira-views/ParametrosSaldoResidualModal'
 import { AnaliseIaSaldosResiduaisModal } from '@/components/carteira-views/AnaliseIaSaldosResiduaisModal'
 import { EnviarCrmResidualModal } from '@/components/carteira-views/EnviarCrmResidualModal'
@@ -282,15 +286,18 @@ export const PedidosSaldosResiduaisView: React.FC = () => {
     setItensSelecionadosIds(novoSet)
   }
 
-  const configDrilldownAtiva = useMemo(() => {
+  const configDrilldownAtiva = useMemo<DrilldownCardConfig<LinhaDrillPedido> | null>(() => {
     if (!cardDrilldownAberto) return null
-    return CARDS_CONFIG_SALDOS_RESIDUAIS.find((c) => c.id === cardDrilldownAberto) || null
-  }, [cardDrilldownAberto])
-
-  const extratorAtivo = useMemo(() => {
-    if (!cardDrilldownAberto) return null
-    return extratoresCardSaldosResiduais[cardDrilldownAberto] || null
-  }, [cardDrilldownAberto])
+    return buildDrilldownSaldosResiduais(cardDrilldownAberto, todosItensResiduais, {
+      totalPedidosComResidual: kpisResiduais.total_pedidos,
+      totalItensResiduais: kpisResiduais.total_itens,
+      saldoResidualTotalTons: kpisResiduais.saldo_total_t,
+      valorFinanceiroResidualBrl: kpisResiduais.valor_total_rs,
+      totalClientesComResiduais: kpisResiduais.total_clientes,
+      pedidosResiduaisVencidos: kpisResiduais.pedidos_vencidos,
+      percentualCarteiraEmResidual: kpisResiduais.percentual_carteira_total,
+    })
+  }, [cardDrilldownAberto, todosItensResiduais, kpisResiduais])
 
   const renderBadgeCrm = (status?: StatusAnaliseCrm) => {
     if (!status) {
@@ -908,18 +915,11 @@ export const PedidosSaldosResiduaisView: React.FC = () => {
       />
 
       {/* Drilldown de Cards */}
-      {configDrilldownAtiva && extratorAtivo && (
-        <DrilldownCardModal
-          isOpen={true}
-          onClose={() => setCardDrilldownAberto(null)}
-          titulo={configDrilldownAtiva.titulo}
-          subtitulo={configDrilldownAtiva.subtitulo}
-          tipoVisualizacao={configDrilldownAtiva.tipoVisualizacao}
-          unidade={configDrilldownAtiva.unidade}
-          itensOriginal={todosItensResiduais as any}
-          extratorLinha={extratorAtivo}
-        />
-      )}
+      <DrilldownCardModal
+        isOpen={!!cardDrilldownAberto && !!configDrilldownAtiva}
+        onClose={() => setCardDrilldownAberto(null)}
+        config={configDrilldownAtiva}
+      />
     </div>
   )
 }
