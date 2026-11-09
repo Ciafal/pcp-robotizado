@@ -1,34 +1,64 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   EfficiencyUnifiedFilterBar,
   UnifiedEfficiencyFilters,
   EfficiencyFilterOptions,
 } from '@/components/control-tower/efficiency/EfficiencyUnifiedFilterBar'
-import { CheckCircle2, AlertTriangle, Clock, TrendingUp, Target, FileCheck2 } from 'lucide-react'
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import {
+  Clock,
+  TrendingUp,
+  Target,
+  FileCheck2,
+  ChevronRight,
+  ChevronDown,
+  Layers,
+  Cpu,
+  FileText,
+  Loader2,
+  AlertCircle,
+  Inbox,
+} from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatPercentPtBr, formatTonsPtBr } from '@/lib/formatters-ptbr'
 import {
-  getProductionLossByLine,
-  LineProductionLossRow,
-} from '@/services/line-production-loss-service'
+  fetchRawCenterEfficiencyRows,
+  fetchOpsForCenter,
+  aggregateCenterFromOps,
+  aggregateLineFromCenters,
+  calculateRealizedPercent,
+  HierarchyLineItem,
+  HierarchyCenterItem,
+  HierarchyOpItem,
+} from '@/services/efficiency-assertiveness-hierarchy-service'
+import type { CenterEfficiencyRow } from '@/services/efficiency-center-service'
 
 export const EfficiencyAssertivenessSubpage: React.FC = () => {
   const [filters, setFilters] = useState<UnifiedEfficiencyFilters>({
     companyCode: 'ALL',
     plantCode: 'ALL',
     lineCode: 'ALL',
+    status: 'ALL',
     startDate: '',
     endDate: '',
   })
   const [appliedFilters, setAppliedFilters] = useState<UnifiedEfficiencyFilters>(filters)
-  const [productionRows, setProductionRows] = useState<LineProductionLossRow[]>([])
-  const [isLoading, setIsLoading] = useState(true)
 
-  // Aplicação reativa dos filtros: seleções discretas (Empresa, Planta, Linha, Centro,
-  // Status Operacional e Período) recalculam na hora; campos de texto (Produto/Pesquisa)
-  // entram no cálculo ao clicar em "Aplicar filtros". Cards e tabela compartilham o
-  // MESMO conjunto de dados filtrados.
+  // Estado dos dados brutos de centros (vindos da fonte oficial efficiencyCenterService)
+  const [rawCenters, setRawCenters] = useState<CenterEfficiencyRow[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Controle de expansão de Linhas e Centros
+  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set())
+  const [expandedCenters, setExpandedCenters] = useState<Set<string>>(new Set())
+
+  // Cache/estado de OPs carregadas via lazy-loading por centro (key = `${lineCode}:${centerCode}`)
+  const [opsByCenter, setOpsByCenter] = useState<Record<string, HierarchyOpItem[]>>({})
+  const [loadingOpsCenters, setLoadingOpsCenters] = useState<Set<string>>(new Set())
+  const [errorOpsCenters, setErrorOpsCenters] = useState<Record<string, string>>({})
+
+  // Aplicação reativa dos filtros
   const INSTANT_FILTER_KEYS: (keyof UnifiedEfficiencyFilters)[] = [
     'companyCode',
     'plantCode',
@@ -41,14 +71,31 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     'week',
     'year',
   ]
+
   const handleFiltersChange = (next: UnifiedEfficiencyFilters) => {
     setFilters(next)
     const instantChanged = INSTANT_FILTER_KEYS.some((key) => next[key] !== filters[key])
-    if (instantChanged) setAppliedFilters(next)
+    if (instantChanged) {
+      setAppliedFilters(next)
+    }
   }
+
   const handleFiltersApply = (next: UnifiedEfficiencyFilters) => {
     setFilters(next)
     setAppliedFilters(next)
+  }
+
+  const handleFiltersReset = () => {
+    const reset: UnifiedEfficiencyFilters = {
+      companyCode: 'ALL',
+      plantCode: 'ALL',
+      lineCode: 'ALL',
+      status: 'ALL',
+      startDate: '',
+      endDate: '',
+    }
+    setFilters(reset)
+    setAppliedFilters(reset)
   }
 
   const filterOptions: EfficiencyFilterOptions = {
@@ -68,32 +115,218 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     centers: [],
   }
 
-  // Consulta consolidada: os MESMOS filtros aplicados na tela recalculam
-  // Programado, Realizado, percentuais e Perda em UMA única consulta ao serviço oficial.
-  useEffect(() => {
+  // 1. Carregamento inicial (nível Linha/Centros brutos da fonte oficial)
+  const loadData = useCallback(() => {
     let cancelled = false
     setIsLoading(true)
-    getProductionLossByLine(appliedFilters)
-      .then((result) => {
+    setLoadError(null)
+
+    // Ao recarregar dados mestre por filtro, limpa cache de OPs para consistência
+    setOpsByCenter({})
+    setLoadingOpsCenters(new Set())
+    setErrorOpsCenters({})
+
+    fetchRawCenterEfficiencyRows(appliedFilters)
+      .then((rows) => {
         if (cancelled) return
-        setProductionRows(result.rows)
+        setRawCenters(rows)
       })
       .catch((err) => {
         if (cancelled) return
-        console.error(
-          '[AssertividadeOperacional] Falha ao consultar produção/perda por linha:',
-          err,
-        )
-        setProductionRows([])
+        console.error('[AssertividadeOperacional] Falha ao consultar centros:', err)
+        setLoadError('Não foi possível carregar os dados. Tente novamente.')
+        setRawCenters([])
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
       })
+
     return () => {
       cancelled = true
     }
   }, [appliedFilters])
 
+  useEffect(() => {
+    const cleanup = loadData()
+    return cleanup
+  }, [loadData])
+
+  // Toggle de expansão de Linha (apenas abre/fecha os Centros)
+  const toggleLine = (lineCode: string) => {
+    setExpandedLines((prev) => {
+      const next = new Set(prev)
+      if (next.has(lineCode)) {
+        next.delete(lineCode)
+      } else {
+        next.add(lineCode)
+      }
+      return next
+    })
+  }
+
+  // Toggle de expansão de Centro (lazy loading das OPs sob demanda)
+  const toggleCenter = async (
+    lineCode: string,
+    centerCode: string,
+    centerDetails?: CenterEfficiencyRow['details'],
+  ) => {
+    const centerKey = `${lineCode}:${centerCode}`
+    const isExpanding = !expandedCenters.has(centerKey)
+
+    setExpandedCenters((prev) => {
+      const next = new Set(prev)
+      if (next.has(centerKey)) {
+        next.delete(centerKey)
+      } else {
+        next.add(centerKey)
+      }
+      return next
+    })
+
+    // Se estiver expandindo e ainda não tiver carregado as OPs, carrega via lazy-loading
+    if (isExpanding && !opsByCenter[centerKey] && !loadingOpsCenters.has(centerKey)) {
+      setLoadingOpsCenters((prev) => new Set(prev).add(centerKey))
+      setErrorOpsCenters((prev) => {
+        const next = { ...prev }
+        delete next[centerKey]
+        return next
+      })
+
+      try {
+        const ops = await fetchOpsForCenter(centerCode, lineCode, appliedFilters, centerDetails)
+        setOpsByCenter((prev) => ({
+          ...prev,
+          [centerKey]: ops,
+        }))
+      } catch (err) {
+        console.error(`[AssertividadeOperacional] Erro ao carregar OPs para ${centerKey}:`, err)
+        setErrorOpsCenters((prev) => ({
+          ...prev,
+          [centerKey]: 'Não foi possível carregar os dados. Tente novamente.',
+        }))
+      } finally {
+        setLoadingOpsCenters((prev) => {
+          const next = new Set(prev)
+          next.delete(centerKey)
+          return next
+        })
+      }
+    }
+  }
+
+  // Base canônica de linhas CIAFAL para apresentação executiva consistente
+  const lineCatalog = useMemo(
+    () => [
+      { lineCode: 'L1', lineName: 'Laminação a Quente', sequencePct: 94.0 },
+      { lineCode: 'L2', lineName: 'Trefilação e Acabamento', sequencePct: 88.5 },
+      { lineCode: 'L3', lineName: 'Corte e Dobra', sequencePct: 92.0 },
+      { lineCode: 'L4', lineName: 'Treliças', sequencePct: 86.0 },
+    ],
+    [],
+  )
+
+  // 2. Agregação hierárquica estrita: OP -> Centro -> Linha
+  const aggregatedLines: HierarchyLineItem[] = useMemo(() => {
+    // Agrupa rawCenters por linha
+    const centersByLine = new Map<string, CenterEfficiencyRow[]>()
+    for (const c of rawCenters) {
+      const lc = c.lineCode || 'L1'
+      const list = centersByLine.get(lc) || []
+      list.push(c)
+      centersByLine.set(lc, list)
+    }
+
+    // Se filtros limitam a linha, filtra
+    const targetLineCodes =
+      appliedFilters.lineCode && appliedFilters.lineCode !== 'ALL'
+        ? [appliedFilters.lineCode]
+        : Array.from(
+            new Set([...lineCatalog.map((l) => l.lineCode), ...Array.from(centersByLine.keys())]),
+          )
+
+    return targetLineCodes.map((lineCode) => {
+      const meta = lineCatalog.find((l) => l.lineCode === lineCode)
+      const centersRaw = centersByLine.get(lineCode) || []
+
+      // Se não há centros retornados para a linha pelo serviço oficial, cria representação padrão do catálogo
+      const centers: HierarchyCenterItem[] =
+        centersRaw.length > 0
+          ? centersRaw.map((cr) => {
+              const centerKey = `${lineCode}:${cr.centerCode}`
+              const loadedOps = opsByCenter[centerKey]
+
+              // Se as OPs foram carregadas para este centro, o Centro é a agregação estrita das OPs
+              if (loadedOps && loadedOps.length > 0) {
+                const agg = aggregateCenterFromOps(
+                  cr.centerCode,
+                  cr.centerName,
+                  lineCode,
+                  loadedOps,
+                  cr.status,
+                )
+                return {
+                  ...agg,
+                  description: cr.plannedProductName || undefined,
+                }
+              }
+
+              // Se as OPs ainda não foram carregadas ou lista vazia, usa os valores oficiais consolidados do centro
+              const progT = Number(cr.plannedQuantityTons || 0)
+              const realT =
+                cr.realizedQuantityTons !== null && cr.realizedQuantityTons !== undefined
+                  ? Number(cr.realizedQuantityTons)
+                  : null
+              const pct = calculateRealizedPercent(realT, progT)
+              const perdaT =
+                realT !== null && realT !== undefined ? Math.max(0, progT - realT) : null
+              const perdaPct =
+                perdaT !== null && progT > 0 ? Number(((perdaT / progT) * 100).toFixed(1)) : null
+
+              return {
+                centerCode: cr.centerCode,
+                centerName: cr.centerName,
+                lineCode,
+                description: cr.plannedProductName || undefined,
+                programadoT: progT,
+                realizadoT: realT,
+                percentualRealizado: pct,
+                perdaT,
+                percentualPerda: perdaPct,
+                status: cr.status,
+                ordersCount: cr.ordersCount || cr.details?.length || 0,
+              }
+            })
+          : [
+              {
+                centerCode: `${lineCode}-CENTRO-01`,
+                centerName: `Centro Principal ${lineCode}`,
+                lineCode,
+                programadoT: 0,
+                realizadoT: null,
+                percentualRealizado: null,
+                perdaT: null,
+                percentualPerda: null,
+                status: 'DENTRO_ESPERADO',
+                ordersCount: 0,
+              },
+            ]
+
+      // Consolida a Linha a partir dos Centros (Soma estrita dos centros)
+      const lineAgg = aggregateLineFromCenters(
+        lineCode,
+        meta?.lineName || `Linha ${lineCode}`,
+        centers,
+        meta?.sequencePct ?? null,
+        centers.some((c) => c.status === 'ATRASO_CRITICO' || c.status === 'ATRASADO')
+          ? 'ATENCAO'
+          : 'DENTRO_ESPERADO',
+      )
+
+      return lineAgg
+    })
+  }, [rawCenters, appliedFilters.lineCode, lineCatalog, opsByCenter])
+
+  // KPIs superiores
   const metrics = [
     {
       title: 'Assertividade de Início',
@@ -129,74 +362,7 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     },
   ]
 
-  // Base consolidada por linha: Programado/Realizado/Perda reais + indicadores existentes.
-  // As colunas Início no Horário, Aderência de Volume, Sequência Cumprida e Status mantêm
-  // exatamente os mesmos valores de antes para as linhas já existentes.
-  const tableRows = useMemo(() => {
-    const base = [
-      {
-        lineCode: 'L1',
-        lineName: 'Laminação a Quente',
-        startPct: 96.5,
-        volumePct: 97.7,
-        sequencePct: 94.0,
-        status: 'DENTRO_ESPERADO',
-      },
-      {
-        lineCode: 'L2',
-        lineName: 'Trefilação e Acabamento',
-        startPct: 91.2,
-        volumePct: 91.6,
-        sequencePct: 88.5,
-        status: 'ATENCAO',
-      },
-      {
-        lineCode: 'L3',
-        lineName: 'Corte e Dobra',
-        startPct: 95.0,
-        volumePct: 97.4,
-        sequencePct: 92.0,
-        status: 'DENTRO_ESPERADO',
-      },
-      {
-        lineCode: 'L4',
-        lineName: 'Treliças',
-        startPct: 89.0,
-        volumePct: 88.9,
-        sequencePct: 86.0,
-        status: 'ATENCAO',
-      },
-    ]
-    const byLine = new Map(productionRows.map((r) => [r.lineCode, r]))
-
-    // Linhas vindas da consulta consolidada que não estão na base estática entram como novas linhas
-    const extras = productionRows
-      .filter((r) => !byLine.has(r.lineCode) || !base.some((b) => b.lineCode === r.lineCode))
-      .map((r) => ({
-        lineCode: r.lineCode,
-        lineName: r.lineName,
-        startPct: null as number | null,
-        volumePct: null as number | null,
-        sequencePct: null as number | null,
-        status: 'DENTRO_ESPERADO' as string,
-      }))
-
-    const merged = [...base, ...extras.filter((e) => !base.some((b) => b.lineCode === e.lineCode))]
-
-    return merged.map((item) => {
-      const prod = byLine.get(item.lineCode)
-      return {
-        ...item,
-        programadoT: prod?.programadoT ?? null,
-        realizadoT: prod?.realizadoT ?? null,
-        percentualRealizado: prod?.percentualRealizado ?? null,
-        perdaT: prod?.perdaT ?? null,
-        percentualPerda: prod?.percentualPerda ?? null,
-        dadosDisponiveis: prod !== undefined,
-      }
-    })
-  }, [productionRows])
-
+  // Formatação pt-BR segura
   const formatTonsCell = (value: number | null | undefined) =>
     value === null || value === undefined ? 'Dados não disponíveis' : formatTonsPtBr(value, 2)
 
@@ -236,17 +402,7 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
         options={filterOptions}
         onChange={handleFiltersChange}
         onApply={handleFiltersApply}
-        onReset={() => {
-          const reset: UnifiedEfficiencyFilters = {
-            companyCode: 'ALL',
-            plantCode: 'ALL',
-            lineCode: 'ALL',
-            startDate: '',
-            endDate: '',
-          }
-          setFilters(reset)
-          setAppliedFilters(reset)
-        }}
+        onReset={handleFiltersReset}
         showCenterFilter={false}
         showLine2={false}
       />
@@ -284,77 +440,349 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
         })}
       </div>
 
-      {/* Tabela de Aderência por Linha */}
+      {/* Tabela de Aderência por Linha com Drill-down Hierárquico Linha -> Centro -> OP */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-          <h4 className="text-xs font-bold text-slate-900">
-            Assertividade Operacional por Linha de Produção
-          </h4>
+        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-[#004C97]" />
+            <h4 className="text-xs font-bold text-slate-900">
+              Assertividade Operacional por Linha de Produção
+            </h4>
+          </div>
           <span className="text-[11px] text-slate-500 font-mono">
-            Critério: Início &le; 15 min &bull; Sequência = 100%
+            Hierarquia Expansível: Linha &bull; Centros de Trabalho &bull; Ordens de Produção
           </span>
         </div>
 
-        {/* Rolagem horizontal SOMENTE dentro do componente da tabela, nunca na página inteira */}
+        {/* Rolagem horizontal SOMENTE dentro do componente da tabela */}
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left min-w-[1080px]">
+          <table className="w-full text-xs text-left min-w-[980px]">
             <thead className="bg-slate-100 text-slate-700 text-[11px] font-semibold border-b border-slate-200">
               <tr>
-                <th className="py-2.5 px-4">Linha</th>
+                <th className="py-2.5 px-4 w-[320px]">Estrutura / Item</th>
                 <th className="py-2.5 px-4 text-right">Programado em t</th>
                 <th className="py-2.5 px-4 text-right">Realizado em t</th>
-                <th className="py-2.5 px-4 text-right">%</th>
-                <th className="py-2.5 px-4 text-right">Início no Horário</th>
-                <th className="py-2.5 px-4 text-right">Aderência de Volume</th>
+                <th className="py-2.5 px-4 text-right">% Realizado</th>
                 <th className="py-2.5 px-4 text-right">Perda em t</th>
-                <th className="py-2.5 px-4 text-right">%</th>
+                <th className="py-2.5 px-4 text-right">% Perda</th>
                 <th className="py-2.5 px-4 text-right">Sequência Cumprida</th>
                 <th className="py-2.5 px-4 text-center">Status</th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-slate-100 font-mono">
-              {tableRows.map((item) => (
-                <tr key={item.lineCode} className="hover:bg-slate-50/80">
-                  <td className="py-2.5 px-4 font-sans font-semibold text-slate-900 whitespace-nowrap">
-                    {item.lineCode} &bull; {item.lineName}
-                  </td>
-                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
-                    {formatTonsCell(item.programadoT)}
-                  </td>
-                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
-                    {formatTonsCell(item.realizadoT)}
-                  </td>
-                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
-                    {formatPercentCell(item.percentualRealizado)}
-                  </td>
-                  <td className="py-2.5 px-4 text-right font-medium">
-                    {formatPercentPtBr(item.startPct, 1)}
-                  </td>
-                  <td className="py-2.5 px-4 text-right font-medium">
-                    {formatPercentPtBr(item.volumePct, 1)}
-                  </td>
-                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
-                    {formatTonsCell(item.perdaT)}
-                  </td>
-                  <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
-                    {formatPercentCell(item.percentualPerda)}
-                  </td>
-                  <td className="py-2.5 px-4 text-right font-medium">
-                    {formatPercentPtBr(item.sequencePct, 1)}
-                  </td>
-                  <td className="py-2.5 px-4 text-center font-sans">
-                    <Badge
-                      className={
-                        item.status === 'DENTRO_ESPERADO'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]'
-                          : 'bg-amber-50 text-amber-800 border-amber-200 text-[10px]'
-                      }
-                    >
-                      {item.status === 'DENTRO_ESPERADO' ? 'No Prazo' : 'Atenção'}
-                    </Badge>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-500 font-sans">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#004C97]" />
+                      <span className="text-xs font-medium">Carregando dados operacionais...</span>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-rose-600 font-sans">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <AlertCircle className="w-6 h-6 text-rose-500" />
+                      <span className="text-xs font-semibold">{loadError}</span>
+                      <button
+                        onClick={() => loadData()}
+                        className="mt-1 px-3 py-1 bg-white border border-rose-300 text-rose-700 text-xs rounded-md shadow-2xs hover:bg-rose-50"
+                      >
+                        Tentar novamente
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : aggregatedLines.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-slate-500 font-sans">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Inbox className="w-6 h-6 text-slate-400" />
+                      <span className="text-xs font-medium">
+                        Nenhum registro encontrado para os filtros selecionados.
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                aggregatedLines.map((line) => {
+                  const isLineExpanded = expandedLines.has(line.lineCode)
+                  const centers = line.centers || []
+
+                  return (
+                    <React.Fragment key={line.lineCode}>
+                      {/* NÍVEL 1: LINHA DE PRODUÇÃO */}
+                      <tr
+                        onClick={() => toggleLine(line.lineCode)}
+                        className="bg-white hover:bg-slate-50/90 cursor-pointer transition-colors border-b border-slate-100"
+                        title="Clique para expandir/recolher os Centros desta linha"
+                      >
+                        <td className="py-2.5 px-4 font-sans font-semibold text-slate-900 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400 hover:text-slate-700">
+                              {isLineExpanded ? (
+                                <ChevronDown className="w-4 h-4 text-[#004C97]" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-slate-500" />
+                              )}
+                            </span>
+                            <span className="font-bold text-[#004C97]">{line.lineCode}</span>
+                            <span className="text-slate-400">&bull;</span>
+                            <span className="text-slate-800">{line.lineName}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                          {formatTonsCell(line.programadoT)}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                          {formatTonsCell(line.realizadoT)}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-bold text-slate-900 whitespace-nowrap">
+                          {formatPercentCell(line.percentualRealizado)}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                          {formatTonsCell(line.perdaT)}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                          {formatPercentCell(line.percentualPerda)}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-medium">
+                          {formatPercentPtBr(line.sequencePct, 1)}
+                        </td>
+                        <td className="py-2.5 px-4 text-center font-sans">
+                          <Badge
+                            className={
+                              line.status === 'DENTRO_ESPERADO'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]'
+                                : 'bg-amber-50 text-amber-800 border-amber-200 text-[10px]'
+                            }
+                          >
+                            {line.status === 'DENTRO_ESPERADO' ? 'No Prazo' : 'Atenção'}
+                          </Badge>
+                        </td>
+                      </tr>
+
+                      {/* NÍVEL 2: CENTROS DE TRABALHO (EXPANDIDO) */}
+                      {isLineExpanded &&
+                        centers.map((center) => {
+                          const centerKey = `${line.lineCode}:${center.centerCode}`
+                          const isCenterExpanded = expandedCenters.has(centerKey)
+                          const isLoadingOps = loadingOpsCenters.has(centerKey)
+                          const errorOps = errorOpsCenters[centerKey]
+                          const ops = opsByCenter[centerKey] || []
+
+                          // Procura detalhes da rawRow se houver
+                          const rawCenterMatch = rawCenters.find(
+                            (rc) => rc.centerCode === center.centerCode,
+                          )
+
+                          return (
+                            <React.Fragment key={centerKey}>
+                              <tr
+                                onClick={() =>
+                                  toggleCenter(
+                                    line.lineCode,
+                                    center.centerCode,
+                                    rawCenterMatch?.details,
+                                  )
+                                }
+                                className="bg-slate-50/70 hover:bg-slate-100/70 cursor-pointer transition-colors border-b border-slate-100"
+                                title="Clique para expandir/recolher as OPs deste centro"
+                              >
+                                <td className="py-2 px-4 pl-10 font-sans text-slate-800 whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-slate-400">
+                                      {isCenterExpanded ? (
+                                        <ChevronDown className="w-3.5 h-3.5 text-slate-700" />
+                                      ) : (
+                                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                                      )}
+                                    </span>
+                                    <Cpu className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                    <span className="font-semibold font-mono text-[11px] text-slate-700">
+                                      {center.centerCode}
+                                    </span>
+                                    <span className="text-slate-300">&bull;</span>
+                                    <span className="text-slate-600 text-xs font-medium">
+                                      {center.centerName}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-700">
+                                  {formatTonsCell(center.programadoT)}
+                                </td>
+                                <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-700">
+                                  {formatTonsCell(center.realizadoT)}
+                                </td>
+                                <td className="py-2 px-4 text-right font-bold text-slate-800 whitespace-nowrap">
+                                  {formatPercentCell(center.percentualRealizado)}
+                                </td>
+                                <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-600">
+                                  {formatTonsCell(center.perdaT)}
+                                </td>
+                                <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-600">
+                                  {formatPercentCell(center.percentualPerda)}
+                                </td>
+                                <td className="py-2 px-4 text-right font-medium text-slate-400">
+                                  —
+                                </td>
+                                <td className="py-2 px-4 text-center font-sans">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      center.status === 'DENTRO_ESPERADO'
+                                        ? 'bg-emerald-50/60 text-emerald-700 border-emerald-200 text-[9px]'
+                                        : 'bg-amber-50/60 text-amber-800 border-amber-200 text-[9px]'
+                                    }
+                                  >
+                                    {center.status === 'DENTRO_ESPERADO' ? 'Normal' : 'Desvio'}
+                                  </Badge>
+                                </td>
+                              </tr>
+
+                              {/* NÍVEL 3: ORDENS DE PRODUÇÃO (EXPANDIDO) */}
+                              {isCenterExpanded && (
+                                <>
+                                  {isLoadingOps ? (
+                                    <tr className="bg-slate-50/40">
+                                      <td
+                                        colSpan={8}
+                                        className="py-4 pl-16 pr-4 text-slate-500 font-sans"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <Loader2 className="w-4 h-4 animate-spin text-[#004C97]" />
+                                          <span className="text-[11px]">
+                                            Carregando Ordens de Produção do centro{' '}
+                                            {center.centerCode}...
+                                          </span>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ) : errorOps ? (
+                                    <tr className="bg-rose-50/30">
+                                      <td
+                                        colSpan={8}
+                                        className="py-3 pl-16 pr-4 text-rose-600 font-sans"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <AlertCircle className="w-4 h-4 text-rose-500" />
+                                          <span className="text-[11px] font-semibold">
+                                            {errorOps}
+                                          </span>
+                                          <button
+                                            onClick={() =>
+                                              toggleCenter(
+                                                line.lineCode,
+                                                center.centerCode,
+                                                rawCenterMatch?.details,
+                                              )
+                                            }
+                                            className="px-2 py-0.5 text-[10px] bg-white border border-rose-300 rounded text-rose-700 hover:bg-rose-50"
+                                          >
+                                            Tentar novamente
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ) : ops.length === 0 ? (
+                                    <tr className="bg-slate-50/30">
+                                      <td
+                                        colSpan={8}
+                                        className="py-3 pl-16 pr-4 text-slate-400 font-sans text-[11px]"
+                                      >
+                                        Nenhuma Ordem de Produção encontrada para este centro no
+                                        período.
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    ops.map((op) => (
+                                      <tr
+                                        key={op.id}
+                                        className="bg-white/90 hover:bg-sky-50/40 border-b border-slate-100 transition-colors"
+                                      >
+                                        <td className="py-2 px-4 pl-16 font-sans text-slate-700 whitespace-nowrap">
+                                          <div className="flex items-center gap-2">
+                                            <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span className="font-mono font-bold text-slate-900 text-[11px]">
+                                              {op.opNumber}
+                                            </span>
+                                            <span className="text-slate-300">&bull;</span>
+                                            <span
+                                              className="text-slate-600 text-[11px] truncate max-w-[200px]"
+                                              title={`${op.materialCode} - ${op.materialDescription}${op.batchNumber ? ` (Lote: ${op.batchNumber})` : ''}`}
+                                            >
+                                              {op.materialCode} - {op.materialDescription}
+                                            </span>
+                                            {op.batchNumber && (
+                                              <Badge
+                                                variant="outline"
+                                                className="text-[9px] font-mono py-0 px-1 border-slate-200 text-slate-500"
+                                              >
+                                                L: {op.batchNumber}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-600">
+                                          {formatTonsCell(op.plannedQuantityTons)}
+                                        </td>
+                                        <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-600">
+                                          {formatTonsCell(op.realizedQuantityTons)}
+                                        </td>
+                                        <td className="py-2 px-4 text-right font-bold text-slate-800 whitespace-nowrap">
+                                          {formatPercentCell(op.percentualRealizado)}
+                                        </td>
+                                        <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-500">
+                                          {op.realizedQuantityTons !== null
+                                            ? formatTonsCell(
+                                                Math.max(
+                                                  0,
+                                                  op.plannedQuantityTons -
+                                                    (op.realizedQuantityTons || 0),
+                                                ),
+                                              )
+                                            : 'Dados não disponíveis'}
+                                        </td>
+                                        <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-500">
+                                          {op.realizedQuantityTons !== null &&
+                                          op.plannedQuantityTons > 0
+                                            ? formatPercentPtBr(
+                                                (Math.max(
+                                                  0,
+                                                  op.plannedQuantityTons -
+                                                    (op.realizedQuantityTons || 0),
+                                                ) /
+                                                  op.plannedQuantityTons) *
+                                                  100,
+                                                1,
+                                              )
+                                            : '—'}
+                                        </td>
+                                        <td className="py-2 px-4 text-right font-medium text-slate-400">
+                                          —
+                                        </td>
+                                        <td className="py-2 px-4 text-center font-sans">
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[9px] font-mono py-0 px-1 border-slate-200 text-slate-600 bg-slate-50"
+                                          >
+                                            {op.statusOp}
+                                          </Badge>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
+                    </React.Fragment>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -362,4 +790,5 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     </div>
   )
 }
+
 export default EfficiencyAssertivenessSubpage

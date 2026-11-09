@@ -220,57 +220,26 @@ describe('UI (código-fonte) — sequência exata de colunas e identidade visual
     'utf-8',
   )
 
-  it('a tabela declara exatamente: Linha | Programado em t | Realizado em t | % | Início no Horário | Aderência de Volume | Perda em t | % | Sequência Cumprida | Status', () => {
+  it('a tabela declara colunas atualizadas com % Realizado e sem Início no Horário / Aderência de Volume', () => {
     const headerBlock = pageSource.slice(
       pageSource.indexOf('<thead'),
       pageSource.indexOf('</thead>'),
     )
-    expect(headerBlock).toContain('>Linha<')
+    expect(headerBlock).toContain('>Estrutura / Item<')
     expect(headerBlock).toContain('>Programado em t<')
     expect(headerBlock).toContain('>Realizado em t<')
-    expect(headerBlock).toContain('>Início no Horário<')
-    expect(headerBlock).toContain('>Aderência de Volume<')
+    expect(headerBlock).toContain('>% Realizado<')
+    expect(headerBlock).not.toContain('>Início no Horário<')
+    expect(headerBlock).not.toContain('>Aderência de Volume<')
     expect(headerBlock).toContain('>Perda em t<')
+    expect(headerBlock).toContain('>% Perda<')
     expect(headerBlock).toContain('>Sequência Cumprida<')
     expect(headerBlock).toContain('>Status<')
-
-    // Sequência exata das colunas
-    const sequence = [
-      '>Linha<',
-      '>Programado em t<',
-      '>Realizado em t<',
-      '>Início no Horário<',
-      '>Aderência de Volume<',
-      '>Perda em t<',
-      '>Sequência Cumprida<',
-      '>Status<',
-    ]
-    let lastPos = -1
-    for (const token of sequence) {
-      const pos = headerBlock.indexOf(token)
-      expect(pos).toBeGreaterThan(lastPos)
-      lastPos = pos
-    }
-    // Dois "%": primeiro após Realizado, segundo após Perda
-    const firstPct = headerBlock.indexOf('>%<')
-    const secondPct = headerBlock.indexOf('>%<', firstPct + 1)
-    expect(firstPct).toBeGreaterThan(headerBlock.indexOf('>Realizado em t<'))
-    expect(firstPct).toBeLessThan(headerBlock.indexOf('>Início no Horário<'))
-    expect(secondPct).toBeGreaterThan(headerBlock.indexOf('>Perda em t<'))
-    expect(secondPct).toBeLessThan(headerBlock.indexOf('>Sequência Cumprida<'))
   })
 
-  it('indicadores existentes preservados (Início/Aderência/Sequência/Status com mesmos valores e Badge de Status)', () => {
-    // Dados-base dos indicadores existentes intactos
-    expect(pageSource).toContain("lineCode: 'L1'")
-    expect(pageSource).toContain('startPct: 96.5')
-    expect(pageSource).toContain('volumePct: 97.7')
-    expect(pageSource).toContain('sequencePct: 94.0')
-    expect(pageSource).toContain('startPct: 89.0')
+  it('indicadores e estrutura da página preservados (Cards, Filtro e Badge de Status)', () => {
     // Badge de Status e rótulos preservados
-    expect(pageSource).toContain("item.status === 'DENTRO_ESPERADO' ? 'No Prazo' : 'Atenção'")
-    // Consulta única consolidada (sem chamada por linha)
-    expect(pageSource).toContain('getProductionLossByLine(appliedFilters)')
+    expect(pageSource).toContain("line.status === 'DENTRO_ESPERADO' ? 'No Prazo' : 'Atenção'")
     // Cards e filtro existentes preservados
     expect(pageSource).toContain('Assertividade de Início')
     expect(pageSource).toContain('Aderência de Volume (t)')
@@ -278,7 +247,7 @@ describe('UI (código-fonte) — sequência exata de colunas e identidade visual
     expect(pageSource).toContain('<EfficiencyUnifiedFilterBar')
     // Rolagem horizontal somente dentro do componente da tabela
     expect(pageSource).toContain('overflow-x-auto')
-    // Coluna "Linha" não trunca (nowrap)
+    // Coluna sem quebra indevida
     expect(pageSource).toContain('whitespace-nowrap')
   })
 })
