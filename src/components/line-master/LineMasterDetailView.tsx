@@ -110,6 +110,9 @@ import { TheoreticalLossesPanel } from '@/components/line-master/TheoreticalLoss
 import { theoreticalLossesService } from '@/services/theoretical-losses-service'
 import { LineProductFamiliesPanel } from '@/components/line-master/LineProductFamiliesPanel'
 import { lineProductFamiliesService } from '@/services/line-product-families-service'
+import { FurnaceChargingTypesSection } from '@/components/line-master/FurnaceChargingTypesSection'
+import { ChargeSeparationSection } from '@/components/line-master/ChargeSeparationSection'
+import { Flame } from 'lucide-react'
 
 // Dicionários de tradução de enums para labels de interface em Português (identidade CIAFAL)
 const RESPONSIBILITY_TYPE_LABELS: Record<string, string> = {
@@ -337,6 +340,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'RAW_MATERIALS'
     | 'RAW_MATERIAL_RESTRICTIONS'
     | 'RAW_MATERIAL_APPLICATIONS'
+    | 'FURNACE_CHARGING_TYPES'
+    | 'CHARGE_SEPARATION'
     | 'BLOCKED'
     | 'SETUP_MATRIX'
     | 'ACERTOS'
@@ -2750,6 +2755,40 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </span>
             </Button>
 
+            {/* Nova Sub-aba: Tipos de Enfornamento (HUB Ciafal) */}
+            <Button
+              size="sm"
+              data-testid="tab-furnace-charging-types"
+              variant={masterSubTab === 'FURNACE_CHARGING_TYPES' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('FURNACE_CHARGING_TYPES')}
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
+                masterSubTab === 'FURNACE_CHARGING_TYPES'
+                  ? 'bg-[#002F6C] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+              title="Tipos de Enfornamento vinculados ao Centro"
+            >
+              <Flame className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+              <span className="truncate">Tipos de Enfornamento</span>
+            </Button>
+
+            {/* Nova Sub-aba: Separação de Carga (Tabela Linear HUB Ciafal) */}
+            <Button
+              size="sm"
+              data-testid="tab-charge-separation"
+              variant={masterSubTab === 'CHARGE_SEPARATION' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('CHARGE_SEPARATION')}
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
+                masterSubTab === 'CHARGE_SEPARATION'
+                  ? 'bg-[#002F6C] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+              title="Separação de Carga (Tabela Linear)"
+            >
+              <Layers className="w-3.5 h-3.5 shrink-0 text-[#002F6C]" />
+              <span className="truncate">Separação de Carga</span>
+            </Button>
+
             {/* Nova Sub-aba: Famílias Técnicas de Produtos da Ficha Mestra */}
             <Button
               size="sm"
@@ -3403,6 +3442,28 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 onRefresh()
               }}
             />
+          )}
+
+          {/* Sub-aba: Tipos de Enfornamento (HUB Ciafal) */}
+          {masterSubTab === 'FURNACE_CHARGING_TYPES' && (
+            <div id="section-furnace-charging-types">
+              <FurnaceChargingTypesSection
+                centerCode={line.code}
+                lineId={line.id}
+                lineMasterId={master?.id}
+              />
+            </div>
+          )}
+
+          {/* Sub-aba: Separação de Carga (Tabela Linear HUB Ciafal) */}
+          {masterSubTab === 'CHARGE_SEPARATION' && (
+            <div id="section-charge-separation">
+              <ChargeSeparationSection
+                centerCode={line.code}
+                lineId={line.id}
+                lineMasterId={master?.id}
+              />
+            </div>
           )}
 
           {/* Sub-aba: Famílias Técnicas de Produtos */}
