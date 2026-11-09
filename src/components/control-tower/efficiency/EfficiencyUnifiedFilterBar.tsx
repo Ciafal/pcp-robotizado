@@ -250,53 +250,158 @@ export const EfficiencyUnifiedFilterBar: React.FC<EfficiencyUnifiedFilterBarProp
           </div>
         </div>
 
-        {/* Componente Global de Filtros de Contexto PCP: Empresa -> Planta -> Linha -> Centro */}
-        <PCPContextFilters
-          companyCode={filters.companyCode || 'ALL'}
-          plantCode={filters.plantCode || 'ALL'}
-          lineCode={filters.lineCode || 'ALL'}
-          centerCode={filters.centerCode || 'ALL'}
-          companies={options.companies}
-          plants={options.plants}
-          lines={options.lines}
-          centers={options.centers}
-          onCompanyChange={handleCompanyChange}
-          onPlantChange={handlePlantChange}
-          onLineChange={handleLineChange}
-          onCenterChange={handleCenterChange}
-          showCompany={true}
-          showPlant={true}
-          showLine={true}
-          showCenter={showCenterFilter}
-          allowConsolidatedCompany={true}
-          allowConsolidatedPlant={true}
-          allowConsolidatedLine={true}
-          allowConsolidatedCenter={true}
-          companyAllText="Todas as Empresas"
-          plantAllText="Todas as Plantas"
-          lineAllText="Todas as Linhas"
-          centerAllText="Todos os Centros"
-          companyLabel="Empresa"
-          plantLabel="Planta Industrial"
-          lineLabel="Linha Produtiva"
-          centerLabel="Centro de Trabalho"
-          isLoading={isLoading}
-          idPrefix="efficiency-ctx"
-          className="bg-transparent border-0 p-0 shadow-none space-y-0"
-        />
+        {/* Grade de Filtros Operacionais Integrados — Padronizada com grid responsiva única
+            Linha 1: Empresa | Planta Industrial | Linha Produtiva (3 colunas iguais)
+            Linha 2: Status Operacional (alinhado exatamente à margem esquerda e com mesma largura de Empresa) */}
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 items-end">
+            {/* 1. Empresa */}
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <Label
+                htmlFor="efficiency-ctx-company"
+                className="text-xs font-bold text-slate-700 tracking-tight"
+              >
+                Empresa
+              </Label>
+              <Select
+                value={filters.companyCode || 'ALL'}
+                onValueChange={handleCompanyChange}
+                disabled={isLoading}
+              >
+                <SelectTrigger
+                  id="efficiency-ctx-company"
+                  aria-label="Empresa"
+                  className="h-10 text-xs sm:text-sm bg-white border border-slate-300 rounded-md px-3 font-medium text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004C97] focus:border-[#004C97] transition-colors truncate"
+                >
+                  <SelectValue placeholder="Todas as Empresas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todas as Empresas</SelectItem>
+                  {options.companies.map((c) => (
+                    <SelectItem key={c.code} value={c.code} title={`${c.code} (${c.name})`}>
+                      {c.code} ({c.name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        {/* Status Operacional se showCenterFilter for false */}
-        {!showCenterFilter && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-            <div className="space-y-1">
-              <Label className="text-xs font-bold text-slate-700 tracking-tight block">
+            {/* 2. Planta Industrial */}
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <Label
+                htmlFor="efficiency-ctx-plant"
+                className="text-xs font-bold text-slate-700 tracking-tight"
+              >
+                Planta Industrial
+              </Label>
+              <Select
+                value={filters.plantCode || 'ALL'}
+                onValueChange={handlePlantChange}
+                disabled={isLoading}
+              >
+                <SelectTrigger
+                  id="efficiency-ctx-plant"
+                  aria-label="Planta Industrial"
+                  className="h-10 text-xs sm:text-sm bg-white border border-slate-300 rounded-md px-3 font-medium text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004C97] focus:border-[#004C97] transition-colors truncate"
+                >
+                  <SelectValue placeholder="Todas as Plantas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todas as Plantas</SelectItem>
+                  {options.plants.map((p) => (
+                    <SelectItem key={p.code} value={p.code} title={p.name}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 3. Linha Produtiva */}
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <Label
+                htmlFor="efficiency-ctx-line"
+                className="text-xs font-bold text-slate-700 tracking-tight"
+              >
+                Linha Produtiva
+              </Label>
+              <Select
+                value={filters.lineCode || 'ALL'}
+                onValueChange={handleLineChange}
+                disabled={isLoading}
+              >
+                <SelectTrigger
+                  id="efficiency-ctx-line"
+                  aria-label="Linha Produtiva"
+                  className="h-10 text-xs sm:text-sm bg-white border border-slate-300 rounded-md px-3 font-medium text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004C97] focus:border-[#004C97] transition-colors truncate"
+                >
+                  <SelectValue placeholder="Todas as Linhas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todas as Linhas</SelectItem>
+                  {options.lines.map((l) => (
+                    <SelectItem key={l.code} value={l.code} title={`${l.code} - ${l.name}`}>
+                      {l.code} - {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Centro de Trabalho (quando ativado via showCenterFilter) */}
+            {showCenterFilter && (
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <Label
+                  htmlFor="efficiency-ctx-center"
+                  className="text-xs font-bold text-slate-700 tracking-tight"
+                >
+                  Centro de Trabalho
+                </Label>
+                <Select
+                  value={filters.centerCode || 'ALL'}
+                  onValueChange={handleCenterChange}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger
+                    id="efficiency-ctx-center"
+                    aria-label="Centro de Trabalho"
+                    className="h-10 text-xs sm:text-sm bg-white border border-slate-300 rounded-md px-3 font-medium text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004C97] focus:border-[#004C97] transition-colors truncate"
+                  >
+                    <SelectValue placeholder="Todos os Centros" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Todos os Centros</SelectItem>
+                    {options.centers.map((c) => (
+                      <SelectItem key={c.code} value={c.code} title={`${c.code} - ${c.name}`}>
+                        {c.code} - {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          {/* Segunda linha: Status Operacional — mesma grade da linha 1 (grid-cols-1 sm:grid-cols-2 md:grid-cols-3)
+              Começa exatamente na mesma margem esquerda de Empresa, mesma largura de Empresa e mesmo espaçamento */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 items-end">
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <Label
+                htmlFor="efficiency-ctx-status"
+                className="text-xs font-bold text-slate-700 tracking-tight"
+              >
                 Status Operacional
               </Label>
               <Select
                 value={filters.status || 'ALL'}
                 onValueChange={(val) => onChange({ ...filters, status: val })}
+                disabled={isLoading}
               >
-                <SelectTrigger className="h-10 text-xs sm:text-sm bg-white border border-slate-300 rounded-md px-3 font-medium text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004C97] focus:border-[#004C97] transition-colors truncate">
+                <SelectTrigger
+                  id="efficiency-ctx-status"
+                  aria-label="Status Operacional"
+                  className="h-10 text-xs sm:text-sm bg-white border border-slate-300 rounded-md px-3 font-medium text-slate-900 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#004C97] focus:border-[#004C97] transition-colors truncate"
+                >
                   <SelectValue placeholder="Todos os Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -308,7 +413,7 @@ export const EfficiencyUnifiedFilterBar: React.FC<EfficiencyUnifiedFilterBarProp
               </Select>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Grade de Filtros — Linha 2 quando aplicável: Produto | Período (dd/mm - dd/mm) | Pesquisa (h-8 padronizado) */}
         {showLine2 && (
