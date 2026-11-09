@@ -194,6 +194,39 @@ export async function fetchLatestApprovedPxrAnalysis(
     const rec = await pb
       .collection('pcp_previsto_realizado_analyses')
       .getFirstListItem(filterParts.join(' && '), { sort: '-approved_at' })
+
+    return rec as unknown as PxrSavedAnalysisRecord
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Carrega a análise de IA oficial aprovada ou a mais recente gravada
+ */
+export async function loadOfficialOrLatestPxrAnalysis(params: {
+  empresa_code?: string
+  planta_code?: string
+  linha_code?: string
+}): Promise<PxrSavedAnalysisRecord | null> {
+  try {
+    // 1. Tenta buscar primeiro a aprovada oficial
+    const approved = await fetchLatestApprovedPxrAnalysis(params.linha_code)
+    if (approved) return approved
+
+    // 2. Se não houver aprovada, busca a mais recente disponível
+    const filterParts: string[] = ['deleted_at = null']
+    if (params.empresa_code && params.empresa_code !== 'ALL') {
+      filterParts.push(`empresa_code = '${params.empresa_code}'`)
+    }
+    if (params.linha_code && params.linha_code !== 'ALL') {
+      filterParts.push(`linha_code = '${params.linha_code}'`)
+    }
+
+    const rec = await pb
+      .collection('pcp_previsto_realizado_analyses')
+      .getFirstListItem(filterParts.join(' && '), { sort: '-created' })
+
     return rec as unknown as PxrSavedAnalysisRecord
   } catch {
     return null

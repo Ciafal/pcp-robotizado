@@ -26,6 +26,23 @@ import {
   CrmRevisionPendency,
 } from '@/types/pcp-pedidos-carteira'
 
+export const pcpPedidosCarteiraService = {
+  listarPedidos: async (filtros?: { empresa?: string; linha?: string; centro?: string }) => {
+    const pedidos = await PcpPedidosCarteiraService.obterPedidosCarteira()
+    return pedidos.filter((p) => {
+      if (filtros?.empresa && filtros.empresa !== 'ALL' && p.empresa !== filtros.empresa)
+        return false
+      if (filtros?.linha && filtros.linha !== 'ALL' && p.linha !== filtros.linha) return false
+      if (filtros?.centro && filtros.centro !== 'ALL' && p.centro !== filtros.centro) return false
+      return true
+    })
+  },
+  obterPedidosCarteira: () => PcpPedidosCarteiraService.obterPedidosCarteira(),
+  carregarParametros: () => PcpPedidosCarteiraService.carregarParametros(),
+  salvarParametros: (params: any, just: string) =>
+    PcpPedidosCarteiraService.salvarParametros(params, just),
+}
+
 export class PcpPedidosCarteiraService {
   private static cachedParams: ParametrosSaldoResidual | null = null
 

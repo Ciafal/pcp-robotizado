@@ -208,6 +208,63 @@ export async function fetchRawCenterEfficiencyRows(
   return result.rows
 }
 
+export type EfficiencyCenterSummaryRow = CenterEfficiencyRow
+
+/**
+ * Carrega a visão consolidada de centros operacionais e o catálogo de linhas.
+ */
+export async function loadOperationalCentersSummary(filters: UnifiedEfficiencyFilters): Promise<{
+  centers: CenterEfficiencyRow[]
+  lines: { lineCode: string; lineName: string; sequencePct?: number }[]
+}> {
+  const centerFilters: CenterEfficiencyFilters = mapFiltersToCenterFilters(filters)
+  const result = await efficiencyCenterService.getEfficiencyByCenter(centerFilters)
+
+  // Extrai linhas únicas a partir dos centros retornados
+  const linesMap = new Map<string, { lineCode: string; lineName: string; sequencePct?: number }>()
+  for (const c of result.rows) {
+    if (c.lineCode && !linesMap.has(c.lineCode)) {
+      linesMap.set(c.lineCode, {
+        lineCode: c.lineCode,
+        lineName: c.lineName || c.lineCode,
+        sequencePct: undefined,
+      })
+    }
+  }
+
+  return {
+    centers: result.rows,
+    lines: Array.from(linesMap.values()),
+  }
+}
+
+/**
+ * Carrega mapa de carteira aberta por código de material para a hierarquia.
+ */
+export async function fetchOpenPortfolioForHierarchy(
+  filters: UnifiedEfficiencyFilters,
+): Promise<Map<string, number>> {
+  const lookup = await fetchCarteiraLookup(filters)
+  const map = new Map<string, number>()
+  lookup.byMaterial.forEach((val, mat) => {
+    map.set(mat, val.tons)
+  })
+  return map
+}
+
+/**
+ * Carrega as OPs de um Centro específico sob demanda (lazy loading).
+ */
+export async function loadOpsByCenter(
+  centerCode: string,
+  lineCode: string,
+  filters: UnifiedEfficiencyFilters,
+  centerRowDetails?: CenterEfficiencyRow['details'],
+): Promise<HierarchyOpItem[]> {
+  const carteiraLookup = await fetchCarteiraLookup(filters)
+  return fetchOpsForCenter(centerCode, lineCode, filters, centerRowDetails, carteiraLookup)
+}
+
 /**
  * Carrega as OPs de um Centro específico, reutilizando a collection oficial pcp_production_orders
  * com fallback e reconciliação dos details do efficiencyCenterService.

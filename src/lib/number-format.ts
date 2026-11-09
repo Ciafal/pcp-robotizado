@@ -59,6 +59,44 @@ export function formatPtBrNumber(
   })
 }
 
+/**
+ * Formata percentual com símbolo '%' no padrão pt-BR.
+ * Aceita casas decimais customizáveis (padrão 1).
+ * Ex: formatPercentPtBr(94.2) -> "94,2%"
+ */
+export function formatPercentPtBr(
+  val: number | string | null | undefined,
+  decimals: number = 1,
+  fallback: string = '—',
+): string {
+  if (val === null || val === undefined || val === '') return fallback
+  const num = typeof val === 'number' ? val : parsePtBrNumber(val)
+  if (isNaN(num)) return fallback
+  return `${num.toLocaleString('pt-BR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}%`
+}
+
+/**
+ * Formata toneladas no padrão pt-BR (vírgula decimal, sufixo " t").
+ * Ex: formatTonsPtBr(1180, 1) -> "1.180,0 t"
+ * Ex: formatTonsPtBr(120, 2) -> "120,00 t"
+ */
+export function formatTonsPtBr(
+  val: number | string | null | undefined,
+  decimals: number = 2,
+  fallback: string = '—',
+): string {
+  if (val === null || val === undefined || val === '') return fallback
+  const num = typeof val === 'number' ? val : parsePtBrNumber(val)
+  if (isNaN(num)) return fallback
+  return `${num.toLocaleString('pt-BR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })} t`
+}
+
 // Aliases para compatibilidade com módulos legados
 export const formatBrNumber = formatPtBrNumber
 export const parseBrNumber = parsePtBrNumber
