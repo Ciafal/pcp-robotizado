@@ -22,6 +22,7 @@ import {
   StatusItemCarteira,
   KpisPedidosCarteira,
   KpisPedidosSaldosResiduais,
+  StatusAnaliseCrm,
 } from '@/types/pcp-pedidos-carteira'
 
 export class PcpPedidosCarteiraService {

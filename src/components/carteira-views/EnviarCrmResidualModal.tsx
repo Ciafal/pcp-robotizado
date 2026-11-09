@@ -84,16 +84,19 @@ export const EnviarCrmResidualModal: React.FC<Props> = ({
 
     setEnviando(true)
     try {
+      const observacaoComEquipe = equipeDestino
+        ? `${observacoes} — Equipe destino: ${equipeDestino}`
+        : observacoes
+
       const resultado = await PcpPedidosCarteiraService.enviarLoteParaCrm360(
         itensSelecionados,
-        observacoes,
-        equipeDestino,
+        observacaoComEquipe,
         responsavelDestino,
       )
 
       toast({
         title: 'Enviado com Sucesso ao CRM 360°',
-        description: `${resultado.criadas} pendências criadas (${resultado.duplicadas} já ativas ignoradas). Alerta "PCP — Análise de Pedidos com Saldos Residuais" emitido.`,
+        description: `${resultado.enviados} pendências criadas sob o protocolo ${resultado.protocoloLote}. Alerta "PCP — Análise de Pedidos com Saldos Residuais" emitido.`,
       })
 
       onSucesso()
