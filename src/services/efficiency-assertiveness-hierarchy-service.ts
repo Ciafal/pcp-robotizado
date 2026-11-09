@@ -12,9 +12,11 @@
  *    - Inicialmente carrega apenas o nível Linha.
  *    - Ao expandir a Linha, carrega os Centros daquela linha.
  *    - Ao expandir o Centro, carrega as OPs daquele centro.
- * 4. Fontes oficiais do HUB (sem dados inventados):
- *    - efficiencyCenterService.getEfficiencyByCenter (combina weekly_schedules e pcp_production_orders/postings)
- *    - pcp_production_orders com fallback/complemento de details do centro
+ * 4. Coluna "Carteira (t)":
+ *    - Consultada da fonte oficial de carteira SAP ECC (ZSD28C / carteira_items / pcp_pedidos_carteira_service).
+ *    - Se disponível para a OP/material/ordem de venda, exibe o valor em t preservando o sinal da fonte.
+ *    - Evita somar a mesma demanda comercial mais de uma vez quando houver múltiplas OPs relacionadas ao mesmo pedido.
+ *    - Caso indisponível, exibe null (UI exibe "—" sem preencher com zero automaticamente).
  */
 
 import { pb } from '@/lib/pocketbase/client'
@@ -25,6 +27,7 @@ import {
 } from '@/services/efficiency-center-service'
 import { mapFiltersToCenterFilters } from '@/services/line-production-loss-service'
 import type { UnifiedEfficiencyFilters } from '@/components/control-tower/efficiency/EfficiencyUnifiedFilterBar'
+import { pcpPedidosCarteiraService } from '@/services/pcp-pedidos-carteira-service'
 
 export interface HierarchyOpItem {
   id: string
@@ -36,12 +39,16 @@ export interface HierarchyOpItem {
   scheduledDate: string | null
   plannedStart: string | null
   realStart: string | null
+  carteiraT?: number | null
+  salesOrder?: string | null
+  salesOrderItem?: string | null
   plannedQuantityTons: number
   realizedQuantityTons: number | null
   percentualRealizado: number | null
   statusOp: string
   statusMes: string | null
   statusSap: string | null
+  observacao?: string | null
 }
 
 export interface HierarchyCenterItem {
@@ -49,6 +56,7 @@ export interface HierarchyCenterItem {
   centerName: string
   lineCode: string
   description?: string
+  carteiraT?: number | null
   programadoT: number
   realizadoT: number | null
   percentualRealizado: number | null
@@ -64,6 +72,7 @@ export interface HierarchyCenterItem {
 export interface HierarchyLineItem {
   lineCode: string
   lineName: string
+  carteiraT?: number | null
   programadoT: number
   realizadoT: number | null
   percentualRealizado: number | null
@@ -144,6 +153,51 @@ function buildProductionOrdersFilter(
 }
 
 /**
+ * Consulta a carteira SAP ECC (ZSD28C / carteira_items / pcp_pedidos_carteira_service)
+ * e indexa por Material e por Ordem de Venda.
+ */
+export async function fetchCarteiraLookup(filters: UnifiedEfficiencyFilters): Promise<{
+  byMaterial: Map<string, { tons: number; orderKey: string }>
+  bySalesOrder: Map<string, number>
+}> {
+  const byMaterial = new Map<string, { tons: number; orderKey: string }>()
+  const bySalesOrder = new Map<string, number>()
+
+  try {
+    const pedidos = await pcpPedidosCarteiraService.listarPedidos({
+      empresa:
+        filters.companyCode && filters.companyCode !== 'ALL' ? filters.companyCode : undefined,
+      linha: filters.lineCode && filters.lineCode !== 'ALL' ? filters.lineCode : undefined,
+      centro:
+        filters.workCenterCode && filters.workCenterCode !== 'ALL'
+          ? filters.workCenterCode
+          : undefined,
+    })
+
+    for (const p of pedidos) {
+      const mat = (p.codigoMaterial || '').trim()
+      const ov = (p.ordemVenda || '').trim()
+      const itemOv = (p.itemOrdem || '').trim()
+      const ovKey = ov ? (itemOv ? `${ov}-${itemOv}` : ov) : ''
+      const tons = typeof p.saldoAbertoTons === 'number' ? p.saldoAbertoTons : null
+
+      if (tons !== null) {
+        if (ovKey && !bySalesOrder.has(ovKey)) {
+          bySalesOrder.set(ovKey, tons)
+        }
+        if (mat && !byMaterial.has(mat)) {
+          byMaterial.set(mat, { tons, orderKey: ovKey || mat })
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[AssertividadeHierarchy] Falha ao consultar carteira de pedidos SAP ZSD28C:', err)
+  }
+
+  return { byMaterial, bySalesOrder }
+}
+
+/**
  * Carrega a lista consolidada de Centros brutos aplicando os filtros operacionais.
  */
 export async function fetchRawCenterEfficiencyRows(
@@ -163,6 +217,10 @@ export async function fetchOpsForCenter(
   lineCode: string,
   filters: UnifiedEfficiencyFilters,
   centerRowDetails?: CenterEfficiencyRow['details'],
+  carteiraLookup?: {
+    byMaterial: Map<string, { tons: number; orderKey: string }>
+    bySalesOrder: Map<string, number>
+  },
 ): Promise<HierarchyOpItem[]> {
   const pbFilter = buildProductionOrdersFilter(filters, centerCode, lineCode)
   let rawOrders: Array<{
@@ -182,6 +240,8 @@ export async function fetchOpsForCenter(
     status_op?: string
     status_mes?: string
     status_sap?: string
+    notes?: string
+    flow_status_json?: Record<string, unknown>
   }> = []
 
   try {
@@ -209,6 +269,12 @@ export async function fetchOpsForCenter(
     const realized = realizedRaw !== null && realizedRaw !== undefined ? Number(realizedRaw) : null
     const percentualRealizado = calculateRealizedPercent(realized, planned)
 
+    const matCode = (ord.material_code || '').trim()
+    let carteiraT: number | null = null
+    if (carteiraLookup && matCode && carteiraLookup.byMaterial.has(matCode)) {
+      carteiraT = carteiraLookup.byMaterial.get(matCode)!.tons
+    }
+
     opsMap.set(opNum, {
       id: ord.id || `op-${opNum}`,
       opNumber: opNum,
@@ -219,12 +285,14 @@ export async function fetchOpsForCenter(
       scheduledDate: ord.planned_start_date ? ord.planned_start_date.slice(0, 10) : null,
       plannedStart: ord.planned_start_date || null,
       realStart: ord.real_start_date || null,
+      carteiraT,
       plannedQuantityTons: round2(planned),
       realizedQuantityTons: realized !== null ? round2(realized) : null,
       percentualRealizado,
       statusOp: ord.status_op || ord.status_mes || 'PROGRAMADA',
       statusMes: ord.status_mes || null,
       statusSap: ord.status_sap || null,
+      observacao: ord.notes || null,
     })
   }
 
@@ -241,6 +309,12 @@ export async function fetchOpsForCenter(
           : null
       const percentualRealizado = calculateRealizedPercent(realized, planned)
 
+      const matCode = (d.productCode || '').trim()
+      let carteiraT: number | null = null
+      if (carteiraLookup && matCode && carteiraLookup.byMaterial.has(matCode)) {
+        carteiraT = carteiraLookup.byMaterial.get(matCode)!.tons
+      }
+
       opsMap.set(opNum, {
         id: `detail-${opNum}`,
         opNumber: opNum,
@@ -251,12 +325,14 @@ export async function fetchOpsForCenter(
         scheduledDate: d.plannedStart ? d.plannedStart.slice(0, 10) : null,
         plannedStart: d.plannedStart || null,
         realStart: d.realStart || null,
+        carteiraT,
         plannedQuantityTons: round2(planned),
         realizedQuantityTons: realized !== null ? round2(realized) : null,
         percentualRealizado,
         statusOp: d.mesStatus || d.sapStatus || 'PROGRAMADA',
         statusMes: d.mesStatus || null,
         statusSap: d.sapStatus || null,
+        observacao: null,
       })
     }
   }
@@ -265,11 +341,12 @@ export async function fetchOpsForCenter(
 }
 
 /**
- * Constrói a agregação de Centros a partir das OPs ou rows de eficiência.
- * Agregação estrita:
- * Centro.Programado = Soma(OP.Programado)
- * Centro.Realizado = Soma(OP.Realizado)
- * Centro.% Realizado = (Centro.Realizado / Centro.Programado) * 100
+ * Constrói a agregação de Centros a partir das OPs.
+ * Regra da Carteira:
+ * - Evita somar a mesma demanda comercial mais de uma vez quando houver múltiplas OPs
+ *   relacionadas ao mesmo pedido / material.
+ * - Caso a carteira não esteja disponível, retorna null.
+ * - Preserva o sinal da quantidade retornada da fonte.
  */
 export function aggregateCenterFromOps(
   centerCode: string,
@@ -277,16 +354,31 @@ export function aggregateCenterFromOps(
   lineCode: string,
   ops: HierarchyOpItem[],
   fallbackStatus: string = 'DENTRO_ESPERADO',
+  fallbackCarteiraT?: number | null,
 ): HierarchyCenterItem {
   let sumProg = 0
   let sumReal = 0
   let hasReal = false
+
+  // Deduplicação de carteira por material/pedido
+  const seenDemandKeys = new Set<string>()
+  let sumCarteira = 0
+  let hasCarteira = false
 
   for (const op of ops) {
     sumProg += Number(op.plannedQuantityTons || 0)
     if (op.realizedQuantityTons !== null && op.realizedQuantityTons !== undefined) {
       hasReal = true
       sumReal += Number(op.realizedQuantityTons)
+    }
+
+    if (op.carteiraT !== null && op.carteiraT !== undefined) {
+      const demandKey = op.salesOrder || op.materialCode || op.opNumber
+      if (!seenDemandKeys.has(demandKey)) {
+        seenDemandKeys.add(demandKey)
+        hasCarteira = true
+        sumCarteira += Number(op.carteiraT)
+      }
     }
   }
 
@@ -297,10 +389,17 @@ export function aggregateCenterFromOps(
   const percentualPerda =
     perdaT !== null && programadoT > 0 ? Number(((perdaT / programadoT) * 100).toFixed(1)) : null
 
+  const carteiraT = hasCarteira
+    ? round2(sumCarteira)
+    : fallbackCarteiraT !== undefined
+      ? fallbackCarteiraT
+      : null
+
   return {
     centerCode,
     centerName,
     lineCode,
+    carteiraT,
     programadoT,
     realizadoT,
     percentualRealizado,
@@ -314,10 +413,7 @@ export function aggregateCenterFromOps(
 
 /**
  * Constrói a agregação de Linha a partir dos Centros consolidados.
- * Agregação estrita:
- * Linha.Programado = Soma(Centro.Programado)
- * Linha.Realizado = Soma(Centro.Realizado)
- * Linha.% Realizado = (Linha.Realizado / Linha.Programado) * 100
+ * Preserva deduplicação e sinal de Carteira (t).
  */
 export function aggregateLineFromCenters(
   lineCode: string,
@@ -325,16 +421,24 @@ export function aggregateLineFromCenters(
   centers: HierarchyCenterItem[],
   sequencePct: number | null = null,
   fallbackStatus: string = 'DENTRO_ESPERADO',
+  fallbackCarteiraT?: number | null,
 ): HierarchyLineItem {
   let sumProg = 0
   let sumReal = 0
   let hasReal = false
+
+  let sumCarteira = 0
+  let hasCarteira = false
 
   for (const c of centers) {
     sumProg += Number(c.programadoT || 0)
     if (c.realizadoT !== null && c.realizadoT !== undefined) {
       hasReal = true
       sumReal += Number(c.realizadoT)
+    }
+    if (c.carteiraT !== null && c.carteiraT !== undefined) {
+      hasCarteira = true
+      sumCarteira += Number(c.carteiraT)
     }
   }
 
@@ -345,9 +449,16 @@ export function aggregateLineFromCenters(
   const percentualPerda =
     perdaT !== null && programadoT > 0 ? Number(((perdaT / programadoT) * 100).toFixed(1)) : null
 
+  const carteiraT = hasCarteira
+    ? round2(sumCarteira)
+    : fallbackCarteiraT !== undefined
+      ? fallbackCarteiraT
+      : null
+
   return {
     lineCode,
     lineName,
+    carteiraT,
     programadoT,
     realizadoT,
     percentualRealizado,

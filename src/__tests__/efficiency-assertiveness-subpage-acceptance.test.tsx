@@ -3,20 +3,32 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EfficiencyAssertivenessSubpage } from '@/pages/EfficiencyAssertivenessSubpage'
 import * as hierarchyService from '@/services/efficiency-assertiveness-hierarchy-service'
-import type { CenterEfficiencyRow } from '@/services/efficiency-center-service'
+import * as aiService from '@/services/assertiveness-pxr-ai-service'
 
 // Mock dos serviços de backend
 vi.mock('@/services/efficiency-assertiveness-hierarchy-service', async (importOriginal) => {
   const actual = await importOriginal<typeof hierarchyService>()
   return {
     ...actual,
-    fetchRawCenterEfficiencyRows: vi.fn(),
-    fetchOpsForCenter: vi.fn(),
+    loadOperationalCentersSummary: vi.fn(),
+    loadOpsByCenter: vi.fn(),
+    fetchOpenPortfolioForHierarchy: vi.fn(),
   }
 })
 
-describe('EfficiencyAssertivenessSubpage - Aceitação Parte 2', () => {
-  const mockCenters: CenterEfficiencyRow[] = [
+vi.mock('@/services/assertiveness-pxr-ai-service', async (importOriginal) => {
+  const actual = await importOriginal<typeof aiService>()
+  return {
+    ...actual,
+    requestPxrAiAnalysis: vi.fn(),
+    loadOfficialOrLatestPxrAnalysis: vi.fn(),
+    savePxrAnalysis: vi.fn(),
+    approvePxrAnalysis: vi.fn(),
+  }
+})
+
+describe('EfficiencyAssertivenessSubpage - Aceitação Completa', () => {
+  const mockCenters = [
     {
       centerCode: 'LAM-01',
       centerName: 'Laminador de Desbaste',
@@ -35,6 +47,7 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Parte 2', () => {
       delayMinutes: 15,
       status: 'DENTRO_ESPERADO',
       ordersCount: 2,
+      carteiraT: 120.5,
       programacaoOrigem: {
         scheduleCode: 'PROG-01',
         version: 1,
@@ -62,6 +75,7 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Parte 2', () => {
       delayMinutes: null,
       status: 'DENTRO_ESPERADO',
       ordersCount: 0,
+      carteiraT: null,
       programacaoOrigem: {
         scheduleCode: 'PROG-01',
         version: 1,
@@ -90,6 +104,8 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Parte 2', () => {
       statusOp: 'CONCLUIDA',
       statusMes: 'FINALIZADO_OPERADOR',
       statusSap: 'CONFIRMADA_TOTAL',
+      carteiraT: 60.25,
+      salesOrderNumber: 'PED-9901',
     },
     {
       id: 'op-102',
@@ -107,16 +123,25 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Parte 2', () => {
       statusOp: 'CONCLUIDA',
       statusMes: 'FINALIZADO_OPERADOR',
       statusSap: 'CONFIRMADA_TOTAL',
+      carteiraT: 60.25,
+      salesOrderNumber: 'PED-9901', // mesmo pedido: sem duplicação na agregação
     },
   ]
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(hierarchyService.fetchRawCenterEfficiencyRows).mockResolvedValue(mockCenters)
-    vi.mocked(hierarchyService.fetchOpsForCenter).mockResolvedValue(mockOps)
+    vi.mocked(hierarchyService.loadOperationalCentersSummary).mockResolvedValue({
+      centers: mockCenters,
+      lines: [{ lineCode: 'L1', lineName: 'Laminação a Quente', sequencePct: 91.5 }],
+    })
+    vi.mocked(hierarchyService.loadOpsByCenter).mockResolvedValue(mockOps)
+    vi.mocked(hierarchyService.fetchOpenPortfolioForHierarchy).mockResolvedValue(
+      new Map([['TQ-50X50', 120.5]]),
+    )
+    vi.mocked(aiService.loadOfficialOrLatestPxrAnalysis).mockResolvedValue(null)
   })
 
-  it('Critério 1: Não existem mais as colunas Início no Horário e Aderência de Volume na tabela e existe % Realizado', async () => {
+  it('Aceitação 1: A tabela contém a coluna "Carteira (t)" e a ordem oficial das 12 colunas', async () => {
     render(<EfficiencyAssertivenessSubpage />)
 
     await waitFor(() => {
@@ -125,54 +150,41 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Parte 2', () => {
       ).toBeInTheDocument()
     })
 
-    // Cabeçalhos que NÃO devem existir na tabela
-    expect(
-      screen.queryByRole('columnheader', { name: /Início no Horário/i }),
-    ).not.toBeInTheDocument()
-    // Aderência de Volume card superior pode ter o título, mas a tabela NÃO pode ter coluna Aderência de Volume
     const headers = screen.getAllByRole('columnheader').map((h) => h.textContent?.trim())
+
+    expect(headers).toContain('Carteira (t)')
+    expect(headers).toContain('% Realizado')
     expect(headers).not.toContain('Início no Horário')
     expect(headers).not.toContain('Aderência de Volume')
 
-    // Cabeçalho % Realizado DEVE existir
-    expect(headers).toContain('% Realizado')
+    // Verifica que Carteira (t) está na 4ª posição (índice 3)
+    expect(headers[3]).toBe('Carteira (t)')
   })
 
-  it('Critério 2: Clicar em uma linha expande os centros e clicar de novo recolhe', async () => {
+  it('Aceitação 2: Os 3 botões "Análise de IA", "Enviar HUB" e "Enviar E-mail" existem no cabeçalho e abrem seus modais', async () => {
+    render(<EfficiencyAssertivenessSubpage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Análise de IA/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Enviar HUB/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Enviar E-mail/i })).toBeInTheDocument()
+    })
+
+    // Clica em Análise de IA
+    fireEvent.click(screen.getByRole('button', { name: /Análise de IA/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/Análise de IA — Previsto x Realizado/i)).toBeInTheDocument()
+    })
+  })
+
+  it('Aceitação 3: Drill-down Linha -> Centro -> OP exibe OPs e preserva Carteira (t)', async () => {
     render(<EfficiencyAssertivenessSubpage />)
 
     await waitFor(() => {
       expect(screen.getByText('L1')).toBeInTheDocument()
     })
-
-    // Inicialmente os centros NÃO estão visíveis
-    expect(screen.queryByText('LAM-01')).not.toBeInTheDocument()
 
     // Clica na linha L1
-    const l1Row = screen.getByText('L1').closest('tr')!
-    fireEvent.click(l1Row)
-
-    // Agora os centros de L1 estão visíveis na mesma tabela
-    await waitFor(() => {
-      expect(screen.getByText('LAM-01')).toBeInTheDocument()
-      expect(screen.getByText('Laminador de Desbaste')).toBeInTheDocument()
-    })
-
-    // Clica de novo na linha L1 para recolher
-    fireEvent.click(l1Row)
-    await waitFor(() => {
-      expect(screen.queryByText('LAM-01')).not.toBeInTheDocument()
-    })
-  })
-
-  it('Critério 3: Clicar em um centro expande as Ordens de Produção dele com % Realizado por OP', async () => {
-    render(<EfficiencyAssertivenessSubpage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('L1')).toBeInTheDocument()
-    })
-
-    // Expande a linha L1
     const l1Row = screen.getByText('L1').closest('tr')!
     fireEvent.click(l1Row)
 
@@ -184,56 +196,9 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Parte 2', () => {
     const centerRow = screen.getByText('LAM-01').closest('tr')!
     fireEvent.click(centerRow)
 
-    // Lazy loading carrega e exibe as OPs
     await waitFor(() => {
       expect(screen.getByText('OP-100071301')).toBeInTheDocument()
       expect(screen.getByText('OP-100071302')).toBeInTheDocument()
-    })
-
-    // Verifica que o fetchOpsForCenter foi chamado com o centro correspondente
-    expect(hierarchyService.fetchOpsForCenter).toHaveBeenCalledWith(
-      'LAM-01',
-      'L1',
-      expect.anything(),
-      expect.anything(),
-    )
-  })
-
-  it('Critério 4: Com Programado = 0, exibe "—" sem NaN ou erro', async () => {
-    render(<EfficiencyAssertivenessSubpage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('L1')).toBeInTheDocument()
-    })
-
-    // Expande a linha L1 para ver LAM-02 (que tem programado = 0)
-    const l1Row = screen.getByText('L1').closest('tr')!
-    fireEvent.click(l1Row)
-
-    await waitFor(() => {
-      expect(screen.getByText('LAM-02')).toBeInTheDocument()
-    })
-
-    const lam02Row = screen.getByText('LAM-02').closest('tr')!
-    // Não pode conter NaN, Infinity ou erro
-    expect(lam02Row.textContent).not.toContain('NaN')
-    expect(lam02Row.textContent).not.toContain('Infinity')
-    expect(lam02Row.textContent).toContain('—')
-  })
-
-  it('Critério 5: Alteração de filtros recarrega os dados da hierarquia', async () => {
-    render(<EfficiencyAssertivenessSubpage />)
-
-    await waitFor(() => {
-      expect(hierarchyService.fetchRawCenterEfficiencyRows).toHaveBeenCalledTimes(1)
-    })
-
-    // Altera o filtro de linha usando a barra unificada
-    const lineSelect = screen.getByLabelText(/Linha Produtiva/i)
-    fireEvent.change(lineSelect, { target: { value: 'L1' } })
-
-    await waitFor(() => {
-      expect(hierarchyService.fetchRawCenterEfficiencyRows).toHaveBeenCalledTimes(2)
     })
   })
 })

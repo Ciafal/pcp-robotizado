@@ -1,157 +1,239 @@
+/**
+ * Módulo Execução -> Previsto x Realizado (Assertividade Operacional)
+ *
+ * Tela de acompanhamento do cumprimento da programação industrial CIAFAL.
+ *
+ * Melhorias implementadas diretamente nesta tela existente:
+ * 1. Coluna "Carteira (t)" nos 3 níveis (Linha, Centro, OP) com dados da carteira SAP ECC (ZSD28C / pcp_pedidos_carteira),
+ *    sem duplicação de pedidos, '—' quando indisponível e preservando o sinal retornado.
+ * 2. Ordem das 12 colunas oficiais:
+ *    Estrutura/Item | Código | Ordem | Carteira (t) | Programado (t) | Realizado (t) | % Realizado | Perda (t) | % Perda | Sequência Cumprida | Status | Observação
+ * 3. Três botões no cabeçalho da tabela (alinhados à direita):
+ *    - Análise de IA (Agente Nativo Skip Cloud / PxrAiAnalysisModal)
+ *    - Enviar HUB (Publicação de Comunicado Corporativo / PxrSendHubModal)
+ *    - Enviar E-mail (Disparo corporativo via Resend em modo owner / PxrSendEmailModal)
+ * 4. Hierarquia expansível Linha -> Centro -> OP com rolagem horizontal interna e conformidade rigorosa pt-BR.
+ */
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
-  EfficiencyUnifiedFilterBar,
-  UnifiedEfficiencyFilters,
-  EfficiencyFilterOptions,
-} from '@/components/control-tower/efficiency/EfficiencyUnifiedFilterBar'
-import {
   Clock,
-  TrendingUp,
   Target,
+  TrendingUp,
   FileCheck2,
   ChevronRight,
   ChevronDown,
   Layers,
   Cpu,
   FileText,
-  Loader2,
   AlertCircle,
   Inbox,
+  Loader2,
+  Sparkles,
+  Building2,
+  Mail,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatPercentPtBr, formatTonsPtBr } from '@/lib/formatters-ptbr'
+import { Button } from '@/components/ui/button'
+import { formatTonsPtBr, formatPercentPtBr } from '@/lib/number-format'
 import {
-  fetchRawCenterEfficiencyRows,
-  fetchOpsForCenter,
-  aggregateCenterFromOps,
+  EfficiencyUnifiedFilterBar,
+  type UnifiedEfficiencyFilters,
+  type UnifiedFilterOptions,
+} from '@/components/control-tower/efficiency/EfficiencyUnifiedFilterBar'
+import {
+  loadOperationalCentersSummary,
+  loadOpsByCenter,
   aggregateLineFromCenters,
+  aggregateCenterFromOps,
   calculateRealizedPercent,
-  HierarchyLineItem,
-  HierarchyCenterItem,
-  HierarchyOpItem,
+  fetchOpenPortfolioForHierarchy,
+  type EfficiencyCenterSummaryRow,
+  type HierarchyLineItem,
+  type HierarchyCenterItem,
+  type HierarchyOpItem,
 } from '@/services/efficiency-assertiveness-hierarchy-service'
-import type { CenterEfficiencyRow } from '@/services/efficiency-center-service'
+import {
+  requestPxrAiAnalysis,
+  loadOfficialOrLatestPxrAnalysis,
+  type PxrAiStructuredAnalysis,
+  type PxrSavedAnalysisRecord,
+} from '@/services/assertiveness-pxr-ai-service'
+import { PxrAiAnalysisModal } from '@/components/control-tower/efficiency/PxrAiAnalysisModal'
+import { PxrSendHubModal } from '@/components/control-tower/efficiency/PxrSendHubModal'
+import { PxrSendEmailModal } from '@/components/control-tower/efficiency/PxrSendEmailModal'
+
+const INITIAL_FILTERS: UnifiedEfficiencyFilters = {
+  companyCode: 'ALL',
+  plantCode: 'ALL',
+  lineCode: 'ALL',
+  workCenterCode: 'ALL',
+  shiftCode: 'ALL',
+  status: 'ALL',
+  periodPreset: 'WEEK_CURRENT',
+  startDate: '',
+  endDate: '',
+  date: '',
+  week: '',
+  month: '',
+  year: String(new Date().getFullYear()),
+}
 
 export const EfficiencyAssertivenessSubpage: React.FC = () => {
-  const [filters, setFilters] = useState<UnifiedEfficiencyFilters>({
-    companyCode: 'ALL',
-    plantCode: 'ALL',
-    lineCode: 'ALL',
-    status: 'ALL',
-    startDate: '',
-    endDate: '',
-  })
-  const [appliedFilters, setAppliedFilters] = useState<UnifiedEfficiencyFilters>(filters)
+  // Filtros em edição e filtros aplicados
+  const [filters, setFilters] = useState<UnifiedEfficiencyFilters>(INITIAL_FILTERS)
+  const [appliedFilters, setAppliedFilters] = useState<UnifiedEfficiencyFilters>(INITIAL_FILTERS)
 
-  // Estado dos dados brutos de centros (vindos da fonte oficial efficiencyCenterService)
-  const [rawCenters, setRawCenters] = useState<CenterEfficiencyRow[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(true)
+  // Estado dos dados
+  const [rawCenters, setRawCenters] = useState<EfficiencyCenterSummaryRow[]>([])
+  const [lineCatalog, setLineCatalog] = useState<
+    { lineCode: string; lineName: string; sequencePct?: number }[]
+  >([])
+  const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Controle de expansão de Linhas e Centros
-  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set())
-  const [expandedCenters, setExpandedCenters] = useState<Set<string>>(new Set())
-
-  // Cache/estado de OPs carregadas via lazy-loading por centro (key = `${lineCode}:${centerCode}`)
+  // Mapa de OPs carregadas sob demanda: chave `${lineCode}:${centerCode}` -> HierarchyOpItem[]
   const [opsByCenter, setOpsByCenter] = useState<Record<string, HierarchyOpItem[]>>({})
   const [loadingOpsCenters, setLoadingOpsCenters] = useState<Set<string>>(new Set())
   const [errorOpsCenters, setErrorOpsCenters] = useState<Record<string, string>>({})
 
-  // Aplicação reativa dos filtros
-  const INSTANT_FILTER_KEYS: (keyof UnifiedEfficiencyFilters)[] = [
-    'companyCode',
-    'plantCode',
-    'lineCode',
-    'centerCode',
-    'status',
-    'startDate',
-    'endDate',
-    'periodType',
-    'week',
-    'year',
-  ]
+  // Estado de expansão do drill-down
+  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set())
+  const [expandedCenters, setExpandedCenters] = useState<Set<string>>(new Set())
 
-  const handleFiltersChange = (next: UnifiedEfficiencyFilters) => {
-    setFilters(next)
-    const instantChanged = INSTANT_FILTER_KEYS.some((key) => next[key] !== filters[key])
-    if (instantChanged) {
-      setAppliedFilters(next)
-    }
+  // Carteira SAP ECC em cache (para não refazer chamadas desnecessárias)
+  const [carteiraMap, setCarteiraMap] = useState<Map<string, number>>(new Map())
+
+  // Estados dos Modais das Melhorias 2, 3, 5 e 6
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false)
+  const [isHubModalOpen, setIsHubModalOpen] = useState(false)
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
+
+  // Análise de IA persistida / ativa
+  const [currentAiAnalysis, setCurrentAiAnalysis] = useState<PxrAiStructuredAnalysis | null>(null)
+  const [savedAnalysisRecord, setSavedAnalysisRecord] = useState<PxrSavedAnalysisRecord | null>(
+    null,
+  )
+
+  // Opções para a barra unificada de filtros
+  const filterOptions: UnifiedFilterOptions = useMemo(
+    () => ({
+      companies: [
+        { code: 'ALL', name: 'Todas as Empresas' },
+        { code: 'CIAFAL', name: 'CIAFAL Siderurgia' },
+      ],
+      plants: [
+        { code: 'ALL', name: 'Todas as Plantas' },
+        { code: 'P01', name: 'Planta Principal' },
+      ],
+      lines: [
+        { code: 'ALL', name: 'Todas as Linhas' },
+        { code: 'L1', name: 'Linha 1 — Laminação Fina' },
+        { code: 'L2', name: 'Linha 2 — Laminação Pesada' },
+        { code: 'L3', name: 'Linha 3 — Tratamento Térmico' },
+        { code: 'SDC', name: 'Sidercentro — Corte e Dobra' },
+      ],
+      workCenters: [
+        { code: 'ALL', name: 'Todos os Centros de Trabalho' },
+        { code: 'FORNO-01', name: 'Forno de Reaquecimento 01', lineCode: 'L1' },
+        { code: 'TREM-01', name: 'Trem de Laminação 01', lineCode: 'L1' },
+        { code: 'TESOURA-01', name: 'Tesoura Voadora 01', lineCode: 'L1' },
+        { code: 'FORNO-02', name: 'Forno de Reaquecimento 02', lineCode: 'L2' },
+        { code: 'TREM-02', name: 'Trem de Laminação 02', lineCode: 'L2' },
+        { code: 'RESFRIAMENTO-02', name: 'Leito de Resfriamento 02', lineCode: 'L2' },
+      ],
+      shifts: [
+        { code: 'ALL', name: 'Todos os Turnos' },
+        { code: 'TURNO_A', name: 'Turno A (Manhã)' },
+        { code: 'TURNO_B', name: 'Turno B (Tarde)' },
+        { code: 'TURNO_C', name: 'Turno C (Noite)' },
+      ],
+      statuses: [
+        { code: 'ALL', name: 'Todos os Status' },
+        { code: 'DENTRO_ESPERADO', name: 'Dentro do Esperado' },
+        { code: 'ATRASADO', name: 'Atrasado' },
+        { code: 'ATRASO_CRITICO', name: 'Atraso Crítico' },
+      ],
+    }),
+    [],
+  )
+
+  // Carregamento inicial de dados
+  const loadData = useCallback(
+    async (currentFilters = appliedFilters) => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const result = await loadOperationalCentersSummary(currentFilters)
+        setRawCenters(result.centers)
+        setLineCatalog(result.lines)
+
+        // Carrega análise de IA previamente aprovada ou mais recente se houver
+        try {
+          const saved = await loadOfficialOrLatestPxrAnalysis({
+            empresa_code: currentFilters.companyCode,
+            planta_code: currentFilters.plantCode,
+            linha_code: currentFilters.lineCode,
+          })
+          if (saved) {
+            setSavedAnalysisRecord(saved)
+            if (saved.executive_summary) {
+              setCurrentAiAnalysis({
+                executive_summary: saved.executive_summary,
+                identified_causes: (saved.ai_findings as any) || [],
+                investigation_hypotheses: (saved.investigation_hypotheses as any) || [],
+                recommendations: (saved.recommendations as any) || [],
+                analyzed_at: saved.created,
+              })
+            }
+          }
+        } catch (err) {
+          console.warn('[PxR] Sem análise de IA gravada prévia:', err)
+        }
+
+        // Consulta dados de carteira SAP ECC
+        try {
+          const portMap = await fetchOpenPortfolioForHierarchy(currentFilters)
+          setCarteiraMap(portMap)
+        } catch (err) {
+          console.warn('[PxR] Carteira SAP não acessível diretamente:', err)
+        }
+      } catch (err) {
+        console.error('[EfficiencyAssertivenessSubpage] Erro ao carregar dados:', err)
+        setLoadError('Não foi possível carregar os dados de assertividade. Tente novamente.')
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [appliedFilters],
+  )
+
+  useEffect(() => {
+    loadData(appliedFilters)
+  }, [appliedFilters, loadData])
+
+  // Handlers da barra de filtros
+  const handleFiltersChange = (newFilters: UnifiedEfficiencyFilters) => {
+    setFilters(newFilters)
   }
 
-  const handleFiltersApply = (next: UnifiedEfficiencyFilters) => {
-    setFilters(next)
-    setAppliedFilters(next)
+  const handleFiltersApply = () => {
+    setAppliedFilters({ ...filters })
+    setOpsByCenter({})
+    setExpandedLines(new Set())
+    setExpandedCenters(new Set())
   }
 
   const handleFiltersReset = () => {
-    const reset: UnifiedEfficiencyFilters = {
-      companyCode: 'ALL',
-      plantCode: 'ALL',
-      lineCode: 'ALL',
-      status: 'ALL',
-      startDate: '',
-      endDate: '',
-    }
-    setFilters(reset)
-    setAppliedFilters(reset)
-  }
-
-  const filterOptions: EfficiencyFilterOptions = {
-    companies: [
-      { code: 'CIAFAL', name: 'CIAFAL Matriz' },
-      { code: 'SIDERURGICA', name: 'Siderúrgica CIAFAL' },
-    ],
-    plants: [
-      { code: 'DIV', name: 'Divinópolis (DIV)', companyCode: 'CIAFAL' },
-      { code: 'BH', name: 'Belo Horizonte (BH)', companyCode: 'CIAFAL' },
-      { code: 'SAB', name: 'Sabará (SAB)', companyCode: 'CIAFAL' },
-    ],
-    lines: [
-      { code: 'L1', name: 'Linha 1 - Laminação', plantCode: 'DIV' },
-      { code: 'L2', name: 'Linha 2 - Trefilação', plantCode: 'DIV' },
-    ],
-    centers: [],
-  }
-
-  // 1. Carregamento inicial (nível Linha/Centros brutos da fonte oficial)
-  const loadData = useCallback(() => {
-    let cancelled = false
-    setIsLoading(true)
-    setLoadError(null)
-
-    // Ao recarregar dados mestre por filtro, limpa cache de OPs para consistência
+    setFilters(INITIAL_FILTERS)
+    setAppliedFilters(INITIAL_FILTERS)
     setOpsByCenter({})
-    setLoadingOpsCenters(new Set())
-    setErrorOpsCenters({})
+    setExpandedLines(new Set())
+    setExpandedCenters(new Set())
+  }
 
-    fetchRawCenterEfficiencyRows(appliedFilters)
-      .then((rows) => {
-        if (cancelled) return
-        setRawCenters(rows)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        console.error('[AssertividadeOperacional] Falha ao consultar centros:', err)
-        setLoadError('Não foi possível carregar os dados. Tente novamente.')
-        setRawCenters([])
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [appliedFilters])
-
-  useEffect(() => {
-    const cleanup = loadData()
-    return cleanup
-  }, [loadData])
-
-  // Toggle de expansão de Linha (apenas abre/fecha os Centros)
+  // Toggle do Nível 1: Linha de Produção
   const toggleLine = (lineCode: string) => {
     setExpandedLines((prev) => {
       const next = new Set(prev)
@@ -164,14 +246,9 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     })
   }
 
-  // Toggle de expansão de Centro (lazy loading das OPs sob demanda)
-  const toggleCenter = async (
-    lineCode: string,
-    centerCode: string,
-    centerDetails?: CenterEfficiencyRow['details'],
-  ) => {
+  // Toggle do Nível 2: Centro de Trabalho (com Lazy Loading das OPs)
+  const toggleCenter = async (lineCode: string, centerCode: string, details?: any[]) => {
     const centerKey = `${lineCode}:${centerCode}`
-    const isExpanding = !expandedCenters.has(centerKey)
 
     setExpandedCenters((prev) => {
       const next = new Set(prev)
@@ -183,8 +260,8 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
       return next
     })
 
-    // Se estiver expandindo e ainda não tiver carregado as OPs, carrega via lazy-loading
-    if (isExpanding && !opsByCenter[centerKey] && !loadingOpsCenters.has(centerKey)) {
+    // Se ainda não carregou as OPs para este centro, dispara a busca sob demanda
+    if (!opsByCenter[centerKey] && !loadingOpsCenters.has(centerKey)) {
       setLoadingOpsCenters((prev) => new Set(prev).add(centerKey))
       setErrorOpsCenters((prev) => {
         const next = { ...prev }
@@ -193,16 +270,16 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
       })
 
       try {
-        const ops = await fetchOpsForCenter(centerCode, lineCode, appliedFilters, centerDetails)
+        const ops = await loadOpsByCenter(centerCode, lineCode, appliedFilters, details)
         setOpsByCenter((prev) => ({
           ...prev,
           [centerKey]: ops,
         }))
       } catch (err) {
-        console.error(`[AssertividadeOperacional] Erro ao carregar OPs para ${centerKey}:`, err)
+        console.error(`[Efficiency] Erro ao carregar OPs do centro ${centerCode}:`, err)
         setErrorOpsCenters((prev) => ({
           ...prev,
-          [centerKey]: 'Não foi possível carregar os dados. Tente novamente.',
+          [centerKey]: 'Falha ao carregar ordens deste centro. Clique para tentar novamente.',
         }))
       } finally {
         setLoadingOpsCenters((prev) => {
@@ -214,48 +291,24 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     }
   }
 
-  // Base canônica de linhas CIAFAL para apresentação executiva consistente
-  const lineCatalog = useMemo(
-    () => [
-      { lineCode: 'L1', lineName: 'Laminação a Quente', sequencePct: 94.0 },
-      { lineCode: 'L2', lineName: 'Trefilação e Acabamento', sequencePct: 88.5 },
-      { lineCode: 'L3', lineName: 'Corte e Dobra', sequencePct: 92.0 },
-      { lineCode: 'L4', lineName: 'Treliças', sequencePct: 86.0 },
-    ],
-    [],
-  )
-
-  // 2. Agregação hierárquica estrita: OP -> Centro -> Linha
+  // Construção e agregação hierárquica Linha -> Centros -> OPs
   const aggregatedLines: HierarchyLineItem[] = useMemo(() => {
-    // Agrupa rawCenters por linha
-    const centersByLine = new Map<string, CenterEfficiencyRow[]>()
-    for (const c of rawCenters) {
-      const lc = c.lineCode || 'L1'
-      const list = centersByLine.get(lc) || []
-      list.push(c)
-      centersByLine.set(lc, list)
-    }
-
-    // Se filtros limitam a linha, filtra
-    const targetLineCodes =
+    const linesToProcess =
       appliedFilters.lineCode && appliedFilters.lineCode !== 'ALL'
         ? [appliedFilters.lineCode]
-        : Array.from(
-            new Set([...lineCatalog.map((l) => l.lineCode), ...Array.from(centersByLine.keys())]),
-          )
+        : lineCatalog.map((l) => l.lineCode)
 
-    return targetLineCodes.map((lineCode) => {
+    return linesToProcess.map((lineCode) => {
       const meta = lineCatalog.find((l) => l.lineCode === lineCode)
-      const centersRaw = centersByLine.get(lineCode) || []
+      const centersRaw = rawCenters.filter((rc) => rc.lineCode === lineCode)
 
-      // Se não há centros retornados para a linha pelo serviço oficial, cria representação padrão do catálogo
       const centers: HierarchyCenterItem[] =
         centersRaw.length > 0
           ? centersRaw.map((cr) => {
               const centerKey = `${lineCode}:${cr.centerCode}`
               const loadedOps = opsByCenter[centerKey]
 
-              // Se as OPs foram carregadas para este centro, o Centro é a agregação estrita das OPs
+              // Se as OPs foram carregadas para este centro, o Centro agrega estritamente as OPs
               if (loadedOps && loadedOps.length > 0) {
                 const agg = aggregateCenterFromOps(
                   cr.centerCode,
@@ -267,10 +320,11 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                 return {
                   ...agg,
                   description: cr.plannedProductName || undefined,
+                  ops: loadedOps,
                 }
               }
 
-              // Se as OPs ainda não foram carregadas ou lista vazia, usa os valores oficiais consolidados do centro
+              // Se as OPs ainda não foram carregadas, usa valores consolidados do centro
               const progT = Number(cr.plannedQuantityTons || 0)
               const realT =
                 cr.realizedQuantityTons !== null && cr.realizedQuantityTons !== undefined
@@ -292,8 +346,10 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                 percentualRealizado: pct,
                 perdaT,
                 percentualPerda: perdaPct,
+                carteiraT: cr.carteiraT ?? null,
                 status: cr.status,
                 ordersCount: cr.ordersCount || cr.details?.length || 0,
+                ops: [],
               }
             })
           : [
@@ -306,13 +362,14 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                 percentualRealizado: null,
                 perdaT: null,
                 percentualPerda: null,
+                carteiraT: null,
                 status: 'DENTRO_ESPERADO',
                 ordersCount: 0,
+                ops: [],
               },
             ]
 
-      // Consolida a Linha a partir dos Centros (Soma estrita dos centros)
-      const lineAgg = aggregateLineFromCenters(
+      return aggregateLineFromCenters(
         lineCode,
         meta?.lineName || `Linha ${lineCode}`,
         centers,
@@ -321,10 +378,65 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
           ? 'ATENCAO'
           : 'DENTRO_ESPERADO',
       )
-
-      return lineAgg
     })
   }, [rawCenters, appliedFilters.lineCode, lineCatalog, opsByCenter])
+
+  // Resumo para IA e Relatórios
+  const executionSummary = useMemo(() => {
+    let totalProg = 0
+    let totalReal = 0
+    let hasReal = false
+    let totalPerda = 0
+    let totalCarteira = 0
+    let hasCarteira = false
+    let totalOps = 0
+    let opsNaoRealizadas = 0
+    let opsParciais = 0
+    let opsComAtraso = 0
+
+    for (const line of aggregatedLines) {
+      totalProg += line.programadoT || 0
+      if (line.realizadoT !== null && line.realizadoT !== undefined) {
+        hasReal = true
+        totalReal += line.realizadoT
+      }
+      if (line.perdaT !== null && line.perdaT !== undefined) {
+        totalPerda += line.perdaT
+      }
+      if (line.carteiraT !== null && line.carteiraT !== undefined) {
+        hasCarteira = true
+        totalCarteira += line.carteiraT
+      }
+      for (const center of line.centers || []) {
+        for (const op of center.ops || []) {
+          totalOps += 1
+          if (!op.realizedQuantityTons || op.realizedQuantityTons === 0) {
+            opsNaoRealizadas += 1
+          } else if (op.realizedQuantityTons < op.plannedQuantityTons) {
+            opsParciais += 1
+          }
+          if (op.statusOp === 'ATRASADO' || op.statusOp === 'ATRASO_CRITICO') {
+            opsComAtraso += 1
+          }
+        }
+      }
+    }
+
+    const pctGeral =
+      totalProg > 0 && hasReal ? Number(((totalReal / totalProg) * 100).toFixed(1)) : null
+
+    return {
+      totalProgramadoT: totalProg,
+      totalRealizadoT: totalReal,
+      percentualRealizadoGeral: pctGeral,
+      totalPerdaT: totalPerda,
+      totalOps,
+      opsNaoRealizadas,
+      opsParciais,
+      opsComAtraso,
+      carteiraTotalT: hasCarteira ? totalCarteira : null,
+    }
+  }, [aggregatedLines])
 
   // KPIs superiores
   const metrics = [
@@ -362,12 +474,31 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     },
   ]
 
-  // Formatação pt-BR segura
+  // Formatação pt-BR segura para células
   const formatTonsCell = (value: number | null | undefined) =>
-    value === null || value === undefined ? 'Dados não disponíveis' : formatTonsPtBr(value, 2)
+    value === null || value === undefined ? '—' : formatTonsPtBr(value, 2)
 
   const formatPercentCell = (value: number | null | undefined) =>
     value === null || value === undefined ? '—' : formatPercentPtBr(value, 1)
+
+  // Abrir Modal de IA disparando análise se ainda vazia
+  const handleOpenAiModal = async () => {
+    if (!currentAiAnalysis) {
+      try {
+        const res = await requestPxrAiAnalysis({
+          filters: appliedFilters,
+          hierarchy: aggregatedLines,
+          summary: executionSummary,
+        })
+        if (res.success && res.analysis) {
+          setCurrentAiAnalysis(res.analysis)
+        }
+      } catch (err) {
+        console.warn('[PxR] Pré-análise IA automática:', err)
+      }
+    }
+    setIsAiModalOpen(true)
+  }
 
   return (
     <div className="space-y-4">
@@ -442,38 +573,76 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
 
       {/* Tabela de Aderência por Linha com Drill-down Hierárquico Linha -> Centro -> OP */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        {/* Cabeçalho da Tabela com Título e 3 Botões Alinhados à Direita (Melhoria 2) */}
+        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-[#004C97]" />
             <h4 className="text-xs font-bold text-slate-900">
               Assertividade Operacional por Linha de Produção
             </h4>
           </div>
-          <span className="text-[11px] text-slate-500 font-mono">
-            Hierarquia Expansível: Linha &bull; Centros de Trabalho &bull; Ordens de Produção
-          </span>
+
+          {/* Botões de Ação Corporativa: 1. Análise de IA | 2. Enviar HUB | 3. Enviar E-mail */}
+          <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleOpenAiModal}
+              className="text-xs gap-1.5 border-[#004C97]/30 text-[#004C97] hover:bg-[#004C97]/5 h-8 shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#004C97]" />
+              <span>Análise de IA</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsHubModalOpen(true)}
+              className="text-xs gap-1.5 border-slate-300 text-slate-700 hover:bg-slate-100 h-8 shadow-2xs"
+            >
+              <Building2 className="w-3.5 h-3.5 text-slate-600" />
+              <span>Enviar HUB</span>
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsEmailModalOpen(true)}
+              className="text-xs gap-1.5 bg-[#004C97] hover:bg-[#003870] text-white h-8 shadow-2xs"
+            >
+              <Mail className="w-3.5 h-3.5 text-white" />
+              <span>Enviar E-mail</span>
+            </Button>
+          </div>
         </div>
 
         {/* Rolagem horizontal SOMENTE dentro do componente da tabela */}
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left min-w-[980px]">
+          <table className="w-full text-xs text-left min-w-[1100px]">
+            {/* Ordem Canônica das 12 Colunas Oficiais (Melhoria 1) */}
             <thead className="bg-slate-100 text-slate-700 text-[11px] font-semibold border-b border-slate-200">
               <tr>
-                <th className="py-2.5 px-4 w-[320px]">Estrutura / Item</th>
-                <th className="py-2.5 px-4 text-right">Programado em t</th>
-                <th className="py-2.5 px-4 text-right">Realizado em t</th>
-                <th className="py-2.5 px-4 text-right">% Realizado</th>
-                <th className="py-2.5 px-4 text-right">Perda em t</th>
-                <th className="py-2.5 px-4 text-right">% Perda</th>
-                <th className="py-2.5 px-4 text-right">Sequência Cumprida</th>
-                <th className="py-2.5 px-4 text-center">Status</th>
+                <th className="py-2.5 px-3 min-w-[240px]">Estrutura / Item</th>
+                <th className="py-2.5 px-3 w-[100px]">Código</th>
+                <th className="py-2.5 px-3 w-[110px]">Ordem</th>
+                <th className="py-2.5 px-3 text-right w-[110px]">Carteira (t)</th>
+                <th className="py-2.5 px-3 text-right w-[110px]">Programado (t)</th>
+                <th className="py-2.5 px-3 text-right w-[110px]">Realizado (t)</th>
+                <th className="py-2.5 px-3 text-right w-[95px]">% Realizado</th>
+                <th className="py-2.5 px-3 text-right w-[95px]">Perda (t)</th>
+                <th className="py-2.5 px-3 text-right w-[85px]">% Perda</th>
+                <th className="py-2.5 px-3 text-right w-[115px]">Sequência Cumprida</th>
+                <th className="py-2.5 px-3 text-center w-[90px]">Status</th>
+                <th className="py-2.5 px-3 min-w-[140px]">Observação</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-100 font-mono">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500 font-sans">
+                  <td colSpan={12} className="py-12 text-center text-slate-500 font-sans">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Loader2 className="w-6 h-6 animate-spin text-[#004C97]" />
                       <span className="text-xs font-medium">Carregando dados operacionais...</span>
@@ -482,13 +651,13 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                 </tr>
               ) : loadError ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-rose-600 font-sans">
+                  <td colSpan={12} className="py-12 text-center text-rose-600 font-sans">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <AlertCircle className="w-6 h-6 text-rose-500" />
                       <span className="text-xs font-semibold">{loadError}</span>
                       <button
                         onClick={() => loadData()}
-                        className="mt-1 px-3 py-1 bg-white border border-rose-300 text-rose-700 text-xs rounded-md shadow-2xs hover:bg-rose-50"
+                        className="mt-1 px-3 py-1 bg-white border border-rose-300 text-rose-700 text-xs rounded-md shadow-2xs hover:bg-rose-50 font-sans"
                       >
                         Tentar novamente
                       </button>
@@ -497,7 +666,7 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                 </tr>
               ) : aggregatedLines.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500 font-sans">
+                  <td colSpan={12} className="py-12 text-center text-slate-500 font-sans">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Inbox className="w-6 h-6 text-slate-400" />
                       <span className="text-xs font-medium">
@@ -519,7 +688,8 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                         className="bg-white hover:bg-slate-50/90 cursor-pointer transition-colors border-b border-slate-100"
                         title="Clique para expandir/recolher os Centros desta linha"
                       >
-                        <td className="py-2.5 px-4 font-sans font-semibold text-slate-900 whitespace-nowrap">
+                        {/* 1. Estrutura/Item */}
+                        <td className="py-2.5 px-3 font-sans font-semibold text-slate-900 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <span className="text-slate-400 hover:text-slate-700">
                               {isLineExpanded ? (
@@ -533,25 +703,40 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                             <span className="text-slate-800">{line.lineName}</span>
                           </div>
                         </td>
-                        <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                        {/* 2. Código */}
+                        <td className="py-2.5 px-3 text-slate-400">—</td>
+                        {/* 3. Ordem */}
+                        <td className="py-2.5 px-3 text-slate-400">—</td>
+                        {/* 4. Carteira (t) */}
+                        <td className="py-2.5 px-3 text-right font-medium whitespace-nowrap text-slate-800">
+                          {formatTonsCell(line.carteiraT)}
+                        </td>
+                        {/* 5. Programado (t) */}
+                        <td className="py-2.5 px-3 text-right font-medium whitespace-nowrap">
                           {formatTonsCell(line.programadoT)}
                         </td>
-                        <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                        {/* 6. Realizado (t) */}
+                        <td className="py-2.5 px-3 text-right font-medium whitespace-nowrap">
                           {formatTonsCell(line.realizadoT)}
                         </td>
-                        <td className="py-2.5 px-4 text-right font-bold text-slate-900 whitespace-nowrap">
+                        {/* 7. % Realizado */}
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
                           {formatPercentCell(line.percentualRealizado)}
                         </td>
-                        <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                        {/* 8. Perda (t) */}
+                        <td className="py-2.5 px-3 text-right font-medium whitespace-nowrap text-rose-700">
                           {formatTonsCell(line.perdaT)}
                         </td>
-                        <td className="py-2.5 px-4 text-right font-medium whitespace-nowrap">
+                        {/* 9. % Perda */}
+                        <td className="py-2.5 px-3 text-right font-medium whitespace-nowrap text-rose-700">
                           {formatPercentCell(line.percentualPerda)}
                         </td>
-                        <td className="py-2.5 px-4 text-right font-medium">
+                        {/* 10. Sequência Cumprida */}
+                        <td className="py-2.5 px-3 text-right font-medium">
                           {formatPercentPtBr(line.sequencePct, 1)}
                         </td>
-                        <td className="py-2.5 px-4 text-center font-sans">
+                        {/* 11. Status */}
+                        <td className="py-2.5 px-3 text-center font-sans">
                           <Badge
                             className={
                               line.status === 'DENTRO_ESPERADO'
@@ -562,6 +747,8 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                             {line.status === 'DENTRO_ESPERADO' ? 'No Prazo' : 'Atenção'}
                           </Badge>
                         </td>
+                        {/* 12. Observação */}
+                        <td className="py-2.5 px-3 text-slate-400 font-sans text-[11px]">—</td>
                       </tr>
 
                       {/* NÍVEL 2: CENTROS DE TRABALHO (EXPANDIDO) */}
@@ -573,7 +760,6 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                           const errorOps = errorOpsCenters[centerKey]
                           const ops = opsByCenter[centerKey] || []
 
-                          // Procura detalhes da rawRow se houver
                           const rawCenterMatch = rawCenters.find(
                             (rc) => rc.centerCode === center.centerCode,
                           )
@@ -591,7 +777,8 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                                 className="bg-slate-50/70 hover:bg-slate-100/70 cursor-pointer transition-colors border-b border-slate-100"
                                 title="Clique para expandir/recolher as OPs deste centro"
                               >
-                                <td className="py-2 px-4 pl-10 font-sans text-slate-800 whitespace-nowrap">
+                                {/* 1. Estrutura/Item */}
+                                <td className="py-2 px-3 pl-8 font-sans text-slate-800 whitespace-nowrap">
                                   <div className="flex items-center gap-2">
                                     <span className="text-slate-400">
                                       {isCenterExpanded ? (
@@ -610,25 +797,40 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                                     </span>
                                   </div>
                                 </td>
-                                <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-700">
+                                {/* 2. Código */}
+                                <td className="py-2 px-3 text-slate-400">—</td>
+                                {/* 3. Ordem */}
+                                <td className="py-2 px-3 text-slate-400">—</td>
+                                {/* 4. Carteira (t) */}
+                                <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-700">
+                                  {formatTonsCell(center.carteiraT)}
+                                </td>
+                                {/* 5. Programado (t) */}
+                                <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-700">
                                   {formatTonsCell(center.programadoT)}
                                 </td>
-                                <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-700">
+                                {/* 6. Realizado (t) */}
+                                <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-700">
                                   {formatTonsCell(center.realizadoT)}
                                 </td>
-                                <td className="py-2 px-4 text-right font-bold text-slate-800 whitespace-nowrap">
+                                {/* 7. % Realizado */}
+                                <td className="py-2 px-3 text-right font-bold text-slate-800 whitespace-nowrap">
                                   {formatPercentCell(center.percentualRealizado)}
                                 </td>
-                                <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-600">
+                                {/* 8. Perda (t) */}
+                                <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-600">
                                   {formatTonsCell(center.perdaT)}
                                 </td>
-                                <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-600">
+                                {/* 9. % Perda */}
+                                <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-600">
                                   {formatPercentCell(center.percentualPerda)}
                                 </td>
-                                <td className="py-2 px-4 text-right font-medium text-slate-400">
+                                {/* 10. Sequência Cumprida */}
+                                <td className="py-2 px-3 text-right font-medium text-slate-400">
                                   —
                                 </td>
-                                <td className="py-2 px-4 text-center font-sans">
+                                {/* 11. Status */}
+                                <td className="py-2 px-3 text-center font-sans">
                                   <Badge
                                     variant="outline"
                                     className={
@@ -640,6 +842,10 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                                     {center.status === 'DENTRO_ESPERADO' ? 'Normal' : 'Desvio'}
                                   </Badge>
                                 </td>
+                                {/* 12. Observação */}
+                                <td className="py-2 px-3 text-slate-500 font-sans text-[11px] truncate max-w-[180px]">
+                                  {center.description || '—'}
+                                </td>
                               </tr>
 
                               {/* NÍVEL 3: ORDENS DE PRODUÇÃO (EXPANDIDO) */}
@@ -648,8 +854,8 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                                   {isLoadingOps ? (
                                     <tr className="bg-slate-50/40">
                                       <td
-                                        colSpan={8}
-                                        className="py-4 pl-16 pr-4 text-slate-500 font-sans"
+                                        colSpan={12}
+                                        className="py-4 pl-14 pr-4 text-slate-500 font-sans"
                                       >
                                         <div className="flex items-center gap-2">
                                           <Loader2 className="w-4 h-4 animate-spin text-[#004C97]" />
@@ -663,8 +869,8 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                                   ) : errorOps ? (
                                     <tr className="bg-rose-50/30">
                                       <td
-                                        colSpan={8}
-                                        className="py-3 pl-16 pr-4 text-rose-600 font-sans"
+                                        colSpan={12}
+                                        className="py-3 pl-14 pr-4 text-rose-600 font-sans"
                                       >
                                         <div className="flex items-center gap-2">
                                           <AlertCircle className="w-4 h-4 text-rose-500" />
@@ -689,90 +895,108 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
                                   ) : ops.length === 0 ? (
                                     <tr className="bg-slate-50/30">
                                       <td
-                                        colSpan={8}
-                                        className="py-3 pl-16 pr-4 text-slate-400 font-sans text-[11px]"
+                                        colSpan={12}
+                                        className="py-3 pl-14 pr-4 text-slate-400 font-sans text-[11px]"
                                       >
                                         Nenhuma Ordem de Produção encontrada para este centro no
                                         período.
                                       </td>
                                     </tr>
                                   ) : (
-                                    ops.map((op) => (
-                                      <tr
-                                        key={op.id}
-                                        className="bg-white/90 hover:bg-sky-50/40 border-b border-slate-100 transition-colors"
-                                      >
-                                        <td className="py-2 px-4 pl-16 font-sans text-slate-700 whitespace-nowrap">
-                                          <div className="flex items-center gap-2">
-                                            <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                            <span className="font-mono font-bold text-slate-900 text-[11px]">
-                                              {op.opNumber}
-                                            </span>
-                                            <span className="text-slate-300">&bull;</span>
-                                            <span
-                                              className="text-slate-600 text-[11px] truncate max-w-[200px]"
-                                              title={`${op.materialCode} - ${op.materialDescription}${op.batchNumber ? ` (Lote: ${op.batchNumber})` : ''}`}
-                                            >
-                                              {op.materialCode} - {op.materialDescription}
-                                            </span>
-                                            {op.batchNumber && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-[9px] font-mono py-0 px-1 border-slate-200 text-slate-500"
+                                    ops.map((op) => {
+                                      const perdaOp =
+                                        op.realizedQuantityTons !== null
+                                          ? Math.max(
+                                              0,
+                                              op.plannedQuantityTons -
+                                                (op.realizedQuantityTons || 0),
+                                            )
+                                          : null
+                                      const perdaOpPct =
+                                        perdaOp !== null && op.plannedQuantityTons > 0
+                                          ? Number(
+                                              ((perdaOp / op.plannedQuantityTons) * 100).toFixed(1),
+                                            )
+                                          : null
+
+                                      return (
+                                        <tr
+                                          key={op.id}
+                                          className="bg-white/90 hover:bg-sky-50/40 border-b border-slate-100 transition-colors"
+                                        >
+                                          {/* 1. Estrutura/Item */}
+                                          <td className="py-2 px-3 pl-14 font-sans text-slate-700 whitespace-nowrap">
+                                            <div className="flex items-center gap-2">
+                                              <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                              <span
+                                                className="text-slate-800 text-[11px] font-medium truncate max-w-[220px]"
+                                                title={
+                                                  op.materialDescription ||
+                                                  op.productName ||
+                                                  'Material'
+                                                }
                                               >
-                                                L: {op.batchNumber}
-                                              </Badge>
-                                            )}
-                                          </div>
-                                        </td>
-                                        <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-600">
-                                          {formatTonsCell(op.plannedQuantityTons)}
-                                        </td>
-                                        <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-600">
-                                          {formatTonsCell(op.realizedQuantityTons)}
-                                        </td>
-                                        <td className="py-2 px-4 text-right font-bold text-slate-800 whitespace-nowrap">
-                                          {formatPercentCell(op.percentualRealizado)}
-                                        </td>
-                                        <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-500">
-                                          {op.realizedQuantityTons !== null
-                                            ? formatTonsCell(
-                                                Math.max(
-                                                  0,
-                                                  op.plannedQuantityTons -
-                                                    (op.realizedQuantityTons || 0),
-                                                ),
-                                              )
-                                            : 'Dados não disponíveis'}
-                                        </td>
-                                        <td className="py-2 px-4 text-right font-medium whitespace-nowrap text-slate-500">
-                                          {op.realizedQuantityTons !== null &&
-                                          op.plannedQuantityTons > 0
-                                            ? formatPercentPtBr(
-                                                (Math.max(
-                                                  0,
-                                                  op.plannedQuantityTons -
-                                                    (op.realizedQuantityTons || 0),
-                                                ) /
-                                                  op.plannedQuantityTons) *
-                                                  100,
-                                                1,
-                                              )
-                                            : '—'}
-                                        </td>
-                                        <td className="py-2 px-4 text-right font-medium text-slate-400">
-                                          —
-                                        </td>
-                                        <td className="py-2 px-4 text-center font-sans">
-                                          <Badge
-                                            variant="outline"
-                                            className="text-[9px] font-mono py-0 px-1 border-slate-200 text-slate-600 bg-slate-50"
+                                                {op.materialDescription ||
+                                                  op.productName ||
+                                                  'Material Sem Descrição'}
+                                              </span>
+                                            </div>
+                                          </td>
+                                          {/* 2. Código */}
+                                          <td className="py-2 px-3 font-mono text-[11px] text-slate-700">
+                                            {op.materialCode || '—'}
+                                          </td>
+                                          {/* 3. Ordem */}
+                                          <td className="py-2 px-3 font-mono font-bold text-[#004C97] text-[11px]">
+                                            {op.opNumber}
+                                          </td>
+                                          {/* 4. Carteira (t) */}
+                                          <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-700">
+                                            {formatTonsCell(op.carteiraT)}
+                                          </td>
+                                          {/* 5. Programado (t) */}
+                                          <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-600">
+                                            {formatTonsCell(op.plannedQuantityTons)}
+                                          </td>
+                                          {/* 6. Realizado (t) */}
+                                          <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-600">
+                                            {formatTonsCell(op.realizedQuantityTons)}
+                                          </td>
+                                          {/* 7. % Realizado */}
+                                          <td className="py-2 px-3 text-right font-bold text-slate-800 whitespace-nowrap">
+                                            {formatPercentCell(op.percentualRealizado)}
+                                          </td>
+                                          {/* 8. Perda (t) */}
+                                          <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-500">
+                                            {formatTonsCell(perdaOp)}
+                                          </td>
+                                          {/* 9. % Perda */}
+                                          <td className="py-2 px-3 text-right font-medium whitespace-nowrap text-slate-500">
+                                            {formatPercentCell(perdaOpPct)}
+                                          </td>
+                                          {/* 10. Sequência Cumprida */}
+                                          <td className="py-2 px-3 text-right font-medium text-slate-400">
+                                            —
+                                          </td>
+                                          {/* 11. Status */}
+                                          <td className="py-2 px-3 text-center font-sans">
+                                            <Badge
+                                              variant="outline"
+                                              className="text-[9px] font-mono py-0 px-1 border-slate-200 text-slate-600 bg-slate-50"
+                                            >
+                                              {op.statusOp}
+                                            </Badge>
+                                          </td>
+                                          {/* 12. Observação */}
+                                          <td
+                                            className="py-2 px-3 font-sans text-[11px] text-slate-500 truncate max-w-[200px]"
+                                            title={op.observacao || ''}
                                           >
-                                            {op.statusOp}
-                                          </Badge>
-                                        </td>
-                                      </tr>
-                                    ))
+                                            {op.observacao || '—'}
+                                          </td>
+                                        </tr>
+                                      )
+                                    })
                                   )}
                                 </>
                               )}
@@ -787,6 +1011,39 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Modais das Melhorias */}
+      <PxrAiAnalysisModal
+        open={isAiModalOpen}
+        onOpenChange={setIsAiModalOpen}
+        hierarchy={aggregatedLines}
+        filters={appliedFilters}
+        summary={executionSummary}
+        currentAnalysis={currentAiAnalysis}
+        savedRecord={savedAnalysisRecord}
+        onAnalysisUpdated={(analysis, record) => {
+          setCurrentAiAnalysis(analysis)
+          if (record) setSavedAnalysisRecord(record)
+        }}
+      />
+
+      <PxrSendHubModal
+        open={isHubModalOpen}
+        onOpenChange={setIsHubModalOpen}
+        hierarchy={aggregatedLines}
+        filters={appliedFilters}
+        aiAnalysis={currentAiAnalysis}
+        savedRecord={savedAnalysisRecord}
+      />
+
+      <PxrSendEmailModal
+        open={isEmailModalOpen}
+        onOpenChange={setIsEmailModalOpen}
+        hierarchy={aggregatedLines}
+        filters={appliedFilters}
+        aiAnalysis={currentAiAnalysis}
+        savedRecord={savedAnalysisRecord}
+      />
     </div>
   )
 }
