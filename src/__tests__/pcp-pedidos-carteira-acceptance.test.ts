@@ -37,7 +37,7 @@ describe('PcpPedidosCarteiraService - Lógica e Fórmulas de Saldo Residual', ()
     percentual_residual: 10.0, // 1/10 = 10%
     data_pedido: '2026-10-01',
     data_prevista_entrega: '2026-10-15',
-    valor_unitario_t: 5000,
+    preco_unitario_brl: 5000,
     valor_total_rs: 50000,
     valor_saldo_rs: 5000,
     status_carteira: 'ABERTO',
@@ -68,7 +68,7 @@ describe('PcpPedidosCarteiraService - Lógica e Fórmulas de Saldo Residual', ()
     percentual_residual: 4.0, // 4/100 = 4%
     data_pedido: '2026-10-05',
     data_prevista_entrega: '2026-12-01',
-    valor_unitario_t: 6000,
+    preco_unitario_brl: 6000,
     valor_total_rs: 600000,
     valor_saldo_rs: 24000,
     status_carteira: 'PARCIAL',
@@ -99,7 +99,7 @@ describe('PcpPedidosCarteiraService - Lógica e Fórmulas de Saldo Residual', ()
     percentual_residual: 100.0,
     data_pedido: '2026-11-01',
     data_prevista_entrega: '2026-11-20',
-    valor_unitario_t: 7000,
+    preco_unitario_brl: 7000,
     valor_total_rs: 350000,
     valor_saldo_rs: 350000,
     status_carteira: 'ABERTO',
