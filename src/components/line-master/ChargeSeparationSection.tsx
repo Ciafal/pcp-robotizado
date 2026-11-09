@@ -42,6 +42,7 @@ import { LineChargeSeparation } from '@/types/furnace-charging'
 import { furnaceChargingService } from '@/services/furnace-charging-service'
 import { ChargeSeparationModal } from './ChargeSeparationModal'
 import { useToast } from '@/hooks/use-toast'
+import { formatNumberPtBr } from '@/lib/number-format'
 
 interface ChargeSeparationSectionProps {
   centerCode: string
@@ -190,6 +191,43 @@ export const ChargeSeparationSection: React.FC<ChargeSeparationSectionProps> = (
     setFilterCharging('ALL')
     setFilterCharged('ALL')
     setSearchTerm('')
+  }
+
+  // Helper para renderizar a faixa mín – máx de medidas formatadas
+  const renderRange = (min?: number | null, max?: number | null, decimals = 2) => {
+    const hasMin = min != null && !isNaN(min)
+    const hasMax = max != null && !isNaN(max)
+    if (!hasMin && !hasMax) return <span className="text-slate-400">—</span>
+
+    const fmtMin = hasMin
+      ? formatNumberPtBr(min!, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: decimals,
+        })
+      : null
+    const fmtMax = hasMax
+      ? formatNumberPtBr(max!, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: decimals,
+        })
+      : null
+
+    if (hasMin && hasMax) {
+      if (min === max) {
+        return <span className="font-mono text-slate-800">{fmtMin}</span>
+      }
+      return (
+        <span className="font-mono text-slate-800 whitespace-nowrap">
+          {fmtMin} – {fmtMax}
+        </span>
+      )
+    }
+
+    if (hasMin) {
+      return <span className="font-mono text-slate-800 whitespace-nowrap">≥ {fmtMin}</span>
+    }
+
+    return <span className="font-mono text-slate-800 whitespace-nowrap">≤ {fmtMax}</span>
   }
 
   return (
@@ -362,13 +400,25 @@ export const ChargeSeparationSection: React.FC<ChargeSeparationSectionProps> = (
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-700 min-w-[200px]">
                     Carga enfornada
                   </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center text-slate-700 w-[160px]">
-                    Nº blocos separadores
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center text-slate-700 w-[140px]">
+                    Nº blocos
                   </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-700 min-w-[200px]">
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-700 min-w-[150px]">
                     Disposição
                   </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-700 min-w-[220px]">
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center text-slate-700 min-w-[110px]">
+                    Peso (t)
+                  </TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center text-slate-700 min-w-[120px]">
+                    Espessura (mm)
+                  </TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center text-slate-700 min-w-[130px]">
+                    Comprimento (mm)
+                  </TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center text-slate-700 min-w-[120px]">
+                    Largura (mm)
+                  </TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-700 min-w-[180px]">
                     Observação
                   </TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-center text-slate-700 w-[110px]">
@@ -412,7 +462,19 @@ export const ChargeSeparationSection: React.FC<ChargeSeparationSectionProps> = (
                         <span className="text-slate-400">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-slate-600 max-w-[300px] truncate" title={row.notes}>
+                    <TableCell className="text-center">
+                      {renderRange(row.min_weight_t, row.max_weight_t, 3)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {renderRange(row.min_thickness_mm, row.max_thickness_mm, 2)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {renderRange(row.min_length_mm, row.max_length_mm, 2)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {renderRange(row.min_width_mm, row.max_width_mm, 2)}
+                    </TableCell>
+                    <TableCell className="text-slate-600 max-w-[220px] truncate" title={row.notes}>
                       {row.notes || <span className="text-slate-400">—</span>}
                     </TableCell>
                     <TableCell className="text-center">

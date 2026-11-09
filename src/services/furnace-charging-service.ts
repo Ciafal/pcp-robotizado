@@ -362,6 +362,7 @@ class FurnaceChargingService {
 
   /**
    * Validação de regras de formulário de Separação de Carga
+   * Inclui campos opcionais de peso e dimensão com mín <= máx e sem negativos
    */
   validateChargeSeparationFormData(data: ChargeSeparationFormData): Record<string, string> {
     const errors: Record<string, string> = {}
@@ -384,6 +385,69 @@ class FurnaceChargingService {
       errors.separator_blocks_qty = 'A quantidade de blocos não pode ser negativa.'
     } else if (!Number.isInteger(Number(data.separator_blocks_qty))) {
       errors.separator_blocks_qty = 'A quantidade de blocos deve ser um número inteiro.'
+    }
+
+    // Validações de valores não negativos para peso e dimensões (opcionais)
+    const fieldsToCheck = [
+      { key: 'min_weight_t', label: 'Peso mínimo', val: data.min_weight_t },
+      { key: 'max_weight_t', label: 'Peso máximo', val: data.max_weight_t },
+      { key: 'min_thickness_mm', label: 'Espessura mínima', val: data.min_thickness_mm },
+      { key: 'max_thickness_mm', label: 'Espessura máxima', val: data.max_thickness_mm },
+      { key: 'min_length_mm', label: 'Comprimento mínimo', val: data.min_length_mm },
+      { key: 'max_length_mm', label: 'Comprimento máximo', val: data.max_length_mm },
+      { key: 'min_width_mm', label: 'Largura mínima', val: data.min_width_mm },
+      { key: 'max_width_mm', label: 'Largura máxima', val: data.max_width_mm },
+    ]
+
+    for (const f of fieldsToCheck) {
+      if (f.val !== undefined && f.val !== null && f.val < 0) {
+        errors[f.key] = `${f.label} não pode ser negativo.`
+      }
+    }
+
+    // Validações mín <= máx para peso e dimensões
+    if (
+      data.min_weight_t !== undefined &&
+      data.min_weight_t !== null &&
+      data.max_weight_t !== undefined &&
+      data.max_weight_t !== null &&
+      data.min_weight_t > data.max_weight_t
+    ) {
+      errors.min_weight_t = 'Peso mín. não pode ser maior que o Peso máx.'
+      errors.max_weight_t = 'Peso máx. deve ser maior ou igual ao Peso mín.'
+    }
+
+    if (
+      data.min_thickness_mm !== undefined &&
+      data.min_thickness_mm !== null &&
+      data.max_thickness_mm !== undefined &&
+      data.max_thickness_mm !== null &&
+      data.min_thickness_mm > data.max_thickness_mm
+    ) {
+      errors.min_thickness_mm = 'Espessura mín. não pode ser maior que a Espessura máx.'
+      errors.max_thickness_mm = 'Espessura máx. deve ser maior ou igual à Espessura mín.'
+    }
+
+    if (
+      data.min_length_mm !== undefined &&
+      data.min_length_mm !== null &&
+      data.max_length_mm !== undefined &&
+      data.max_length_mm !== null &&
+      data.min_length_mm > data.max_length_mm
+    ) {
+      errors.min_length_mm = 'Comprimento mín. não pode ser maior que o Comprimento máx.'
+      errors.max_length_mm = 'Comprimento máx. deve ser maior ou igual ao Comprimento mín.'
+    }
+
+    if (
+      data.min_width_mm !== undefined &&
+      data.min_width_mm !== null &&
+      data.max_width_mm !== undefined &&
+      data.max_width_mm !== null &&
+      data.min_width_mm > data.max_width_mm
+    ) {
+      errors.min_width_mm = 'Largura mín. não pode ser maior que a Largura máx.'
+      errors.max_width_mm = 'Largura máx. deve ser maior ou igual à Largura mín.'
     }
 
     return errors
@@ -436,6 +500,14 @@ class FurnaceChargingService {
       separator_blocks_qty: Math.floor(Number(data.separator_blocks_qty)),
       blocks_arrangement: (data.blocks_arrangement || '').trim(),
       notes: (data.notes || '').trim(),
+      min_weight_t: data.min_weight_t ?? null,
+      max_weight_t: data.max_weight_t ?? null,
+      min_thickness_mm: data.min_thickness_mm ?? null,
+      max_thickness_mm: data.max_thickness_mm ?? null,
+      min_length_mm: data.min_length_mm ?? null,
+      max_length_mm: data.max_length_mm ?? null,
+      min_width_mm: data.min_width_mm ?? null,
+      max_width_mm: data.max_width_mm ?? null,
       active: true,
       deleted: false,
     }
@@ -594,6 +666,38 @@ class FurnaceChargingService {
     return {
       ...record,
       separator_blocks_qty: Number(record.separator_blocks_qty || 0),
+      min_weight_t:
+        record.min_weight_t !== null && record.min_weight_t !== undefined
+          ? Number(record.min_weight_t)
+          : null,
+      max_weight_t:
+        record.max_weight_t !== null && record.max_weight_t !== undefined
+          ? Number(record.max_weight_t)
+          : null,
+      min_thickness_mm:
+        record.min_thickness_mm !== null && record.min_thickness_mm !== undefined
+          ? Number(record.min_thickness_mm)
+          : null,
+      max_thickness_mm:
+        record.max_thickness_mm !== null && record.max_thickness_mm !== undefined
+          ? Number(record.max_thickness_mm)
+          : null,
+      min_length_mm:
+        record.min_length_mm !== null && record.min_length_mm !== undefined
+          ? Number(record.min_length_mm)
+          : null,
+      max_length_mm:
+        record.max_length_mm !== null && record.max_length_mm !== undefined
+          ? Number(record.max_length_mm)
+          : null,
+      min_width_mm:
+        record.min_width_mm !== null && record.min_width_mm !== undefined
+          ? Number(record.min_width_mm)
+          : null,
+      max_width_mm:
+        record.max_width_mm !== null && record.max_width_mm !== undefined
+          ? Number(record.max_width_mm)
+          : null,
       active: record.active !== false,
       deleted: record.deleted === true,
     }

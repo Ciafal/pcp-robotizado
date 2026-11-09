@@ -37,6 +37,7 @@ import {
   furnaceChargingService,
   DUPLICATE_SEPARATION_MSG,
 } from '@/services/furnace-charging-service'
+import { formatNumberPtBr, parsePtBrNumber } from '@/lib/number-format'
 
 // Categorias/tipos comuns de carga no processo PCP Ciafal para facilitar a seleção,
 // mas permitindo opções ricas e alinhadas ao processo industrial
@@ -84,6 +85,16 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
   const [separatorQty, setSeparatorQty] = useState<string>('0')
   const [arrangement, setArrangement] = useState<string>('')
   const [notes, setNotes] = useState<string>('')
+
+  // 8 campos de peso e dimensões (opcionais, com formatação pt-BR)
+  const [minWeight, setMinWeight] = useState<string>('')
+  const [maxWeight, setMaxWeight] = useState<string>('')
+  const [minThickness, setMinThickness] = useState<string>('')
+  const [maxThickness, setMaxThickness] = useState<string>('')
+  const [minLength, setMinLength] = useState<string>('')
+  const [maxLength, setMaxLength] = useState<string>('')
+  const [minWidth, setMinWidth] = useState<string>('')
+  const [maxWidth, setMaxWidth] = useState<string>('')
 
   const [rawMaterialOptions, setRawMaterialOptions] = useState<RawMaterialTypeOption[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -135,6 +146,71 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
         setArrangement(initialData.blocks_arrangement || '')
         setNotes(initialData.notes || '')
 
+        setMinWeight(
+          initialData.min_weight_t != null
+            ? formatNumberPtBr(initialData.min_weight_t, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 3,
+              })
+            : '',
+        )
+        setMaxWeight(
+          initialData.max_weight_t != null
+            ? formatNumberPtBr(initialData.max_weight_t, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 3,
+              })
+            : '',
+        )
+        setMinThickness(
+          initialData.min_thickness_mm != null
+            ? formatNumberPtBr(initialData.min_thickness_mm, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })
+            : '',
+        )
+        setMaxThickness(
+          initialData.max_thickness_mm != null
+            ? formatNumberPtBr(initialData.max_thickness_mm, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })
+            : '',
+        )
+        setMinLength(
+          initialData.min_length_mm != null
+            ? formatNumberPtBr(initialData.min_length_mm, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })
+            : '',
+        )
+        setMaxLength(
+          initialData.max_length_mm != null
+            ? formatNumberPtBr(initialData.max_length_mm, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })
+            : '',
+        )
+        setMinWidth(
+          initialData.min_width_mm != null
+            ? formatNumberPtBr(initialData.min_width_mm, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })
+            : '',
+        )
+        setMaxWidth(
+          initialData.max_width_mm != null
+            ? formatNumberPtBr(initialData.max_width_mm, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })
+            : '',
+        )
+
         setInitialSnapshot(
           JSON.stringify({
             charging,
@@ -142,6 +218,14 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
             qty: String(initialData.separator_blocks_qty ?? 0),
             arrangement: initialData.blocks_arrangement || '',
             notes: initialData.notes || '',
+            minWeight: initialData.min_weight_t ?? '',
+            maxWeight: initialData.max_weight_t ?? '',
+            minThickness: initialData.min_thickness_mm ?? '',
+            maxThickness: initialData.max_thickness_mm ?? '',
+            minLength: initialData.min_length_mm ?? '',
+            maxLength: initialData.max_length_mm ?? '',
+            minWidth: initialData.min_width_mm ?? '',
+            maxWidth: initialData.max_width_mm ?? '',
           }),
         )
       } else {
@@ -152,6 +236,14 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
         setSeparatorQty('0')
         setArrangement('')
         setNotes('')
+        setMinWeight('')
+        setMaxWeight('')
+        setMinThickness('')
+        setMaxThickness('')
+        setMinLength('')
+        setMaxLength('')
+        setMinWidth('')
+        setMaxWidth('')
         setInitialSnapshot(
           JSON.stringify({
             charging: '',
@@ -159,6 +251,14 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
             qty: '0',
             arrangement: '',
             notes: '',
+            minWeight: '',
+            maxWeight: '',
+            minThickness: '',
+            maxThickness: '',
+            minLength: '',
+            maxLength: '',
+            minWidth: '',
+            maxWidth: '',
           }),
         )
       }
@@ -188,6 +288,14 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
       qty: separatorQty.trim(),
       arrangement: arrangement.trim(),
       notes: notes.trim(),
+      minWeight: minWeight.trim(),
+      maxWeight: maxWeight.trim(),
+      minThickness: minThickness.trim(),
+      maxThickness: maxThickness.trim(),
+      minLength: minLength.trim(),
+      maxLength: maxLength.trim(),
+      minWidth: minWidth.trim(),
+      maxWidth: maxWidth.trim(),
     })
     return current !== initialSnapshot
   }, [
@@ -198,6 +306,14 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
     separatorQty,
     arrangement,
     notes,
+    minWeight,
+    maxWeight,
+    minThickness,
+    maxThickness,
+    minLength,
+    maxLength,
+    minWidth,
+    maxWidth,
     initialSnapshot,
   ])
 
@@ -222,6 +338,13 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
     const effectiveCharged = getEffectiveChargedLoad()
     const parsedQty = Number(separatorQty.trim())
 
+    const parseOrNull = (val: string): number | null => {
+      const trimmed = val.trim()
+      if (!trimmed) return null
+      const num = parsePtBrNumber(trimmed)
+      return isNaN(num) ? null : num
+    }
+
     const formData: ChargeSeparationFormData = {
       id: initialData?.id,
       center_code: centerCode,
@@ -232,6 +355,14 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
       separator_blocks_qty: parsedQty,
       blocks_arrangement: arrangement.trim(),
       notes: notes.trim(),
+      min_weight_t: parseOrNull(minWeight),
+      max_weight_t: parseOrNull(maxWeight),
+      min_thickness_mm: parseOrNull(minThickness),
+      max_thickness_mm: parseOrNull(maxThickness),
+      min_length_mm: parseOrNull(minLength),
+      max_length_mm: parseOrNull(maxLength),
+      min_width_mm: parseOrNull(minWidth),
+      max_width_mm: parseOrNull(maxWidth),
     }
 
     const valErrors = furnaceChargingService.validateChargeSeparationFormData(formData)
@@ -460,7 +591,290 @@ export const ChargeSeparationModal: React.FC<ChargeSeparationModalProps> = ({
               </div>
             </div>
 
-            {/* Bloco 3: Observações */}
+            {/* Bloco 3: Peso e Dimensões da Carga (Opcionais) */}
+            <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Limites de Peso e Dimensões (Opcional)
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Defina limites operacionais de peso e medidas para esta regra de separação.
+                    Formato pt-BR (ex: 2,50).
+                  </p>
+                </div>
+              </div>
+
+              {/* Faixa de Peso (t) */}
+              <div>
+                <Label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  Faixa de Peso da Carga (toneladas)
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="min_weight_t"
+                      className={`text-[11px] ${errors.min_weight_t ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
+                    >
+                      Peso Mínimo (t)
+                    </Label>
+                    <Input
+                      id="min_weight_t"
+                      placeholder="Ex: 1,500"
+                      value={minWeight}
+                      onChange={(e) => {
+                        setMinWeight(e.target.value)
+                        if (errors.min_weight_t || errors.max_weight_t) {
+                          setErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.min_weight_t
+                            delete next.max_weight_t
+                            return next
+                          })
+                        }
+                      }}
+                      className={`h-9 text-sm ${errors.min_weight_t ? 'border-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                    />
+                    {errors.min_weight_t && (
+                      <p className="text-[11px] text-red-600 font-medium">{errors.min_weight_t}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="max_weight_t"
+                      className={`text-[11px] ${errors.max_weight_t ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
+                    >
+                      Peso Máximo (t)
+                    </Label>
+                    <Input
+                      id="max_weight_t"
+                      placeholder="Ex: 5,000"
+                      value={maxWeight}
+                      onChange={(e) => {
+                        setMaxWeight(e.target.value)
+                        if (errors.min_weight_t || errors.max_weight_t) {
+                          setErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.min_weight_t
+                            delete next.max_weight_t
+                            return next
+                          })
+                        }
+                      }}
+                      className={`h-9 text-sm ${errors.max_weight_t ? 'border-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                    />
+                    {errors.max_weight_t && (
+                      <p className="text-[11px] text-red-600 font-medium">{errors.max_weight_t}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Faixa de Espessura (mm) */}
+              <div>
+                <Label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  Espessura da Carga (mm)
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="min_thickness_mm"
+                      className={`text-[11px] ${errors.min_thickness_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
+                    >
+                      Espessura Mínima (mm)
+                    </Label>
+                    <Input
+                      id="min_thickness_mm"
+                      placeholder="Ex: 50,00"
+                      value={minThickness}
+                      onChange={(e) => {
+                        setMinThickness(e.target.value)
+                        if (errors.min_thickness_mm || errors.max_thickness_mm) {
+                          setErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.min_thickness_mm
+                            delete next.max_thickness_mm
+                            return next
+                          })
+                        }
+                      }}
+                      className={`h-9 text-sm ${errors.min_thickness_mm ? 'border-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                    />
+                    {errors.min_thickness_mm && (
+                      <p className="text-[11px] text-red-600 font-medium">
+                        {errors.min_thickness_mm}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="max_thickness_mm"
+                      className={`text-[11px] ${errors.max_thickness_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
+                    >
+                      Espessura Máxima (mm)
+                    </Label>
+                    <Input
+                      id="max_thickness_mm"
+                      placeholder="Ex: 150,00"
+                      value={maxThickness}
+                      onChange={(e) => {
+                        setMaxThickness(e.target.value)
+                        if (errors.min_thickness_mm || errors.max_thickness_mm) {
+                          setErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.min_thickness_mm
+                            delete next.max_thickness_mm
+                            return next
+                          })
+                        }
+                      }}
+                      className={`h-9 text-sm ${errors.max_thickness_mm ? 'border-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                    />
+                    {errors.max_thickness_mm && (
+                      <p className="text-[11px] text-red-600 font-medium">
+                        {errors.max_thickness_mm}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Faixa de Comprimento (mm) */}
+              <div>
+                <Label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  Comprimento da Carga (mm)
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="min_length_mm"
+                      className={`text-[11px] ${errors.min_length_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
+                    >
+                      Comprimento Mínimo (mm)
+                    </Label>
+                    <Input
+                      id="min_length_mm"
+                      placeholder="Ex: 3000,00"
+                      value={minLength}
+                      onChange={(e) => {
+                        setMinLength(e.target.value)
+                        if (errors.min_length_mm || errors.max_length_mm) {
+                          setErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.min_length_mm
+                            delete next.max_length_mm
+                            return next
+                          })
+                        }
+                      }}
+                      className={`h-9 text-sm ${errors.min_length_mm ? 'border-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                    />
+                    {errors.min_length_mm && (
+                      <p className="text-[11px] text-red-600 font-medium">{errors.min_length_mm}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="max_length_mm"
+                      className={`text-[11px] ${errors.max_length_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
+                    >
+                      Comprimento Máximo (mm)
+                    </Label>
+                    <Input
+                      id="max_length_mm"
+                      placeholder="Ex: 6000,00"
+                      value={maxLength}
+                      onChange={(e) => {
+                        setMaxLength(e.target.value)
+                        if (errors.min_length_mm || errors.max_length_mm) {
+                          setErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.min_length_mm
+                            delete next.max_length_mm
+                            return next
+                          })
+                        }
+                      }}
+                      className={`h-9 text-sm ${errors.max_length_mm ? 'border-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                    />
+                    {errors.max_length_mm && (
+                      <p className="text-[11px] text-red-600 font-medium">{errors.max_length_mm}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Faixa de Largura (mm) */}
+              <div>
+                <Label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                  Largura da Carga (mm)
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="min_width_mm"
+                      className={`text-[11px] ${errors.min_width_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
+                    >
+                      Largura Mínima (mm)
+                    </Label>
+                    <Input
+                      id="min_width_mm"
+                      placeholder="Ex: 100,00"
+                      value={minWidth}
+                      onChange={(e) => {
+                        setMinWidth(e.target.value)
+                        if (errors.min_width_mm || errors.max_width_mm) {
+                          setErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.min_width_mm
+                            delete next.max_width_mm
+                            return next
+                          })
+                        }
+                      }}
+                      className={`h-9 text-sm ${errors.min_width_mm ? 'border-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                    />
+                    {errors.min_width_mm && (
+                      <p className="text-[11px] text-red-600 font-medium">{errors.min_width_mm}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="max_width_mm"
+                      className={`text-[11px] ${errors.max_width_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
+                    >
+                      Largura Máxima (mm)
+                    </Label>
+                    <Input
+                      id="max_width_mm"
+                      placeholder="Ex: 400,00"
+                      value={maxWidth}
+                      onChange={(e) => {
+                        setMaxWidth(e.target.value)
+                        if (errors.min_width_mm || errors.max_width_mm) {
+                          setErrors((prev) => {
+                            const next = { ...prev }
+                            delete next.min_width_mm
+                            delete next.max_width_mm
+                            return next
+                          })
+                        }
+                      }}
+                      className={`h-9 text-sm ${errors.max_width_mm ? 'border-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                    />
+                    {errors.max_width_mm && (
+                      <p className="text-[11px] text-red-600 font-medium">{errors.max_width_mm}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bloco 4: Observações */}
             <div className="space-y-1.5">
               <Label htmlFor="notes" className="text-xs font-semibold text-slate-700">
                 Observação (opcional)

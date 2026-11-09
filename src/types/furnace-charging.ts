@@ -73,6 +73,14 @@ export interface LineChargeSeparation {
   separator_blocks_qty: number // Qtd blocos separadores (inteiro >= 0)
   blocks_arrangement?: string // Disposição (ex.: "4 em pé + 4 deitados")
   notes?: string // Observação
+  min_weight_t?: number | null
+  max_weight_t?: number | null
+  min_thickness_mm?: number | null
+  max_thickness_mm?: number | null
+  min_length_mm?: number | null
+  max_length_mm?: number | null
+  min_width_mm?: number | null
+  max_width_mm?: number | null
   active?: boolean
   deleted?: boolean
   deleted_at?: string
@@ -93,6 +101,14 @@ export interface ChargeSeparationFormData {
   separator_blocks_qty: number
   blocks_arrangement?: string
   notes?: string
+  min_weight_t?: number | null
+  max_weight_t?: number | null
+  min_thickness_mm?: number | null
+  max_thickness_mm?: number | null
+  min_length_mm?: number | null
+  max_length_mm?: number | null
+  min_width_mm?: number | null
+  max_width_mm?: number | null
 }
 
 export interface RawMaterialTypeOption {
