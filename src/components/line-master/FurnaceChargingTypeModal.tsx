@@ -33,7 +33,10 @@ import {
   RawMaterialTypeOption,
   TIPOS_ENFORNAMENTO_OPCOES,
 } from '@/types/furnace-charging'
-import { furnaceChargingService } from '@/services/furnace-charging-service'
+import {
+  furnaceChargingService,
+  DUPLICATE_CHARGING_TYPE_MSG,
+} from '@/services/furnace-charging-service'
 import { formatNumberPtBr, parsePtBrNumber } from '@/lib/number-format'
 
 interface FurnaceChargingTypeModalProps {
@@ -237,10 +240,11 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
     if (found) {
       setRawMaterialDesc(found.description)
     }
-    if (errors.raw_material_code) {
+    if (errors.raw_material_code || errors.duplicate) {
       setErrors((prev) => {
         const next = { ...prev }
         delete next.raw_material_code
+        delete next.duplicate
         return next
       })
     }
@@ -248,10 +252,11 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
 
   const handleChargingTypeChange = (val: string) => {
     setChargingType(val)
-    if (errors.charging_type) {
+    if (errors.charging_type || errors.duplicate) {
       setErrors((prev) => {
         const next = { ...prev }
         delete next.charging_type
+        delete next.duplicate
         return next
       })
     }
@@ -320,7 +325,15 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
       onSuccess()
       onOpenChange(false)
     } catch (err: any) {
-      setErrors({ form: err?.message || 'Falha ao salvar tipo de enfornamento.' })
+      const msg = err?.message || 'Falha ao salvar tipo de enfornamento.'
+      if (
+        msg.includes('Já existe uma regra de enfornamento cadastrada') ||
+        msg.includes('duplicada')
+      ) {
+        setErrors({ duplicate: DUPLICATE_CHARGING_TYPE_MSG })
+      } else {
+        setErrors({ form: msg })
+      }
     } finally {
       setSubmitting(false)
     }
@@ -347,6 +360,13 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
               </div>
             </div>
           </DialogHeader>
+
+          {errors.duplicate && (
+            <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-2.5 text-xs text-amber-900">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="font-medium">{errors.duplicate}</div>
+            </div>
+          )}
 
           {errors.form && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2.5 text-xs text-red-700">

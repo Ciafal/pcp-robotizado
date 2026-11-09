@@ -100,3 +100,13 @@ export interface RawMaterialTypeOption {
   description: string
   fullLabel: string
 }
+
+// Catálogo fechado e canônico de tipos de matéria-prima homologados para enfornamento no PCP CIAFAL
+export const RAW_MATERIAL_TYPE_CATALOG: RawMaterialTypeOption[] = [
+  { code: 'MPPA', description: 'Palanquilha', fullLabel: 'MPPA — Palanquilha' },
+  { code: 'MPPL', description: 'Placa', fullLabel: 'MPPL — Placa' },
+  { code: 'MPRE', description: 'Tarugo Retrabalhado', fullLabel: 'MPRE — Tarugo Retrabalhado' },
+  { code: 'MPBL', description: 'Bloco', fullLabel: 'MPBL — Bloco' },
+  { code: 'MPTA', description: 'Tarugo', fullLabel: 'MPTA — Tarugo' },
+  { code: 'MPLI', description: 'Lingote', fullLabel: 'MPLI — Lingote' },
+]

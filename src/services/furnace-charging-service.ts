@@ -6,10 +6,14 @@ import {
   ChargeSeparationFormData,
   RawMaterialTypeOption,
   TIPOS_ENFORNAMENTO_OPCOES,
+  RAW_MATERIAL_TYPE_CATALOG,
 } from '@/types/furnace-charging'
 
 export const DUPLICATE_SEPARATION_MSG =
   'Já existe uma regra de separação cadastrada para esta combinação.'
+
+export const DUPLICATE_CHARGING_TYPE_MSG =
+  'Já existe uma regra de enfornamento cadastrada para este tipo de matéria-prima.'
 
 class FurnaceChargingService {
   /**
@@ -19,17 +23,8 @@ class FurnaceChargingService {
   async getRawMaterialOptions(): Promise<RawMaterialTypeOption[]> {
     const optionsMap = new Map<string, RawMaterialTypeOption>()
 
-    // Exemplos canônicos obrigatórios do processo PCP CIAFAL
-    const defaults: RawMaterialTypeOption[] = [
-      { code: 'MPPA', description: 'Palanquilha', fullLabel: 'MPPA — Palanquilha' },
-      { code: 'MPPL', description: 'Placa', fullLabel: 'MPPL — Placa' },
-      { code: 'MPRE', description: 'Tarugo Retrabalhado', fullLabel: 'MPRE — Tarugo Retrabalhado' },
-      { code: 'MPBL', description: 'Bloco', fullLabel: 'MPBL — Bloco' },
-      { code: 'MPTA', description: 'Tarugo', fullLabel: 'MPTA — Tarugo' },
-      { code: 'MPLI', description: 'Lingote', fullLabel: 'MPLI — Lingote' },
-    ]
-
-    for (const d of defaults) {
+    // Catálogo canônico fechado homologado do PCP CIAFAL
+    for (const d of RAW_MATERIAL_TYPE_CATALOG) {
       optionsMap.set(d.code, d)
     }
 
@@ -95,6 +90,15 @@ class FurnaceChargingService {
 
     if (!data.raw_material_code || !data.raw_material_code.trim()) {
       errors.raw_material_code = 'O Tipo de Matéria-Prima é obrigatório.'
+    } else {
+      const normalizedCode = data.raw_material_code.trim().toUpperCase()
+      const validCatalog = RAW_MATERIAL_TYPE_CATALOG.some(
+        (cat) => cat.code.toUpperCase() === normalizedCode,
+      )
+      if (!validCatalog) {
+        errors.raw_material_code =
+          'Tipo de matéria-prima inválido. Selecione uma opção válida do catálogo (MPPA, MPPL, MPRE, MPBL, MPTA, MPLI).'
+      }
     }
 
     // Validações de valores não negativos
@@ -164,13 +168,53 @@ class FurnaceChargingService {
   }
 
   /**
-   * Salva ou atualiza Tipo de Enfornamento com auditoria completa
+   * Verifica se já existe uma regra de enfornamento para a combinação Centro + Tipo de Enfornamento + Tipo de Matéria-Prima
+   * Respeita exclusão lógica (deleted != true) e ignora o próprio registro em edição (excludeId)
+   */
+  async checkDuplicateChargingType(params: {
+    centerCode: string
+    chargingType: string
+    rawMaterialCode: string
+    excludeId?: string
+  }): Promise<boolean> {
+    try {
+      if (!params.centerCode || !params.chargingType || !params.rawMaterialCode) return false
+      const safeCenter = params.centerCode.trim().replace(/'/g, "\\'")
+      const safeCharging = params.chargingType.trim().replace(/'/g, "\\'")
+      const safeRaw = params.rawMaterialCode.trim().replace(/'/g, "\\'")
+
+      let filter = `center_code = '${safeCenter}' && charging_type = '${safeCharging}' && raw_material_code = '${safeRaw}' && (deleted = false || deleted = null)`
+      if (params.excludeId) {
+        filter += ` && id != '${params.excludeId}'`
+      }
+
+      const existing = await pb.collection('line_furnace_charging_types').getList(1, 1, { filter })
+      return existing.totalItems > 0
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Salva ou atualiza Tipo de Enfornamento com auditoria completa e bloqueio de duplicidade
    */
   async saveChargingType(data: FurnaceChargingTypeFormData): Promise<LineFurnaceChargingType> {
     const errors = this.validateChargingTypeFormData(data)
     if (Object.keys(errors).length > 0) {
       const firstMsg = Object.values(errors)[0]
       throw new Error(firstMsg)
+    }
+
+    // Validação de duplicidade no mesmo centro: (Tipo de Enfornamento + Tipo de Matéria-Prima)
+    const isDup = await this.checkDuplicateChargingType({
+      centerCode: data.center_code,
+      chargingType: data.charging_type,
+      rawMaterialCode: data.raw_material_code,
+      excludeId: data.id,
+    })
+
+    if (isDup) {
+      throw new Error(DUPLICATE_CHARGING_TYPE_MSG)
     }
 
     const isEdit = Boolean(data.id)
