@@ -165,7 +165,24 @@ export async function fetchOpsForCenter(
   centerRowDetails?: CenterEfficiencyRow['details'],
 ): Promise<HierarchyOpItem[]> {
   const pbFilter = buildProductionOrdersFilter(filters, centerCode, lineCode)
-  let rawOrders: any[] = []
+  let rawOrders: Array<{
+    id?: string
+    op_number?: string
+    material_code?: string
+    material_description?: string
+    product_name?: string
+    batch_number?: string
+    planned_start_date?: string
+    real_start_date?: string
+    quantity_planned_tons?: number
+    target_quantity_tons?: number
+    quantity_produced_tons?: number
+    quantity_posted_tons?: number
+    actual_quantity_tons?: number
+    status_op?: string
+    status_mes?: string
+    status_sap?: string
+  }> = []
 
   try {
     rawOrders = await pb.collection('pcp_production_orders').getFullList({
