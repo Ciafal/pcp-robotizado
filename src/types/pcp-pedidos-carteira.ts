@@ -68,6 +68,12 @@ export interface PedidoCarteiraAnalitico {
   material_descricao?: string
   qtd_original_t: number
   quantidade_original_t?: number
+  /** Alias legado usado por consumers antigos (opcional). */
+  quantidade_entregue_t?: number
+  /** Alias legado da data prevista de entrega (opcional). */
+  data_prevista_entrega?: string
+  /** Alias legado dos dias em atraso (opcional). */
+  dias_em_atraso?: number
   percentual_saldo?: number
   status_analise_crm?: StatusAnaliseCrm
   qtd_entregue_t: number
@@ -124,6 +130,12 @@ export interface CrmRevisionPendency {
   requested_at: string
   assigned_team?: string
   assigned_to?: string
+  /** Data de criação do registro (retornada pelo backend). */
+  created?: string
+  /** Notas de resolução registradas na análise do CRM 360°. */
+  resolution_notes?: string
+  /** Responsável pela resolução da pendência. */
+  resolved_by?: string
   history?: Array<{
     status: StatusAnaliseCrm
     updated_at: string
