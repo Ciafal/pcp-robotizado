@@ -1,33 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Cpu,
-  Layers,
   Clock,
   ThermometerSnowflake,
   Sliders,
   CheckCircle2,
   AlertTriangle,
   History,
-  FileSpreadsheet,
-  Building2,
   RefreshCw,
   Search,
   Filter,
   ShieldCheck,
-  Sparkles,
-  Info,
-  Check,
-  X,
-  ChevronRight,
   Database,
   Lock,
   ExternalLink,
-  Calendar,
-  Layers2,
-  SlidersHorizontal,
-  FileText,
-  Eye,
+  Edit3,
+  PlusCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -58,7 +46,6 @@ import { CoolingCalculatorWidget } from '@/components/rules-engine/CoolingCalcul
 import { CiafalPageHeader } from '@/components/common/CiafalDesignSystem'
 import { MasterIndustrialRulesTab } from '@/components/rules-engine/MasterIndustrialRulesTab'
 import { RuleEditModal, RuleEditTarget } from '@/components/rules-engine/RuleEditModal'
-import { Edit3, PlusCircle, Search, Clock, History as HistoryIcon, AlertCircle } from 'lucide-react'
 
 export const RulesEnginePage: React.FC = () => {
   const navigate = useNavigate()
@@ -1730,7 +1717,7 @@ export const RulesEnginePage: React.FC = () => {
               /* ESTADO VAZIO AMIGÁVEL */
               <div className="p-8 text-center bg-white border border-slate-200 rounded-lg space-y-3">
                 <div className="w-12 h-12 rounded-full bg-blue-50 text-[#004C97] flex items-center justify-center mx-auto">
-                  <HistoryIcon className="w-6 h-6" />
+                  <History className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-sm font-bold text-slate-800">

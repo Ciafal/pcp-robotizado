@@ -27,10 +27,12 @@ export type RuleCategoryType = 'SETUP' | 'STOP' | 'COOLING' | 'SEQUENCING' | 'CP
 
 export interface RuleEditTarget {
   id?: string
+  ruleId?: string
   entityType: RuleCategoryType
   parameterName: string
   ruleIdentifier?: string
   lineCode?: string
+  workCenter?: string
   currentValue: string
   unit?: string
   isNew?: boolean

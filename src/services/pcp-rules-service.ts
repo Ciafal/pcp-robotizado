@@ -149,6 +149,8 @@ export interface RuleAuditLogRecord {
   parameter_name: string
   entity_type: string
   entity_id?: string
+  field_name?: string
+  rule_identifier?: string
   previous_value?: string
   new_value?: string
   user_id?: string
