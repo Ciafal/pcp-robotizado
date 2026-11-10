@@ -1,0 +1,1 @@
+wrote src/__tests__/gestao-industrializador-action-bar-acceptance.test.tsx (332 lines) — read the file to see its current content

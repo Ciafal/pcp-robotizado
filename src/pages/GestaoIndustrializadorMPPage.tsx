@@ -31,6 +31,7 @@ import {
 import { IndustrializerHeaderFilter } from '@/components/gestao-industrializador/IndustrializerHeaderFilter'
 import { IndustrializerDetailModal } from '@/components/gestao-industrializador/IndustrializerDetailModal'
 import { IndustrializerParametersModal } from '@/components/gestao-industrializador/IndustrializerParametersModal'
+import { IndustrializerActionBar } from '@/components/gestao-industrializador/IndustrializerActionBar'
 
 export const GestaoIndustrializadorMPPage: React.FC = () => {
   const [rows, setRows] = useState<MPIndustrializerProjectionRow[]>([])
@@ -153,6 +154,25 @@ export const GestaoIndustrializadorMPPage: React.FC = () => {
         onOpenSettings={() => setIsParamsModalOpen(true)}
         officialSource={officialInfo.officialSource}
         lastSyncAt={officialInfo.lastSyncAt}
+        headerControls={
+          <IndustrializerActionBar
+            screenKey="mp"
+            screenName="Gestão de MP"
+            filters={filters}
+            metrics={{
+              total_disponivel_tons: summary.totalAvailable,
+              estoque_liberado_tons: summary.releasedStock,
+              controle_qualidade_tons: summary.qualityControl,
+              em_transito_tons: summary.inTransit,
+              consumo_programado_tons: summary.programmedCons,
+              saldo_projetado_tons: summary.projectedBalance,
+              cobertura_media_dias: summary.avgCoverageDays,
+              itens_em_ruptura: summary.ruptureCount,
+              itens_em_alerta: summary.alertCount,
+            }}
+            records={filteredRows}
+          />
+        }
       />
 
       {/* ERRO */}

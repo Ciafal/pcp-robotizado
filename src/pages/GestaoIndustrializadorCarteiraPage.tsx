@@ -29,6 +29,7 @@ import { IndustrializerHeaderFilter } from '@/components/gestao-industrializador
 import { IndustrializerDetailModal } from '@/components/gestao-industrializador/IndustrializerDetailModal'
 import { MaterialTimelineModal } from '@/components/gestao-industrializador/MaterialTimelineModal'
 import { CarteiraMonthlySummary } from '@/services/gestao-industrializador-service'
+import { IndustrializerActionBar } from '@/components/gestao-industrializador/IndustrializerActionBar'
 
 export const GestaoIndustrializadorCarteiraPage: React.FC = () => {
   const [items, setItems] = useState<CarteiraIndustrializadorItem[]>([])
@@ -249,6 +250,25 @@ export const GestaoIndustrializadorCarteiraPage: React.FC = () => {
         onRefresh={loadData}
         officialSource={officialInfo.officialSource}
         lastSyncAt={officialInfo.lastSyncAt}
+        headerControls={
+          <IndustrializerActionBar
+            screenKey="carteira"
+            screenName="Análise de Carteira"
+            filters={filters}
+            metrics={{
+              total_carteira_tons: summary.totalTons,
+              total_pedidos: summary.totalOrders,
+              volume_no_prazo_tons: summary.onTimeTons,
+              percentual_no_prazo: summary.onTimePercent,
+              volume_em_atencao_tons: summary.warningTons,
+              volume_em_atraso_tons: summary.delayedTons,
+              volume_previsto_mes_tons: monthlySummary?.programmedVolumeTons || 0,
+              volume_atingido_mes_tons: monthlySummary?.achievedVolumeTons || 0,
+              aderencia_mes_pct: monthlySummary?.adherencePercent || 0,
+            }}
+            records={filteredItems}
+          />
+        }
       />
 
       {/* SELETOR DE MÊS / COMPETÊNCIA DINÂMICO */}

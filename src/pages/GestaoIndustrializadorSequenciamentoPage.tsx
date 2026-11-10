@@ -31,6 +31,7 @@ import {
 import { IndustrializerHeaderFilter } from '@/components/gestao-industrializador/IndustrializerHeaderFilter'
 import { MaterialTimelineModal } from '@/components/gestao-industrializador/MaterialTimelineModal'
 import { IndustrializerParametersModal } from '@/components/gestao-industrializador/IndustrializerParametersModal'
+import { IndustrializerActionBar } from '@/components/gestao-industrializador/IndustrializerActionBar'
 import { pb } from '@/lib/pocketbase/client'
 import {
   CompanyOption,
@@ -287,27 +288,46 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
         availableCompanies={availableCompanies}
         availableLines={availableLines}
         headerControls={
-          <div className="flex items-center gap-1.5">
-            <Badge className="bg-emerald-600 text-white text-[10px] font-semibold px-2 py-0.5 shadow-2xs whitespace-nowrap">
-              Oficial Aprovada
-            </Badge>
-            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-slate-700">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Visão:</span>
-              <select
-                aria-label="Agrupamento de Visão"
-                value={viewGrouping}
-                onChange={(e) => setViewGrouping(e.target.value as any)}
-                className="h-6 text-[11px] bg-white border border-slate-300 rounded px-1 text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
-              >
-                <option value="todos">Padrão Sequência</option>
-                <option value="dia">Por Dia</option>
-                <option value="semana">Por Semana</option>
-                <option value="mes">Por Mês</option>
-                <option value="material">Por Material</option>
-                <option value="aco">Por Aço</option>
-                <option value="industrializador">Por Industrializador</option>
-              </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Badge className="bg-emerald-600 text-white text-[10px] font-semibold px-2 py-0.5 shadow-2xs whitespace-nowrap">
+                Oficial Aprovada
+              </Badge>
+              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-slate-700">
+                <span className="text-[10px] font-bold uppercase text-slate-500">Visão:</span>
+                <select
+                  aria-label="Agrupamento de Visão"
+                  value={viewGrouping}
+                  onChange={(e) => setViewGrouping(e.target.value as any)}
+                  className="h-6 text-[11px] bg-white border border-slate-300 rounded px-1 text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
+                >
+                  <option value="todos">Padrão Sequência</option>
+                  <option value="dia">Por Dia</option>
+                  <option value="semana">Por Semana</option>
+                  <option value="mes">Por Mês</option>
+                  <option value="material">Por Material</option>
+                  <option value="aco">Por Aço</option>
+                  <option value="industrializador">Por Industrializador</option>
+                </select>
+              </div>
             </div>
+
+            <IndustrializerActionBar
+              screenKey="sequenciamento"
+              screenName="Sequenciamento P x R"
+              filters={{ ...filters, viewGrouping }}
+              metrics={{
+                volume_programado_tons: summary.volProgrammed,
+                volume_produzido_tons: summary.volProduced,
+                aderencia_geral_pct: summary.adherence,
+                itens_em_atraso: summary.delayed,
+                itens_em_dia: summary.onTime,
+                itens_adiantados: summary.early,
+                total_itens: summary.total,
+                gargalos_criticos: summary.bottlenecks,
+              }}
+              records={filteredItems}
+            />
           </div>
         }
       />
