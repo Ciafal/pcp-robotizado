@@ -398,7 +398,10 @@ export const TestProgrammingPage: React.FC = () => {
       ) : (
         <>
           {/* Cards Compactos e Clicáveis com Contadores */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 gap-2">
+          <div
+            className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5"
+            data-testid="test-programming-indicator-cards-grid"
+          >
             {[
               {
                 key: 'programados',
@@ -416,35 +419,35 @@ export const TestProgrammingPage: React.FC = () => {
               },
               {
                 key: 'aguardandoIndustria',
-                label: 'Aguard. Indústria',
+                label: 'Aguardando aprovação industrial',
                 count: metrics.aguardandoIndustria,
                 color: 'text-amber-700',
                 bg: 'hover:bg-amber-50/70',
               },
               {
                 key: 'aguardandoPcp',
-                label: 'Aguard. PCP',
+                label: 'Aguardando aprovação PCP',
                 count: metrics.aguardandoPcp,
                 color: 'text-[#004C97]',
                 bg: 'hover:bg-sky-50/70',
               },
               {
                 key: 'emExecucao',
-                label: 'Em Execução',
+                label: 'Em execução',
                 count: metrics.emExecucao,
                 color: 'text-purple-700',
                 bg: 'hover:bg-purple-50/70',
               },
               {
                 key: 'aguardandoResultado',
-                label: 'Aguard. Resultado',
+                label: 'Aguardando resultado',
                 count: metrics.aguardandoResultado,
                 color: 'text-teal-700',
                 bg: 'hover:bg-teal-50/70',
               },
               {
                 key: 'aguardandoEficacia',
-                label: 'Aguard. Eficácia',
+                label: 'Aguardando avaliação de eficácia',
                 count: metrics.aguardandoEficacia,
                 color: 'text-cyan-700',
                 bg: 'hover:bg-cyan-50/70',
@@ -465,21 +468,21 @@ export const TestProgrammingPage: React.FC = () => {
               },
               {
                 key: 'necessitamNovoTeste',
-                label: 'Novo Teste Nec.',
+                label: 'Novo teste necessário',
                 count: metrics.necessitamNovoTeste,
                 color: 'text-orange-700',
                 bg: 'hover:bg-orange-50/70',
               },
               {
                 key: 'comAcaoAberta',
-                label: 'Com Ação Aberta',
+                label: 'Com ação aberta',
                 count: metrics.comAcaoAberta,
                 color: 'text-rose-700',
                 bg: 'hover:bg-rose-50/70',
               },
               {
                 key: 'acoesVencidas',
-                label: 'Ações Vencidas',
+                label: 'Ações vencidas',
                 count: metrics.acoesVencidas,
                 color: 'text-red-800',
                 bg: 'hover:bg-red-50/70',
@@ -490,24 +493,27 @@ export const TestProgrammingPage: React.FC = () => {
                 <button
                   key={c.key}
                   type="button"
+                  data-testid={`indicator-card-${c.key}`}
                   onClick={() => handleCardClick(c.key)}
-                  className={`p-2.5 rounded-lg border text-left transition-all duration-150 flex flex-col justify-between ${
+                  className={`p-2.5 rounded-lg border text-left transition-all duration-150 flex flex-col justify-between min-h-[76px] ${
                     isSelected
-                      ? 'bg-blue-50 border-[#004C97] ring-2 ring-[#004C97]/30 shadow-sm'
-                      : `bg-white border-slate-200 ${c.bg} shadow-xs`
+                      ? 'bg-blue-50 border-[#004C97] ring-2 ring-[#004C97]/30 shadow-xs'
+                      : `bg-white border-slate-200 ${c.bg} shadow-2xs`
                   }`}
                 >
-                  <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider truncate block">
-                    {c.label}
-                  </span>
-                  <div className="flex items-baseline justify-between mt-1">
-                    <span className={`text-lg font-bold ${c.color}`}>{c.count}</span>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span className={`text-xl font-bold tracking-tight leading-none ${c.color}`}>
+                      {c.count}
+                    </span>
                     {isSelected && (
-                      <span className="text-[9px] font-bold text-[#004C97] bg-white px-1 rounded border border-[#004C97]/20">
+                      <span className="text-[9px] font-bold text-[#004C97] bg-white px-1.5 py-0.5 rounded border border-[#004C97]/20 shadow-2xs">
                         Ativo
                       </span>
                     )}
                   </div>
+                  <span className="text-xs font-medium text-slate-600 normal-case leading-snug break-words">
+                    {c.label}
+                  </span>
                 </button>
               )
             })}
