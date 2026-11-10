@@ -107,7 +107,8 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Completa', () => {
       statusMes: 'FINALIZADO_OPERADOR',
       statusSap: 'CONFIRMADA_TOTAL',
       carteiraT: 60.25,
-      salesOrderNumber: 'PED-9901',
+      salesOrder: 'PED-9901',
+      salesOrderItem: '0001',
     },
     {
       id: 'op-102',
@@ -126,7 +127,8 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Completa', () => {
       statusMes: 'FINALIZADO_OPERADOR',
       statusSap: 'CONFIRMADA_TOTAL',
       carteiraT: 60.25,
-      salesOrderNumber: 'PED-9901', // mesmo pedido: sem duplicação na agregação
+      salesOrder: 'PED-9901',
+      salesOrderItem: '0001',
     },
   ]
 

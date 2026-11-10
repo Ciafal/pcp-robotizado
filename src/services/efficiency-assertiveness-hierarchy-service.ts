@@ -19,7 +19,7 @@
  *    - Caso indisponível, exibe null (UI exibe "—" sem preencher com zero automaticamente).
  */
 
-import { pb } from '@/lib/pocketbase/client'
+import { pb } from '@/lib/pocketbase'
 import {
   efficiencyCenterService,
   CenterEfficiencyFilters,
