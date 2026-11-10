@@ -57,6 +57,8 @@ import { SetupDetailDrawer } from '@/components/rules-engine/SetupDetailDrawer'
 import { CoolingCalculatorWidget } from '@/components/rules-engine/CoolingCalculatorWidget'
 import { CiafalPageHeader } from '@/components/common/CiafalDesignSystem'
 import { MasterIndustrialRulesTab } from '@/components/rules-engine/MasterIndustrialRulesTab'
+import { RuleEditModal, RuleEditTarget } from '@/components/rules-engine/RuleEditModal'
+import { Edit3, PlusCircle, Search, Clock, History as HistoryIcon, AlertCircle } from 'lucide-react'
 
 export const RulesEnginePage: React.FC = () => {
   const navigate = useNavigate()
@@ -90,6 +92,13 @@ export const RulesEnginePage: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL') // Status
   const [validityFilter, setValidityFilter] = useState<string>('ALL') // Período de Validade/Vigência
   const [searchTerm, setSearchTerm] = useState<string>('') // Busca textual geral
+  const [historySearchTerm, setHistorySearchTerm] = useState<string>('') // Busca específica do Histórico
+  const [historyPeriodFilter, setHistoryPeriodFilter] = useState<string>('ALL') // Período do Histórico (ALL, TODAY, 7D, 30D, 90D)
+  const [historyRuleTypeFilter, setHistoryRuleTypeFilter] = useState<string>('ALL') // Tipo de Regra no Histórico
+
+  // Modal de edição / criação de regras com auditoria
+  const [isRuleEditModalOpen, setIsRuleEditModalOpen] = useState<boolean>(false)
+  const [ruleEditTarget, setRuleEditTarget] = useState<RuleEditTarget | null>(null)
 
   const [activeTab, setActiveTab] = useState<string>(initialActiveTab)
 
@@ -389,20 +398,60 @@ export const RulesEnginePage: React.FC = () => {
     })
   }, [pendingList, selectedLine, selectedStatus, searchTerm])
 
-  // Filtros aplicados em Histórico de Alterações
+  // Filtros aplicados em Histórico de Alterações (com busca específica, período e tipo de regra)
   const filteredAudits = useMemo(() => {
-    return auditList.filter((item) => {
-      if (searchTerm) {
-        const q = searchTerm.toLowerCase()
-        return (
-          item.parameter_name.toLowerCase().includes(q) ||
-          item.user_name.toLowerCase().includes(q) ||
-          item.reason.toLowerCase().includes(q)
-        )
+    // 1. Garante ordenação decrescente (mais recente primeiro)
+    const sorted = [...auditList].sort((a, b) => {
+      const timeA = a.created ? new Date(a.created).getTime() : 0
+      const timeB = b.created ? new Date(b.created).getTime() : 0
+      if (timeA && timeB) return timeB - timeA
+      return (b.id || '').localeCompare(a.id || '')
+    })
+
+    const now = new Date().getTime()
+    const oneDay = 24 * 60 * 60 * 1000
+
+    return sorted.filter((item) => {
+      // Filtro de período
+      if (historyPeriodFilter !== 'ALL' && item.created) {
+        const itemTime = new Date(item.created).getTime()
+        const diffDays = (now - itemTime) / oneDay
+        if (historyPeriodFilter === 'TODAY' && diffDays > 1) return false
+        if (historyPeriodFilter === '7D' && diffDays > 7) return false
+        if (historyPeriodFilter === '30D' && diffDays > 30) return false
+        if (historyPeriodFilter === '90D' && diffDays > 90) return false
+      }
+
+      // Filtro de tipo de regra
+      if (historyRuleTypeFilter !== 'ALL') {
+        if (item.entity_type !== historyRuleTypeFilter) return false
+      }
+
+      // Filtro de busca textual (global ou do histórico)
+      const q = (historySearchTerm || searchTerm).trim().toLowerCase()
+      if (q) {
+        const paramMatch = (item.parameter_name || '').toLowerCase().includes(q)
+        const userMatch = (item.user_name || '').toLowerCase().includes(q)
+        const reasonMatch = (item.reason || '').toLowerCase().includes(q)
+        const prevMatch = (item.previous_value || '').toLowerCase().includes(q)
+        const newMatch = (item.new_value || '').toLowerCase().includes(q)
+        const entityMatch = (item.entity_type || '').toLowerCase().includes(q)
+        return paramMatch || userMatch || reasonMatch || prevMatch || newMatch || entityMatch
       }
       return true
     })
-  }, [auditList, searchTerm])
+  }, [auditList, searchTerm, historySearchTerm, historyPeriodFilter, historyRuleTypeFilter])
+
+  // Abertura do modal de edição/criação de regra
+  const handleOpenRuleEditor = (target: RuleEditTarget) => {
+    setRuleEditTarget(target)
+    setIsRuleEditModalOpen(true)
+  }
+
+  // Sucesso na gravação de auditoria
+  const handleRuleAuditSuccess = (newLog: RuleAuditLogRecord) => {
+    setAuditList((prev) => [newLog, ...prev])
+  }
 
   const clearAllFilters = () => {
     setSelectedCompany('ALL')
@@ -999,18 +1048,41 @@ export const RulesEnginePage: React.FC = () => {
                         {row.responsible_name || 'Engenharia de Processos'}
                       </td>
 
-                      {/* Única Ação Permitida */}
+                      {/* Ações: Editar com Auditoria + Abrir na Ficha Mestra */}
                       <td className="p-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleOpenMasterSheet(row.line_code, 'setup')}
-                          className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-100 gap-1 font-semibold"
-                          title="Abrir este parâmetro diretamente na Ficha Mestra"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          <span>Abrir na Ficha Mestra</span>
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              handleOpenRuleEditor({
+                                entityType: 'SETUP',
+                                ruleId: row.id,
+                                lineCode: row.line_code,
+                                workCenter: row.work_center,
+                                parameterName: `Setup ${row.from_family_code || '*'} \u2192 ${row.to_family_code || '*'} (${row.line_code})`,
+                                currentValue: `${row.setup_time_minutes} min`,
+                                unit: 'min',
+                                reasonDefault: 'Calibração de tempo de setup na matriz',
+                              })
+                            }
+                            className="h-6 px-2 text-[11px] text-[#004C97] border-blue-200 hover:bg-blue-50 gap-1 font-semibold"
+                            title="Editar tempo de setup com registro na trilha de auditoria"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            <span>Editar</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleOpenMasterSheet(row.line_code, 'setup')}
+                            className="h-6 px-2 text-[11px] text-slate-600 hover:bg-slate-100 gap-1 font-semibold"
+                            title="Abrir este parâmetro diretamente na Ficha Mestra"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Ficha Mestra</span>
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1544,100 +1616,254 @@ export const RulesEnginePage: React.FC = () => {
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 7 — HISTÓRICO & AUDITORIA (TRILHA READ ONLY PRESERVADA)               */}
+          {/* ABA 7 — HISTÓRICO & AUDITORIA (COM FILTROS, ORDENAÇÃO E ESTADO VAZIO)     */}
           {/* ========================================================================= */}
-          <TabsContent value="historico-alteracoes" className="m-0 p-4 space-y-3">
+          <TabsContent value="historico-alteracoes" className="m-0 p-4 space-y-3.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Trilha de Auditoria & Preservação Histórica (100% dos Registros Preservados)
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <span>Trilha de Auditoria & Histórico de Alterações de Regras</span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono bg-emerald-50 text-emerald-800 border-emerald-200"
+                  >
+                    Backend Ativo
+                  </Badge>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Todas as versões anteriores guardam solicitante, data/hora, parecer IA, evidência
-                  MES e aprovador.
+                  Todas as criações e edições de regras registram automaticamente autor, data/hora,
+                  tipo de regra e diff anterior &rarr; novo.
                 </p>
               </div>
-              <div className="text-xs text-slate-500 font-mono">
-                {filteredAudits.length} log(s) registrado(s)
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleOpenRuleEditor({
+                      entityType: 'SETUP',
+                      parameterName: 'Nova Regra Industrial',
+                      currentValue: '',
+                      isNew: true,
+                      reasonDefault: 'Criação de nova regra industrial pelo painel de auditoria',
+                    })
+                  }
+                  className="h-7 text-xs border-blue-200 text-[#004C97] hover:bg-blue-50 font-semibold gap-1.5"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>Registrar Alteração Manual</span>
+                </Button>
+                <div className="text-xs text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded">
+                  {filteredAudits.length} log(s)
+                </div>
               </div>
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 rounded-lg">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
-                    <th className="p-2.5">Origem do Dado</th>
-                    <th className="p-2.5">Parâmetro / Regra</th>
-                    <th className="p-2.5 font-mono">Valor Anterior</th>
-                    <th className="p-2.5 font-mono">Novo Valor Publicado</th>
-                    <th className="p-2.5">Usuário Solicitante</th>
-                    <th className="p-2.5">Data / Hora</th>
-                    <th className="p-2.5">Motivo / Justificativa</th>
-                    <th className="p-2.5 text-center">Origem</th>
-                    <th className="p-2.5 text-center">Validação MES</th>
-                    <th className="p-2.5">Recomendação IA</th>
-                    <th className="p-2.5">Aprovador</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {filteredAudits.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
-                    >
-                      <td className="p-2.5">
-                        <Badge
-                          variant="outline"
-                          className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-mono"
-                        >
-                          Centros e Ficha Mestra
-                        </Badge>
-                      </td>
-                      <td className="p-2.5 font-bold text-slate-900">{row.parameter_name}</td>
-                      <td className="p-2.5 font-mono text-slate-500 line-through">
-                        {row.previous_value || '-'}
-                      </td>
-                      <td className="p-2.5 font-mono font-bold text-[#004C97]">
-                        {row.new_value || '-'}
-                      </td>
-                      <td className="p-2.5 text-slate-700">{row.user_name}</td>
-                      <td className="p-2.5 font-mono text-slate-500 text-[11px]">
-                        {row.change_date}
-                      </td>
-                      <td className="p-2.5 text-slate-800 max-w-xs truncate" title={row.reason}>
-                        {row.reason}
-                      </td>
-                      <td className="p-2.5 text-center">
-                        <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
-                          {row.origin}
-                        </Badge>
-                      </td>
-                      <td className="p-2.5 text-center">
-                        <Badge
-                          className={`text-[10px] ${
-                            row.mes_validation_status === 'VALIDADO'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {row.mes_validation_status}
-                        </Badge>
-                      </td>
-                      <td
-                        className="p-2.5 text-slate-700 italic max-w-xs truncate"
-                        title={row.ai_recommendation}
-                      >
-                        {row.ai_recommendation || '-'}
-                      </td>
-                      <td className="p-2.5 text-slate-600">{row.approver_name || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Sub-painel de busca e filtros do histórico */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="relative w-full sm:w-80">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Buscar por regra, autor, motivo ou valores..."
+                  value={historySearchTerm}
+                  onChange={(e) => setHistorySearchTerm(e.target.value)}
+                  className="pl-8 h-8 text-xs bg-white border-slate-300 w-full"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                {/* Filtro de Período */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 text-[11px] font-medium shrink-0">Período:</span>
+                  <Select value={historyPeriodFilter} onValueChange={setHistoryPeriodFilter}>
+                    <SelectTrigger className="h-8 text-xs bg-white border-slate-300 w-32">
+                      <SelectValue placeholder="Período" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todo Histórico</SelectItem>
+                      <SelectItem value="TODAY">Últimas 24h</SelectItem>
+                      <SelectItem value="7D">Últimos 7 dias</SelectItem>
+                      <SelectItem value="30D">Últimos 30 dias</SelectItem>
+                      <SelectItem value="90D">Últimos 90 dias</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro de Tipo de Regra */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 text-[11px] font-medium shrink-0">Tipo:</span>
+                  <Select value={historyRuleTypeFilter} onValueChange={setHistoryRuleTypeFilter}>
+                    <SelectTrigger className="h-8 text-xs bg-white border-slate-300 w-36">
+                      <SelectValue placeholder="Todas as Regras" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todas as Regras</SelectItem>
+                      <SelectItem value="SETUP">Setup & Acerto</SelectItem>
+                      <SelectItem value="STOP">Paradas Programadas</SelectItem>
+                      <SelectItem value="COOLING">Resfriamento</SelectItem>
+                      <SelectItem value="SEQUENCING">Sequenciamento</SelectItem>
+                      <SelectItem value="CP_SAT">Mestres CP-SAT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(historySearchTerm ||
+                  historyPeriodFilter !== 'ALL' ||
+                  historyRuleTypeFilter !== 'ALL') && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setHistorySearchTerm('')
+                      setHistoryPeriodFilter('ALL')
+                      setHistoryRuleTypeFilter('ALL')
+                    }}
+                    className="h-8 text-xs text-slate-500 hover:text-slate-900"
+                  >
+                    Limpar
+                  </Button>
+                )}
+              </div>
             </div>
+
+            {filteredAudits.length === 0 ? (
+              /* ESTADO VAZIO AMIGÁVEL */
+              <div className="p-8 text-center bg-white border border-slate-200 rounded-lg space-y-3">
+                <div className="w-12 h-12 rounded-full bg-blue-50 text-[#004C97] flex items-center justify-center mx-auto">
+                  <HistoryIcon className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-slate-800">
+                    Nenhuma alteração de regra encontrada
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    {historySearchTerm ||
+                    historyPeriodFilter !== 'ALL' ||
+                    historyRuleTypeFilter !== 'ALL'
+                      ? 'Não há registros de auditoria correspondentes aos filtros aplicados. Tente alterar os termos da busca ou limpar o filtro de período.'
+                      : 'Ainda não foram registradas alterações nas regras industriais. Ao criar ou editar qualquer regra nas abas anteriores, a trilha de auditoria será exibida aqui automaticamente.'}
+                  </p>
+                </div>
+                {historySearchTerm ||
+                historyPeriodFilter !== 'ALL' ||
+                historyRuleTypeFilter !== 'ALL' ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setHistorySearchTerm('')
+                      setHistoryPeriodFilter('ALL')
+                      setHistoryRuleTypeFilter('ALL')
+                    }}
+                    className="text-xs h-7 border-slate-300"
+                  >
+                    Limpar Filtros
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      handleOpenRuleEditor({
+                        entityType: 'SETUP',
+                        parameterName: 'Setup Inicial Padrão',
+                        currentValue: '45 min',
+                        isNew: false,
+                        reasonDefault: 'Ajuste inicial de calibração de parâmetros',
+                      })
+                    }
+                    className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs h-7 font-bold gap-1"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Registrar Primeiro Evento</span>
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-2xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                      <th className="p-2.5">Tipo de Regra</th>
+                      <th className="p-2.5">Parâmetro / Regra Afetada</th>
+                      <th className="p-2.5 font-mono">Valor Anterior</th>
+                      <th className="p-2.5 font-mono">Novo Valor (Diff)</th>
+                      <th className="p-2.5">Usuário (Autor)</th>
+                      <th className="p-2.5">Data / Hora</th>
+                      <th className="p-2.5">Motivo / Justificativa</th>
+                      <th className="p-2.5 text-center">Origem</th>
+                      <th className="p-2.5 text-center">Validação MES</th>
+                      <th className="p-2.5">Recomendação IA</th>
+                      <th className="p-2.5">Aprovador</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {filteredAudits.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
+                      >
+                        <td className="p-2.5">
+                          <Badge
+                            variant="outline"
+                            className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-mono font-bold"
+                          >
+                            {row.entity_type || 'REGRA'}
+                          </Badge>
+                        </td>
+                        <td className="p-2.5 font-bold text-slate-900">{row.parameter_name}</td>
+                        <td className="p-2.5 font-mono text-slate-500 line-through">
+                          {row.previous_value || '-'}
+                        </td>
+                        <td className="p-2.5 font-mono font-bold text-[#004C97] bg-blue-50/20">
+                          {row.new_value || '-'}
+                        </td>
+                        <td className="p-2.5 text-slate-800 font-medium">{row.user_name}</td>
+                        <td className="p-2.5 font-mono text-slate-500 text-[11px]">
+                          {row.change_date}
+                        </td>
+                        <td className="p-2.5 text-slate-800 max-w-xs truncate" title={row.reason}>
+                          {row.reason}
+                        </td>
+                        <td className="p-2.5 text-center">
+                          <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
+                            {row.origin}
+                          </Badge>
+                        </td>
+                        <td className="p-2.5 text-center">
+                          <Badge
+                            className={`text-[10px] ${
+                              row.mes_validation_status === 'VALIDADO'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {row.mes_validation_status}
+                          </Badge>
+                        </td>
+                        <td
+                          className="p-2.5 text-slate-700 italic max-w-xs truncate"
+                          title={row.ai_recommendation}
+                        >
+                          {row.ai_recommendation || '-'}
+                        </td>
+                        <td className="p-2.5 text-slate-600">{row.approver_name || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </Card>
+
+      {/* MODAL DE EDIÇÃO/CRIAÇÃO DE REGRA COM TRILHA DE AUDITORIA */}
+      <RuleEditModal
+        isOpen={isRuleEditModalOpen}
+        onClose={() => setIsRuleEditModalOpen(false)}
+        target={ruleEditTarget}
+        onSuccess={handleRuleAuditSuccess}
+      />
 
       {/* DRAWER LATERAL DE DETALHE DE SETUP & EVIDÊNCIA MES/IA (PURAMENTE CONSULTIVO) */}
       <SetupDetailDrawer
