@@ -95,6 +95,7 @@ export function extractFlatOpsFromHierarchy(hierarchy: HierarchyLineItem[]): Hie
 
 /**
  * Constrói o documento HTML completo corporativo (compatível com Outlook, Resend e PDF).
+ * Aliases: buildCorporateReportHtml / buildCorporateReport são mantidos para compatibilidade.
  */
 export function generatePxrCorporateReportHtml(config: PxrReportGeneratorConfig): string {
   const gerado = config.geradoEm || new Date()
@@ -136,7 +137,6 @@ export function generatePxrCorporateReportHtml(config: PxrReportGeneratorConfig)
   let hasReal = false
   let totalCarteira = 0
   let hasCarteira = false
-  const seenDemandKeys = new Set<string>()
 
   for (const l of config.hierarchy) {
     totalProg += l.programadoT || 0
@@ -349,3 +349,21 @@ export function generatePxrCorporateReportHtml(config: PxrReportGeneratorConfig)
     </html>
   `
 }
+
+/**
+ * Alias de compatibilidade: buildCorporateReportHtml = generatePxrCorporateReportHtml.
+ * A assinatura aceita tanto `responsavel` quanto `responsibleName`.
+ */
+export function buildCorporateReportHtml(
+  config: Omit<PxrReportGeneratorConfig, 'responsavel'> & {
+    responsavel?: string
+    responsibleName?: string
+  },
+): string {
+  return generatePxrCorporateReportHtml({
+    ...config,
+    responsavel: config.responsavel || config.responsibleName || 'Programador PCP (CIAFAL)',
+  } as PxrReportGeneratorConfig)
+}
+
+export { generatePxrCorporateReportHtml as buildCorporateReport }

@@ -168,18 +168,15 @@ export async function fetchCarteiraLookup(filters: UnifiedEfficiencyFilters): Pr
       empresa:
         filters.companyCode && filters.companyCode !== 'ALL' ? filters.companyCode : undefined,
       linha: filters.lineCode && filters.lineCode !== 'ALL' ? filters.lineCode : undefined,
-      centro:
-        filters.workCenterCode && filters.workCenterCode !== 'ALL'
-          ? filters.workCenterCode
-          : undefined,
+      centro: filters.centerCode && filters.centerCode !== 'ALL' ? filters.centerCode : undefined,
     })
 
     for (const p of pedidos) {
-      const mat = (p.codigoMaterial || '').trim()
-      const ov = (p.ordemVenda || '').trim()
-      const itemOv = (p.itemOrdem || '').trim()
+      const mat = (p.codigo_material || '').trim()
+      const ov = (p.ordem_venda || '').trim()
+      const itemOv = (p.item_ordem_venda || '').trim()
       const ovKey = ov ? (itemOv ? `${ov}-${itemOv}` : ov) : ''
-      const tons = typeof p.saldoAbertoTons === 'number' ? p.saldoAbertoTons : null
+      const tons = typeof p.saldo_aberto_t === 'number' ? p.saldo_aberto_t : null
 
       if (tons !== null) {
         if (ovKey && !bySalesOrder.has(ovKey)) {

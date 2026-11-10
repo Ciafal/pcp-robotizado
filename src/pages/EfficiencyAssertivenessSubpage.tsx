@@ -40,7 +40,7 @@ import { formatTonsPtBr, formatPercentPtBr } from '@/lib/number-format'
 import {
   EfficiencyUnifiedFilterBar,
   type UnifiedEfficiencyFilters,
-  type UnifiedFilterOptions,
+  type UnifiedEfficiencyFilterOptions,
 } from '@/components/control-tower/efficiency/EfficiencyUnifiedFilterBar'
 import {
   loadOperationalCentersSummary,
@@ -68,16 +68,16 @@ const INITIAL_FILTERS: UnifiedEfficiencyFilters = {
   companyCode: 'ALL',
   plantCode: 'ALL',
   lineCode: 'ALL',
-  workCenterCode: 'ALL',
-  shiftCode: 'ALL',
+  centerCode: 'ALL',
   status: 'ALL',
-  periodPreset: 'WEEK_CURRENT',
+  search: '',
+  product: '',
   startDate: '',
   endDate: '',
-  date: '',
-  week: '',
-  month: '',
-  year: String(new Date().getFullYear()),
+  periodType: 'HOJE',
+  periodLabel: '',
+  week: undefined,
+  year: new Date().getFullYear(),
 }
 
 export const EfficiencyAssertivenessSubpage: React.FC = () => {
@@ -116,8 +116,23 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
     null,
   )
 
+  // Extração tolerante dos blocos estruturais gravados no registro persistido
+  // (campos JSON: ai_findings / investigation_hypotheses / recommendations)
+  const extractJsonArray = (value: unknown): any[] => {
+    if (Array.isArray(value)) return value as any[]
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
   // Opções para a barra unificada de filtros
-  const filterOptions: UnifiedFilterOptions = useMemo(
+  const filterOptions: UnifiedEfficiencyFilterOptions = useMemo(
     () => ({
       companies: [
         { code: 'ALL', name: 'Todas as Empresas' },
@@ -179,13 +194,13 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
           if (saved) {
             setSavedAnalysisRecord(saved)
             if (saved.executive_summary) {
+              const rawRecord = saved as unknown as Record<string, unknown>
               setCurrentAiAnalysis({
                 executive_summary: saved.executive_summary,
-                identified_causes: (saved.ai_findings as any) || [],
-                investigation_hypotheses: (saved.investigation_hypotheses as any) || [],
-                recommendations: (saved.recommendations as any) || [],
-                analyzed_at: saved.created,
-              })
+                identified_causes: extractJsonArray(rawRecord['ai_findings']),
+                investigation_hypotheses: extractJsonArray(rawRecord['investigation_hypotheses']),
+                recommendations: extractJsonArray(rawRecord['recommendations']),
+              } as PxrAiStructuredAnalysis)
             }
           }
         } catch (err) {
@@ -298,76 +313,63 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
         ? [appliedFilters.lineCode]
         : lineCatalog.map((l) => l.lineCode)
 
-    return linesToProcess.map((lineCode) => {
+    const built = linesToProcess.map((lineCode): HierarchyLineItem | null => {
       const meta = lineCatalog.find((l) => l.lineCode === lineCode)
       const centersRaw = rawCenters.filter((rc) => rc.lineCode === lineCode)
 
-      const centers: HierarchyCenterItem[] =
-        centersRaw.length > 0
-          ? centersRaw.map((cr) => {
-              const centerKey = `${lineCode}:${cr.centerCode}`
-              const loadedOps = opsByCenter[centerKey]
+      // Sem fallback sintético: quando a linha não tem centros reais mapeados,
+      // nenhum item é gerado (a tabela exibe o estado vazio padrão).
+      if (centersRaw.length === 0) {
+        return null
+      }
 
-              // Se as OPs foram carregadas para este centro, o Centro agrega estritamente as OPs
-              if (loadedOps && loadedOps.length > 0) {
-                const agg = aggregateCenterFromOps(
-                  cr.centerCode,
-                  cr.centerName,
-                  lineCode,
-                  loadedOps,
-                  cr.status,
-                )
-                return {
-                  ...agg,
-                  description: cr.plannedProductName || undefined,
-                  ops: loadedOps,
-                }
-              }
+      const centers: HierarchyCenterItem[] = centersRaw.map((cr) => {
+        const centerKey = `${lineCode}:${cr.centerCode}`
+        const loadedOps = opsByCenter[centerKey]
 
-              // Se as OPs ainda não foram carregadas, usa valores consolidados do centro
-              const progT = Number(cr.plannedQuantityTons || 0)
-              const realT =
-                cr.realizedQuantityTons !== null && cr.realizedQuantityTons !== undefined
-                  ? Number(cr.realizedQuantityTons)
-                  : null
-              const pct = calculateRealizedPercent(realT, progT)
-              const perdaT =
-                realT !== null && realT !== undefined ? Math.max(0, progT - realT) : null
-              const perdaPct =
-                perdaT !== null && progT > 0 ? Number(((perdaT / progT) * 100).toFixed(1)) : null
+        // Se as OPs foram carregadas para este centro, o Centro agrega estritamente as OPs
+        if (loadedOps && loadedOps.length > 0) {
+          const agg = aggregateCenterFromOps(
+            cr.centerCode,
+            cr.centerName,
+            lineCode,
+            loadedOps,
+            cr.status,
+          )
+          return {
+            ...agg,
+            description: cr.plannedProductName || undefined,
+            ops: loadedOps,
+          }
+        }
 
-              return {
-                centerCode: cr.centerCode,
-                centerName: cr.centerName,
-                lineCode,
-                description: cr.plannedProductName || undefined,
-                programadoT: progT,
-                realizadoT: realT,
-                percentualRealizado: pct,
-                perdaT,
-                percentualPerda: perdaPct,
-                carteiraT: cr.carteiraT ?? null,
-                status: cr.status,
-                ordersCount: cr.ordersCount || cr.details?.length || 0,
-                ops: [],
-              }
-            })
-          : [
-              {
-                centerCode: `${lineCode}-CENTRO-01`,
-                centerName: `Centro Principal ${lineCode}`,
-                lineCode,
-                programadoT: 0,
-                realizadoT: null,
-                percentualRealizado: null,
-                perdaT: null,
-                percentualPerda: null,
-                carteiraT: null,
-                status: 'DENTRO_ESPERADO',
-                ordersCount: 0,
-                ops: [],
-              },
-            ]
+        // Se as OPs ainda não foram carregadas, usa valores consolidados do centro
+        const progT = Number(cr.plannedQuantityTons || 0)
+        const realT =
+          cr.realizedQuantityTons !== null && cr.realizedQuantityTons !== undefined
+            ? Number(cr.realizedQuantityTons)
+            : null
+        const pct = calculateRealizedPercent(realT, progT)
+        const perdaT = realT !== null && progT > 0 ? Math.max(0, progT - realT) : null
+        const perdaPct =
+          perdaT !== null && progT > 0 ? Number(((perdaT / progT) * 100).toFixed(1)) : null
+
+        return {
+          centerCode: cr.centerCode,
+          centerName: cr.centerName,
+          lineCode,
+          description: cr.plannedProductName || undefined,
+          programadoT: progT,
+          realizadoT: realT,
+          percentualRealizado: pct,
+          perdaT,
+          percentualPerda: perdaPct,
+          carteiraT: cr.carteiraT ?? null,
+          status: cr.status,
+          ordersCount: cr.ordersCount || cr.details?.length || 0,
+          ops: [],
+        }
+      })
 
       return aggregateLineFromCenters(
         lineCode,
@@ -379,8 +381,10 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
           : 'DENTRO_ESPERADO',
       )
     })
-  }, [rawCenters, appliedFilters.lineCode, lineCatalog, opsByCenter])
 
+    // Filtra as linhas sem centros reais (sem dado inventado)
+    return built.filter((l): l is HierarchyLineItem => l !== null)
+  }, [rawCenters, appliedFilters.lineCode, lineCatalog, opsByCenter])
   // Resumo para IA e Relatórios
   const executionSummary = useMemo(() => {
     let totalProg = 0
