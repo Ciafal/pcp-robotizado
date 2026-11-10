@@ -252,21 +252,21 @@ export const GestaoIndustrializadorCarteiraPage: React.FC = () => {
         lastSyncAt={officialInfo.lastSyncAt}
         headerControls={
           <IndustrializerActionBar
-            screenKey="carteira"
+            screenKey="analise_carteira"
             screenName="Análise de Carteira"
             filters={filters}
             metrics={{
               total_carteira_tons: summary.totalTons,
-              total_pedidos: summary.totalOrders,
-              volume_no_prazo_tons: summary.onTimeTons,
-              percentual_no_prazo: summary.onTimePercent,
-              volume_em_atencao_tons: summary.warningTons,
-              volume_em_atraso_tons: summary.delayedTons,
+              total_pedidos: items.length,
+              volume_programado_tons: summary.programmedTons,
+              volume_nao_programado_tons: summary.notProgrammedTons,
+              volume_em_risco_tons: summary.inRiskTons,
+              volume_mp_indisponivel_tons: summary.missingMPTons,
               volume_previsto_mes_tons: monthlySummary?.programmedVolumeTons || 0,
-              volume_atingido_mes_tons: monthlySummary?.achievedVolumeTons || 0,
-              aderencia_mes_pct: monthlySummary?.adherencePercent || 0,
+              volume_realizado_mes_tons: monthlySummary?.realizedVolumeTons || 0,
+              aderencia_mes_pct: monthlySummary?.adherence || 0,
             }}
-            records={filteredItems}
+            records={items}
           />
         }
       />

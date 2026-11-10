@@ -156,7 +156,7 @@ export const GestaoIndustrializadorMPPage: React.FC = () => {
         lastSyncAt={officialInfo.lastSyncAt}
         headerControls={
           <IndustrializerActionBar
-            screenKey="mp"
+            screenKey="gestao_mp"
             screenName="Gestão de MP"
             filters={filters}
             metrics={{
@@ -166,11 +166,10 @@ export const GestaoIndustrializadorMPPage: React.FC = () => {
               em_transito_tons: summary.inTransit,
               consumo_programado_tons: summary.programmedCons,
               saldo_projetado_tons: summary.projectedBalance,
-              cobertura_media_dias: summary.avgCoverageDays,
-              itens_em_ruptura: summary.ruptureCount,
-              itens_em_alerta: summary.alertCount,
+              cobertura_media_dias: summary.avgAutonomy,
+              itens_em_ruptura: summary.ruptureCount30d,
             }}
-            records={filteredRows}
+            records={rows}
           />
         }
       />
