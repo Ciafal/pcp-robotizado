@@ -77,6 +77,8 @@ export interface CenterEfficiencyRow {
   delayMinutes: number | null
   status: CenterOperationalStatus
   ordersCount: number
+  /** Carteira (t) da fonte SAP ECC — opcional; indisponível exibe '—' na UI */
+  carteiraT?: number | null
   programacaoOrigem: {
     scheduleCode: string | null
     version: number | null

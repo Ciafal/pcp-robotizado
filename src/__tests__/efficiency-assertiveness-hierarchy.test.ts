@@ -69,8 +69,10 @@ describe('Cálculos da hierarquia do Previsto x Realizado e Carteira (t)', () =>
         realizedQuantityTons: 95.0,
         percentualRealizado: 95.0,
         carteiraT: 80.0,
-        salesOrderNumber: 'PED-1234',
+        salesOrder: 'PED-1234',
         statusOp: 'CONCLUIDA',
+        statusMes: null,
+        statusSap: null,
       },
       {
         id: 'op-2',
@@ -86,8 +88,10 @@ describe('Cálculos da hierarquia do Previsto x Realizado e Carteira (t)', () =>
         realizedQuantityTons: 55.0,
         percentualRealizado: 110.0,
         carteiraT: 80.0,
-        salesOrderNumber: 'PED-1234', // MESMO pedido de OP-101: carteira não duplica
+        salesOrder: 'PED-1234', // MESMO pedido de OP-101: carteira não duplica
         statusOp: 'CONCLUIDA',
+        statusMes: null,
+        statusSap: null,
       },
       {
         id: 'op-3',
@@ -103,8 +107,10 @@ describe('Cálculos da hierarquia do Previsto x Realizado e Carteira (t)', () =>
         realizedQuantityTons: 30.0,
         percentualRealizado: 100.0,
         carteiraT: -15.5, // Carteira negativa de referência: sinal preservado
-        salesOrderNumber: 'PED-5678',
+        salesOrder: 'PED-5678',
         statusOp: 'CONCLUIDA',
+        statusMes: null,
+        statusSap: null,
       },
     ]
 
@@ -162,12 +168,19 @@ describe('Cálculos da hierarquia do Previsto x Realizado e Carteira (t)', () =>
             id: 'op-1',
             opNumber: 'OP-123',
             materialCode: 'COD-1',
+            materialDescription: 'Tubo 50',
+            batchNumber: null,
             productName: 'Tubo 50',
+            scheduledDate: null,
+            plannedStart: null,
+            realStart: null,
             plannedQuantityTons: 100,
             realizedQuantityTons: 95,
             percentualRealizado: 95,
             carteiraT: 40,
             statusOp: 'CONCLUIDA',
+            statusMes: null,
+            statusSap: null,
             observacao: 'Ajuste de faca programado',
           },
         ],

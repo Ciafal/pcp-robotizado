@@ -117,8 +117,8 @@ export function generatePxrCorporateReportHtml(config: PxrReportGeneratorConfig)
       ? config.filters.lineCode
       : 'Todas as Linhas'
   const centro =
-    config.filters.workCenterCode && config.filters.workCenterCode !== 'ALL'
-      ? config.filters.workCenterCode
+    config.filters.centerCode && config.filters.centerCode !== 'ALL'
+      ? config.filters.centerCode
       : 'Todos os Centros'
   const statusOp =
     config.filters.status && config.filters.status !== 'ALL'

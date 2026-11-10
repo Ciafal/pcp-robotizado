@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EfficiencyAssertivenessSubpage } from '@/pages/EfficiencyAssertivenessSubpage'
 import * as hierarchyService from '@/services/efficiency-assertiveness-hierarchy-service'
 import * as aiService from '@/services/assertiveness-pxr-ai-service'
+import type { CenterOperationalStatus } from '@/lib/pcp/efficiency-status-rules'
+import type { CenterEfficiencyRow } from '@/services/efficiency-center-service'
 
 // Mock dos serviços de backend
 vi.mock('@/services/efficiency-assertiveness-hierarchy-service', async (importOriginal) => {
@@ -28,7 +30,7 @@ vi.mock('@/services/assertiveness-pxr-ai-service', async (importOriginal) => {
 })
 
 describe('EfficiencyAssertivenessSubpage - Aceitação Completa', () => {
-  const mockCenters = [
+  const mockCenters: CenterEfficiencyRow[] = [
     {
       centerCode: 'LAM-01',
       centerName: 'Laminador de Desbaste',
@@ -45,7 +47,7 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Completa', () => {
       differenceTons: -20.0,
       adherencePct: 95.0,
       delayMinutes: 15,
-      status: 'DENTRO_ESPERADO',
+      status: 'DENTRO_PLANEJADO' as CenterOperationalStatus,
       ordersCount: 2,
       carteiraT: 120.5,
       programacaoOrigem: {
@@ -73,7 +75,7 @@ describe('EfficiencyAssertivenessSubpage - Aceitação Completa', () => {
       differenceTons: 0,
       adherencePct: null,
       delayMinutes: null,
-      status: 'DENTRO_ESPERADO',
+      status: 'DENTRO_PLANEJADO' as CenterOperationalStatus,
       ordersCount: 0,
       carteiraT: null,
       programacaoOrigem: {
