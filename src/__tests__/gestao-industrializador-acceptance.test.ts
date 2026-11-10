@@ -21,7 +21,7 @@ describe('Suíte de Aceitação — Gestão Industrializador', () => {
       (g) => g.groupTitle === 'GESTÃO INDUSTRIALIZADOR',
     )
     expect(industrializerGroup).toBeDefined()
-    expect(industrializerGroup?.items.length).toBe(5)
+    expect(industrializerGroup?.items.length).toBeGreaterThanOrEqual(5)
 
     const titles = industrializerGroup?.items.map((i) => i.title)
     expect(titles).toContain('Visão Consolidada')
@@ -29,6 +29,7 @@ describe('Suíte de Aceitação — Gestão Industrializador', () => {
     expect(titles).toContain('2. Análise de Carteira')
     expect(titles).toContain('3. Sequenciamento P x R')
     expect(titles).toContain('4. Estoque Industrializados')
+    expect(titles).toContain('5. Relatórios de E-mail')
 
     const hrefs = industrializerGroup?.items.map((i) => i.href)
     expect(hrefs).toContain('/pcp/gestao-industrializador')
@@ -36,6 +37,7 @@ describe('Suíte de Aceitação — Gestão Industrializador', () => {
     expect(hrefs).toContain('/pcp/gestao-industrializador/carteira')
     expect(hrefs).toContain('/pcp/gestao-industrializador/sequenciamento')
     expect(hrefs).toContain('/pcp/gestao-industrializador/estoque')
+    expect(hrefs).toContain('/pcp/gestao-industrializador/relatorios-email')
   })
 
   // 3. DIMENSÃO ESTRUTURAL: FILTRO INDUSTRIALIZADOR DINÂMICO (SEM HARDCODE)

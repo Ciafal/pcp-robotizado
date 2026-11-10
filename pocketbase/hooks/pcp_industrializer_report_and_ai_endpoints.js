@@ -221,6 +221,41 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/send-email', (e) => {
       }
     } catch (errResend) {
       console.error('Falha ao enviar e-mail via Resend:', errResend)
+
+      // Registrar falha em pcp_report_sendings para histórico e auditoria
+      const failureCode = `SEND-EMAIL-IND-ERR-${Date.now()}`
+      if ($app.hasTable('pcp_report_sendings')) {
+        try {
+          const colSendings = $app.findCollectionByNameOrId('pcp_report_sendings')
+          const recSending = new Record(colSendings, {
+            sending_code: failureCode,
+            report_type: 'EMAIL_INDIVIDUAL',
+            channel: 'EMAIL',
+            screen_ref: screenKey,
+            line_code: filtersSnapshot.line || filtersSnapshot.linha || 'GERAL',
+            period_ref: filtersSnapshot.period || 'VIGENTE',
+            filters_applied: filtersSnapshot,
+            subject: subject,
+            body_content: bodyContent,
+            recipients: to.concat(cc),
+            status: 'FALHA',
+            sender_user_id: authRecord ? authRecord.id : '',
+            sender_user_name: userName,
+            sender_user_email: userEmail,
+            metadata: {
+              screen_name: screenName,
+              cc: cc,
+              resend_used: false,
+              error_message: String(errResend),
+              data_summary: dataSummary,
+            },
+          })
+          $app.save(recSending)
+        } catch (errSaveFail) {
+          console.warn('Erro ao salvar falha em pcp_report_sendings:', errSaveFail)
+        }
+      }
+
       return e.json(502, {
         success: false,
         message:

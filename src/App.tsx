@@ -653,6 +653,13 @@ const GestaoIndustrializadorEstoquePage = lazyWithRetry(
     })),
   'GestaoIndustrializadorEstoquePage',
 )
+const RelatoriosEmailPage = lazyWithRetry(
+  () =>
+    import('@/pages/RelatoriosEmailPage').then((m: any) => ({
+      default: m.default ?? m.RelatoriosEmailPage,
+    })),
+  'RelatoriosEmailPage',
+)
 const RulesEnginePage = lazyWithRetry(
   () =>
     import('@/pages/RulesEnginePage').then((m) => ({
@@ -1690,6 +1697,22 @@ export const App: React.FC = () => {
                             <GestaoIndustrializadorEstoquePage />
                           </ErrorBoundary>
                         </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/gestao-industrializador/relatorios-email"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ErrorBoundary moduleName="Gestão Industrializador — Relatórios de E-mail">
+                            <RelatoriosEmailPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/gestao-industrializador/relatorios"
+                      element={
+                        <Navigate to="/pcp/gestao-industrializador/relatorios-email" replace />
                       }
                     />
                     {/* Redirecionamentos de conveniência */}
