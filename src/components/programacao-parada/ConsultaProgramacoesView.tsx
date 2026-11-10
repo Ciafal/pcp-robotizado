@@ -70,6 +70,7 @@ export const ConsultaProgramacoesView: React.FC<ConsultaProgramacoesViewProps> =
   const [programacoes, setProgramacoes] = useState<ProgramacaoParadaRegistro[]>([])
   const [allCentros, setAllCentros] = useState<CentroParadaRegistro[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Filtros
   const [filtroEmpresa, setFiltroEmpresa] = useState<string>('ALL')
@@ -87,6 +88,7 @@ export const ConsultaProgramacoesView: React.FC<ConsultaProgramacoesViewProps> =
 
   const carregarDados = async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const [listagem, centrosList] = await Promise.all([
         programacaoParadaService.listarProgramacoes(),
@@ -114,8 +116,9 @@ export const ConsultaProgramacoesView: React.FC<ConsultaProgramacoesViewProps> =
       setEmpresasOptions(Array.from(empSet).sort())
       setLinhasOptions(Array.from(linSet).sort())
       setCentrosOptions(Array.from(cenSet).sort())
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Erro ao carregar lista de programações:', e)
+      setLoadError('Não foi possível carregar os dados. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -497,10 +500,26 @@ export const ConsultaProgramacoesView: React.FC<ConsultaProgramacoesViewProps> =
               <div className="w-8 h-8 border-3 border-blue-200 border-t-[#004C97] rounded-full animate-spin mx-auto" />
               <p className="text-xs text-slate-500">Carregando programações de parada...</p>
             </div>
+          ) : loadError ? (
+            <div className="py-16 text-center space-y-3">
+              <p className="text-xs text-rose-600 font-semibold">{loadError}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={carregarDados}
+                className="h-8 text-xs text-slate-700 gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Tentar novamente
+              </Button>
+            </div>
           ) : programacoesFiltradas.length === 0 ? (
             <div className="py-16 text-center space-y-2">
               <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
-              <h4 className="text-sm font-bold text-slate-700">Nenhuma programação encontrada</h4>
+              <h4 className="text-sm font-bold text-slate-700">
+                Nenhum registro encontrado para os filtros selecionados.
+              </h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
                 Não há registros com os filtros selecionados ou nenhuma parada foi criada ainda.
               </p>

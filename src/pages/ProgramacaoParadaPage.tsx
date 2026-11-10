@@ -139,7 +139,8 @@ export const ProgramacaoParadaPage: React.FC = () => {
         setActiveView('EDICAO')
       }
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Falha ao carregar a programação de parada.')
+      console.error('Erro ao carregar parada por id:', err)
+      setErrorMessage('Não foi possível carregar os dados. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -508,10 +509,23 @@ export const ProgramacaoParadaPage: React.FC = () => {
       )}
 
       {errorMessage && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs font-medium text-rose-800 space-y-1 shadow-xs">
-          <div className="flex items-center gap-2 font-bold text-rose-900">
-            <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>Erro na Operação</span>
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs font-medium text-rose-800 space-y-2 shadow-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-rose-900">
+              <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>Erro na Operação</span>
+            </div>
+            {paradaIdFromUrl && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => carregarParadaPorId(paradaIdFromUrl)}
+                className="h-7 text-xs text-rose-800 border-rose-300 hover:bg-rose-100"
+              >
+                Tentar novamente
+              </Button>
+            )}
           </div>
           <p>{errorMessage}</p>
           <p className="text-[11px] text-rose-600 italic">

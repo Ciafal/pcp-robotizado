@@ -63,14 +63,18 @@ export const CentrosComParadaProgramadaSection: React.FC<
   // Modal de Comunicado
   const [modalComunicadoAberto, setModalComunicadoAberto] = useState<boolean>(false)
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   // Carregar paradas salvas das collections existentes
   const carregarCentros = async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const data = await programacaoParadaService.listarCentrosPorFiltro()
       setCentros(data)
-    } catch (e) {
+    } catch (e: any) {
       console.error('Erro ao listar centros de paradas:', e)
+      setLoadError('Não foi possível carregar os dados. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -515,10 +519,32 @@ export const CentrosComParadaProgramadaSection: React.FC<
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {centrosFiltrados.length === 0 ? (
+                {loadError ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={9}
+                      className="text-center py-8 text-xs text-rose-600 space-y-2"
+                    >
+                      <div className="flex items-center justify-center gap-1.5 font-semibold text-rose-700">
+                        <AlertCircle className="w-4 h-4 text-rose-600" />
+                        <span>{loadError}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={carregarCentros}
+                        className="h-7 text-xs text-slate-700 gap-1.5"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Tentar novamente
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ) : centrosFiltrados.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-xs text-slate-500">
-                      Nenhum centro com parada programada encontrado para os filtros selecionados.
+                      Nenhum registro encontrado para os filtros selecionados.
                     </TableCell>
                   </TableRow>
                 ) : (
