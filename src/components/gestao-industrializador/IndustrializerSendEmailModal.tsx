@@ -11,15 +11,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react'
-import {
-  Mail,
-  X,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  Loader2,
-  Plus,
-} from 'lucide-react'
+import { Mail, X, CheckCircle2, AlertCircle, Eye, Loader2, Plus } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -36,8 +28,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   fetchHubUsers,
   sendIndustrializerEmail,
-  HubRecipient,
-  IndustrializerScreenKey,
+  type HubRecipient,
+  type IndustrializerScreenKey,
 } from '@/services/gestao-industrializador-actions-service'
 import { pb } from '@/lib/pocketbase/client'
 
@@ -75,7 +67,11 @@ export const IndustrializerSendEmailModal: React.FC<IndustrializerSendEmailModal
   const [bodyText, setBodyText] = useState('')
   const [isPreview, setIsPreview] = useState(false)
   const [isSending, setIsSending] = useState(false)
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string; details?: string } | null>(null)
+  const [feedback, setFeedback] = useState<{
+    type: 'success' | 'error'
+    message: string
+    details?: string
+  } | null>(null)
 
   const originPath = `PCP Robotizado > Gestão Industrializador > ${screenName}`
   const nowFormatted = useMemo(() => {
@@ -93,7 +89,9 @@ export const IndustrializerSendEmailModal: React.FC<IndustrializerSendEmailModal
       fetchHubUsers().then((users) => {
         setHubUsers(users)
         if (toList.length === 0 && users.length > 0) {
-          const defaultUser = users.find((u) => u.email.includes('pcp') || u.email.includes('industrializador')) || users[0]
+          const defaultUser =
+            users.find((u) => u.email.includes('pcp') || u.email.includes('industrializador')) ||
+            users[0]
           if (defaultUser?.email) {
             setToList([defaultUser.email])
           }
@@ -107,20 +105,23 @@ export const IndustrializerSendEmailModal: React.FC<IndustrializerSendEmailModal
       setFeedback(null)
       setIsPreview(false)
 
-      const defaultSubject = initialSubject || `PCP | ${screenName} | Relatório Técnico (${nowFormatted})`
+      const defaultSubject =
+        initialSubject || `PCP | ${screenName} | Relatório Técnico (${nowFormatted})`
       setSubject(defaultSubject)
 
       if (initialBody) {
         setBodyText(initialBody)
       } else {
-        const filtersList = Object.entries(filters)
-          .filter(([_, v]) => v !== undefined && v !== null && v !== '' && v !== 'todos')
-          .map(([k, v]) => `  • ${k}: ${v}`)
-          .join('\n') || '  • Visão geral (sem filtros restritivos)'
+        const filtersList =
+          Object.entries(filters)
+            .filter(([_, v]) => v !== undefined && v !== null && v !== '' && v !== 'todos')
+            .map(([k, v]) => `  • ${k}: ${v}`)
+            .join('\n') || '  • Visão geral (sem filtros restritivos)'
 
-        const metricsList = Object.entries(metrics)
-          .map(([k, v]) => `  • ${k}: ${typeof v === 'number' ? v.toLocaleString('pt-BR') : v}`)
-          .join('\n') || `  • Registros analisados: ${records.length}`
+        const metricsList =
+          Object.entries(metrics)
+            .map(([k, v]) => `  • ${k}: ${typeof v === 'number' ? v.toLocaleString('pt-BR') : v}`)
+            .join('\n') || `  • Registros analisados: ${records.length}`
 
         const currentUserName = pb.authStore.record?.name || 'Responsável PCP'
         const urlRef = `${window.location.origin}${window.location.pathname}`
@@ -158,7 +159,16 @@ export const IndustrializerSendEmailModal: React.FC<IndustrializerSendEmailModal
         setBodyText(defaultContent)
       }
     }
-  }, [isOpen, initialSubject, initialBody, screenName, nowFormatted, filters, metrics, records.length])
+  }, [
+    isOpen,
+    initialSubject,
+    initialBody,
+    screenName,
+    nowFormatted,
+    filters,
+    metrics,
+    records.length,
+  ])
 
   const handleAddEmail = (email: string, target: 'to' | 'cc') => {
     const cleaned = email.trim()
@@ -231,7 +241,8 @@ export const IndustrializerSendEmailModal: React.FC<IndustrializerSendEmailModal
     } else {
       setFeedback({
         type: 'error',
-        message: response.message || 'Falha ao processar o envio de e-mail. Os dados foram preservados.',
+        message:
+          response.message || 'Falha ao processar o envio de e-mail. Os dados foram preservados.',
       })
     }
   }
@@ -400,7 +411,10 @@ export const IndustrializerSendEmailModal: React.FC<IndustrializerSendEmailModal
 
           {/* Assunto */}
           <div className="space-y-1.5">
-            <Label htmlFor="email-subject" className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+            <Label
+              htmlFor="email-subject"
+              className="text-xs font-semibold uppercase tracking-wider text-slate-600"
+            >
               Assunto
             </Label>
             <Input
@@ -416,7 +430,10 @@ export const IndustrializerSendEmailModal: React.FC<IndustrializerSendEmailModal
           {/* Corpo do E-mail */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="email-body" className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+              <Label
+                htmlFor="email-body"
+                className="text-xs font-semibold uppercase tracking-wider text-slate-600"
+              >
                 Corpo do E-mail
               </Label>
               <Button
@@ -450,7 +467,8 @@ export const IndustrializerSendEmailModal: React.FC<IndustrializerSendEmailModal
               />
             )}
             <p className="text-[11px] text-slate-500">
-              O e-mail será formatado com o template visual oficial CIAFAL e enviado via conector Resend.
+              O e-mail será formatado com o template visual oficial CIAFAL e enviado via conector
+              Resend.
             </p>
           </div>
         </div>

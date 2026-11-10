@@ -9,16 +9,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react'
-import {
-  Send,
-  X,
-  Search,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  Loader2,
-  UserCheck,
-} from 'lucide-react'
+import { Send, X, Search, CheckCircle2, AlertCircle, Eye, Loader2, UserCheck } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -35,8 +26,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   fetchHubUsers,
   sendIndustrializerHub,
-  HubRecipient,
-  IndustrializerScreenKey,
+  type HubRecipient,
+  type IndustrializerScreenKey,
 } from '@/services/gestao-industrializador-actions-service'
 import { pb } from '@/lib/pocketbase/client'
 
@@ -73,7 +64,11 @@ export const IndustrializerSendHubModal: React.FC<IndustrializerSendHubModalProp
   const [isPreview, setIsPreview] = useState(false)
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
   const [isSending, setIsSending] = useState(false)
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string; details?: string } | null>(null)
+  const [feedback, setFeedback] = useState<{
+    type: 'success' | 'error'
+    message: string
+    details?: string
+  } | null>(null)
 
   const originPath = `PCP Robotizado > Gestão Industrializador > ${screenName}`
   const nowFormatted = useMemo(() => {
@@ -95,7 +90,9 @@ export const IndustrializerSendHubModal: React.FC<IndustrializerSendHubModalProp
           setHubUsers(users)
           if (selectedRecipients.length === 0 && users.length > 0) {
             // Seleciona por padrão o primeiro ou destinatário relevante
-            const defaultRecipient = users.find((u) => u.department === 'PCP' || u.department === 'Industrialização') || users[0]
+            const defaultRecipient =
+              users.find((u) => u.department === 'PCP' || u.department === 'Industrialização') ||
+              users[0]
             setSelectedRecipients([defaultRecipient])
           }
         })
@@ -109,20 +106,24 @@ export const IndustrializerSendHubModal: React.FC<IndustrializerSendHubModalProp
       setFeedback(null)
       setIsPreview(false)
 
-      const defaultSubject = initialSubject || `PCP | ${screenName} | Alerta Operacional Industrializador (${nowFormatted})`
+      const defaultSubject =
+        initialSubject ||
+        `PCP | ${screenName} | Alerta Operacional Industrializador (${nowFormatted})`
       setSubject(defaultSubject)
 
       if (initialMessage) {
         setMessage(initialMessage)
       } else {
-        const filtersList = Object.entries(filters)
-          .filter(([_, v]) => v !== undefined && v !== null && v !== '' && v !== 'todos')
-          .map(([k, v]) => `• ${k}: ${v}`)
-          .join('\n') || '• Nenhum filtro restritivo aplicado (visão geral)'
+        const filtersList =
+          Object.entries(filters)
+            .filter(([_, v]) => v !== undefined && v !== null && v !== '' && v !== 'todos')
+            .map(([k, v]) => `• ${k}: ${v}`)
+            .join('\n') || '• Nenhum filtro restritivo aplicado (visão geral)'
 
-        const metricsList = Object.entries(metrics)
-          .map(([k, v]) => `• ${k}: ${typeof v === 'number' ? v.toLocaleString('pt-BR') : v}`)
-          .join('\n') || `• Registros analisados: ${records.length}`
+        const metricsList =
+          Object.entries(metrics)
+            .map(([k, v]) => `• ${k}: ${typeof v === 'number' ? v.toLocaleString('pt-BR') : v}`)
+            .join('\n') || `• Registros analisados: ${records.length}`
 
         const currentUserName = pb.authStore.record?.name || 'Responsável PCP'
         const urlRef = `${window.location.origin}${window.location.pathname}`
@@ -151,7 +152,16 @@ export const IndustrializerSendHubModal: React.FC<IndustrializerSendHubModalProp
         setMessage(defaultBody)
       }
     }
-  }, [isOpen, initialSubject, initialMessage, screenName, nowFormatted, filters, metrics, records.length])
+  }, [
+    isOpen,
+    initialSubject,
+    initialMessage,
+    screenName,
+    nowFormatted,
+    filters,
+    metrics,
+    records.length,
+  ])
 
   // Filtro de usuários
   const filteredUsers = useMemo(() => {
@@ -284,7 +294,9 @@ export const IndustrializerSendHubModal: React.FC<IndustrializerSendHubModalProp
             </Label>
             <div className="flex flex-wrap gap-1.5 p-2 border border-slate-200 rounded-md min-h-[38px] bg-slate-50/50">
               {selectedRecipients.length === 0 ? (
-                <span className="text-xs text-slate-400 italic">Nenhum destinatário selecionado.</span>
+                <span className="text-xs text-slate-400 italic">
+                  Nenhum destinatário selecionado.
+                </span>
               ) : (
                 selectedRecipients.map((rec) => (
                   <Badge
@@ -346,11 +358,16 @@ export const IndustrializerSendHubModal: React.FC<IndustrializerSendHubModalProp
                           />
                           <div>
                             <span className="text-slate-800">{user.name}</span>
-                            <span className="text-slate-400 text-[11px] ml-1.5">({user.email})</span>
+                            <span className="text-slate-400 text-[11px] ml-1.5">
+                              ({user.email})
+                            </span>
                           </div>
                         </div>
                         {user.department && (
-                          <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-slate-500">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-1.5 text-slate-500"
+                          >
                             {user.department}
                           </Badge>
                         )}
@@ -364,7 +381,10 @@ export const IndustrializerSendHubModal: React.FC<IndustrializerSendHubModalProp
 
           {/* Assunto */}
           <div className="space-y-1.5">
-            <Label htmlFor="hub-subject" className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+            <Label
+              htmlFor="hub-subject"
+              className="text-xs font-semibold uppercase tracking-wider text-slate-600"
+            >
               Assunto
             </Label>
             <Input
@@ -380,7 +400,10 @@ export const IndustrializerSendHubModal: React.FC<IndustrializerSendHubModalProp
           {/* Alternância Visualizar / Editar */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="hub-message" className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+              <Label
+                htmlFor="hub-message"
+                className="text-xs font-semibold uppercase tracking-wider text-slate-600"
+              >
                 Conteúdo do Comunicado
               </Label>
               <Button
@@ -414,7 +437,8 @@ export const IndustrializerSendHubModal: React.FC<IndustrializerSendHubModalProp
               />
             )}
             <p className="text-[11px] text-slate-500">
-              O conteúdo foi pré-gerado com base nos dados reais e filtros aplicados nesta tela e pode ser editado livremente.
+              O conteúdo foi pré-gerado com base nos dados reais e filtros aplicados nesta tela e
+              pode ser editado livremente.
             </p>
           </div>
         </div>

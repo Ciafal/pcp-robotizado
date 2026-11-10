@@ -12,7 +12,7 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/send-hub', (e) => {
     const authRecord = e.auth
     const userRole = authRecord ? authRecord.getString('role') : ''
     const userEmail = authRecord ? authRecord.getString('email') : 'usuario@ciafal.com.br'
-    const userName = authRecord ? (authRecord.getString('name') || userEmail) : 'Usuário PCP'
+    const userName = authRecord ? authRecord.getString('name') || userEmail : 'Usuário PCP'
 
     const reqInfo = e.requestInfo()
     const body = (reqInfo && reqInfo.body) || {}
@@ -77,7 +77,9 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/send-hub', (e) => {
           linha: filtersSnapshot.line || filtersSnapshot.linha || '',
           mensagem: message,
           destinatarios_json: recipients,
-          destinatarios_texto: recipients.map((r) => (typeof r === 'string' ? r : r.email || r.name)).join(', '),
+          destinatarios_texto: recipients
+            .map((r) => (typeof r === 'string' ? r : r.email || r.name))
+            .join(', '),
           criado_por_nome: userName,
           criado_por_email: userEmail,
           data_envio: timestampStr,
@@ -147,7 +149,7 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/send-email', (e) => {
     const authRecord = e.auth
     const userRole = authRecord ? authRecord.getString('role') : ''
     const userEmail = authRecord ? authRecord.getString('email') : 'usuario@ciafal.com.br'
-    const userName = authRecord ? (authRecord.getString('name') || userEmail) : 'Usuário PCP'
+    const userName = authRecord ? authRecord.getString('name') || userEmail : 'Usuário PCP'
 
     const reqInfo = e.requestInfo()
     const body = (reqInfo && reqInfo.body) || {}
@@ -196,18 +198,24 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/send-email', (e) => {
     // Envio REAL via Resend Owner ($connectors.executeAsOwner)
     try {
       if (typeof $connectors !== 'undefined' && typeof $connectors.executeAsOwner === 'function') {
-        const payloadResend = {
-          from: 'PCP Robotizado CIAFAL <notificacoes@resend.dev>',
-          to: to,
+        const allTargets = to.concat(cc)
+        const emailsPayload = allTargets.map((recipient) => ({
+          from: 'PCP Robotizado <onboarding@resend.dev>',
+          to: [recipient],
           subject: subject,
           html: htmlContent,
+        }))
+
+        const res = $connectors.executeAsOwner('resend', 'RESEND_SEND_BATCH_EMAILS', {
+          emails: emailsPayload,
+        })
+        if (res && (res.successful || res.data)) {
+          resendUsed = true
+          sendResult = res.data || res
+          console.log('E-mail enviado com sucesso via Resend owner:', JSON.stringify(sendResult))
+        } else {
+          console.warn('Falha retornada pelo conector Resend:', res ? res.error : 'resposta vazia')
         }
-        if (cc.length > 0) {
-          payloadResend.cc = cc
-        }
-        sendResult = $connectors.executeAsOwner('resend', 'send_email', payloadResend)
-        resendUsed = true
-        console.log('E-mail enviado via Resend owner:', JSON.stringify(sendResult))
       } else {
         console.warn('$connectors.executeAsOwner não disponível neste ambiente')
       }
@@ -215,7 +223,8 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/send-email', (e) => {
       console.error('Falha ao enviar e-mail via Resend:', errResend)
       return e.json(502, {
         success: false,
-        message: 'Não foi possível concluir o envio de e-mail pelo serviço corporativo Resend. Verifique a conexão do conector.',
+        message:
+          'Não foi possível concluir o envio de e-mail pelo serviço corporativo Resend. Verifique a conexão do conector.',
         error: String(errResend),
       })
     }
@@ -309,7 +318,7 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/ai-analysis', (e) => {
     const authRecord = e.auth
     const userRole = authRecord ? authRecord.getString('role') : ''
     const userEmail = authRecord ? authRecord.getString('email') : 'usuario@ciafal.com.br'
-    const userName = authRecord ? (authRecord.getString('name') || userEmail) : 'Usuário PCP'
+    const userName = authRecord ? authRecord.getString('name') || userEmail : 'Usuário PCP'
 
     const reqInfo = e.requestInfo()
     const body = (reqInfo && reqInfo.body) || {}
@@ -369,11 +378,12 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/ai-analysis', (e) => {
     // Invocar o Agente Nativo ciafal-industrializer-agent se disponível
     try {
       if (typeof $ai !== 'undefined' && typeof $ai.agent === 'function') {
-        const agent = $ai.agent('ciafal-industrializer-agent')
-        const response = agent.run({
-          input: analysisPrompt,
+        const userId = (authRecord && authRecord.id) || 'usr_pcp_system'
+        const chatResult = $ai.agent('ciafal-industrializer-agent').chat({
+          user_id: userId,
+          message: analysisPrompt,
         })
-        aiResult = response
+        aiResult = chatResult && (chatResult.content || chatResult.text || chatResult)
       }
     } catch (agentErr) {
       console.warn('Falha na invocação do agente nativo ciafal-industrializer-agent:', agentErr)
@@ -382,7 +392,10 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/ai-analysis', (e) => {
     let parsedData = null
     if (aiResult) {
       try {
-        const text = typeof aiResult === 'string' ? aiResult : (aiResult.text || aiResult.output || JSON.stringify(aiResult))
+        const text =
+          typeof aiResult === 'string'
+            ? aiResult
+            : aiResult.text || aiResult.output || JSON.stringify(aiResult)
         const jsonMatch = text.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           parsedData = JSON.parse(jsonMatch[0])
@@ -393,17 +406,29 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/ai-analysis', (e) => {
     if (!parsedData) {
       // Deterministic fallback inline
       const recordsCount = records.length
-      const filterListStr = Object.entries(filters || {})
-        .filter(([_, v]) => v !== undefined && v !== null && v !== '' && v !== 'todos')
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(' | ') || 'Nenhum filtro restritivo aplicado (visão geral)'
+      const filterListStr =
+        Object.entries(filters || {})
+          .filter(([_, v]) => v !== undefined && v !== null && v !== '' && v !== 'todos')
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(' | ') || 'Nenhum filtro restritivo aplicado (visão geral)'
 
       if (screenKey === 'gestao_mp') {
         const criticalItems = records.filter(
-          (r) => (r.status || '').toLowerCase().includes('ruptura') || (r.status || '').toLowerCase().includes('crítico') || (r.dias_cobertura !== undefined && r.dias_cobertura <= 3),
+          (r) =>
+            (r.status || '').toLowerCase().includes('ruptura') ||
+            (r.status || '').toLowerCase().includes('crítico') ||
+            (r.dias_cobertura !== undefined && r.dias_cobertura <= 3),
         )
-        const transitItems = records.filter((r) => (r.status || '').toLowerCase().includes('trânsito') || (r.em_transito_tons && r.em_transito_tons > 0))
-        const cqItems = records.filter((r) => (r.status || '').toLowerCase().includes('cq') || (r.status || '').toLowerCase().includes('qualidade'))
+        const transitItems = records.filter(
+          (r) =>
+            (r.status || '').toLowerCase().includes('trânsito') ||
+            (r.em_transito_tons && r.em_transito_tons > 0),
+        )
+        const cqItems = records.filter(
+          (r) =>
+            (r.status || '').toLowerCase().includes('cq') ||
+            (r.status || '').toLowerCase().includes('qualidade'),
+        )
 
         const priorityMaterials = records.slice(0, 5).map((r, idx) => {
           const isCritical = idx === 0 || (r.status || '').toLowerCase().includes('ruptura')
@@ -411,8 +436,12 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/ai-analysis', (e) => {
             priority: isCritical ? 'Crítica' : idx === 1 ? 'Alta' : 'Média',
             material: r.material || r.codigo_material || r.descricao || `Material ${idx + 1}`,
             situation: r.status || (isCritical ? 'Risco iminente de ruptura' : 'Em acompanhamento'),
-            impact: isCritical ? 'Parada iminente do sequenciamento de laminação' : 'Ajuste de lote requerido',
-            suggested_action: isCritical ? 'Acionar logística expressa e antecipar descarga' : 'Monitorar liberação no CQ',
+            impact: isCritical
+              ? 'Parada iminente do sequenciamento de laminação'
+              : 'Ajuste de lote requerido',
+            suggested_action: isCritical
+              ? 'Acionar logística expressa e antecipar descarga'
+              : 'Monitorar liberação no CQ',
           }
         })
 
@@ -424,12 +453,13 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/ai-analysis', (e) => {
             `Lotes em Inspeção de Qualidade (CQ) representam ${cqItems.length} item(ns) aguardando laudo técnico.`,
             `Consumo previsto alinhado à programação semanal vigente sem desvios não reportados.`,
           ],
-          critical_alerts: criticalItems.length > 0
-            ? [
-                `Atenção imediata para ${criticalItems.length} material(is) com risco de ruptura na próxima janela operacional.`,
-                'Atraso na liberação de laudos de CQ pode bloquear enfornamento programado.',
-              ]
-            : ['Nenhum item com ruptura crítica detectado no conjunto de dados filtrado.'],
+          critical_alerts:
+            criticalItems.length > 0
+              ? [
+                  `Atenção imediata para ${criticalItems.length} material(is) com risco de ruptura na próxima janela operacional.`,
+                  'Atraso na liberação de laudos de CQ pode bloquear enfornamento programado.',
+                ]
+              : ['Nenhum item com ruptura crítica detectado no conjunto de dados filtrado.'],
           priority_materials: priorityMaterials,
           recommendations: [
             'Priorizar contato com transportadoras para agilizar descarga de materiais em trânsito.',
@@ -470,12 +500,15 @@ routerAdd('POST', '/backend/v1/pcp/industrializer/ai-analysis', (e) => {
         parsedData = {
           executive_summary: [
             `Sequenciamento analisado com ${recordsCount} ordem(ns) no período: ${filterListStr}.`,
-            recordsCount > 0 ? 'Aderência temporal e cumprimento de sequência sob monitoramento contínuo.' : 'Não há dados suficientes para avaliar este indicador.',
+            recordsCount > 0
+              ? 'Aderência temporal e cumprimento de sequência sob monitoramento contínuo.'
+              : 'Não há dados suficientes para avaliar este indicador.',
             'Desvios entre previsto e realizado concentrados em trocas de campanha e ajustes mecânicos.',
           ],
-          critical_alerts: recordsCount > 0
-            ? ['Desvios acumulados de tonelagem requerem compensação nos turnos subsequentes.']
-            : ['Não há dados suficientes para avaliar este indicador no recorte selecionado.'],
+          critical_alerts:
+            recordsCount > 0
+              ? ['Desvios acumulados de tonelagem requerem compensação nos turnos subsequentes.']
+              : ['Não há dados suficientes para avaliar este indicador no recorte selecionado.'],
           priority_materials: records.slice(0, 3).map((r, idx) => ({
             priority: 'Alta',
             material: r.material || r.ordem || `Sequência #${idx + 1}`,

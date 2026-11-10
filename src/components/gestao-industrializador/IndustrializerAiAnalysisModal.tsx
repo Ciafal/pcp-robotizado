@@ -37,8 +37,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
-  IndustrializerScreenKey,
-  IndustrializerAiResult,
+  type IndustrializerScreenKey,
+  type IndustrializerAiResult,
   generateIndustrializerAiAnalysis,
   formatAiForSharing,
 } from '@/services/gestao-industrializador-actions-service'
@@ -129,10 +129,20 @@ export const IndustrializerAiAnalysisModal: React.FC<IndustrializerAiAnalysisMod
 
   const getStatusBadge = (status: string) => {
     const s = status.toLowerCase()
-    if (s.includes('crítico') || s.includes('critico') || s.includes('ruptura') || s.includes('atrasado')) {
+    if (
+      s.includes('crítico') ||
+      s.includes('critico') ||
+      s.includes('ruptura') ||
+      s.includes('atrasado')
+    ) {
       return <Badge className="bg-red-600 text-white font-semibold">{status}</Badge>
     }
-    if (s.includes('alerta') || s.includes('atenção') || s.includes('atencao') || s.includes('risco')) {
+    if (
+      s.includes('alerta') ||
+      s.includes('atenção') ||
+      s.includes('atencao') ||
+      s.includes('risco')
+    ) {
       return <Badge className="bg-amber-500 text-white font-semibold">{status}</Badge>
     }
     return <Badge className="bg-emerald-600 text-white font-semibold">{status}</Badge>
@@ -160,9 +170,7 @@ export const IndustrializerAiAnalysisModal: React.FC<IndustrializerAiAnalysisMod
             </div>
           </div>
           {analysis?.status_geral && (
-            <div className="mr-8">
-              {getStatusBadge(analysis.status_geral)}
-            </div>
+            <div className="mr-8">{getStatusBadge(analysis.status_geral)}</div>
           )}
         </DialogHeader>
 
@@ -182,16 +190,15 @@ export const IndustrializerAiAnalysisModal: React.FC<IndustrializerAiAnalysisMod
                   Analisando informações...
                 </h4>
                 <p className="text-xs text-slate-500 max-w-sm mt-1">
-                  Processando métricas filtradas, cruzando saldos, desvios operacionais e calculando prioridades do PCP.
+                  Processando métricas filtradas, cruzando saldos, desvios operacionais e calculando
+                  prioridades do PCP.
                 </p>
               </div>
             </div>
           ) : error ? (
             <Alert variant="destructive" className="border-red-300 bg-red-50 text-red-900">
               <AlertTriangle className="w-5 h-5 text-red-600" />
-              <AlertDescription className="text-sm font-medium">
-                {error}
-              </AlertDescription>
+              <AlertDescription className="text-sm font-medium">{error}</AlertDescription>
             </Alert>
           ) : analysis ? (
             <div className="space-y-5" data-testid="ia-content">
@@ -207,7 +214,10 @@ export const IndustrializerAiAnalysisModal: React.FC<IndustrializerAiAnalysisMod
                     Gerado em: {analysis.data_geracao || 'Hoje'}
                   </span>
                   {analysis.modelo && (
-                    <Badge variant="outline" className="text-[10px] text-slate-500 border-slate-300 py-0">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] text-slate-500 border-slate-300 py-0"
+                    >
                       {analysis.modelo}
                     </Badge>
                   )}
@@ -288,12 +298,8 @@ export const IndustrializerAiAnalysisModal: React.FC<IndustrializerAiAnalysisMod
                             <td className="py-2 px-3 font-semibold text-slate-800">
                               {item.material}
                             </td>
-                            <td className="py-2 px-3 text-slate-700">
-                              {item.situacao}
-                            </td>
-                            <td className="py-2 px-3 text-slate-600">
-                              {item.impacto}
-                            </td>
+                            <td className="py-2 px-3 text-slate-700">{item.situacao}</td>
+                            <td className="py-2 px-3 text-slate-600">{item.impacto}</td>
                             <td className="py-2 px-3 font-medium text-[#004C97]">
                               {item.acao_sugerida}
                             </td>
@@ -349,7 +355,8 @@ export const IndustrializerAiAnalysisModal: React.FC<IndustrializerAiAnalysisMod
         {/* Rodapé com Governança e Ações */}
         <DialogFooter className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <p className="text-[11px] text-slate-500 italic max-w-md text-left">
-            Análise gerada por IA para suporte à decisão. Os dados e recomendações devem ser validados pelo responsável antes da execução.
+            Análise gerada por IA para suporte à decisão. Os dados e recomendações devem ser
+            validados pelo responsável antes da execução.
           </p>
 
           <div className="flex items-center gap-2">

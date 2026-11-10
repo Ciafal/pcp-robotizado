@@ -12,12 +12,7 @@
 import React, { useState } from 'react'
 import { Send, Mail, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   IndustrializerScreenKey,
   IndustrializerAiResult,
@@ -97,7 +92,8 @@ export const IndustrializerActionBar: React.FC<IndustrializerActionBarProps> = (
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs max-w-xs">
-            Enviar as informações e indicadores filtrados desta tela diretamente para usuários do HUB Industrial CIAFAL.
+            Enviar as informações e indicadores filtrados desta tela diretamente para usuários do
+            HUB Industrial CIAFAL.
           </TooltipContent>
         </Tooltip>
 
@@ -144,7 +140,8 @@ export const IndustrializerActionBar: React.FC<IndustrializerActionBarProps> = (
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs max-w-xs">
-            Gerar análise executiva e técnica com IA sobre os {recordsCount} registro(s) e indicadores atualmente filtrados.
+            Gerar análise executiva e técnica com IA sobre os {recordsCount} registro(s) e
+            indicadores atualmente filtrados.
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
