@@ -768,80 +768,98 @@ export const RulesEnginePage: React.FC = () => {
       </div>
 
       {/* 4. ÁREA CENTRAL: ABAS DE CONSULTA READ-ONLY */}
-      <Card className="border-slate-200 shadow-xs bg-white">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="border-b border-slate-200 px-4 pt-3 bg-slate-50/70 rounded-t-xl overflow-x-auto">
-            <TabsList className="h-9 bg-slate-200/60 p-0.5 gap-1">
+      <Card className="border-slate-200 shadow-xs bg-white w-full max-w-full min-w-0 overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-full min-w-0">
+          <div className="border-b border-slate-200 bg-slate-50/70 rounded-t-xl w-full max-w-full min-w-0 overflow-x-auto scrollbar-thin pb-2 pt-3 px-3 sm:px-4 [scrollbar-gutter:stable]">
+            <TabsList className="inline-flex h-11 w-max min-w-full items-center justify-start bg-slate-200/70 p-1 gap-1 rounded-lg border border-slate-300/60 shadow-xs">
               <TabsTrigger
                 value="setup-acerto"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
+                className="h-9 shrink-0 text-xs px-3 py-1.5 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5 rounded-md transition-colors"
               >
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3.5 h-3.5 shrink-0" />
                 <span>1. Setup & Acerto</span>
-                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 h-4 border-slate-300 bg-slate-50/80 font-mono"
+                >
                   {filteredSetups.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
                 value="paradas-programadas"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
+                className="h-9 shrink-0 text-xs px-3 py-1.5 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5 rounded-md transition-colors"
               >
-                <AlertTriangle className="w-3.5 h-3.5" />
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                 <span>2. Paradas Programadas</span>
-                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 h-4 border-slate-300 bg-slate-50/80 font-mono"
+                >
                   {filteredStops.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
                 value="resfriamento"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
+                className="h-9 shrink-0 text-xs px-3 py-1.5 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5 rounded-md transition-colors"
               >
-                <ThermometerSnowflake className="w-3.5 h-3.5" />
+                <ThermometerSnowflake className="w-3.5 h-3.5 shrink-0" />
                 <span>3. Tempo de Resfriamento</span>
-                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 h-4 border-slate-300 bg-slate-50/80 font-mono"
+                >
                   {filteredCoolings.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
                 value="sequenciamento"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
+                className="h-9 shrink-0 text-xs px-3 py-1.5 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5 rounded-md transition-colors"
               >
-                <Sliders className="w-3.5 h-3.5" />
+                <Sliders className="w-3.5 h-3.5 shrink-0" />
                 <span>4. Regras de Sequenciamento</span>
-                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 h-4 border-slate-300 bg-slate-50/80 font-mono"
+                >
                   {filteredSequencings.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
                 value="regras-industriais-master"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
+                className="h-9 shrink-0 text-xs px-3 py-1.5 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5 rounded-md transition-colors"
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
                 <span>5. Parâmetros Mestres CP-SAT</span>
               </TabsTrigger>
 
               <TabsTrigger
                 value="revisoes-pendentes"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
+                className="h-9 shrink-0 text-xs px-3 py-1.5 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5 rounded-md transition-colors"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                 <span>6. Histórico de Revisões</span>
-                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 h-4 border-slate-300 bg-slate-50/80 font-mono"
+                >
                   {filteredPendings.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
                 value="historico-alteracoes"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
+                className="h-9 shrink-0 text-xs px-3 py-1.5 whitespace-nowrap data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5 rounded-md transition-colors"
               >
-                <History className="w-3.5 h-3.5" />
+                <History className="w-3.5 h-3.5 shrink-0" />
                 <span>7. Trilha de Auditoria</span>
-                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 h-4 border-slate-300 bg-slate-50/80 font-mono"
+                >
                   {filteredAudits.length}
                 </Badge>
               </TabsTrigger>
@@ -1141,8 +1159,14 @@ export const RulesEnginePage: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Tabela Oficial de Resfriamento & Cura Metalúrgica (Fonte: Ficha Mestra)
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <span>Tabela Oficial de Resfriamento & Cura Metalúrgica</span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-semibold text-[#004C97] bg-blue-50 border-blue-200"
+                  >
+                    Fonte: Ficha Mestra
+                  </Badge>
                 </h3>
                 <p className="text-xs text-slate-500">
                   Origem: <strong>Centros e Ficha Mestra (Tabelas Oficiais)</strong> &bull;
@@ -1158,23 +1182,23 @@ export const RulesEnginePage: React.FC = () => {
                     'resfriamento',
                   )
                 }
-                className="h-7 text-xs border-cyan-200 text-cyan-800 hover:bg-cyan-50 gap-1 font-semibold"
+                className="h-7 text-xs border-blue-200 text-[#004C97] hover:bg-blue-50 gap-1 font-semibold"
               >
                 <ExternalLink className="w-3 h-3" />
                 <span>Abrir na Ficha Mestra (Resfriamento)</span>
               </Button>
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+            <div className="w-full max-w-full min-w-0 overflow-x-auto border border-slate-200 rounded-lg scrollbar-thin">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
                     <th className="p-2.5">Origem do Dado</th>
                     <th className="p-2.5">Centro</th>
                     <th className="p-2.5">Origem &rarr; Destino</th>
                     <th className="p-2.5">Família / Material</th>
                     <th className="p-2.5">Bitola / Seção</th>
-                    <th className="p-2.5 text-right text-cyan-900 bg-cyan-50/50">Tempo Mínimo</th>
+                    <th className="p-2.5 text-right text-[#004C97] bg-blue-50/40">Tempo Mínimo</th>
                     <th className="p-2.5">Unidade</th>
                     <th className="p-2.5 text-center">Status</th>
                     <th className="p-2.5">Período de Vigência</th>
@@ -1183,65 +1207,76 @@ export const RulesEnginePage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
-                  {filteredCoolings.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
-                    >
-                      <td className="p-2.5">
-                        <Badge
-                          variant="outline"
-                          className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-mono"
-                        >
-                          Centros e Ficha Mestra
-                        </Badge>
-                      </td>
-                      <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
-                      <td className="p-2.5">
-                        <strong className="text-slate-800">{row.origin_line_code}</strong> &rarr;{' '}
-                        <strong className="text-[#004C97]">{row.dest_line_code}</strong>
-                      </td>
-                      <td className="p-2.5">
-                        <span className="font-semibold text-slate-800">{row.family_code}</span>
-                        {row.material_code && (
-                          <span className="text-slate-400 font-mono text-[10px] ml-1">
-                            ({row.material_code})
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-2.5 font-mono text-slate-700">{row.gauge_dimension}</td>
-                      <td className="p-2.5 text-right font-mono font-bold text-cyan-800 bg-cyan-50/30">
-                        {row.cooling_time_hours}
-                      </td>
-                      <td className="p-2.5 text-slate-500 font-mono">{row.unit || 'h'}</td>
-                      <td className="p-2.5 text-center">
-                        <Badge
-                          className={`text-[10px] ${
-                            row.status === 'ATIVO'
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                              : 'bg-slate-100 text-slate-700 border-slate-300'
-                          }`}
-                        >
-                          {row.status}
-                        </Badge>
-                      </td>
-                      <td className="p-2.5 text-slate-500 text-[11px] font-mono">
-                        {row.valid_from} &rarr; {row.valid_until}
-                      </td>
-                      <td className="p-2.5 text-slate-700">{row.responsible_name}</td>
-                      <td className="p-2.5 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleOpenMasterSheet(row.dest_line_code, 'resfriamento')}
-                          className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-100 gap-1 font-semibold"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          <span>Abrir na Ficha Mestra</span>
-                        </Button>
+                  {filteredCoolings.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="p-6 text-center text-slate-500 text-xs">
+                        Nenhum registro de tempo de resfriamento encontrado para os filtros
+                        selecionados.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredCoolings.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
+                      >
+                        <td className="p-2.5">
+                          <Badge
+                            variant="outline"
+                            className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-mono"
+                          >
+                            Centros e Ficha Mestra
+                          </Badge>
+                        </td>
+                        <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
+                        <td className="p-2.5">
+                          <strong className="text-slate-800">{row.origin_line_code}</strong> &rarr;{' '}
+                          <strong className="text-[#004C97]">{row.dest_line_code}</strong>
+                        </td>
+                        <td className="p-2.5">
+                          <span className="font-semibold text-slate-800">{row.family_code}</span>
+                          {row.material_code && (
+                            <span className="text-slate-400 font-mono text-[10px] ml-1">
+                              ({row.material_code})
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2.5 font-mono text-slate-700">{row.gauge_dimension}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-[#004C97] bg-blue-50/30">
+                          {row.cooling_time_hours}
+                        </td>
+                        <td className="p-2.5 text-slate-500 font-mono">{row.unit || 'h'}</td>
+                        <td className="p-2.5 text-center">
+                          <Badge
+                            className={`text-[10px] ${
+                              row.status === 'ATIVO'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : 'bg-slate-100 text-slate-700 border-slate-300'
+                            }`}
+                          >
+                            {row.status}
+                          </Badge>
+                        </td>
+                        <td className="p-2.5 text-slate-500 text-[11px] font-mono">
+                          {row.valid_from} &rarr; {row.valid_until}
+                        </td>
+                        <td className="p-2.5 text-slate-700">{row.responsible_name}</td>
+                        <td className="p-2.5 text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              handleOpenMasterSheet(row.dest_line_code, 'resfriamento')
+                            }
+                            className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-100 gap-1 font-semibold"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Abrir na Ficha Mestra</span>
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
