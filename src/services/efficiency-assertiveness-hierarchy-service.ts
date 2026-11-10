@@ -173,8 +173,8 @@ export async function fetchCarteiraLookup(filters: UnifiedEfficiencyFilters): Pr
 
     for (const p of pedidos) {
       const mat = (p.codigo_material || '').trim()
-      const ov = (p.ordem_venda || '').trim()
-      const itemOv = (p.item_ordem_venda || '').trim()
+      const ov = (p.pedido_sap || (p as any).ordem_venda || '').trim()
+      const itemOv = (p.item_sap || (p as any).item_ordem_venda || '').trim()
       const ovKey = ov ? (itemOv ? `${ov}-${itemOv}` : ov) : ''
       const tons = typeof p.saldo_aberto_t === 'number' ? p.saldo_aberto_t : null
 

@@ -40,7 +40,7 @@ import { formatTonsPtBr, formatPercentPtBr } from '@/lib/number-format'
 import {
   EfficiencyUnifiedFilterBar,
   type UnifiedEfficiencyFilters,
-  type UnifiedEfficiencyFilterOptions,
+  type EfficiencyFilterOptions,
 } from '@/components/control-tower/efficiency/EfficiencyUnifiedFilterBar'
 import {
   loadOperationalCentersSummary,
@@ -132,43 +132,31 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
   }
 
   // Opções para a barra unificada de filtros
-  const filterOptions: UnifiedEfficiencyFilterOptions = useMemo(
+  const filterOptions: EfficiencyFilterOptions = useMemo(
     () => ({
       companies: [
         { code: 'ALL', name: 'Todas as Empresas' },
         { code: 'CIAFAL', name: 'CIAFAL Siderurgia' },
       ],
       plants: [
-        { code: 'ALL', name: 'Todas as Plantas' },
-        { code: 'P01', name: 'Planta Principal' },
+        { code: 'ALL', name: 'Todas as Plantas', companyCode: 'CIAFAL' },
+        { code: 'P01', name: 'Planta Principal', companyCode: 'CIAFAL' },
       ],
       lines: [
-        { code: 'ALL', name: 'Todas as Linhas' },
-        { code: 'L1', name: 'Linha 1 — Laminação Fina' },
-        { code: 'L2', name: 'Linha 2 — Laminação Pesada' },
-        { code: 'L3', name: 'Linha 3 — Tratamento Térmico' },
-        { code: 'SDC', name: 'Sidercentro — Corte e Dobra' },
+        { code: 'ALL', name: 'Todas as Linhas', plantCode: 'P01' },
+        { code: 'L1', name: 'Linha 1 — Laminação Fina', plantCode: 'P01' },
+        { code: 'L2', name: 'Linha 2 — Laminação Pesada', plantCode: 'P01' },
+        { code: 'L3', name: 'Linha 3 — Tratamento Térmico', plantCode: 'P01' },
+        { code: 'SDC', name: 'Sidercentro — Corte e Dobra', plantCode: 'P01' },
       ],
-      workCenters: [
-        { code: 'ALL', name: 'Todos os Centros de Trabalho' },
+      centers: [
+        { code: 'ALL', name: 'Todos os Centros de Trabalho', lineCode: 'ALL' },
         { code: 'FORNO-01', name: 'Forno de Reaquecimento 01', lineCode: 'L1' },
         { code: 'TREM-01', name: 'Trem de Laminação 01', lineCode: 'L1' },
         { code: 'TESOURA-01', name: 'Tesoura Voadora 01', lineCode: 'L1' },
         { code: 'FORNO-02', name: 'Forno de Reaquecimento 02', lineCode: 'L2' },
         { code: 'TREM-02', name: 'Trem de Laminação 02', lineCode: 'L2' },
         { code: 'RESFRIAMENTO-02', name: 'Leito de Resfriamento 02', lineCode: 'L2' },
-      ],
-      shifts: [
-        { code: 'ALL', name: 'Todos os Turnos' },
-        { code: 'TURNO_A', name: 'Turno A (Manhã)' },
-        { code: 'TURNO_B', name: 'Turno B (Tarde)' },
-        { code: 'TURNO_C', name: 'Turno C (Noite)' },
-      ],
-      statuses: [
-        { code: 'ALL', name: 'Todos os Status' },
-        { code: 'DENTRO_ESPERADO', name: 'Dentro do Esperado' },
-        { code: 'ATRASADO', name: 'Atrasado' },
-        { code: 'ATRASO_CRITICO', name: 'Atraso Crítico' },
       ],
     }),
     [],

@@ -4,4 +4,5 @@ const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL)
 pb.autoCancellation(false)
 
 export { pb }
+// Export default blindado canônico
 export default pb
