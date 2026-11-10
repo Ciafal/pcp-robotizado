@@ -264,7 +264,7 @@ export const GestaoIndustrializadorCarteiraPage: React.FC = () => {
               volume_mp_indisponivel_tons: summary.missingMPTons,
               volume_previsto_mes_tons: monthlySummary?.programmedVolumeTons || 0,
               volume_realizado_mes_tons: monthlySummary?.realizedVolumeTons || 0,
-              aderencia_mes_pct: monthlySummary?.adherence || 0,
+              aderencia_mes_pct: monthlySummary?.achievementPct ?? 0,
             }}
             records={items}
           />

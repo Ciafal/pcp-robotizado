@@ -90,18 +90,15 @@ describe('IndustrializerActionBar e Modais - Gestão Industrializador', () => {
       <IndustrializerActionBar
         screenKey="gestao_mp"
         screenName="Gestão de MP"
-        filteredCount={42}
-        totalCount={150}
-        filteredData={[{ id: 'item-1', material: 'TARUGO 130', status: 'Ruptura' }]}
-        currentFilters={{ linha: 'L1', centro: '1100' }}
-        metricsSnapshot={{ totalTons: 1200 }}
+        filters={{ linha: 'L1', centro: '1100' }}
+        metrics={{ totalTons: 1200 }}
+        records={[{ id: 'item-1', material: 'TARUGO 130', status: 'Ruptura' }]}
       />,
     )
 
     expect(screen.getByRole('button', { name: /Enviar Hub/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Enviar e-mail/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Análise IA/i })).toBeInTheDocument()
-    expect(screen.getByText(/42 de 150/i)).toBeInTheDocument()
   })
 
   it('deve abrir o modal Enviar Hub e permitir disparar o envio', async () => {
@@ -109,9 +106,8 @@ describe('IndustrializerActionBar e Modais - Gestão Industrializador', () => {
       <IndustrializerActionBar
         screenKey="gestao_mp"
         screenName="Gestão de MP"
-        filteredCount={10}
-        totalCount={20}
-        filteredData={[{ id: 'item-1', material: 'TARUGO 130' }]}
+        filters={{ linha: 'L1' }}
+        records={[{ id: 'item-1', material: 'TARUGO 130' }]}
       />,
     )
 
@@ -136,9 +132,8 @@ describe('IndustrializerActionBar e Modais - Gestão Industrializador', () => {
       <IndustrializerActionBar
         screenKey="analise_carteira"
         screenName="Análise de Carteira"
-        filteredCount={15}
-        totalCount={30}
-        filteredData={[{ id: 'c-1', cliente: 'Cliente A', material: 'PERFIL 2' }]}
+        filters={{ cliente: 'Cliente A' }}
+        records={[{ id: 'c-1', cliente: 'Cliente A', material: 'PERFIL 2' }]}
       />,
     )
 
@@ -165,9 +160,8 @@ describe('IndustrializerActionBar e Modais - Gestão Industrializador', () => {
       <IndustrializerActionBar
         screenKey="sequenciamento_pxr"
         screenName="Sequenciamento P x R"
-        filteredCount={8}
-        totalCount={12}
-        filteredData={[{ id: 'seq-1', ordem: 'OP-1001', desvio: 5 }]}
+        filters={{ agrupamento: 'todos' }}
+        records={[{ id: 'seq-1', ordem: 'OP-1001', desvio: 5 }]}
       />,
     )
 

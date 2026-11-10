@@ -313,20 +313,20 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
             </div>
 
             <IndustrializerActionBar
-              screenKey="sequenciamento"
+              screenKey="sequenciamento_pxr"
               screenName="Sequenciamento P x R"
               filters={{ ...filters, viewGrouping }}
               metrics={{
                 volume_programado_tons: summary.volProgrammed,
-                volume_produzido_tons: summary.volProduced,
+                volume_realizado_tons: summary.volRealized,
+                saldo_realizar_tons: summary.saldoRealizar,
                 aderencia_geral_pct: summary.adherence,
-                itens_em_atraso: summary.delayed,
-                itens_em_dia: summary.onTime,
-                itens_adiantados: summary.early,
-                total_itens: summary.total,
-                gargalos_criticos: summary.bottlenecks,
+                itens_em_atraso: summary.delayedMaterials,
+                itens_concluidos: summary.completedMaterials,
+                total_materiais: summary.totalMaterials,
+                desvio_medio_dias: summary.avgDaysDeviation,
               }}
-              records={filteredItems}
+              records={items}
             />
           </div>
         }
