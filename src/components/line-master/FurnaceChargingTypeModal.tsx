@@ -272,6 +272,42 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
     return isNaN(num) ? null : num
   }
 
+  // Formata valor numérico opcional para pt-BR (vazio quando null/undefined)
+  const fmt = (val: number | null | undefined, decimals: number) =>
+    val === null || val === undefined || isNaN(Number(val))
+      ? ''
+      : formatNumberPtBr(Number(val), {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        })
+
+  // Snapshot do estado inicial para detectar alterações não salvas
+  const snapshot = (data: LineFurnaceChargingType | null) =>
+    JSON.stringify({
+      chargingType: data?.charging_type || '',
+      rawMaterialCode: data?.raw_material_code || '',
+      mpPrincipalCode: data?.mp_principal_code || '',
+      mpSecundariaCode: data?.mp_secundaria_code || '',
+      active: data ? data.active !== false : true,
+      minWeight: data ? fmt(data.min_weight_t, 3).trim() : '',
+      maxWeight: data ? fmt(data.max_weight_t, 3).trim() : '',
+      minThickness: data ? fmt(data.min_thickness_mm, 2).trim() : '',
+      maxThickness: data ? fmt(data.max_thickness_mm, 2).trim() : '',
+      minLength: data ? fmt(data.min_length_mm, 2).trim() : '',
+      maxLength: data ? fmt(data.max_length_mm, 2).trim() : '',
+      minWidth: data ? fmt(data.min_width_mm, 2).trim() : '',
+      maxWidth: data ? fmt(data.max_width_mm, 2).trim() : '',
+    })
+
+  // Troca apenas a proporção (mantém tipo base), reagrupando o rótulo completo
+  const handleProporcaoChange = (novoRotulo: string) => {
+    if (!novoRotulo) return
+    setChargingType(`${tipoBaseSelecionado} (${novoRotulo})`)
+    setMpPrincipalCode('')
+    setMpSecundariaCode('')
+    clearFieldErrors('duplicate', 'mp_principal_code', 'mp_secundaria_code')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return // bloqueio de duplo clique

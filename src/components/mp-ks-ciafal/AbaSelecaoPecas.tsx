@@ -16,7 +16,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  pb,
   depositoOrigem,
   executarTransferencia311,
   formatterKg,

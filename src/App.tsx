@@ -618,7 +618,7 @@ const MPAproveitamentoForaPadraoPage = lazyWithRetry(
 )
 const EnvioMpKsCiafalPage = lazyWithRetry(
   () =>
-    import('@/pages/pcp/EnvioMpKsCiafalPage').then((m) => ({
+    import('@/pages/pcp/EnvioMpKsCiafalPage').then((m: any) => ({
       default: m.default ?? m.EnvioMpKsCiafalPage,
     })),
   'EnvioMpKsCiafalPage',
