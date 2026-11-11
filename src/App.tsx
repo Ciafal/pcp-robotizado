@@ -616,6 +616,13 @@ const MPAproveitamentoForaPadraoPage = lazyWithRetry(
     })),
   'MPAproveitamentoForaPadraoPage',
 )
+const EnvioMpKsCiafalPage = lazyWithRetry(
+  () =>
+    import('@/pages/pcp/EnvioMpKsCiafalPage').then((m) => ({
+      default: m.default ?? m.EnvioMpKsCiafalPage,
+    })),
+  'EnvioMpKsCiafalPage',
+)
 
 // NOVO MÓDULO: GESTÃO INDUSTRIALIZADOR (Visão Consolidada + 4 Subtópicos)
 const GestaoIndustrializadorConsolidadaPage = lazyWithRetry(
@@ -1749,6 +1756,17 @@ export const App: React.FC = () => {
                         <PermissionGuard permission="pcp.mp_out_of_standard.view">
                           <ErrorBoundary moduleName="Aproveitamento MP Fora do Padrão">
                             <MPAproveitamentoForaPadraoPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    {/* 12. Envio de MP KS → Ciafal (Seleção + Formação de carga/Romaneio) */}
+                    <Route
+                      path="/pcp/gestao-materia-prima/envio-mp-ks-ciafal"
+                      element={
+                        <PermissionGuard permission="pcp.mp_opt.view">
+                          <ErrorBoundary moduleName="Envio de MP KS → Ciafal">
+                            <EnvioMpKsCiafalPage />
                           </ErrorBoundary>
                         </PermissionGuard>
                       }

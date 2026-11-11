@@ -65,6 +65,7 @@ import {
   Scale,
   ListChecks,
   Radio,
+  Truck,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -642,6 +643,14 @@ const navSections: NavSectionItem[] = [
         icon: Sparkles,
         description:
           'Acompanhamento Operacional, DP07/18/20, Trânsito, TB-002, Rupturas e Comunicados',
+      },
+      {
+        title: 'Envio de MP KS → Ciafal',
+        href: '/pcp/gestao-materia-prima/envio-mp-ks-ciafal',
+        icon: Truck,
+        description:
+          'Seleção de peças para envio, Transferência 311 → DP28 e Formação de carga/Romaneio',
+        badge: 'Novo',
       },
     ],
   },
