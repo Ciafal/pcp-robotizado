@@ -120,10 +120,11 @@ export const FurnaceChargingTypesSection: React.FC<FurnaceChargingTypesSectionPr
     }
   }
 
-  const handleModalSuccess = () => {
+  const handleModalSuccess = (savedChargingType?: string) => {
+    const tipoLabel = savedChargingType || editingItem?.charging_type || ''
     toast({
-      title: editingItem ? 'Regra atualizada com sucesso' : 'Regra cadastrada com sucesso',
-      description: `O tipo de enfornamento foi salvo para o centro ${centerCode}.`,
+      title: 'Regra cadastrada com sucesso',
+      description: `Tipo de enfornamento '${tipoLabel}' salvo com sucesso. Centro ${centerCode}.`,
     })
     loadData()
   }

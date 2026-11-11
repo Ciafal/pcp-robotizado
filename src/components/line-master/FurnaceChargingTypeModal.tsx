@@ -46,7 +46,7 @@ interface FurnaceChargingTypeModalProps {
   lineId?: string
   lineMasterId?: string
   initialData?: LineFurnaceChargingType | null
-  onSuccess: () => void
+  onSuccess: (savedChargingType?: string) => void
 }
 
 export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> = ({
@@ -322,7 +322,7 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
     setSubmitting(true)
     try {
       await furnaceChargingService.saveChargingType(formData)
-      onSuccess()
+      onSuccess(chargingType)
       onOpenChange(false)
     } catch (err: any) {
       const msg = err?.message || 'Falha ao salvar tipo de enfornamento.'

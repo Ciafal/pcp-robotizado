@@ -4,14 +4,21 @@
  */
 
 // Opções EXATAS de Tipo de Enfornamento exigidas pelo PCP:
+// Fonte ÚNICA das opções de Tipo de Enfornamento no PCP (Ficha Mestra Expandida).
+// Interface sempre em pt-BR com VÍRGULA decimal ("1,3:1" / "1,5:1"); o valor salvo
+// em banco é exatamente este rótulo (texto), garantindo round-trip de edição.
 export const TIPOS_ENFORNAMENTO_OPCOES = [
   'Frio',
   'Quente',
   'Tapete (1:1)',
+  'Tapete (1,3:1)',
+  'Tapete (1,5:1)',
   'Tapete (2:1)',
   'Tapete (1:2)',
   'Normal',
   'Intercalado (1:1)',
+  'Intercalado (1,3:1)',
+  'Intercalado (1,5:1)',
   'Intercalado (2:1)',
   'Intercalado (3:1)',
   'Frente forno',
