@@ -30,6 +30,110 @@ export const TIPOS_ENFORNAMENTO_OPCOES = [
 
 export type TipoEnfornamentoNome = (typeof TIPOS_ENFORNAMENTO_OPCOES)[number]
 
+/** Registro persistido de Tipo de Enfornamento (collection line_furnace_charging_types). */
+export interface LineFurnaceChargingType {
+  id: string
+  center_code: string
+  line_id?: string
+  line_master_id?: string
+  /** Rótulo completo exibido/banco, ex.: "Intercalado (2:1)". */
+  charging_type: string
+  raw_material_code: string
+  raw_material_description?: string
+  /** Rótulo pt-BR da proporção com vírgula, ex.: "1,3:1" (vazio quando o tipo não tem proporção). */
+  proporcao?: string
+  proporcao_primeiro_termo?: number | null
+  proporcao_segundo_termo?: number | null
+  mp_principal_code?: string
+  mp_principal_description?: string
+  mp_secundaria_code?: string
+  mp_secundaria_description?: string
+  min_weight_t?: number | null
+  max_weight_t?: number | null
+  min_thickness_mm?: number | null
+  max_thickness_mm?: number | null
+  min_length_mm?: number | null
+  max_length_mm?: number | null
+  min_width_mm?: number | null
+  max_width_mm?: number | null
+  active?: boolean
+  deleted?: boolean
+  created?: string
+  updated?: string
+  [key: string]: any
+}
+
+/** FormData do popup "Novo/Editar Tipo de Enfornamento". */
+export interface FurnaceChargingTypeFormData {
+  id?: string
+  center_code: string
+  line_id?: string
+  line_master_id?: string
+  charging_type: string
+  raw_material_code: string
+  raw_material_description?: string
+  mp_principal_code?: string
+  mp_principal_description?: string
+  mp_secundaria_code?: string
+  mp_secundaria_description?: string
+  min_weight_t?: number | null
+  max_weight_t?: number | null
+  min_thickness_mm?: number | null
+  max_thickness_mm?: number | null
+  min_length_mm?: number | null
+  max_length_mm?: number | null
+  min_width_mm?: number | null
+  max_width_mm?: number | null
+  active?: boolean
+}
+
+/** Registro persistido de Separação de Carga (collection line_charge_separations). */
+export interface LineChargeSeparation {
+  id: string
+  center_code: string
+  line_id?: string
+  line_master_id?: string
+  charging_load_type: string
+  charged_load_type: string
+  separator_blocks_qty: number
+  blocks_arrangement?: string
+  notes?: string
+  min_weight_t?: number | null
+  max_weight_t?: number | null
+  min_thickness_mm?: number | null
+  max_thickness_mm?: number | null
+  min_length_mm?: number | null
+  max_length_mm?: number | null
+  min_width_mm?: number | null
+  max_width_mm?: number | null
+  active?: boolean
+  deleted?: boolean
+  created?: string
+  updated?: string
+  [key: string]: any
+}
+
+/** FormData do popup "Novo/Editar Separação de Carga". */
+export interface ChargeSeparationFormData {
+  id?: string
+  center_code: string
+  line_id?: string
+  line_master_id?: string
+  charging_load_type: string
+  charged_load_type: string
+  separator_blocks_qty: number
+  blocks_arrangement?: string
+  notes?: string
+  min_weight_t?: number | null
+  max_weight_t?: number | null
+  min_thickness_mm?: number | null
+  max_thickness_mm?: number | null
+  min_length_mm?: number | null
+  max_length_mm?: number | null
+  min_width_mm?: number | null
+  max_width_mm?: number | null
+}
+
 export interface RawMaterialTypeOption {
   code: string
   description: string

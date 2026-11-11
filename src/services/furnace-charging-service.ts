@@ -10,6 +10,7 @@ import {
   extractTipoBase,
   extractProporcaoRotulo,
   parseProporcaoRotulo,
+  TIPOS_COM_DUAS_MPS,
 } from '@/types/furnace-charging'
 
 export const DUPLICATE_SEPARATION_MSG =
