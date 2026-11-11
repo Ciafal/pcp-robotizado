@@ -7,6 +7,9 @@ import {
   RawMaterialTypeOption,
   TIPOS_ENFORNAMENTO_OPCOES,
   RAW_MATERIAL_TYPE_CATALOG,
+  extractTipoBase,
+  extractProporcaoRotulo,
+  parseProporcaoRotulo,
 } from '@/types/furnace-charging'
 
 export const DUPLICATE_SEPARATION_MSG =
@@ -14,6 +17,12 @@ export const DUPLICATE_SEPARATION_MSG =
 
 export const DUPLICATE_CHARGING_TYPE_MSG =
   'Já existe uma regra de enfornamento cadastrada para este tipo de matéria-prima.'
+
+export const SAME_MP_ERROR_MSG =
+  'A MP Principal e a MP Secundária não podem ser a mesma matéria-prima para este tipo de enfornamento.'
+
+export const MP_SECUNDARIA_OBRIGATORIA_MSG =
+  'A MP Secundária é obrigatória para proporções com dois termos de matéria-prima.'
 
 class FurnaceChargingService {
   /**
@@ -98,6 +107,30 @@ class FurnaceChargingService {
       if (!validCatalog) {
         errors.raw_material_code =
           'Tipo de matéria-prima inválido. Selecione uma opção válida do catálogo (MPPA, MPPL, MPRE, MPBL, MPTA, MPLI).'
+      }
+    }
+
+    // --- MP Principal / MP Secundária vinculadas à proporção ---
+    const tipoBase = data.charging_type ? extractTipoBase(data.charging_type) : ''
+    const exigeDuasMps = TIPOS_COM_DUAS_MPS.includes(tipoBase as any)
+
+    if (exigeDuasMps) {
+      const temProporcao = Boolean(data.charging_type && extractProporcaoRotulo(data.charging_type))
+      if (temProporcao) {
+        if (!data.mp_principal_code || !data.mp_principal_code.trim()) {
+          errors.mp_principal_code = 'A MP Principal é obrigatória (1º termo da proporção).'
+        }
+        if (!data.mp_secundaria_code || !data.mp_secundaria_code.trim()) {
+          errors.mp_secundaria_code = 'A MP Secundária é obrigatória (2º termo da proporção).'
+        }
+        if (
+          data.mp_principal_code?.trim() &&
+          data.mp_secundaria_code?.trim() &&
+          data.mp_principal_code.trim().toUpperCase() ===
+            data.mp_secundaria_code.trim().toUpperCase()
+        ) {
+          errors.mp_secundaria_code = SAME_MP_ERROR_MSG
+        }
       }
     }
 
@@ -233,6 +266,9 @@ class FurnaceChargingService {
     const currentUser = pb.authStore.record
     const userEmail = (currentUser as any)?.email || (currentUser as any)?.name || 'PCP'
 
+    const proporcaoRotulo = extractProporcaoRotulo(data.charging_type || '')
+    const termos = proporcaoRotulo ? parseProporcaoRotulo(proporcaoRotulo) : null
+
     const payload: Record<string, any> = {
       center_code: data.center_code,
       line_id: data.line_id || '',
@@ -240,6 +276,13 @@ class FurnaceChargingService {
       charging_type: data.charging_type,
       raw_material_code: data.raw_material_code,
       raw_material_description: data.raw_material_description || '',
+      proporcao: proporcaoRotulo || '',
+      proporcao_primeiro_termo: termos?.primeira ?? null,
+      proporcao_segundo_termo: termos?.segunda ?? null,
+      mp_principal_code: (data.mp_principal_code || '').trim(),
+      mp_principal_description: (data.mp_principal_description || '').trim(),
+      mp_secundaria_code: (data.mp_secundaria_code || '').trim(),
+      mp_secundaria_description: (data.mp_secundaria_description || '').trim(),
       min_weight_t: data.min_weight_t ?? null,
       max_weight_t: data.max_weight_t ?? null,
       min_thickness_mm: data.min_thickness_mm ?? null,
@@ -248,7 +291,7 @@ class FurnaceChargingService {
       max_length_mm: data.max_length_mm ?? null,
       min_width_mm: data.min_width_mm ?? null,
       max_width_mm: data.max_width_mm ?? null,
-      active: true,
+      active: data.active !== false,
       deleted: false,
     }
 
@@ -278,6 +321,38 @@ class FurnaceChargingService {
     })
 
     return this.sanitizeChargingType(saved)
+  }
+
+  /**
+   * Ativa/Inativa um Tipo de Enfornamento (sem exclusão lógica), com auditoria
+   */
+  async setActiveChargingType(id: string, active: boolean, centerCode: string): Promise<boolean> {
+    try {
+      const prev = await pb
+        .collection('line_furnace_charging_types')
+        .getOne<LineFurnaceChargingType>(id)
+      const currentUser = pb.authStore.record
+      const userEmail = (currentUser as any)?.email || (currentUser as any)?.name || 'PCP'
+
+      const saved = await pb.collection('line_furnace_charging_types').update(id, {
+        active: !!active,
+        updated_by: userEmail,
+      })
+
+      await this.registrarAuditLog({
+        action: active ? 'ACTIVATE_FURNACE_CHARGING_TYPE' : 'INACTIVATE_FURNACE_CHARGING_TYPE',
+        recordId: id,
+        center: centerCode,
+        reason: `${active ? 'Ativação' : 'Inativação'} de Tipo de Enfornamento (${prev.charging_type} - ${prev.raw_material_code})`,
+        previousValues: prev,
+        newValues: { active: !!active },
+      })
+
+      return !!saved
+    } catch (err) {
+      console.warn('Erro ao alterar status do tipo de enfornamento:', err)
+      return false
+    }
   }
 
   /**
@@ -625,6 +700,19 @@ class FurnaceChargingService {
   private sanitizeChargingType(record: any): LineFurnaceChargingType {
     return {
       ...record,
+      proporcao: record.proporcao || '',
+      proporcao_primeiro_termo:
+        record.proporcao_primeiro_termo !== null && record.proporcao_primeiro_termo !== undefined
+          ? Number(record.proporcao_primeiro_termo)
+          : null,
+      proporcao_segundo_termo:
+        record.proporcao_segundo_termo !== null && record.proporcao_segundo_termo !== undefined
+          ? Number(record.proporcao_segundo_termo)
+          : null,
+      mp_principal_code: record.mp_principal_code || '',
+      mp_principal_description: record.mp_principal_description || '',
+      mp_secundaria_code: record.mp_secundaria_code || '',
+      mp_secundaria_description: record.mp_secundaria_description || '',
       min_weight_t:
         record.min_weight_t !== null && record.min_weight_t !== undefined
           ? Number(record.min_weight_t)
