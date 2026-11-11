@@ -20,10 +20,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { AlertCircle, Edit, Flame, Loader2, Plus, Trash2 } from 'lucide-react'
-import { LineFurnaceChargingType } from '@/types/furnace-charging'
+import { LineFurnaceChargingType, normalizeStatusEnfornamento } from '@/types/furnace-charging'
 import { furnaceChargingService } from '@/services/furnace-charging-service'
-import { FurnaceChargingTypeModal } from './FurnaceChargingTypeModal'
-import { formatNumberPtBr } from '@/lib/number-format'
+import { FurnaceChargingTypeModal, formatProporcaoDisplay } from './FurnaceChargingTypeModal'
 import { useToast } from '@/hooks/use-toast'
 
 interface FurnaceChargingTypesSectionProps {
@@ -129,11 +128,6 @@ export const FurnaceChargingTypesSection: React.FC<FurnaceChargingTypesSectionPr
     loadData()
   }
 
-  const formatNumberOrHyphen = (val: number | null | undefined, minDec: number, maxDec: number) => {
-    if (val === null || val === undefined || isNaN(val)) return '—'
-    return formatNumberPtBr(val, { minimumFractionDigits: minDec, maximumFractionDigits: maxDec })
-  }
-
   return (
     <div className="space-y-4">
       {/* Cabeçalho da Seção */}
@@ -156,8 +150,7 @@ export const FurnaceChargingTypesSection: React.FC<FurnaceChargingTypesSectionPr
               </Badge>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Parâmetros físicos e dimensionais de enfornamento por matéria-prima vinculados ao
-              centro
+              Matérias-primas, proporções e status do enfornamento vinculados ao centro
             </p>
           </div>
         </div>
@@ -202,8 +195,8 @@ export const FurnaceChargingTypesSection: React.FC<FurnaceChargingTypesSectionPr
                 Nenhuma regra de tipo de enfornamento cadastrada para este centro.
               </p>
               <p className="text-xs text-slate-500 mt-1">
-                Clique no botão "+ Adicionar tipo de enfornamento" acima para definir os limites de
-                peso e dimensões da matéria-prima.
+                Clique no botão "+ Adicionar tipo de enfornamento" acima para definir as
+                matérias-primas, a proporção e o status do enfornamento.
               </p>
             </div>
             <Button
@@ -231,29 +224,17 @@ export const FurnaceChargingTypesSection: React.FC<FurnaceChargingTypesSectionPr
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-700">
                     Descrição MP
                   </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-right text-slate-700">
-                    Peso mín. (t)
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Matéria-prima principal
                   </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-right text-slate-700">
-                    Peso máx. (t)
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Matéria-prima secundária
                   </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-right text-slate-700">
-                    Espessura mín. (mm)
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Proporção
                   </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-right text-slate-700">
-                    Espessura máx. (mm)
-                  </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-right text-slate-700">
-                    Comprimento mín. (mm)
-                  </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-right text-slate-700">
-                    Comprimento máx. (mm)
-                  </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-right text-slate-700">
-                    Largura mín. (mm)
-                  </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-right text-slate-700">
-                    Largura máx. (mm)
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center text-slate-700">
+                    Status
                   </TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-center text-slate-700 w-[120px]">
                     Ações
@@ -274,29 +255,29 @@ export const FurnaceChargingTypesSection: React.FC<FurnaceChargingTypesSectionPr
                     <TableCell className="text-slate-600 font-medium">
                       {row.raw_material_description || '—'}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-slate-700">
-                      {formatNumberOrHyphen(row.min_weight_t, 0, 3)}
+                    <TableCell className="text-slate-700 font-medium">
+                      {row.mp_principal_code
+                        ? `${row.mp_principal_code}${row.mp_principal_description ? ` — ${row.mp_principal_description}` : ''}`
+                        : '—'}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-slate-700">
-                      {formatNumberOrHyphen(row.max_weight_t, 0, 3)}
+                    <TableCell className="text-slate-700 font-medium">
+                      {row.mp_secundaria_code
+                        ? `${row.mp_secundaria_code}${row.mp_secundaria_description ? ` — ${row.mp_secundaria_description}` : ''}`
+                        : '—'}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-slate-700">
-                      {formatNumberOrHyphen(row.min_thickness_mm, 0, 2)}
+                    <TableCell className="font-mono text-slate-700">
+                      {formatProporcaoDisplay(row.proporcao) || '—'}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-slate-700">
-                      {formatNumberOrHyphen(row.max_thickness_mm, 0, 2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-slate-700">
-                      {formatNumberOrHyphen(row.min_length_mm, 0, 2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-slate-700">
-                      {formatNumberOrHyphen(row.max_length_mm, 0, 2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-slate-700">
-                      {formatNumberOrHyphen(row.min_width_mm, 0, 2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-slate-700">
-                      {formatNumberOrHyphen(row.max_width_mm, 0, 2)}
+                    <TableCell className="text-center">
+                      {normalizeStatusEnfornamento(row.status) === 'Inativo' ? (
+                        <Badge className="bg-slate-200 text-slate-600 border-slate-300 hover:bg-slate-200">
+                          Inativo
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-100">
+                          Ativo
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">

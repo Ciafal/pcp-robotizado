@@ -48,14 +48,8 @@ export interface LineFurnaceChargingType {
   mp_principal_description?: string
   mp_secundaria_code?: string
   mp_secundaria_description?: string
-  min_weight_t?: number | null
-  max_weight_t?: number | null
-  min_thickness_mm?: number | null
-  max_thickness_mm?: number | null
-  min_length_mm?: number | null
-  max_length_mm?: number | null
-  min_width_mm?: number | null
-  max_width_mm?: number | null
+  /** Status de governança da tela: "Ativo" | "Inativo" (default "Ativo" para registros antigos). */
+  status?: string
   active?: boolean
   deleted?: boolean
   created?: string
@@ -76,15 +70,17 @@ export interface FurnaceChargingTypeFormData {
   mp_principal_description?: string
   mp_secundaria_code?: string
   mp_secundaria_description?: string
-  min_weight_t?: number | null
-  max_weight_t?: number | null
-  min_thickness_mm?: number | null
-  max_thickness_mm?: number | null
-  min_length_mm?: number | null
-  max_length_mm?: number | null
-  min_width_mm?: number | null
-  max_width_mm?: number | null
+  status?: string
   active?: boolean
+}
+
+/** Valores aceitos para o campo Status da tela Tipos de Enfornamento. */
+export const STATUS_ENFORNAMENTO_OPCOES = ['Ativo', 'Inativo'] as const
+export type StatusEnfornamento = (typeof STATUS_ENFORNAMENTO_OPCOES)[number]
+
+/** Normaliza o status salvo: default "Ativo" quando vazio/inesistente (compatibilidade com registros antigos). */
+export function normalizeStatusEnfornamento(status?: string | null): StatusEnfornamento {
+  return status === 'Inativo' ? 'Inativo' : 'Ativo'
 }
 
 /** Registro persistido de Separação de Carga (collection line_charge_separations). */

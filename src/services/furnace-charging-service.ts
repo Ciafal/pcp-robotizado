@@ -11,6 +11,7 @@ import {
   extractProporcaoRotulo,
   parseProporcaoRotulo,
   TIPOS_COM_DUAS_MPS,
+  normalizeStatusEnfornamento,
 } from '@/types/furnace-charging'
 
 export const DUPLICATE_SEPARATION_MSG =
@@ -135,67 +136,28 @@ class FurnaceChargingService {
       }
     }
 
-    // Validações de valores não negativos
-    const fieldsToCheck = [
-      { key: 'min_weight_t', label: 'Peso mínimo', val: data.min_weight_t },
-      { key: 'max_weight_t', label: 'Peso máximo', val: data.max_weight_t },
-      { key: 'min_thickness_mm', label: 'Espessura mínima', val: data.min_thickness_mm },
-      { key: 'max_thickness_mm', label: 'Espessura máxima', val: data.max_thickness_mm },
-      { key: 'min_length_mm', label: 'Comprimento mínimo', val: data.min_length_mm },
-      { key: 'max_length_mm', label: 'Comprimento máximo', val: data.max_length_mm },
-      { key: 'min_width_mm', label: 'Largura mínima', val: data.min_width_mm },
-      { key: 'max_width_mm', label: 'Largura máxima', val: data.max_width_mm },
-    ]
+    // MP Principal é obrigatória (para toda regra desta tela)
+    if (!data.mp_principal_code || !data.mp_principal_code.trim()) {
+      errors.mp_principal_code = 'A Matéria-prima principal é obrigatória.'
+    }
 
-    for (const f of fieldsToCheck) {
-      if (f.val !== undefined && f.val !== null && f.val < 0) {
-        errors[f.key] = `${f.label} não pode ser negativo.`
+    // Com MP Secundária, a Proporção é obrigatória
+    if (data.mp_secundaria_code && data.mp_secundaria_code.trim()) {
+      if (!data.proporcao || !data.proporcao.trim()) {
+        errors.proporcao =
+          'A Proporção é obrigatória quando houver MP Secundária (ex.: "70/30", "80/20", "60% / 40%").'
+      }
+      if (
+        data.mp_principal_code?.trim() &&
+        data.mp_secundaria_code.trim().toUpperCase() === data.mp_principal_code.trim().toUpperCase()
+      ) {
+        errors.mp_secundaria_code = SAME_MP_ERROR_MSG
       }
     }
 
-    // Validações mín <= máx
-    if (
-      data.min_weight_t !== undefined &&
-      data.min_weight_t !== null &&
-      data.max_weight_t !== undefined &&
-      data.max_weight_t !== null &&
-      data.min_weight_t > data.max_weight_t
-    ) {
-      errors.min_weight_t = 'Peso mín. não pode ser maior que o Peso máx.'
-      errors.max_weight_t = 'Peso máx. deve ser maior ou igual ao Peso mín.'
-    }
-
-    if (
-      data.min_thickness_mm !== undefined &&
-      data.min_thickness_mm !== null &&
-      data.max_thickness_mm !== undefined &&
-      data.max_thickness_mm !== null &&
-      data.min_thickness_mm > data.max_thickness_mm
-    ) {
-      errors.min_thickness_mm = 'Espessura mín. não pode ser maior que a Espessura máx.'
-      errors.max_thickness_mm = 'Espessura máx. deve ser maior ou igual à Espessura mín.'
-    }
-
-    if (
-      data.min_length_mm !== undefined &&
-      data.min_length_mm !== null &&
-      data.max_length_mm !== undefined &&
-      data.max_length_mm !== null &&
-      data.min_length_mm > data.max_length_mm
-    ) {
-      errors.min_length_mm = 'Comprimento mín. não pode ser maior que o Comprimento máx.'
-      errors.max_length_mm = 'Comprimento máx. deve ser maior ou igual ao Comprimento mín.'
-    }
-
-    if (
-      data.min_width_mm !== undefined &&
-      data.min_width_mm !== null &&
-      data.max_width_mm !== undefined &&
-      data.max_width_mm !== null &&
-      data.min_width_mm > data.max_width_mm
-    ) {
-      errors.min_width_mm = 'Largura mín. não pode ser maior que a Largura máx.'
-      errors.max_width_mm = 'Largura máx. deve ser maior ou igual à Largura mín.'
+    // Status é obrigatório (Ativo / Inativo)
+    if (!data.status || !data.status.trim()) {
+      errors.status = 'O Status é obrigatório (Ativo ou Inativo).'
     }
 
     return errors
@@ -277,21 +239,14 @@ class FurnaceChargingService {
       charging_type: data.charging_type,
       raw_material_code: data.raw_material_code,
       raw_material_description: data.raw_material_description || '',
-      proporcao: proporcaoRotulo || '',
+      proporcao: (data.proporcao || proporcaoRotulo || '').trim(),
       proporcao_primeiro_termo: termos?.primeira ?? null,
       proporcao_segundo_termo: termos?.segunda ?? null,
       mp_principal_code: (data.mp_principal_code || '').trim(),
       mp_principal_description: (data.mp_principal_description || '').trim(),
       mp_secundaria_code: (data.mp_secundaria_code || '').trim(),
       mp_secundaria_description: (data.mp_secundaria_description || '').trim(),
-      min_weight_t: data.min_weight_t ?? null,
-      max_weight_t: data.max_weight_t ?? null,
-      min_thickness_mm: data.min_thickness_mm ?? null,
-      max_thickness_mm: data.max_thickness_mm ?? null,
-      min_length_mm: data.min_length_mm ?? null,
-      max_length_mm: data.max_length_mm ?? null,
-      min_width_mm: data.min_width_mm ?? null,
-      max_width_mm: data.max_width_mm ?? null,
+      status: normalizeStatusEnfornamento(data.status),
       active: data.active !== false,
       deleted: false,
     }
@@ -714,6 +669,8 @@ class FurnaceChargingService {
       mp_principal_description: record.mp_principal_description || '',
       mp_secundaria_code: record.mp_secundaria_code || '',
       mp_secundaria_description: record.mp_secundaria_description || '',
+      // Compatibilidade: registros antigos sem Status carregam "Ativo" por padrão
+      status: normalizeStatusEnfornamento(record.status),
       min_weight_t:
         record.min_weight_t !== null && record.min_weight_t !== undefined
           ? Number(record.min_weight_t)

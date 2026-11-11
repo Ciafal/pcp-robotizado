@@ -19,7 +19,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -33,18 +32,15 @@ import {
   FurnaceChargingTypeFormData,
   RawMaterialTypeOption,
   TIPOS_ENFORNAMENTO_OPCOES,
-  PROPORCOES_POR_TIPO,
-  TIPOS_COM_PROPORCAO,
+  STATUS_ENFORNAMENTO_OPCOES,
   extractTipoBase,
   extractProporcaoRotulo,
   buildResumoEnfornamento,
-  formatTermoPtBr,
 } from '@/types/furnace-charging'
 import {
   furnaceChargingService,
   DUPLICATE_CHARGING_TYPE_MSG,
 } from '@/services/furnace-charging-service'
-import { formatNumberPtBr, parsePtBrNumber } from '@/lib/number-format'
 
 interface FurnaceChargingTypeModalProps {
   open: boolean
@@ -54,6 +50,28 @@ interface FurnaceChargingTypeModalProps {
   lineMasterId?: string
   initialData?: LineFurnaceChargingType | null
   onSuccess: (savedChargingType?: string) => void
+}
+
+/**
+ * Formata a proporção digitada/registrada para exibição compacta na UI.
+ * Aceita formatos "70/30", "80/20", "60% / 40%", "1,3:1" e devolve o rótulo canônico:
+ * "A/B" quando os dois termos somam 100 (percentual) ou "A:B" caso contrário.
+ */
+export function formatProporcaoDisplay(raw?: string | null): string {
+  const t = (raw || '').trim()
+  if (!t) return ''
+  const cleaned = t.replace(/%/g, '').replace(/\s+/g, '')
+  const m = cleaned.match(/^(.+)[/:](.+)$/)
+  if (!m) return t
+  const a = m[1].replace(',', '.')
+  const b = m[2].replace(',', '.')
+  const na = Number(a)
+  const nb = Number(b)
+  if (isNaN(na) || isNaN(nb)) return t
+  const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(n).replace('.', ','))
+  const soma = na + nb
+  if (Math.abs(soma - 100) < 0.001) return `${fmt(na)}/${fmt(nb)}`
+  return `${fmt(na)}:${fmt(nb)}`
 }
 
 export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> = ({
@@ -68,17 +86,10 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
   const [chargingType, setChargingType] = useState<string>('')
   const [rawMaterialCode, setRawMaterialCode] = useState<string>('')
   const [rawMaterialDesc, setRawMaterialDesc] = useState<string>('')
-  const [active, setActive] = useState<boolean>(true)
-
-  // Valores numéricos em formato pt-BR no input (vírgula decimal)
-  const [minWeight, setMinWeight] = useState<string>('')
-  const [maxWeight, setMaxWeight] = useState<string>('')
-  const [minThickness, setMinThickness] = useState<string>('')
-  const [maxThickness, setMaxThickness] = useState<string>('')
-  const [minLength, setMinLength] = useState<string>('')
-  const [maxLength, setMaxLength] = useState<string>('')
-  const [minWidth, setMinWidth] = useState<string>('')
-  const [maxWidth, setMaxWidth] = useState<string>('')
+  const [mpPrincipalCode, setMpPrincipalCode] = useState<string>('')
+  const [mpSecundariaCode, setMpSecundariaCode] = useState<string>('')
+  const [proporcao, setProporcao] = useState<string>('')
+  const [status, setStatus] = useState<string>('Ativo')
 
   const [rawMaterialOptions, setRawMaterialOptions] = useState<RawMaterialTypeOption[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -98,12 +109,7 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
   }, [])
 
   const tipoBaseSelecionado = chargingType ? extractTipoBase(chargingType) : ''
-  const exigeProporcao = TIPOS_COM_PROPORCAO.includes(tipoBaseSelecionado as any)
-  const proporcaoRotulo = chargingType ? extractProporcaoRotulo(chargingType) : null
-
-  // MP principal/secundária selecionadas no formulário (dados, não sugestões)
-  const [mpPrincipalCode, setMpPrincipalCode] = useState<string>('')
-  const [mpSecundariaCode, setMpSecundariaCode] = useState<string>('')
+  const proporcaoRotuloDoTipo = chargingType ? extractProporcaoRotulo(chargingType) : null
 
   const mpPrincipalDesc = useMemo(
     () => rawMaterialOptions.find((o) => o.code === mpPrincipalCode)?.description || '',
@@ -114,33 +120,24 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
     [rawMaterialOptions, mpSecundariaCode],
   )
 
-  const proporcaoTermos = useMemo(() => {
-    if (!exigeProporcao || !proporcaoRotulo) return null
-    const m = proporcaoRotulo.match(/^(.+):(.+)$/)
-    if (!m) return null
-    const primeira = parsePtBrNumber(m[1])
-    const segunda = parsePtBrNumber(m[2])
-    if (isNaN(primeira) || isNaN(segunda)) return null
-    return { primeira, segunda }
-  }, [exigeProporcao, proporcaoRotulo])
+  // Proporção do tipo é o fallback inicial; usuário pode sobrescrever digitando (ex.: "70/30")
+  const proporcaoInicial = proporcaoRotuloDoTipo || ''
 
-  // Resumo automático ao vivo
   const resumo = useMemo(
     () =>
       buildResumoEnfornamento({
         tipoBase: tipoBaseSelecionado,
-        proporcaoRotulo,
+        proporcaoRotulo: proporcao || proporcaoInicial || null,
         mpPrincipalDescricao: mpPrincipalDesc || rawMaterialDesc || null,
         mpSecundariaDescricao: mpSecundariaDesc || null,
-        proporcaoTermos,
       }),
     [
       tipoBaseSelecionado,
-      proporcaoRotulo,
+      proporcao,
+      proporcaoInicial,
       mpPrincipalDesc,
       mpSecundariaDesc,
       rawMaterialDesc,
-      proporcaoTermos,
     ],
   )
 
@@ -153,31 +150,26 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
         setRawMaterialDesc(initialData.raw_material_description || '')
         setMpPrincipalCode(initialData.mp_principal_code || '')
         setMpSecundariaCode(initialData.mp_secundaria_code || '')
-        setActive(initialData.active !== false)
-        setMinWeight(fmt(initialData.min_weight_t, 3))
-        setMaxWeight(fmt(initialData.max_weight_t, 3))
-        setMinThickness(fmt(initialData.min_thickness_mm, 2))
-        setMaxThickness(fmt(initialData.max_thickness_mm, 2))
-        setMinLength(fmt(initialData.min_length_mm, 2))
-        setMaxLength(fmt(initialData.max_length_mm, 2))
-        setMinWidth(fmt(initialData.min_width_mm, 2))
-        setMaxWidth(fmt(initialData.max_width_mm, 2))
-        setInitialSnapshot(snapshot(initialData))
+        setProporcao(initialData.proporcao || '')
+        setStatus(initialData.status === 'Inativo' ? 'Inativo' : 'Ativo')
+        setInitialSnapshot(
+          snapshot({
+            charging_type: initialData.charging_type || '',
+            raw_material_code: initialData.raw_material_code || '',
+            mp_principal_code: initialData.mp_principal_code || '',
+            mp_secundaria_code: initialData.mp_secundaria_code || '',
+            proporcao: initialData.proporcao || '',
+            status: initialData.status === 'Inativo' ? 'Inativo' : 'Ativo',
+          }),
+        )
       } else {
         setChargingType('')
         setRawMaterialCode('')
         setRawMaterialDesc('')
         setMpPrincipalCode('')
         setMpSecundariaCode('')
-        setActive(true)
-        setMinWeight('')
-        setMaxWeight('')
-        setMinThickness('')
-        setMaxThickness('')
-        setMinLength('')
-        setMaxLength('')
-        setMinWidth('')
-        setMaxWidth('')
+        setProporcao('')
+        setStatus('Ativo')
         setInitialSnapshot(snapshot(null))
       }
       setErrors({})
@@ -186,20 +178,13 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
   }, [open, initialData])
 
   const hasDirtyChanges = useMemo(() => {
-    const current = JSON.stringify({
-      chargingType,
-      rawMaterialCode,
-      mpPrincipalCode,
-      mpSecundariaCode,
-      active,
-      minWeight: minWeight.trim(),
-      maxWeight: maxWeight.trim(),
-      minThickness: minThickness.trim(),
-      maxThickness: maxThickness.trim(),
-      minLength: minLength.trim(),
-      maxLength: maxLength.trim(),
-      minWidth: minWidth.trim(),
-      maxWidth: maxWidth.trim(),
+    const current = snapshot({
+      charging_type: chargingType,
+      raw_material_code: rawMaterialCode,
+      mp_principal_code: mpPrincipalCode,
+      mp_secundaria_code: mpSecundariaCode,
+      proporcao: proporcao,
+      status,
     })
     return current !== initialSnapshot
   }, [
@@ -207,15 +192,8 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
     rawMaterialCode,
     mpPrincipalCode,
     mpSecundariaCode,
-    active,
-    minWeight,
-    maxWeight,
-    minThickness,
-    maxThickness,
-    minLength,
-    maxLength,
-    minWidth,
-    maxWidth,
+    proporcao,
+    status,
     initialSnapshot,
   ])
 
@@ -229,10 +207,7 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
 
   const handleChargingTypeChange = (val: string) => {
     setChargingType(val)
-    // Proporção faz parte do rótulo do tipo: ao trocar o tipo, limpar MPs para reavaliar
-    setMpPrincipalCode('')
-    setMpSecundariaCode('')
-    clearFieldErrors('charging_type', 'duplicate', 'mp_principal_code', 'mp_secundaria_code')
+    clearFieldErrors('charging_type', 'duplicate')
   }
 
   const handleRawMaterialChange = (code: string) => {
@@ -249,15 +224,26 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
 
   const handleMpSecundariaChange = (code: string) => {
     setMpSecundariaCode(code)
+    if (code) clearFieldErrors('proporcao')
     clearFieldErrors('mp_secundaria_code')
+  }
+
+  const handleProporcaoChange = (value: string) => {
+    setProporcao(value)
+    if (value.trim()) clearFieldErrors('proporcao')
   }
 
   const handleCancelClick = () => {
     if (hasDirtyChanges) {
       setDiscardConfirmOpen(true)
-    } else {
-      onOpenChange(false)
+      return
     }
+    onOpenChange(false)
+  }
+
+  const handleStatusChange = (val: string) => {
+    setStatus(val)
+    clearFieldErrors('status')
   }
 
   const handleConfirmDiscard = () => {
@@ -265,48 +251,25 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
     onOpenChange(false)
   }
 
-  const parseOrNull = (val: string): number | null => {
-    const trimmed = val.trim()
-    if (!trimmed) return null
-    const num = parsePtBrNumber(trimmed)
-    return isNaN(num) ? null : num
-  }
-
-  // Formata valor numérico opcional para pt-BR (vazio quando null/undefined)
-  const fmt = (val: number | null | undefined, decimals: number) =>
-    val === null || val === undefined || isNaN(Number(val))
-      ? ''
-      : formatNumberPtBr(Number(val), {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        })
-
   // Snapshot do estado inicial para detectar alterações não salvas
-  const snapshot = (data: LineFurnaceChargingType | null) =>
+  const snapshot = (
+    d: {
+      charging_type?: string
+      raw_material_code?: string
+      mp_principal_code?: string
+      mp_secundaria_code?: string
+      proporcao?: string
+      status?: string
+    } | null,
+  ) =>
     JSON.stringify({
-      chargingType: data?.charging_type || '',
-      rawMaterialCode: data?.raw_material_code || '',
-      mpPrincipalCode: data?.mp_principal_code || '',
-      mpSecundariaCode: data?.mp_secundaria_code || '',
-      active: data ? data.active !== false : true,
-      minWeight: data ? fmt(data.min_weight_t, 3).trim() : '',
-      maxWeight: data ? fmt(data.max_weight_t, 3).trim() : '',
-      minThickness: data ? fmt(data.min_thickness_mm, 2).trim() : '',
-      maxThickness: data ? fmt(data.max_thickness_mm, 2).trim() : '',
-      minLength: data ? fmt(data.min_length_mm, 2).trim() : '',
-      maxLength: data ? fmt(data.max_length_mm, 2).trim() : '',
-      minWidth: data ? fmt(data.min_width_mm, 2).trim() : '',
-      maxWidth: data ? fmt(data.max_width_mm, 2).trim() : '',
+      chargingType: d?.charging_type || '',
+      rawMaterialCode: d?.raw_material_code || '',
+      mpPrincipalCode: d?.mp_principal_code || '',
+      mpSecundariaCode: d?.mp_secundaria_code || '',
+      proporcao: d?.proporcao || '',
+      status: d ? (d.status === 'Inativo' ? 'Inativo' : 'Ativo') : 'Ativo',
     })
-
-  // Troca apenas a proporção (mantém tipo base), reagrupando o rótulo completo
-  const handleProporcaoChange = (novoRotulo: string) => {
-    if (!novoRotulo) return
-    setChargingType(`${tipoBaseSelecionado} (${novoRotulo})`)
-    setMpPrincipalCode('')
-    setMpSecundariaCode('')
-    clearFieldErrors('duplicate', 'mp_principal_code', 'mp_secundaria_code')
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -324,15 +287,8 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
       mp_principal_description: mpPrincipalDesc,
       mp_secundaria_code: mpSecundariaCode,
       mp_secundaria_description: mpSecundariaDesc,
-      min_weight_t: parseOrNull(minWeight),
-      max_weight_t: parseOrNull(maxWeight),
-      min_thickness_mm: parseOrNull(minThickness),
-      max_thickness_mm: parseOrNull(maxThickness),
-      min_length_mm: parseOrNull(minLength),
-      max_length_mm: parseOrNull(maxLength),
-      min_width_mm: parseOrNull(minWidth),
-      max_width_mm: parseOrNull(maxWidth),
-      active,
+      proporcao: proporcao || proporcaoRotuloDoTipo || '',
+      status,
     }
 
     const validationErrors = furnaceChargingService.validateChargingTypeFormData(formData)
@@ -399,14 +355,13 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6 pt-2">
-            {/* ==================== SEÇÃO A: Tipo, Proporção, MPs e Status ==================== */}
             <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#004C97]">
-                  Seção A — Tipo de Enfornamento, Proporção e Matérias-Primas
+                  Tipo de Enfornamento e Matérias-Primas
                 </h4>
                 <span className="text-[11px] text-slate-500 font-medium">
-                  MP Principal = 1º termo • MP Secundária = 2º termo
+                  MP Principal = termo dominante • MP Secundária opcional
                 </span>
               </div>
 
@@ -442,58 +397,66 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="proporcao" className="text-xs font-semibold text-slate-700">
-                    Proporção
-                  </Label>
-                  <Select
-                    value={proporcaoRotulo || ''}
-                    onValueChange={handleProporcaoChange}
-                    disabled={!exigeProporcao}
+                  <Label
+                    htmlFor="raw_material_code"
+                    className={`text-xs font-semibold ${errors.raw_material_code ? 'text-red-600' : 'text-slate-700'}`}
                   >
+                    Tipo MP <span className="text-red-500">*</span>
+                  </Label>
+                  <Select value={rawMaterialCode} onValueChange={handleRawMaterialChange}>
                     <SelectTrigger
-                      id="proporcao"
-                      className={`h-10 text-sm ${!exigeProporcao ? 'bg-slate-100 text-slate-400' : 'border-slate-300'}`}
+                      id="raw_material_code"
+                      className={`h-10 text-sm ${errors.raw_material_code ? 'border-red-500 ring-1 ring-red-500 bg-red-50/20' : 'border-slate-300'}`}
                     >
-                      <SelectValue
-                        placeholder={
-                          exigeProporcao
-                            ? proporcaoRotulo || 'Selecione'
-                            : 'Sem proporção para este tipo'
-                        }
-                      />
+                      <SelectValue placeholder="Selecione o tipo de matéria-prima (PCP/SAP)" />
                     </SelectTrigger>
                     <SelectContent className="max-h-64">
-                      {(PROPORCOES_POR_TIPO[tipoBaseSelecionado] || []).map((p, i) => (
-                        <SelectItem key={`${p.rotulo}-${i}`} value={p.rotulo} className="text-sm">
-                          {p.rotulo}
+                      {rawMaterialOptions.map((opt) => (
+                        <SelectItem key={opt.code} value={opt.code} className="text-sm">
+                          {opt.fullLabel}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-slate-400">
-                    {exigeProporcao
-                      ? 'Escolha a proporção desejada — exibida com vírgula decimal (ex.: 1,3:1).'
-                      : 'Tipos sem proporção não exigem MP secundária.'}
-                  </p>
+                  {errors.raw_material_code && (
+                    <p className="text-xs text-red-600 font-medium flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {errors.raw_material_code}
+                    </p>
+                  )}
                 </div>
 
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="raw_material_desc"
+                    className="text-xs font-semibold text-slate-700"
+                  >
+                    Descrição MP
+                  </Label>
+                  <Input
+                    id="raw_material_desc"
+                    value={rawMaterialDesc}
+                    onChange={(e) => setRawMaterialDesc(e.target.value)}
+                    placeholder="Descrição da matéria-prima (opcional — preenchida ao selecionar o Tipo MP)"
+                    className={`h-10 text-sm ${errors.raw_material_description ? 'border-red-500' : 'border-slate-300'}`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="mp_principal"
                     className={`text-xs font-semibold ${errors.mp_principal_code ? 'text-red-600' : 'text-slate-700'}`}
                   >
-                    MP Principal (1º termo){exigeProporcao && proporcaoRotulo ? ' *' : ''}
+                    Matéria-prima principal <span className="text-red-500">*</span>
                   </Label>
-                  <Select
-                    value={mpPrincipalCode}
-                    onValueChange={handleMpPrincipalChange}
-                    disabled={!exigeProporcao || !proporcaoRotulo}
-                  >
+                  <Select value={mpPrincipalCode} onValueChange={handleMpPrincipalChange}>
                     <SelectTrigger
                       id="mp_principal"
                       className={`h-10 text-sm ${errors.mp_principal_code ? 'border-red-500 ring-1 ring-red-500 bg-red-50/20' : 'border-slate-300'}`}
                     >
-                      <SelectValue placeholder="Selecione a MP Principal" />
+                      <SelectValue placeholder="Selecione a MP principal" />
                     </SelectTrigger>
                     <SelectContent className="max-h-64">
                       {rawMaterialOptions.map((opt) => (
@@ -514,20 +477,16 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="mp_secundaria"
-                    className={`text-xs font-semibold ${errors.mp_secundaria_code ? 'text-red-600' : 'text-red-500/0 text-slate-700'}`}
+                    className={`text-xs font-semibold ${errors.mp_secundaria_code ? 'text-red-600' : 'text-slate-700'}`}
                   >
-                    MP Secundária (2º termo){exigeProporcao && proporcaoRotulo ? ' *' : ''}
+                    Matéria-prima secundária
                   </Label>
-                  <Select
-                    value={mpSecundariaCode}
-                    onValueChange={handleMpSecundariaChange}
-                    disabled={!exigeProporcao || !proporcaoRotulo}
-                  >
+                  <Select value={mpSecundariaCode} onValueChange={handleMpSecundariaChange}>
                     <SelectTrigger
                       id="mp_secundaria"
-                      className={`text-sm h-10 ${errors.mp_secundaria_code ? 'border-red-500 ring-1 ring-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                      className={`h-10 text-sm ${errors.mp_secundaria_code ? 'border-red-500 ring-1 ring-red-500 bg-red-50/20' : 'border-slate-300'}`}
                     >
-                      <SelectValue placeholder="Selecione a MP Secundária" />
+                      <SelectValue placeholder="Opcional — selecione a MP secundária" />
                     </SelectTrigger>
                     <SelectContent className="max-h-64">
                       {rawMaterialOptions
@@ -549,56 +508,62 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
 
                 <div className="space-y-1.5">
                   <Label
-                    htmlFor="raw_material_code"
-                    className="text-xs font-semibold text-slate-700"
+                    htmlFor="proporcao"
+                    className={`text-xs font-semibold ${errors.proporcao ? 'text-red-600' : 'text-slate-700'}`}
                   >
-                    Tipo de Matéria-Prima (base) <span className="text-red-500">*</span>
+                    Proporção{mpSecundariaCode ? ' *' : ''}
                   </Label>
-                  <Select value={rawMaterialCode} onValueChange={handleRawMaterialChange}>
-                    <SelectTrigger
-                      id="raw_material_code"
-                      className={`h-10 text-sm ${errors.raw_material_code ? 'border-red-500 ring-1 ring-red-500 bg-red-50/20' : 'border-slate-300'}`}
-                    >
-                      <SelectValue placeholder="Selecione a matéria-prima (PCP/SAP)" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-64">
-                      {rawMaterialOptions.map((opt) => (
-                        <SelectItem key={opt.code} value={opt.code} className="text-sm">
-                          {opt.fullLabel}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.raw_material_code && (
+                  <Input
+                    id="proporcao"
+                    value={proporcao}
+                    onChange={(e) => handleProporcaoChange(e.target.value)}
+                    placeholder={
+                      mpSecundariaCode
+                        ? 'Obrigatória — ex.: 70/30, 80/20 ou 60% / 40%'
+                        : 'Ex.: 70/30 (opcional)'
+                    }
+                    className={`h-10 text-sm ${errors.proporcao ? 'border-red-500 ring-1 ring-red-500 bg-red-50/20' : 'border-slate-300'}`}
+                  />
+                  <p className="text-[11px] text-slate-400">
+                    Texto estruturado ou percentual — exemplos aceitos: 70/30, 80/20, 60% / 40%.
+                    Obrigatória quando houver MP secundária.
+                  </p>
+                  {errors.proporcao && (
                     <p className="text-xs text-red-600 font-medium flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5" />
-                      {errors.raw_material_code}
+                      {errors.proporcao}
                     </p>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
-                  <div>
-                    <Label htmlFor="status_active" className="text-xs font-semibold text-slate-700">
-                      Status
-                    </Label>
-                    <p className="text-[11px] text-slate-500">
-                      {active ? 'Ativo — disponível no PCP' : 'Inativo — não disponível no PCP'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs font-medium ${active ? 'text-emerald-600' : 'text-slate-400'}`}
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="status"
+                    className={`text-xs font-semibold ${errors.status ? 'text-red-600' : 'text-slate-700'}`}
+                  >
+                    Status <span className="text-red-500">*</span>
+                  </Label>
+                  <Select value={status} onValueChange={handleStatusChange}>
+                    <SelectTrigger
+                      id="status"
+                      className={`h-10 text-sm ${errors.status ? 'border-red-500 ring-1 ring-red-500 bg-red-50/20' : 'border-slate-300'}`}
                     >
-                      {active ? 'Ativo' : 'Inativo'}
-                    </span>
-                    <Switch
-                      id="status_active"
-                      checked={active}
-                      onCheckedChange={setActive}
-                      className="data-[state=checked]:bg-[#004C97]"
-                    />
-                  </div>
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_ENFORNAMENTO_OPCOES.map((s) => (
+                        <SelectItem key={s} value={s} className="text-sm">
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.status && (
+                    <p className="text-xs text-red-600 font-medium flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {errors.status}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -611,212 +576,6 @@ export const FurnaceChargingTypeModal: React.FC<FurnaceChargingTypeModalProps> =
                   <p className="text-sm font-semibold text-[#002F6C]">{resumo}</p>
                 </div>
               )}
-            </div>
-
-            {/* ==================== SEÇÃO B: Limites físicos (INTACTA) ==================== */}
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Parâmetros de Carga (Unidades Padrão PCP)
-                </h4>
-                <span className="text-[11px] text-slate-500 font-medium">
-                  Peso em toneladas (t) • Dimensões em milímetros (mm)
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Peso Mínimo / Máximo (t) */}
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="min_weight"
-                    className={`text-xs font-medium ${errors.min_weight_t ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
-                  >
-                    Peso Mínimo (t)
-                  </Label>
-                  <Input
-                    id="min_weight"
-                    placeholder="0,000"
-                    value={minWeight}
-                    onChange={(e) => {
-                      setMinWeight(e.target.value)
-                      if (errors.min_weight_t || errors.max_weight_t)
-                        clearFieldErrors('min_weight_t', 'max_weight_t')
-                    }}
-                    className={`h-9 text-sm ${errors.min_weight_t ? 'border-red-500 bg-red-50/30' : 'border-slate-300'}`}
-                  />
-                  {errors.min_weight_t && (
-                    <p className="text-[11px] text-red-600 leading-tight">{errors.min_weight_t}</p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="max_weight"
-                    className={`text-xs font-medium ${errors.max_weight_t ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
-                  >
-                    Peso Máximo (t)
-                  </Label>
-                  <Input
-                    id="max_weight"
-                    placeholder="0,000"
-                    value={maxWeight}
-                    onChange={(e) => {
-                      setMaxWeight(e.target.value)
-                      if (errors.min_weight_t || errors.max_weight_t)
-                        clearFieldErrors('min_weight_t', 'max_weight_t')
-                    }}
-                    className={`h-9 text-sm ${errors.max_weight_t ? 'border-red-500 bg-red-50/30' : 'border-slate-300'}`}
-                  />
-                  {errors.max_weight_t && (
-                    <p className="text-[11px] text-red-600 leading-tight">{errors.max_weight_t}</p>
-                  )}
-                </div>
-
-                {/* Espessura Mínima / Máxima (mm) */}
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="min_thickness"
-                    className={`text-xs font-medium ${errors.min_thickness_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
-                  >
-                    Espessura Mín. (mm)
-                  </Label>
-                  <Input
-                    id="min_thickness"
-                    placeholder="0,00"
-                    value={minThickness}
-                    onChange={(e) => {
-                      setMinThickness(e.target.value)
-                      if (errors.min_thickness_mm || errors.max_thickness_mm)
-                        clearFieldErrors('min_thickness_mm', 'max_thickness_mm')
-                    }}
-                    className={`h-9 text-sm ${errors.min_thickness_mm ? 'border-red-500 bg-red-50/30' : 'border-slate-300'}`}
-                  />
-                  {errors.min_thickness_mm && (
-                    <p className="text-[11px] text-red-600 leading-tight">
-                      {errors.min_thickness_mm}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="max_thickness"
-                    className={`text-xs font-medium ${errors.max_thickness_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
-                  >
-                    Espessura Máx. (mm)
-                  </Label>
-                  <Input
-                    id="max_thickness"
-                    placeholder="0,00"
-                    value={maxThickness}
-                    onChange={(e) => {
-                      setMaxThickness(e.target.value)
-                      if (errors.min_thickness_mm || errors.max_thickness_mm)
-                        clearFieldErrors('min_thickness_mm', 'max_thickness_mm')
-                    }}
-                    className={`h-9 text-sm ${errors.max_thickness_mm ? 'border-red-500 bg-red-50/30' : 'border-slate-300'}`}
-                  />
-                  {errors.max_thickness_mm && (
-                    <p className="text-[11px] text-red-600 leading-tight">
-                      {errors.max_thickness_mm}
-                    </p>
-                  )}
-                </div>
-
-                {/* Comprimento Mínimo / Máximo (mm) */}
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="min_length"
-                    className={`text-xs font-medium ${errors.min_length_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
-                  >
-                    Comprimento Mín. (mm)
-                  </Label>
-                  <Input
-                    id="min_length"
-                    placeholder="0,00"
-                    value={minLength}
-                    onChange={(e) => {
-                      setMinLength(e.target.value)
-                      if (errors.min_length_mm || errors.max_length_mm)
-                        clearFieldErrors('min_length_mm', 'max_length_mm')
-                    }}
-                    className={`h-9 text-sm ${errors.min_length_mm ? 'border-red-500 bg-red-50/30' : 'border-slate-300'}`}
-                  />
-                  {errors.min_length_mm && (
-                    <p className="text-[11px] text-red-600 leading-tight">{errors.min_length_mm}</p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="max_length"
-                    className={`text-xs font-medium ${errors.max_length_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
-                  >
-                    Comprimento Máx. (mm)
-                  </Label>
-                  <Input
-                    id="max_length"
-                    placeholder="0,00"
-                    value={maxLength}
-                    onChange={(e) => {
-                      setMaxLength(e.target.value)
-                      if (errors.min_length_mm || errors.max_length_mm)
-                        clearFieldErrors('min_length_mm', 'max_length_mm')
-                    }}
-                    className={`h-9 text-sm ${errors.max_length_mm ? 'border-red-500 bg-red-50/30' : 'border-slate-300'}`}
-                  />
-                  {errors.max_length_mm && (
-                    <p className="text-[11px] text-red-600 leading-tight">{errors.max_length_mm}</p>
-                  )}
-                </div>
-
-                {/* Largura Mínima / Máxima (mm) */}
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="min_width"
-                    className={`text-xs font-medium ${errors.min_width_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
-                  >
-                    Largura Mín. (mm)
-                  </Label>
-                  <Input
-                    id="min_width"
-                    placeholder="0,00"
-                    value={minWidth}
-                    onChange={(e) => {
-                      setMinWidth(e.target.value)
-                      if (errors.min_width_mm || errors.max_width_mm)
-                        clearFieldErrors('min_width_mm', 'max_width_mm')
-                    }}
-                    className={`h-9 text-sm ${errors.min_width_mm ? 'border-red-500 bg-red-50/30' : 'border-slate-300'}`}
-                  />
-                  {errors.min_width_mm && (
-                    <p className="text-[11px] text-red-600 leading-tight">{errors.min_width_mm}</p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="max_width"
-                    className={`text-xs font-medium ${errors.max_width_mm ? 'text-red-600 font-semibold' : 'text-slate-600'}`}
-                  >
-                    Largura Máx. (mm)
-                  </Label>
-                  <Input
-                    id="max_width"
-                    placeholder="0,00"
-                    value={maxWidth}
-                    onChange={(e) => {
-                      setMaxWidth(e.target.value)
-                      if (errors.max_width_mm || errors.min_width_mm)
-                        clearFieldErrors('min_width_mm', 'max_width_mm')
-                    }}
-                    className={`h-9 text-sm ${errors.max_width_mm ? 'border-red-500 bg-red-50/30' : 'border-slate-300'}`}
-                  />
-                  {errors.max_width_mm && (
-                    <p className="text-[11px] text-red-600 leading-tight">{errors.max_width_mm}</p>
-                  )}
-                </div>
-              </div>
             </div>
 
             <DialogFooter className="flex items-center justify-between sm:justify-between border-t pt-4">
