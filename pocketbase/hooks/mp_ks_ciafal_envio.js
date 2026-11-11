@@ -5,65 +5,51 @@
 // - Transferência 311 → DP28 idempotente
 // - Formação de carga / Romaneio + 313 (trânsito) + 315 (recebimento DP02) + DP07
 // Regras de consistência no BACKEND (botão oculto no frontend não basta).
+// IMPORTANTE (JSVM): callbacks do PocketBase rodam em um pool de VM separado —
+// NENHUMA declaração top-level pode ser referenciada dentro dos callbacks.
+// Todos os helpers/constantes são duplicados inline dentro de cada callback.
 // Nunca loga nem expõe senha.
-
-const MSG_LIN_PROD = 'Matrícula não corresponde ao tipo Expedidor.'
-const MSG_INATIVO = 'Esta matrícula está INATIVA.'
-const MSG_CRED = 'Matrícula ou senha inválida.'
-
-const DEPOSITO_ORIGEM = { KSC: 'DP20', KSF: 'DP25', CISAM: 'DC09' }
-const DP28 = 'DP28'
-const DP02 = 'DP02'
-const DP07 = 'DP07'
-
-function nowBR() {
-  return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
-}
-
-function audit(app, entry) {
-  try {
-    const col = app.findCollectionByNameOrId('mp_ks_ciafal_auditoria')
-    const rec = new Record(col)
-    rec.set('usuario_matricula', entry.matricula || '')
-    rec.set('usuario_nome', entry.nome || '')
-    rec.set('acao', entry.acao || '')
-    rec.set('entidade', entry.entidade || '')
-    rec.set('entidade_id', entry.entidade_id || '')
-    rec.set('antes', entry.antes ? JSON.stringify(entry.antes).slice(0, 4000) : '')
-    rec.set('depois', entry.depois ? JSON.stringify(entry.depois).slice(0, 4000) : '')
-    rec.set('detalhe', entry.detalhe || '')
-    rec.set('criado_em', nowBR())
-    app.save(rec)
-  } catch (err) {
-    console.warn('[ks-ciafal] falha ao registrar auditoria:', err && err.message)
-  }
-}
-
-function fail(e, status, userMessage, detail) {
-  console.warn('[ks-ciafal]', detail || userMessage)
-  return e.json(status, { success: false, error: userMessage })
-}
-
-function requireAuth(e) {
-  const auth = e.auth
-  if (!auth) {
-    return null
-  }
-  return auth
-}
 
 // ---------------------------------------------------------------------------
 // 1) LOGIN OPERACIONAL EXPEDIDOR (estilo ZPP85/ZPP46A — ZPP_USUARIO)
 // POST /backend/v1/pcp/mp-ks-ciafal/login  { centro, matricula, senha }
 // ---------------------------------------------------------------------------
 routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/login', (e) => {
+  const MSG_LIN_PROD = 'Matrícula não corresponde ao tipo Expedidor.'
+  const MSG_INATIVO = 'Esta matrícula está INATIVA.'
+  const MSG_CRED = 'Matrícula ou senha inválida.'
+
+  function nowBR() {
+    return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+  }
+
+  function audit(app, entry) {
+    try {
+      const col = app.findCollectionByNameOrId('mp_ks_ciafal_auditoria')
+      const rec = new Record(col)
+      rec.set('usuario_matricula', entry.matricula || '')
+      rec.set('usuario_nome', entry.nome || '')
+      rec.set('acao', entry.acao || '')
+      rec.set('entidade', entry.entidade || '')
+      rec.set('entidade_id', entry.entidade_id || '')
+      rec.set('antes', entry.antes ? JSON.stringify(entry.antes).slice(0, 4000) : '')
+      rec.set('depois', entry.depois ? JSON.stringify(entry.depois).slice(0, 4000) : '')
+      rec.set('detalhe', entry.detalhe || '')
+      rec.set('criado_em', nowBR())
+      app.save(rec)
+    } catch (err) {
+      console.warn('[ks-ciafal] falha ao registrar auditoria:', err && err.message)
+    }
+  }
+
   const data = (e.requestInfo() || {}).body || {}
   const centro = String(data.centro || '').trim()
   const matricula = String(data.matricula || '').trim()
   const senha = String(data.senha || '')
 
   if (!centro || !matricula || !senha) {
-    return fail(e, 400, 'Informe centro, matrícula e senha.', 'login: campos ausentes')
+    console.warn('[ks-ciafal] login: campos ausentes')
+    return e.json(400, { success: false, error: 'Informe centro, matrícula e senha.' })
   }
 
   let user = null
@@ -82,7 +68,8 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/login', (e) => {
       matricula: matricula,
       detalhe: 'Matrícula inexistente. Centro: ' + centro,
     })
-    return fail(e, 401, MSG_CRED, 'login: matrícula inexistente')
+    console.warn('[ks-ciafal] login: matrícula inexistente')
+    return e.json(401, { success: false, error: MSG_CRED })
   }
 
   const senhaSalva = String(user.getString('senha') || '')
@@ -94,7 +81,8 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/login', (e) => {
       matricula: matricula,
       detalhe: 'Senha incorreta. Centro: ' + centro,
     })
-    return fail(e, 401, MSG_CRED, 'login: senha incorreta')
+    console.warn('[ks-ciafal] login: senha incorreta')
+    return e.json(401, { success: false, error: MSG_CRED })
   }
 
   const linProd = String(user.getString('lin_prod') || '')
@@ -150,9 +138,34 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/login', (e) => {
 // Nova seleção → V00; existente vigente → nova versão (revisão) e exige motivo+justificativa.
 // ---------------------------------------------------------------------------
 routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/selecoes', (e) => {
+  const DEPOSITO_ORIGEM = { KSC: 'DP20', KSF: 'DP25', CISAM: 'DC09' }
+
+  function nowBR() {
+    return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+  }
+
+  function audit(app, entry) {
+    try {
+      const col = app.findCollectionByNameOrId('mp_ks_ciafal_auditoria')
+      const rec = new Record(col)
+      rec.set('usuario_matricula', entry.matricula || '')
+      rec.set('usuario_nome', entry.nome || '')
+      rec.set('acao', entry.acao || '')
+      rec.set('entidade', entry.entidade || '')
+      rec.set('entidade_id', entry.entidade_id || '')
+      rec.set('antes', entry.antes ? JSON.stringify(entry.antes).slice(0, 4000) : '')
+      rec.set('depois', entry.depois ? JSON.stringify(entry.depois).slice(0, 4000) : '')
+      rec.set('detalhe', entry.detalhe || '')
+      rec.set('criado_em', nowBR())
+      app.save(rec)
+    } catch (err) {
+      console.warn('[ks-ciafal] falha ao registrar auditoria:', err && err.message)
+    }
+  }
+
   const reqInfo = e.requestInfo() || {}
   const data = reqInfo.body || {}
-  const auth = requireAuth(e)
+  const auth = e.auth
   const centro = String(data.centro || '').trim()
   const origem = String(data.origem || '').trim()
   const pecaIds = Array.isArray(data.pecas) ? data.pecas.map(String) : []
@@ -161,15 +174,18 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/selecoes', (e) => {
   const usuarioMat = String(usuario.matricula || (auth && auth.getString('id')) || '—')
 
   if (!centro || !origem || !DEPOSITO_ORIGEM[origem]) {
-    return fail(
-      e,
-      400,
-      'Centro e origem de envio (KSC/KSF/Cisam) são obrigatórios.',
-      'save: centro/origem',
-    )
+    console.warn('[ks-ciafal] save: centro/origem')
+    return e.json(400, {
+      success: false,
+      error: 'Centro e origem de envio (KSC/KSF/Cisam) são obrigatórios.',
+    })
   }
   if (pecaIds.length === 0) {
-    return fail(e, 400, 'Selecione ao menos uma peça para salvar o envio.', 'save: sem peças')
+    console.warn('[ks-ciafal] save: sem peças')
+    return e.json(400, {
+      success: false,
+      error: 'Selecione ao menos uma peça para salvar o envio.',
+    })
   }
 
   const justificativa = String(data.justificativa || '').trim()
@@ -178,34 +194,36 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/selecoes', (e) => {
   const isEdicao = !!selecaoIdEdicao
 
   if (isEdicao && (!motivoId || !justificativa)) {
-    return fail(
-      e,
-      400,
-      'Revisão de seleção exige código de motivo (ZPP82) e justificativa (máx. 60 caracteres).',
-      'save: motivo ausente na revisão',
-    )
+    console.warn('[ks-ciafal] save: motivo ausente na revisão')
+    return e.json(400, {
+      success: false,
+      error:
+        'Revisão de seleção exige código de motivo (ZPP82) e justificativa (máx. 60 caracteres).',
+    })
   }
   if (justificativa.length > 60) {
-    return fail(
-      e,
-      400,
-      'Justificativa deve ter no máximo 60 caracteres.',
-      'save: justificativa > 60',
-    )
+    console.warn('[ks-ciafal] save: justificativa > 60')
+    return e.json(400, {
+      success: false,
+      error: 'Justificativa deve ter no máximo 60 caracteres.',
+    })
   }
   if (isEdicao && motivoId) {
     try {
       const motivo = $app.findRecordById('mp_ks_ciafal_motivos', motivoId)
       if (!motivo.getBool('ativo')) {
-        return fail(
-          e,
-          400,
-          'Motivo informado está inativo no cadastro ZPP82.',
-          'save: motivo inativo',
-        )
+        console.warn('[ks-ciafal] save: motivo inativo')
+        return e.json(400, {
+          success: false,
+          error: 'Motivo informado está inativo no cadastro ZPP82.',
+        })
       }
     } catch (_) {
-      return fail(e, 400, 'Motivo não encontrado no cadastro ZPP82.', 'save: motivo inexistente')
+      console.warn('[ks-ciafal] save: motivo inexistente')
+      return e.json(400, {
+        success: false,
+        error: 'Motivo não encontrado no cadastro ZPP82.',
+      })
     }
   }
 
@@ -216,7 +234,6 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/selecoes', (e) => {
     try {
       const colSelecoes = tx.findCollectionByNameOrId('mp_ks_ciafal_selecoes')
       const colItens = tx.findCollectionByNameOrId('mp_ks_ciafal_selecao_pecas')
-      const colPecas = tx.findCollectionByNameOrId('mp_ks_ciafal_pecas')
       const now = nowBR()
 
       let numeroSelecao = ''
@@ -323,13 +340,8 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/selecoes', (e) => {
         }
       }
 
-      // Cria/reativa o registro da seleção (versão)
-      let recSelecao = null
-      if (createdNewBase) {
-        recSelecao = new Record(colSelecoes)
-      } else {
-        recSelecao = new Record(colSelecoes)
-      }
+      // Cria o registro da seleção (versão)
+      const recSelecao = new Record(colSelecoes)
       recSelecao.set('centro', centro)
       recSelecao.set('origem', origem)
       recSelecao.set('numero_selecao', numeroSelecao)
@@ -353,11 +365,7 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/selecoes', (e) => {
       recSelecao.set('status', 'Aberta')
       recSelecao.set('qtd_pecas', pecaIds.length)
       recSelecao.set('documento_311', '')
-      if (isEdicao) {
-        recSelecao.set('peso_total_kg', 0)
-      } else {
-        recSelecao.set('peso_total_kg', 0)
-      }
+      recSelecao.set('peso_total_kg', 0)
       tx.save(recSelecao)
 
       // Itens + atualização das peças
@@ -431,7 +439,10 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/selecoes', (e) => {
     }
   })
 
-  if (userError) return fail(e, 400, userError, 'save: transação revertida')
+  if (userError) {
+    console.warn('[ks-ciafal] save: transação revertida')
+    return e.json(400, { success: false, error: userError })
+  }
   return e.json(200, { success: true, selecao: result })
 })
 
@@ -440,18 +451,43 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/selecoes', (e) => {
 // POST /backend/v1/pcp/mp-ks-ciafal/transferencia-311  { selecao_id, usuario:{matricula,nome} }
 // ---------------------------------------------------------------------------
 routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/transferencia-311', (e) => {
+  const DEPOSITO_ORIGEM = { KSC: 'DP20', KSF: 'DP25', CISAM: 'DC09' }
+  const DP28 = 'DP28'
+
+  function nowBR() {
+    return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+  }
+
+  function audit(app, entry) {
+    try {
+      const col = app.findCollectionByNameOrId('mp_ks_ciafal_auditoria')
+      const rec = new Record(col)
+      rec.set('usuario_matricula', entry.matricula || '')
+      rec.set('usuario_nome', entry.nome || '')
+      rec.set('acao', entry.acao || '')
+      rec.set('entidade', entry.entidade || '')
+      rec.set('entidade_id', entry.entidade_id || '')
+      rec.set('antes', entry.antes ? JSON.stringify(entry.antes).slice(0, 4000) : '')
+      rec.set('depois', entry.depois ? JSON.stringify(entry.depois).slice(0, 4000) : '')
+      rec.set('detalhe', entry.detalhe || '')
+      rec.set('criado_em', nowBR())
+      app.save(rec)
+    } catch (err) {
+      console.warn('[ks-ciafal] falha ao registrar auditoria:', err && err.message)
+    }
+  }
+
   const data = (e.requestInfo() || {}).body || {}
-  const auth = requireAuth(e)
+  const auth = e.auth
   const selecaoId = String(data.selecao_id || '').trim()
   const usuarioNome = String((data.usuario || {}).nome || (auth && auth.getString('name')) || '—')
   const usuarioMat = String((data.usuario || {}).matricula || (auth && auth.getString('id')) || '—')
   if (!selecaoId) {
-    return fail(
-      e,
-      400,
-      'Informe a seleção para executar a transferência 311.',
-      '311: sem selecao_id',
-    )
+    console.warn('[ks-ciafal] 311: sem selecao_id')
+    return e.json(400, {
+      success: false,
+      error: 'Informe a seleção para executar a transferência 311.',
+    })
   }
 
   let userError = null
@@ -589,7 +625,10 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/transferencia-311', (e) => {
     }
   })
 
-  if (userError) return fail(e, 400, userError, '311: transação revertida')
+  if (userError) {
+    console.warn('[ks-ciafal] 311: transação revertida')
+    return e.json(400, { success: false, error: userError })
+  }
   return e.json(200, { success: true, resultado: resultado })
 })
 
@@ -598,8 +637,35 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/transferencia-311', (e) => {
 // POST /backend/v1/pcp/mp-ks-ciafal/romaneios  { selecao_id, peca_ids, destino_tipo: 'L2'|'L1', usuario }
 // ---------------------------------------------------------------------------
 routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios', (e) => {
+  const DP28 = 'DP28'
+  const DP02 = 'DP02'
+  const DP07 = 'DP07'
+
+  function nowBR() {
+    return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+  }
+
+  function audit(app, entry) {
+    try {
+      const col = app.findCollectionByNameOrId('mp_ks_ciafal_auditoria')
+      const rec = new Record(col)
+      rec.set('usuario_matricula', entry.matricula || '')
+      rec.set('usuario_nome', entry.nome || '')
+      rec.set('acao', entry.acao || '')
+      rec.set('entidade', entry.entidade || '')
+      rec.set('entidade_id', entry.entidade_id || '')
+      rec.set('antes', entry.antes ? JSON.stringify(entry.antes).slice(0, 4000) : '')
+      rec.set('depois', entry.depois ? JSON.stringify(entry.depois).slice(0, 4000) : '')
+      rec.set('detalhe', entry.detalhe || '')
+      rec.set('criado_em', nowBR())
+      app.save(rec)
+    } catch (err) {
+      console.warn('[ks-ciafal] falha ao registrar auditoria:', err && err.message)
+    }
+  }
+
   const data = (e.requestInfo() || {}).body || {}
-  const auth = requireAuth(e)
+  const auth = e.auth
   const selecaoId = String(data.selecao_id || '').trim()
   const pecaIds = Array.isArray(data.peca_ids) ? data.peca_ids.map(String) : []
   const destinoTipo = String(data.destino_tipo || 'L2')
@@ -609,15 +675,18 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios', (e) => {
   const usuarioMat = String((data.usuario || {}).matricula || (auth && auth.getString('id')) || '—')
 
   if (!selecaoId || !pecaIds.length) {
-    return fail(
-      e,
-      400,
-      'Informe a seleção e as peças para formar a carga.',
-      'romaneio: payload inválido',
-    )
+    console.warn('[ks-ciafal] romaneio: payload inválido')
+    return e.json(400, {
+      success: false,
+      error: 'Informe a seleção e as peças para formar a carga.',
+    })
   }
   if (destinoTipo !== 'L2' && destinoTipo !== 'L1') {
-    return fail(e, 400, 'Destino deve ser L2 (DP02) ou L1 (DP07).', 'romaneio: destino inválido')
+    console.warn('[ks-ciafal] romaneio: destino inválido')
+    return e.json(400, {
+      success: false,
+      error: 'Destino deve ser L2 (DP02) ou L1 (DP07).',
+    })
   }
 
   let userError = null
@@ -769,21 +838,53 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios', (e) => {
     }
   })
 
-  if (userError) return fail(e, 400, userError, 'romaneio: transação revertida')
+  if (userError) {
+    console.warn('[ks-ciafal] romaneio: transação revertida')
+    return e.json(400, { success: false, error: userError })
+  }
   return e.json(200, { success: true, romaneio: resultado })
 })
 
 // ---------------------------------------------------------------------------
 // 5) EXPEDIÇÃO 313 (DP28 → DP02 p/ L2 | DP07 p/ L1) — material em trânsito, idempotente
-// POST /backend/v1/pcp/mp-ks-ciafal/romaneios/{id}/expedir  { usuario }
+// POST /backend/v1/pcp/mp-ks-ciafal/romaneios/expedir  { usuario }
 // ---------------------------------------------------------------------------
 routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios/expedir', (e) => {
+  const DP28 = 'DP28'
+  const DP07 = 'DP07'
+
+  function nowBR() {
+    return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+  }
+
+  function audit(app, entry) {
+    try {
+      const col = app.findCollectionByNameOrId('mp_ks_ciafal_auditoria')
+      const rec = new Record(col)
+      rec.set('usuario_matricula', entry.matricula || '')
+      rec.set('usuario_nome', entry.nome || '')
+      rec.set('acao', entry.acao || '')
+      rec.set('entidade', entry.entidade || '')
+      rec.set('entidade_id', entry.entidade_id || '')
+      rec.set('antes', entry.antes ? JSON.stringify(entry.antes).slice(0, 4000) : '')
+      rec.set('depois', entry.depois ? JSON.stringify(entry.depois).slice(0, 4000) : '')
+      rec.set('detalhe', entry.detalhe || '')
+      rec.set('criado_em', nowBR())
+      app.save(rec)
+    } catch (err) {
+      console.warn('[ks-ciafal] falha ao registrar auditoria:', err && err.message)
+    }
+  }
+
   const data = (e.requestInfo() || {}).body || {}
   const romaneioId = String(data.romaneio_id || '').trim()
-  const auth = requireAuth(e)
+  const auth = e.auth
   const usuarioNome = String((data.usuario || {}).nome || (auth && auth.getString('name')) || '—')
   const usuarioMat = String((data.usuario || {}).matricula || (auth && auth.getString('id')) || '—')
-  if (!romaneioId) return fail(e, 400, 'Romaneio não informado.', '313: sem id')
+  if (!romaneioId) {
+    console.warn('[ks-ciafal] 313: sem id')
+    return e.json(400, { success: false, error: 'Romaneio não informado.' })
+  }
 
   let userError = null
   let resultado = null
@@ -905,7 +1006,10 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios/expedir', (e) => {
     }
   })
 
-  if (userError) return fail(e, 400, userError, '313: transação revertida')
+  if (userError) {
+    console.warn('[ks-ciafal] 313: transação revertida')
+    return e.json(400, { success: false, error: userError })
+  }
   return e.json(200, { success: true, resultado: resultado })
 })
 
@@ -914,13 +1018,43 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios/expedir', (e) => {
 // POST /backend/v1/pcp/mp-ks-ciafal/romaneios/receber  { romaneio_id, divergencias?, usuario }
 // ---------------------------------------------------------------------------
 routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios/receber', (e) => {
+  const DP28 = 'DP28'
+  const DP02 = 'DP02'
+  const DP07 = 'DP07'
+
+  function nowBR() {
+    return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+  }
+
+  function audit(app, entry) {
+    try {
+      const col = app.findCollectionByNameOrId('mp_ks_ciafal_auditoria')
+      const rec = new Record(col)
+      rec.set('usuario_matricula', entry.matricula || '')
+      rec.set('usuario_nome', entry.nome || '')
+      rec.set('acao', entry.acao || '')
+      rec.set('entidade', entry.entidade || '')
+      rec.set('entidade_id', entry.entidade_id || '')
+      rec.set('antes', entry.antes ? JSON.stringify(entry.antes).slice(0, 4000) : '')
+      rec.set('depois', entry.depois ? JSON.stringify(entry.depois).slice(0, 4000) : '')
+      rec.set('detalhe', entry.detalhe || '')
+      rec.set('criado_em', nowBR())
+      app.save(rec)
+    } catch (err) {
+      console.warn('[ks-ciafal] falha ao registrar auditoria:', err && err.message)
+    }
+  }
+
   const data = (e.requestInfo() || {}).body || {}
   const romaneioId = String(data.romaneio_id || '').trim()
   const divergencias = String(data.divergencias || '').trim()
-  const auth = requireAuth(e)
+  const auth = e.auth
   const usuarioNome = String((data.usuario || {}).nome || (auth && auth.getString('name')) || '—')
   const usuarioMat = String((data.usuario || {}).matricula || (auth && auth.getString('id')) || '—')
-  if (!romaneioId) return fail(e, 400, 'Romaneio não informado.', '315: sem id')
+  if (!romaneioId) {
+    console.warn('[ks-ciafal] 315: sem id')
+    return e.json(400, { success: false, error: 'Romaneio não informado.' })
+  }
 
   let userError = null
   let resultado = null
@@ -1057,7 +1191,10 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios/receber', (e) => {
     }
   })
 
-  if (userError) return fail(e, 400, userError, '315: transação revertida')
+  if (userError) {
+    console.warn('[ks-ciafal] 315: transação revertida')
+    return e.json(400, { success: false, error: userError })
+  }
   return e.json(200, { success: true, resultado: resultado })
 })
 
@@ -1066,12 +1203,40 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios/receber', (e) => {
 // POST /backend/v1/pcp/mp-ks-ciafal/romaneios/confirmar-dp07  { romaneio_id, usuario }
 // ---------------------------------------------------------------------------
 routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios/confirmar-dp07', (e) => {
+  const DP07 = 'DP07'
+
+  function nowBR() {
+    return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
+  }
+
+  function audit(app, entry) {
+    try {
+      const col = app.findCollectionByNameOrId('mp_ks_ciafal_auditoria')
+      const rec = new Record(col)
+      rec.set('usuario_matricula', entry.matricula || '')
+      rec.set('usuario_nome', entry.nome || '')
+      rec.set('acao', entry.acao || '')
+      rec.set('entidade', entry.entidade || '')
+      rec.set('entidade_id', entry.entidade_id || '')
+      rec.set('antes', entry.antes ? JSON.stringify(entry.antes).slice(0, 4000) : '')
+      rec.set('depois', entry.depois ? JSON.stringify(entry.depois).slice(0, 4000) : '')
+      rec.set('detalhe', entry.detalhe || '')
+      rec.set('criado_em', nowBR())
+      app.save(rec)
+    } catch (err) {
+      console.warn('[ks-ciafal] falha ao registrar auditoria:', err && err.message)
+    }
+  }
+
   const data = (e.requestInfo() || {}).body || {}
   const romaneioId = String(data.romaneio_id || '').trim()
-  const auth = requireAuth(e)
+  const auth = e.auth
   const usuarioNome = String((data.usuario || {}).nome || (auth && auth.getString('name')) || '—')
   const usuarioMat = String((data.usuario || {}).matricula || (auth && auth.getString('id')) || '—')
-  if (!romaneioId) return fail(e, 400, 'Romaneio não informado.', 'dp07: sem id')
+  if (!romaneioId) {
+    console.warn('[ks-ciafal] dp07: sem id')
+    return e.json(400, { success: false, error: 'Romaneio não informado.' })
+  }
 
   let userError = null
   let resultado = null
@@ -1114,7 +1279,10 @@ routerAdd('POST', '/backend/v1/pcp/mp-ks-ciafal/romaneios/confirmar-dp07', (e) =
     }
   })
 
-  if (userError) return fail(e, 400, userError, 'dp07: transação revertida')
+  if (userError) {
+    console.warn('[ks-ciafal] dp07: transação revertida')
+    return e.json(400, { success: false, error: userError })
+  }
   return e.json(200, { success: true, resultado: resultado })
 })
 
