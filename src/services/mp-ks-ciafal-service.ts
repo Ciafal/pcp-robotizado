@@ -147,6 +147,17 @@ export async function listarRomaneios(centro: string): Promise<RomaneioKs[]> {
   return recs as unknown as RomaneioKs[]
 }
 
+/** IDs das peças vinculadas a uma seleção (via coleção de itens ZPPT045) */
+export async function listarIdsPecasDaSelecao(selecaoId: string): Promise<string[]> {
+  const recs = await pb.collection('mp_ks_ciafal_selecao_pecas').getFullList({
+    filter: `selecao_id = "${selecaoId}"`,
+    sort: 'created',
+  })
+  return recs
+    .map((r) => String((r as unknown as { peca_id: string }).peca_id || ''))
+    .filter(Boolean)
+}
+
 export interface PecaRomaneio {
   id: string
   romaneio_id: string
@@ -157,6 +168,14 @@ export interface PecaRomaneio {
   corrida: string
   numero_bloco: string
   situacao: string
+}
+
+export async function listarPecasDaSelecao(selecaoId: string): Promise<PecaRomaneio[]> {
+  const recs = await pb.collection('mp_ks_ciafal_selecao_pecas').getFullList({
+    filter: `selecao_id = "${selecaoId}"`,
+    sort: 'created',
+  })
+  return recs as unknown as PecaRomaneio[]
 }
 
 export async function listarPecasRomaneio(romaneioId: string): Promise<PecaRomaneio[]> {
@@ -181,7 +200,10 @@ export interface SalvarSelecaoPayload {
   motivo_id?: string
   motivo_codigo?: string
   justificativa?: string
-  usuario: { matricula: string; nome: string }
+  usuario?: { matricula: string; nome: string }
+  usuario_matricula?: string
+  usuario_nome?: string
+  data_envio_edits?: Record<string, string>
   pecas: string[]
 }
 
