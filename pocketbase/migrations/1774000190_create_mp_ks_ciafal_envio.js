@@ -1,5 +1,6 @@
 // Migration 1774000190 — Tópico "Envio de MP KS → Ciafal" (ZPPT047/ZPPT045/ZPP82/ZPPT003 espelhados)
 // Idempotente (if !app.hasTable). NÃO altera coleções existentes de Gestão de MP.
+// Índices: addIndex(nome, unique, col1, col2, ...) — criação condicional (só na criação da collection).
 migrate(
   (app) => {
     const has = (name) => {
@@ -44,9 +45,9 @@ migrate(
           { name: 'origem_registro', type: 'text' }, // ZPPT045 | seed | manual
         ],
       })
-      c.addIndex('idx_ks_pecas_centro', ['centro', 'status'], false)
-      c.addIndex('idx_ks_pecas_selecao', ['selecao_id'], false)
-      c.addIndex('idx_ks_pecas_bloco', ['numero_bloco'], false)
+      c.addIndex('idx_ks_pecas_centro', false, 'centro', 'status', '')
+      c.addIndex('idx_ks_pecas_selecao', false, 'selecao_id', '')
+      c.addIndex('idx_ks_pecas_bloco', false, 'numero_bloco', '')
       app.save(c)
     }
 
@@ -86,8 +87,8 @@ migrate(
           { name: 'documento_311', type: 'text' },
         ],
       })
-      c.addIndex('idx_ks_sel_num', ['centro', 'numero_selecao'], false)
-      c.addIndex('idx_ks_sel_vigente', ['vigente'], false)
+      c.addIndex('idx_ks_sel_num', false, 'centro', 'numero_selecao', '')
+      c.addIndex('idx_ks_sel_vigente', false, 'vigente', '')
       app.save(c)
     }
 
@@ -120,7 +121,7 @@ migrate(
           { name: 'situacao', type: 'text' },
         ],
       })
-      c.addIndex('idx_ks_selpecas_sel', ['selecao_id'], false)
+      c.addIndex('idx_ks_selpecas_sel', false, 'selecao_id', '')
       app.save(c)
     }
 
@@ -166,7 +167,7 @@ migrate(
           { name: 'ativo', type: 'bool' },
         ],
       })
-      c.addIndex('idx_ks_user_matricula', ['matricula'], true)
+      c.addIndex('idx_ks_user_matricula', true, 'matricula', '')
       app.save(c)
     }
 
@@ -203,8 +204,8 @@ migrate(
           { name: 'divergencias', type: 'text' },
         ],
       })
-      c.addIndex('idx_ks_rom_num', ['numero_romaneio'], true)
-      c.addIndex('idx_ks_rom_sel', ['selecao_id'], false)
+      c.addIndex('idx_ks_rom_num', true, 'numero_romaneio', '')
+      c.addIndex('idx_ks_rom_sel', false, 'selecao_id', '')
       app.save(c)
     }
 
@@ -231,7 +232,7 @@ migrate(
           { name: 'situacao', type: 'text' },
         ],
       })
-      c.addIndex('idx_ks_rompecas_rom', ['romaneio_id'], false)
+      c.addIndex('idx_ks_rompecas_rom', false, 'romaneio_id', '')
       app.save(c)
     }
 
@@ -263,8 +264,8 @@ migrate(
           { name: 'payload_json', type: 'text' },
         ],
       })
-      c.addIndex('idx_ks_mov_idem', ['idempotency_key'], true)
-      c.addIndex('idx_ks_mov_peca', ['peca_id'], false)
+      c.addIndex('idx_ks_mov_idem', true, 'idempotency_key', '')
+      c.addIndex('idx_ks_mov_peca', false, 'peca_id', '')
       app.save(c)
     }
 
@@ -312,7 +313,7 @@ migrate(
           { name: 'current_number', type: 'number' },
         ],
       })
-      c.addIndex('idx_ks_seq_chave', ['chave'], true)
+      c.addIndex('idx_ks_seq_chave', true, 'chave', '')
       app.save(c)
     }
 
