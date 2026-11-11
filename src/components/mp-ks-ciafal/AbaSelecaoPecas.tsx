@@ -1,5 +1,6 @@
 // Aba 1 — Seleção de peças para envio (ZPPT045 → ZPPT047)
 // Bloco A: programação de envio | Bloco B: peças físicas com seleção versionada
+// Correção PCP-798886BE: typecheck revalidado do zero (v0.0.740+)
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
