@@ -1,17 +1,7 @@
 import React, { useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Flame,
-  AlertTriangle,
-  CheckCircle2,
-  Activity,
-  Layers,
-  ArrowRight,
-  ShieldAlert,
-  Info,
-} from 'lucide-react'
+import { Flame, Layers, ArrowRight } from 'lucide-react'
 import { ScenarioBottleneckDetail } from '@/types/optimization-engine'
 
 interface BottleneckBoardProps {
@@ -82,6 +72,18 @@ const DEFAULT_BOTTLENECKS: ScenarioBottleneckDetail[] = [
   },
 ]
 
+const riskAccent: Record<string, string> = {
+  CRITICAL: 'var(--status-danger)',
+  HIGH: 'var(--status-warning)',
+  LOW: 'var(--status-success)',
+}
+
+const riskBadge: Record<string, string> = {
+  CRITICAL: 'ciafal-badge ciafal-badge--danger',
+  HIGH: 'ciafal-badge ciafal-badge--warning',
+  LOW: 'ciafal-badge ciafal-badge--success',
+}
+
 export const BottleneckBoard: React.FC<BottleneckBoardProps> = ({
   bottlenecks = DEFAULT_BOTTLENECKS,
   onSelectLine,
@@ -94,25 +96,35 @@ export const BottleneckBoard: React.FC<BottleneckBoardProps> = ({
   })
 
   return (
-    <Card className="bg-slate-900/60 border-slate-800 text-slate-100">
-      <CardHeader className="pb-3 border-b border-slate-800/80">
+    <Card className="ciafal-card">
+      <CardHeader className="pb-3 border-b" style={{ borderColor: 'var(--ciafal-border)' }}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-            <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
+          <CardTitle
+            className="text-sm font-bold flex items-center gap-2"
+            style={{ color: 'var(--ciafal-navy)' }}
+          >
+            <Flame
+              className="w-4 h-4"
+              style={{ color: 'var(--status-danger)' }}
+              aria-hidden="true"
+            />
             Diagnóstico de Gargalos & Saturação de Recursos
           </CardTitle>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {['ALL', 'CRITICAL', 'HIGH', 'LOW'].map((risk) => (
               <Button
                 key={risk}
                 variant="ghost"
                 size="sm"
                 onClick={() => setFilterRisk(risk)}
-                className={`h-6 px-2 text-[10px] font-mono rounded ${
+                className={`h-6 px-2 text-[10px] font-mono rounded border ${
                   filterRisk === risk
-                    ? 'bg-slate-800 text-white font-bold border border-slate-700'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-[var(--ciafal-primary-lighter)] font-bold border-[var(--ciafal-primary)]'
+                    : 'bg-white border-transparent hover:bg-[var(--ciafal-primary-lighter)]'
                 }`}
+                style={{
+                  color: filterRisk === risk ? 'var(--ciafal-primary)' : 'var(--ciafal-text-muted)',
+                }}
               >
                 {risk === 'ALL' ? 'Todos' : risk}
               </Button>
@@ -123,80 +135,111 @@ export const BottleneckBoard: React.FC<BottleneckBoardProps> = ({
       <CardContent className="p-4 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filtered.map((item) => {
-            const isCrit = item.riskLevel === 'CRITICAL'
-            const isHigh = item.riskLevel === 'HIGH'
+            const accent = riskAccent[item.riskLevel] || 'var(--ciafal-primary)'
 
             return (
               <div
                 key={item.lineCode}
-                className={`p-3.5 rounded-xl border transition-all ${
-                  isCrit
-                    ? 'bg-rose-950/25 border-rose-800/80'
-                    : isHigh
-                      ? 'bg-amber-950/20 border-amber-800/60'
-                      : 'bg-slate-900/40 border-slate-800'
-                }`}
+                className="ciafal-card p-3.5 border-l-4"
+                style={{ borderLeftColor: accent }}
               >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-white text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className="font-mono font-bold text-xs"
+                        style={{ color: 'var(--ciafal-navy)' }}
+                      >
                         {item.lineCode}
                       </span>
-                      <span className="text-[11px] text-slate-300 font-medium">
+                      <span
+                        className="text-[11px] font-medium"
+                        style={{ color: 'var(--ciafal-text)' }}
+                      >
                         {item.lineName}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px]" style={{ color: 'var(--ciafal-text-muted)' }}>
                       Período de Análise: {item.periodRef}
                     </span>
                   </div>
 
-                  <Badge
-                    className={`text-[9px] font-mono uppercase ${
-                      isCrit
-                        ? 'bg-rose-900/80 text-rose-200 border-rose-700'
-                        : isHigh
-                          ? 'bg-amber-900/80 text-amber-200 border-amber-700'
-                          : 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                    }`}
+                  <span
+                    className={`${riskBadge[item.riskLevel] || 'ciafal-badge--neutral'} whitespace-nowrap`}
                   >
-                    {item.riskLevel} • {item.utilizationPct}%
-                  </Badge>
+                    {item.riskLevel} • {item.utilizationPct.toLocaleString('pt-BR')}%
+                  </span>
                 </div>
 
                 {/* Barra de Progresso de Ocupação */}
                 <div className="mt-2.5 space-y-1">
-                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                    <span>Carga: {item.plannedLoadTons} t</span>
-                    <span>Cap. Programável: {item.programmableCapacityTons} t</span>
+                  <div
+                    className="flex justify-between text-[10px] font-mono"
+                    style={{ color: 'var(--ciafal-text-muted)' }}
+                  >
+                    <span>Carga: {item.plannedLoadTons.toLocaleString('pt-BR')} t</span>
+                    <span>
+                      Cap. Programável: {item.programmableCapacityTons.toLocaleString('pt-BR')} t
+                    </span>
                   </div>
-                  <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                  <div
+                    className="w-full h-2 rounded-full overflow-hidden border"
+                    style={{
+                      backgroundColor: 'var(--ciafal-surface-muted)',
+                      borderColor: 'var(--ciafal-border)',
+                    }}
+                    role="progressbar"
+                    aria-valuenow={item.utilizationPct}
+                    aria-valuemin={0}
+                    aria-valuemax={120}
+                    aria-label={`Ocupação ${item.lineCode}`}
+                  >
                     <div
-                      className={`h-full transition-all duration-500 rounded-full ${
-                        isCrit ? 'bg-rose-500' : isHigh ? 'bg-amber-500' : 'bg-cyan-500'
-                      }`}
-                      style={{ width: `${Math.min(100, item.utilizationPct)}%` }}
+                      className="h-full transition-all duration-500 rounded-full"
+                      style={{
+                        width: `${Math.min(100, item.utilizationPct)}%`,
+                        backgroundColor: accent,
+                      }}
                     />
                   </div>
                 </div>
 
                 {/* Diagnóstico Determinístico */}
-                <p className="text-[11px] text-slate-300 mt-2.5 leading-snug bg-slate-950/60 p-2 rounded border border-slate-800/70">
+                <p
+                  className="text-[11px] mt-2.5 leading-snug p-2 rounded"
+                  style={{
+                    backgroundColor:
+                      item.riskLevel === 'CRITICAL'
+                        ? 'var(--status-danger-bg)'
+                        : item.riskLevel === 'HIGH'
+                          ? 'var(--status-warning-bg)'
+                          : 'var(--ciafal-surface-muted)',
+                    color: 'var(--ciafal-text)',
+                  }}
+                >
                   {item.deterministicReason}
                 </p>
 
-                <div className="mt-2.5 flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-800/60 pt-2">
+                <div
+                  className="mt-2.5 flex items-center justify-between text-[10px] border-t pt-2"
+                  style={{ borderColor: 'var(--ciafal-border)', color: 'var(--ciafal-text-muted)' }}
+                >
                   <span className="flex items-center gap-1">
-                    <Layers className="w-3 h-3 text-cyan-400" /> Pulmão Buffer:{' '}
-                    <strong className="text-slate-200">{item.bufferRisk}</strong>
+                    <Layers
+                      className="w-3 h-3"
+                      style={{ color: 'var(--ciafal-primary)' }}
+                      aria-hidden="true"
+                    />{' '}
+                    Pulmão Buffer:{' '}
+                    <strong style={{ color: 'var(--ciafal-text)' }}>{item.bufferRisk}</strong>
                   </span>
                   {onSelectLine && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => onSelectLine(item.lineCode)}
-                      className="h-5 px-1.5 text-[10px] text-cyan-400 hover:text-cyan-300"
+                      className="h-5 px-1.5 text-[10px]"
+                      style={{ color: 'var(--ciafal-primary)' }}
                     >
                       Inspecionar Cascata <ArrowRight className="w-2.5 h-2.5 ml-1" />
                     </Button>

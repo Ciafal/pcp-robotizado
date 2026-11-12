@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Activity, Layers, Info, Calendar } from 'lucide-react'
+import { Activity, Info } from 'lucide-react'
 
 interface HeatmapCell {
   lineCode: string
@@ -71,63 +70,107 @@ const GENERATE_HEATMAP_DATA = (): Record<string, Record<string, HeatmapCell>> =>
   return result
 }
 
+const RISK_BADGE: Record<string, string> = {
+  CRITICAL: 'ciafal-badge ciafal-badge--danger',
+  HIGH: 'ciafal-badge ciafal-badge--warning',
+  MEDIUM: 'ciafal-badge ciafal-badge--info',
+  LOW: 'ciafal-badge ciafal-badge--success',
+}
+
 export const AdvancedCapacityHeatmap: React.FC<{
   onCellClick?: (cell: HeatmapCell) => void
 }> = ({ onCellClick }) => {
   const [data] = useState(GENERATE_HEATMAP_DATA)
   const [hoveredCell, setHoveredCell] = useState<HeatmapCell | null>(null)
 
-  const getCellBgClass = (utilPct: number) => {
-    if (utilPct >= 105) return 'bg-rose-600/80 text-white font-bold border-rose-400'
-    if (utilPct >= 95) return 'bg-amber-600/80 text-white font-bold border-amber-400'
-    if (utilPct >= 85) return 'bg-blue-600/70 text-slate-100 font-semibold border-blue-400'
-    if (utilPct >= 70) return 'bg-cyan-900/60 text-cyan-200 border-cyan-800'
-    return 'bg-slate-900/50 text-slate-400 border-slate-800'
+  const getCellStyle = (utilPct: number): React.CSSProperties => {
+    if (utilPct >= 105)
+      return {
+        backgroundColor: '#dc2626',
+        color: '#ffffff',
+        fontWeight: 700,
+        borderColor: '#fecaca',
+      }
+    if (utilPct >= 95)
+      return {
+        backgroundColor: '#f59e0b',
+        color: '#ffffff',
+        fontWeight: 700,
+        borderColor: '#fde68a',
+      }
+    if (utilPct >= 85)
+      return {
+        backgroundColor: '#004c97',
+        color: '#ffffff',
+        fontWeight: 600,
+        borderColor: '#bfdbfe',
+      }
+    if (utilPct >= 70)
+      return {
+        backgroundColor: '#dbeafe',
+        color: '#0f2a4a',
+        fontWeight: 600,
+        borderColor: '#bfdbfe',
+      }
+    return {
+      backgroundColor: 'var(--ciafal-surface-muted)',
+      color: 'var(--ciafal-text-muted)',
+      fontWeight: 500,
+      borderColor: 'var(--ciafal-border)',
+    }
   }
 
+  const legendRanges = [
+    { label: '<70%', color: 'var(--ciafal-surface-muted)', border: 'var(--ciafal-border)' },
+    { label: '70–84%', color: '#dbeafe', border: '#bfdbfe' },
+    { label: '85–94%', color: '#004c97', border: '#004c97' },
+    { label: '95–104%', color: '#f59e0b', border: '#f59e0b' },
+    { label: '≥105% (Crítico)', color: '#dc2626', border: '#dc2626' },
+  ]
+
   return (
-    <Card className="bg-slate-900/60 border-slate-800 text-slate-100">
-      <CardHeader className="pb-3 border-b border-slate-800/80">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-              <Activity className="w-4 h-4 text-cyan-400" />
+    <Card className="ciafal-card">
+      <CardHeader className="pb-3 border-b" style={{ borderColor: 'var(--ciafal-border)' }}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle
+              className="text-sm font-bold flex items-center gap-2"
+              style={{ color: 'var(--ciafal-navy)' }}
+            >
+              <Activity
+                className="w-4 h-4"
+                style={{ color: 'var(--ciafal-primary)' }}
+                aria-hidden="true"
+              />
               Mapa de Calor de Capacidade Programável (Linha × Período)
             </CardTitle>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px]" style={{ color: 'var(--ciafal-text-muted)' }}>
               Taxa de ocupação com valores numéricos explícitos (%) e indicação de sobrecarga.
             </p>
           </div>
           {/* Legenda */}
-          <div className="flex items-center gap-2 text-[10px] font-mono">
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-slate-800 border border-slate-700"></span>{' '}
-              &lt;70%
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-cyan-900 border border-cyan-700"></span>{' '}
-              70-84%
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-blue-600 border border-blue-400"></span>{' '}
-              85-94%
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-amber-600 border border-amber-400"></span>{' '}
-              95-104%
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-sm bg-rose-600 border border-rose-400"></span>{' '}
-              &ge;105% (Crítico)
-            </span>
+          <div
+            className="flex items-center gap-2 text-[10px] font-mono flex-wrap"
+            style={{ color: 'var(--ciafal-text-muted)' }}
+          >
+            {legendRanges.map((r) => (
+              <span key={r.label} className="flex items-center gap-1 whitespace-nowrap">
+                <span
+                  className="w-2.5 h-2.5 rounded-sm border"
+                  style={{ backgroundColor: r.color, borderColor: r.border }}
+                  aria-hidden="true"
+                ></span>{' '}
+                {r.label}
+              </span>
+            ))}
           </div>
         </div>
       </CardHeader>
       <CardContent className="p-4 space-y-4">
-        <div className="overflow-x-auto">
-          <table className="w-full text-center border-collapse text-xs">
+        <div className="ciafal-table-wrap">
+          <table className="ciafal-table text-center border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-800 text-[11px] text-slate-400 font-semibold">
+              <tr>
                 <th className="text-left py-2 px-3 w-44">Linha de Produção</th>
                 {DAYS_OF_WEEK.map((d) => (
                   <th key={d.key} className="py-2 px-2 font-mono">
@@ -136,12 +179,22 @@ export const AdvancedCapacityHeatmap: React.FC<{
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-850">
+            <tbody>
               {LINES_LIST.map((line) => (
-                <tr key={line.code} className="hover:bg-slate-900/30">
-                  <td className="text-left py-2.5 px-3 font-semibold text-slate-200">
-                    <div className="font-mono text-xs text-white">{line.code}</div>
-                    <div className="text-[10px] text-slate-400 truncate">{line.name}</div>
+                <tr key={line.code}>
+                  <td
+                    className="text-left py-2.5 px-3 font-semibold whitespace-nowrap"
+                    style={{ color: 'var(--ciafal-navy)' }}
+                  >
+                    <div className="font-mono text-xs" style={{ color: 'var(--ciafal-navy)' }}>
+                      {line.code}
+                    </div>
+                    <div
+                      className="text-[10px] truncate"
+                      style={{ color: 'var(--ciafal-text-muted)' }}
+                    >
+                      {line.name}
+                    </div>
                   </td>
                   {DAYS_OF_WEEK.map((day) => {
                     const cell = data[line.code]?.[day.key]
@@ -154,9 +207,11 @@ export const AdvancedCapacityHeatmap: React.FC<{
                           onClick={() => onCellClick && onCellClick(cell)}
                           onMouseEnter={() => setHoveredCell(cell)}
                           onMouseLeave={() => setHoveredCell(null)}
-                          className={`w-full py-2.5 px-1 rounded-md border text-center transition-all ${getCellBgClass(
-                            cell.utilizationPct,
-                          )} hover:scale-105 shadow-sm font-mono text-xs`}
+                          onFocus={() => setHoveredCell(cell)}
+                          onBlur={() => setHoveredCell(null)}
+                          className="w-full py-2.5 px-1 rounded-md border text-center transition-all hover:scale-105 shadow-sm font-mono text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ciafal-primary)]"
+                          style={getCellStyle(cell.utilizationPct)}
+                          aria-label={`${line.code}, ${day.label}: ocupação ${cell.utilizationPct}%`}
                         >
                           {cell.utilizationPct}%
                         </button>
@@ -171,31 +226,35 @@ export const AdvancedCapacityHeatmap: React.FC<{
 
         {/* Detalhe On-Hover / Inspecionar */}
         {hoveredCell && (
-          <div className="bg-slate-950/80 p-3 rounded-lg border border-slate-800 flex items-center justify-between text-xs animate-in fade-in duration-200">
-            <div className="flex items-center gap-2">
-              <Info className="w-4 h-4 text-cyan-400" />
+          <div
+            className="p-3 rounded-lg border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs"
+            style={{
+              backgroundColor: 'var(--ciafal-surface-muted)',
+              borderColor: 'var(--ciafal-border)',
+              color: 'var(--ciafal-text)',
+            }}
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <Info
+                className="w-4 h-4"
+                style={{ color: 'var(--ciafal-primary)' }}
+                aria-hidden="true"
+              />
               <span>
-                <strong className="text-white">
+                <strong style={{ color: 'var(--ciafal-navy)' }}>
                   {hoveredCell.lineCode} ({hoveredCell.lineName})
                 </strong>{' '}
                 — {hoveredCell.dayLabel}:
               </span>
-              <span className="font-mono text-slate-300">
-                Carga: <strong>{hoveredCell.plannedTons}t</strong> / Cap. Programável:{' '}
-                <strong>{hoveredCell.programmableTons}t</strong>
+              <span className="font-mono" style={{ color: 'var(--ciafal-text)' }}>
+                Carga: <strong>{hoveredCell.plannedTons.toLocaleString('pt-BR')}t</strong> / Cap.
+                Programável:{' '}
+                <strong>{hoveredCell.programmableTons.toLocaleString('pt-BR')}t</strong>
               </span>
             </div>
-            <Badge
-              className={`font-mono text-[10px] ${
-                hoveredCell.riskLevel === 'CRITICAL'
-                  ? 'bg-rose-950 text-rose-300 border-rose-700'
-                  : hoveredCell.riskLevel === 'HIGH'
-                    ? 'bg-amber-950 text-amber-300 border-amber-700'
-                    : 'bg-emerald-950 text-emerald-300 border-emerald-800'
-              }`}
-            >
-              Risco: {hoveredCell.riskLevel} ({hoveredCell.utilizationPct}%)
-            </Badge>
+            <span className={`${RISK_BADGE[hoveredCell.riskLevel] || 'ciafal-badge--neutral'}`}>
+              Risco: {hoveredCell.riskLevel} ({hoveredCell.utilizationPct.toLocaleString('pt-BR')}%)
+            </span>
           </div>
         )}
       </CardContent>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,16 +11,9 @@ import {
   Columns3,
   Flame,
   ShieldCheck,
-  RotateCcw,
-  Sparkles,
-  Layers,
   Send,
-  AlertTriangle,
-  CheckCircle2,
   Activity,
   BarChart3,
-  Info,
-  Clock,
 } from 'lucide-react'
 import { OptimizationScenarioEntity, OptimizationRunResult } from '@/types/optimization-engine'
 import { optimizationService } from '@/services/optimization-service'
@@ -34,7 +26,7 @@ import EngineTestSuiteModal from './EngineTestSuiteModal'
 
 export const ScenarioSimulator: React.FC = () => {
   const { toast } = useToast()
-  const { user, can } = useAuth()
+  const { can } = useAuth()
 
   const [scenarios, setScenarios] = useState<OptimizationScenarioEntity[]>([])
   const [selectedScenario, setSelectedScenario] = useState<OptimizationScenarioEntity | null>(null)
@@ -133,138 +125,211 @@ export const ScenarioSimulator: React.FC = () => {
     }
   }
 
+  const scenarioBadge = (sc: OptimizationScenarioEntity) => {
+    if (sc.is_baseline) return 'ciafal-badge ciafal-badge--warning'
+    if (sc.status === 'DRAFT' || sc.status === 'SIMULADO') return 'ciafal-badge ciafal-badge--info'
+    return 'ciafal-badge ciafal-badge--neutral'
+  }
+
+  const allocBadge = (status?: string) => {
+    if (status === 'ALLOCATED') return 'ciafal-badge ciafal-badge--success'
+    return 'ciafal-badge ciafal-badge--danger'
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="ciafal-page space-y-4">
       {/* Header com Ações Globais */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-900/70 p-4 rounded-xl border border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-base font-bold text-white tracking-tight">
-              Motor de Otimização CP-SAT & Simulador de Cenários Industriais
-            </h2>
-            <Badge className="bg-[#004C97] text-white border-blue-600 text-[10px] font-mono">
-              Prompt 05 Homologado
-            </Badge>
+      <div className="ciafal-card p-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span
+              className="hidden sm:flex w-10 h-10 rounded-lg items-center justify-center shrink-0"
+              style={{ backgroundColor: 'var(--ciafal-primary-lighter)' }}
+            >
+              <Cpu className="w-5 h-5" style={{ color: 'var(--ciafal-primary)' }} />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2
+                  className="text-base lg:text-lg font-bold tracking-tight"
+                  style={{ color: 'var(--ciafal-navy)' }}
+                >
+                  Motor de Otimização CP-SAT & Simulador de Cenários Industriais
+                </h2>
+                <span className="ciafal-badge ciafal-badge--info text-[10px] font-mono">
+                  Prompt 05 Homologado
+                </span>
+              </div>
+              <p className="text-xs mt-1 max-w-3xl" style={{ color: 'var(--ciafal-text-muted)' }}>
+                Arquitetura determinística: DADOS &rarr; REGRAS &rarr; HARD CONSTRAINTS &rarr;
+                SOLVER CP-SAT &rarr; PROPOSTA DRAFT. Decisão 100% humana.
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Arquitetura determinística: DADOS &rarr; REGRAS &rarr; HARD CONSTRAINTS &rarr; SOLVER
-            CP-SAT &rarr; PROPOSTA DRAFT. Decisão 100% humana.
-          </p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsTestSuiteOpen(true)}
-            className="border-blue-700 bg-blue-950/40 text-cyan-300 hover:bg-blue-900/60 text-xs font-semibold"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-cyan-400" />
-            Suíte de Homologação (18 Testes)
-          </Button>
-
-          {canCompare && (
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setIsCompareOpen(true)}
-              className="border-slate-700 bg-slate-900 text-slate-200 hover:text-white text-xs"
+              onClick={() => setIsTestSuiteOpen(true)}
+              className="bg-white border-[var(--ciafal-border)] text-xs font-semibold hover:bg-[var(--ciafal-primary-lighter)] hover:text-[var(--ciafal-primary)]"
             >
-              <Columns3 className="w-3.5 h-3.5 mr-1.5 text-cyan-400" />
-              Comparar Cenários (Até 4)
+              <ShieldCheck
+                className="w-3.5 h-3.5 mr-1.5"
+                style={{ color: 'var(--ciafal-primary)' }}
+              />
+              Suíte de Homologação (18 Testes)
             </Button>
-          )}
 
-          {canCreate && (
-            <Button
-              size="sm"
-              onClick={() => setIsCreateOpen(true)}
-              className="bg-[#004C97] hover:bg-[#003B75] text-white font-bold text-xs shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5 mr-1.5" />
-              Novo Cenário CP-SAT
-            </Button>
-          )}
+            {canCompare && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsCompareOpen(true)}
+                className="bg-white border-[var(--ciafal-border)] text-xs font-semibold hover:bg-[var(--ciafal-primary-lighter)] hover:text-[var(--ciafal-primary)]"
+              >
+                <Columns3
+                  className="w-3.5 h-3.5 mr-1.5"
+                  style={{ color: 'var(--ciafal-primary)' }}
+                />
+                Comparar Cenários (Até 4)
+              </Button>
+            )}
+
+            {canCreate && (
+              <Button
+                size="sm"
+                onClick={() => setIsCreateOpen(true)}
+                className="text-white font-bold text-xs shadow-sm hover:opacity-90"
+                style={{ backgroundColor: 'var(--ciafal-primary)' }}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                Novo Cenário CP-SAT
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Tabs de Navegação do Módulo */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <TabsList className="bg-slate-900/80 border border-slate-800 w-full grid grid-cols-2 sm:grid-cols-4 text-xs">
-          <TabsTrigger value="SIMULATOR" className="flex items-center gap-1.5">
-            <Cpu className="w-3.5 h-3.5 text-cyan-400" /> Cenários & Alocações
+        <TabsList className="ciafal-tabs-list w-full grid grid-cols-2 lg:grid-cols-4 h-auto p-0 gap-0">
+          <TabsTrigger value="SIMULATOR" className="ciafal-tab">
+            <Cpu className="w-3.5 h-3.5" /> Cenários & Alocações
           </TabsTrigger>
-          <TabsTrigger value="BOTTLENECKS" className="flex items-center gap-1.5">
-            <Flame className="w-3.5 h-3.5 text-rose-400" /> Gargalos & Pulmões
+          <TabsTrigger value="BOTTLENECKS" className="ciafal-tab">
+            <Flame className="w-3.5 h-3.5" /> Gargalos & Pulmões
           </TabsTrigger>
-          <TabsTrigger value="HEATMAP" className="flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-blue-400" /> Mapa de Calor (%)
+          <TabsTrigger value="HEATMAP" className="ciafal-tab">
+            <Activity className="w-3.5 h-3.5" /> Mapa de Calor (%)
           </TabsTrigger>
-          <TabsTrigger value="CAPACITIES" className="flex items-center gap-1.5">
-            <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> Decomposição 4 Capacidades
+          <TabsTrigger value="CAPACITIES" className="ciafal-tab">
+            <BarChart3 className="w-3.5 h-3.5" /> Decomposição 4 Capacidades
           </TabsTrigger>
         </TabsList>
 
         {/* 1. ABA SIMULADOR & CENÁRIOS */}
-        <TabsContent value="SIMULATOR" className="space-y-4 pt-2">
+        <TabsContent value="SIMULATOR" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Coluna Esquerda: Lista de Cenários Cadastrados */}
             <div className="space-y-2">
-              <span className="text-xs font-semibold text-slate-400 block px-1">
+              <span
+                className="text-xs font-semibold block px-1"
+                style={{ color: 'var(--ciafal-text-muted)' }}
+              >
                 Cenários Disponíveis no Hub ({scenarios.length}):
               </span>
-              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1" aria-busy={loadingList}>
+                {loadingList && scenarios.length === 0 && (
+                  <div
+                    className="p-6 text-center text-xs rounded-xl border border-dashed"
+                    style={{
+                      borderColor: 'var(--ciafal-border)',
+                      color: 'var(--ciafal-text-muted)',
+                    }}
+                  >
+                    Carregando cenários do Hub…
+                  </div>
+                )}
+                {!loadingList && scenarios.length === 0 && (
+                  <div
+                    className="p-6 text-center text-xs rounded-xl border border-dashed"
+                    style={{
+                      borderColor: 'var(--ciafal-border)',
+                      color: 'var(--ciafal-text-muted)',
+                    }}
+                  >
+                    Nenhum cenário cadastrado. Clique em “Novo Cenário CP-SAT” para criar o
+                    primeiro.
+                  </div>
+                )}
                 {scenarios.map((sc) => {
                   const isSel = selectedScenario?.id === sc.id
                   return (
                     <div
                       key={sc.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelectedScenario(sc)}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                        isSel
-                          ? 'bg-[#004C97]/25 border-cyan-400 text-white shadow-md'
-                          : 'bg-slate-900/40 border-slate-800 text-slate-300 hover:border-slate-700'
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setSelectedScenario(sc)
+                        }
+                      }}
+                      aria-pressed={isSel}
+                      className={`ciafal-card ciafal-card--scenario p-3 cursor-pointer transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ciafal-primary)] ${
+                        isSel ? 'ciafal-card--selected' : ''
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold text-white">{sc.code}</span>
-                        <div className="flex items-center gap-1">
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] font-mono border-slate-700 text-cyan-300"
-                          >
-                            {sc.profile}
-                          </Badge>
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className="font-mono text-xs font-bold"
+                          style={{ color: 'var(--ciafal-navy)' }}
+                        >
+                          {sc.code}
+                        </span>
+                        <div className="flex items-center gap-1 flex-wrap justify-end">
+                          <span className={scenarioBadge(sc)}>{sc.profile}</span>
                           {sc.is_baseline && (
-                            <Badge className="bg-amber-950 text-amber-300 border-amber-800 text-[9px]">
-                              BASELINE
-                            </Badge>
+                            <span className="ciafal-badge ciafal-badge--warning">BASELINE</span>
                           )}
                         </div>
                       </div>
 
-                      <div className="font-semibold text-xs mt-1 text-slate-200 truncate">
+                      <div
+                        className="font-semibold text-xs mt-1 truncate"
+                        style={{ color: 'var(--ciafal-text)' }}
+                      >
                         {sc.name}
                       </div>
 
                       {sc.summary_kpis && (
-                        <div className="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-slate-800/60 font-mono text-[10px]">
+                        <div
+                          className="grid grid-cols-3 gap-1 mt-2 pt-2 border-t font-mono text-[10px]"
+                          style={{ borderColor: 'var(--ciafal-border)' }}
+                        >
                           <div>
-                            <span className="text-slate-500 block">Atendimento</span>
-                            <span className="text-emerald-400 font-bold">
-                              {sc.summary_kpis.demandServicePct}%
+                            <span className="block" style={{ color: 'var(--ciafal-text-muted)' }}>
+                              Atendimento
+                            </span>
+                            <span className="font-bold" style={{ color: 'var(--status-success)' }}>
+                              {sc.summary_kpis.demandServicePct.toLocaleString('pt-BR')}%
                             </span>
                           </div>
                           <div>
-                            <span className="text-slate-500 block">Volume</span>
-                            <span className="text-slate-200">
-                              {sc.summary_kpis.totalPlannedTons}t
+                            <span className="block" style={{ color: 'var(--ciafal-text-muted)' }}>
+                              Volume
+                            </span>
+                            <span style={{ color: 'var(--ciafal-text)' }}>
+                              {sc.summary_kpis.totalPlannedTons.toLocaleString('pt-BR')}t
                             </span>
                           </div>
                           <div>
-                            <span className="text-slate-500 block">Setups</span>
-                            <span className="text-cyan-300">
+                            <span className="block" style={{ color: 'var(--ciafal-text-muted)' }}>
+                              Setups
+                            </span>
+                            <span style={{ color: 'var(--ciafal-primary)' }}>
                               {sc.summary_kpis.setupCount} ({sc.summary_kpis.setupTimeMinutes}m)
                             </span>
                           </div>
@@ -279,30 +344,40 @@ export const ScenarioSimulator: React.FC = () => {
             {/* Coluna Central / Direita: Detalhes do Cenário Selecionado & Alocações */}
             <div className="lg:col-span-2 space-y-4">
               {selectedScenario ? (
-                <Card className="bg-slate-900/60 border-slate-800 text-slate-100">
-                  <CardHeader className="pb-3 border-b border-slate-800/80">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-sm font-bold text-white">
+                <Card className="ciafal-card">
+                  <CardHeader
+                    className="pb-3 border-b"
+                    style={{ borderColor: 'var(--ciafal-border)' }}
+                  >
+                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <CardTitle
+                            className="text-sm font-bold"
+                            style={{ color: 'var(--ciafal-navy)' }}
+                          >
                             {selectedScenario.name}
                           </CardTitle>
-                          <Badge className="bg-slate-800 text-cyan-300 border-slate-700 font-mono text-[10px]">
+                          <span className="ciafal-badge ciafal-badge--info font-mono text-[10px]">
                             {selectedScenario.code}
-                          </Badge>
+                          </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <p
+                          className="text-[11px] mt-0.5"
+                          style={{ color: 'var(--ciafal-text-muted)' }}
+                        >
                           {selectedScenario.assumptions ||
                             'Sem premissas adicionais cadastradas para este cenário.'}
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Button
                           size="sm"
                           onClick={() => handleRunScenario(selectedScenario)}
                           disabled={isRunning || !canRun}
-                          className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs h-8 shadow-sm"
+                          className="text-white font-bold text-xs h-8 shadow-sm hover:opacity-90"
+                          style={{ backgroundColor: 'var(--ciafal-primary)' }}
                         >
                           <Play className="w-3.5 h-3.5 mr-1" />
                           {isRunning ? 'Solver Otimizando...' : 'Executar Solver CP-SAT'}
@@ -312,7 +387,11 @@ export const ScenarioSimulator: React.FC = () => {
                           size="sm"
                           onClick={() => handleConvertToProposal(selectedScenario)}
                           disabled={isConverting || !canConvert}
-                          className="bg-[#004C97] hover:bg-[#003B75] text-white font-bold text-xs h-8 shadow-sm"
+                          className="bg-white border font-bold text-xs h-8 shadow-sm hover:bg-[var(--ciafal-primary-lighter)] hover:text-[var(--ciafal-primary)]"
+                          style={{
+                            borderColor: 'var(--ciafal-primary)',
+                            color: 'var(--ciafal-primary)',
+                          }}
                         >
                           <Send className="w-3.5 h-3.5 mr-1" />
                           {isConverting ? 'Convertendo...' : 'Propor Programação'}
@@ -322,34 +401,72 @@ export const ScenarioSimulator: React.FC = () => {
                   </CardHeader>
                   <CardContent className="p-4 space-y-4 text-xs">
                     {/* KPIs do Cenário */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono">
-                      <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-                        <span className="text-[10px] text-slate-400 block">Atendimento</span>
-                        <strong className="text-emerald-400 text-sm">
-                          {selectedScenario.summary_kpis?.demandServicePct ?? 94}%
-                        </strong>
-                      </div>
-                      <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-                        <span className="text-[10px] text-slate-400 block">Volume Total</span>
-                        <strong className="text-white text-sm">
-                          {selectedScenario.summary_kpis?.totalPlannedTons ?? 4500} t
-                        </strong>
-                      </div>
-                      <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-                        <span className="text-[10px] text-slate-400 block">Não Alocadas</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="ciafal-kpi">
+                        <span
+                          className="ciafal-kpi__label"
+                          style={{ color: 'var(--ciafal-text-muted)' }}
+                        >
+                          Atendimento
+                        </span>
                         <strong
-                          className={
-                            (selectedScenario.summary_kpis?.unallocatedCount ?? 0) > 0
-                              ? 'text-rose-400 text-sm'
-                              : 'text-emerald-400 text-sm'
-                          }
+                          className="ciafal-kpi__value"
+                          style={{ color: 'var(--status-success)' }}
+                        >
+                          {(selectedScenario.summary_kpis?.demandServicePct ?? 94).toLocaleString(
+                            'pt-BR',
+                            { maximumFractionDigits: 1 },
+                          )}
+                          %
+                        </strong>
+                      </div>
+                      <div className="ciafal-kpi">
+                        <span
+                          className="ciafal-kpi__label"
+                          style={{ color: 'var(--ciafal-text-muted)' }}
+                        >
+                          Volume Total
+                        </span>
+                        <strong
+                          className="ciafal-kpi__value"
+                          style={{ color: 'var(--ciafal-navy)' }}
+                        >
+                          {(selectedScenario.summary_kpis?.totalPlannedTons ?? 4500).toLocaleString(
+                            'pt-BR',
+                          )}{' '}
+                          t
+                        </strong>
+                      </div>
+                      <div className="ciafal-kpi">
+                        <span
+                          className="ciafal-kpi__label"
+                          style={{ color: 'var(--ciafal-text-muted)' }}
+                        >
+                          Não Alocadas
+                        </span>
+                        <strong
+                          className="ciafal-kpi__value"
+                          style={{
+                            color:
+                              (selectedScenario.summary_kpis?.unallocatedCount ?? 0) > 0
+                                ? 'var(--status-danger)'
+                                : 'var(--status-success)',
+                          }}
                         >
                           {selectedScenario.summary_kpis?.unallocatedCount ?? 0} OPs
                         </strong>
                       </div>
-                      <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-                        <span className="text-[10px] text-slate-400 block">Tempo de Setup</span>
-                        <strong className="text-cyan-300 text-sm">
+                      <div className="ciafal-kpi">
+                        <span
+                          className="ciafal-kpi__label"
+                          style={{ color: 'var(--ciafal-text-muted)' }}
+                        >
+                          Tempo de Setup
+                        </span>
+                        <strong
+                          className="ciafal-kpi__value"
+                          style={{ color: 'var(--ciafal-primary)' }}
+                        >
                           {selectedScenario.summary_kpis?.setupTimeMinutes ?? 280} min
                         </strong>
                       </div>
@@ -357,13 +474,19 @@ export const ScenarioSimulator: React.FC = () => {
 
                     {/* Alocações e Explicações Determinísticas */}
                     <div className="space-y-2">
-                      <span className="font-semibold text-slate-300 block text-xs">
+                      <span
+                        className="font-semibold block text-xs"
+                        style={{ color: 'var(--ciafal-text)' }}
+                      >
                         Tabela de Ordens e Explicação Estrutural Determinística (Sem LLM):
                       </span>
 
-                      <div className="border border-slate-800 rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 text-[11px]">
+                      <div
+                        className="ciafal-table-wrap border rounded-lg"
+                        style={{ borderColor: 'var(--ciafal-border)' }}
+                      >
+                        <table className="ciafal-table">
+                          <thead>
                             <tr>
                               <th className="px-3 py-2">Ordem / Produto</th>
                               <th className="px-3 py-2">Linha / Rota</th>
@@ -371,89 +494,113 @@ export const ScenarioSimulator: React.FC = () => {
                               <th className="px-3 py-2">Justificativa do Solver</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-850">
+                          <tbody>
                             {latestRunResult ? (
                               latestRunResult.allocations.map((alloc) => (
-                                <tr key={alloc.id} className="hover:bg-slate-900/30">
-                                  <td className="px-3 py-2 font-mono">
-                                    <div className="text-white font-bold">{alloc.orderNumber}</div>
-                                    <div className="text-[10px] text-slate-400">
+                                <tr key={alloc.id}>
+                                  <td className="px-3 py-2 font-mono whitespace-nowrap">
+                                    <div
+                                      className="font-bold"
+                                      style={{ color: 'var(--ciafal-navy)' }}
+                                    >
+                                      {alloc.orderNumber}
+                                    </div>
+                                    <div
+                                      className="text-[10px]"
+                                      style={{ color: 'var(--ciafal-text-muted)' }}
+                                    >
                                       {alloc.productCode} ({alloc.demandedQuantityTons}t)
                                     </div>
                                   </td>
-                                  <td className="px-3 py-2 font-mono">
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[9px] border-slate-700 text-cyan-300"
-                                    >
+                                  <td className="px-3 py-2 font-mono whitespace-nowrap">
+                                    <span className="ciafal-badge ciafal-badge--info">
                                       {alloc.assignedLineCode || 'SEM LINHA'}
-                                    </Badge>
+                                    </span>
                                   </td>
                                   <td className="px-3 py-2">
-                                    <Badge
-                                      className={`text-[9px] font-mono ${
-                                        alloc.allocationStatus === 'ALLOCATED'
-                                          ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                                          : 'bg-rose-950 text-rose-300 border-rose-800'
-                                      }`}
-                                    >
+                                    <span className={allocBadge(alloc.allocationStatus)}>
                                       {alloc.allocationStatus}
-                                    </Badge>
+                                    </span>
                                   </td>
-                                  <td className="px-3 py-2 text-[11px] text-slate-300 leading-snug">
+                                  <td
+                                    className="px-3 py-2 text-[11px] leading-snug"
+                                    style={{ color: 'var(--ciafal-text)' }}
+                                  >
                                     {alloc.deterministicExplanation}
                                   </td>
                                 </tr>
                               ))
                             ) : (
                               <>
-                                <tr className="hover:bg-slate-900/30">
-                                  <td className="px-3 py-2 font-mono">
-                                    <div className="text-white font-bold">OP-2025-8812</div>
-                                    <div className="text-[10px] text-slate-400">
+                                <tr>
+                                  <td className="px-3 py-2 font-mono whitespace-nowrap">
+                                    <div
+                                      className="font-bold"
+                                      style={{ color: 'var(--ciafal-navy)' }}
+                                    >
+                                      OP-2025-8812
+                                    </div>
+                                    <div
+                                      className="text-[10px]"
+                                      style={{ color: 'var(--ciafal-text-muted)' }}
+                                    >
                                       TUBO_5580 (850t)
                                     </div>
                                   </td>
-                                  <td className="px-3 py-2 font-mono">
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[9px] border-slate-700 text-cyan-300"
-                                    >
+                                  <td className="px-3 py-2 font-mono whitespace-nowrap">
+                                    <span className="ciafal-badge ciafal-badge--info">
                                       L1 / ROTA_PADRAO_L1
-                                    </Badge>
+                                    </span>
                                   </td>
                                   <td className="px-3 py-2">
-                                    <Badge className="text-[9px] bg-emerald-950 text-emerald-300 border-emerald-800">
+                                    <span className="ciafal-badge ciafal-badge--success">
                                       ALLOCATED
-                                    </Badge>
+                                    </span>
                                   </td>
-                                  <td className="px-3 py-2 text-[11px] text-slate-300 leading-snug">
+                                  <td
+                                    className="px-3 py-2 text-[11px] leading-snug"
+                                    style={{ color: 'var(--ciafal-text)' }}
+                                  >
                                     Alocado na Linha L1 porque: rota aprovada, capability
                                     dimensional válida, capacidade programável disponível e menor
                                     setup entre alternativas.
                                   </td>
                                 </tr>
-                                <tr className="hover:bg-slate-900/30">
-                                  <td className="px-3 py-2 font-mono">
-                                    <div className="text-white font-bold">OP-2025-8818</div>
-                                    <div className="text-[10px] text-slate-400">
+                                <tr>
+                                  <td className="px-3 py-2 font-mono whitespace-nowrap">
+                                    <div
+                                      className="font-bold"
+                                      style={{ color: 'var(--ciafal-navy)' }}
+                                    >
+                                      OP-2025-8818
+                                    </div>
+                                    <div
+                                      className="text-[10px]"
+                                      style={{ color: 'var(--ciafal-text-muted)' }}
+                                    >
                                       PROD_BLOQUEADO_TEST (120t)
                                     </div>
                                   </td>
-                                  <td className="px-3 py-2 font-mono">
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[9px] border-rose-800 text-rose-400"
+                                  <td className="px-3 py-2 font-mono whitespace-nowrap">
+                                    <span
+                                      className="ciafal-badge"
+                                      style={{
+                                        color: 'var(--status-danger)',
+                                        backgroundColor: 'var(--status-danger-bg)',
+                                      }}
                                     >
                                       NENHUMA
-                                    </Badge>
+                                    </span>
                                   </td>
                                   <td className="px-3 py-2">
-                                    <Badge className="text-[9px] bg-rose-950 text-rose-300 border-rose-800">
+                                    <span className="ciafal-badge ciafal-badge--danger">
                                       UNALLOCATED
-                                    </Badge>
+                                    </span>
                                   </td>
-                                  <td className="px-3 py-2 text-[11px] text-rose-300 leading-snug">
+                                  <td
+                                    className="px-3 py-2 text-[11px] leading-snug"
+                                    style={{ color: 'var(--status-danger)' }}
+                                  >
                                     Demanda não alocada: Hard Constraint PRODUCT_BLOCK ativa no
                                     cadastro mestre. Produto bloqueado para operação industrial.
                                   </td>
@@ -467,7 +614,10 @@ export const ScenarioSimulator: React.FC = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="p-8 text-center text-slate-500 border border-slate-800 rounded-xl">
+                <div
+                  className="p-8 text-center text-xs border border-dashed rounded-xl"
+                  style={{ borderColor: 'var(--ciafal-border)', color: 'var(--ciafal-text-muted)' }}
+                >
                   Selecione um cenário à esquerda para visualizar métricas e alocações.
                 </div>
               )}
@@ -476,17 +626,17 @@ export const ScenarioSimulator: React.FC = () => {
         </TabsContent>
 
         {/* 2. ABA GARGALOS */}
-        <TabsContent value="BOTTLENECKS" className="space-y-4 pt-2">
+        <TabsContent value="BOTTLENECKS" className="space-y-4 pt-4">
           <BottleneckBoard />
         </TabsContent>
 
         {/* 3. ABA MAPA DE CALOR */}
-        <TabsContent value="HEATMAP" className="space-y-4 pt-2">
+        <TabsContent value="HEATMAP" className="space-y-4 pt-4">
           <AdvancedCapacityHeatmap />
         </TabsContent>
 
         {/* 4. ABA DECOMPOSIÇÃO DE CAPACIDADE */}
-        <TabsContent value="CAPACITIES" className="space-y-4 pt-2">
+        <TabsContent value="CAPACITIES" className="space-y-4 pt-4">
           <AdvancedCapacityLoadChart />
         </TabsContent>
       </Tabs>

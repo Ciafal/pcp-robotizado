@@ -8,20 +8,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Columns3,
-  CheckCircle2,
-  AlertTriangle,
-  Send,
-  Layers,
-  Sparkles,
-  TrendingUp,
-  Flame,
-  ArrowRight,
-  ShieldCheck,
-  Building2,
-} from 'lucide-react'
+import { Columns3, Send, Sparkles } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { OptimizationScenarioEntity } from '@/types/optimization-engine'
 import { optimizationService } from '@/services/optimization-service'
@@ -85,28 +72,34 @@ export const ScenarioComparisonModal: React.FC<ScenarioComparisonModalProps> = (
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-6xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="bg-white max-w-6xl max-h-[92vh] overflow-y-auto [&>button]:text-[var(--ciafal-text-muted)]">
         <DialogHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <DialogTitle className="text-white flex items-center gap-2 text-base font-bold">
-                <Columns3 className="w-5 h-5 text-cyan-400" /> Comparador Multicritério de Cenários
-                CP-SAT
+              <DialogTitle
+                className="flex items-center gap-2 text-base font-bold"
+                style={{ color: 'var(--ciafal-navy)' }}
+              >
+                <Columns3 className="w-5 h-5" style={{ color: 'var(--ciafal-primary)' }} />{' '}
+                Comparador Multicritério de Cenários CP-SAT
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-400">
+              <DialogDescription className="text-xs" style={{ color: 'var(--ciafal-text-muted)' }}>
                 Compare até 4 cenários simultâneos contra a programação oficial (Baseline SAP). O
                 motor apresenta os trade-offs determinísticos; a decisão final é 100% humana.
               </DialogDescription>
             </div>
-            <Badge className="bg-blue-950 text-cyan-300 border-blue-700 font-mono text-xs self-start sm:self-center">
+            <span className="ciafal-badge ciafal-badge--info font-mono text-xs self-start sm:self-center whitespace-nowrap">
               Até 4 Cenários Ativos
-            </Badge>
+            </span>
           </div>
         </DialogHeader>
 
         {/* Seletor de Cenários para Comparar */}
-        <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800 space-y-2 text-xs">
-          <span className="font-semibold text-slate-300 block text-[11px]">
+        <div
+          className="bg-[var(--ciafal-surface-muted)] p-3 rounded-lg border space-y-2 text-xs"
+          style={{ borderColor: 'var(--ciafal-border)' }}
+        >
+          <span className="font-semibold block text-[11px]" style={{ color: 'var(--ciafal-text)' }}>
             Selecione os Cenários para Comparação na Grade:
           </span>
           <div className="flex flex-wrap gap-2">
@@ -117,16 +110,28 @@ export const ScenarioComparisonModal: React.FC<ScenarioComparisonModalProps> = (
                   key={sc.id}
                   type="button"
                   onClick={() => toggleScenarioSelection(sc.id)}
-                  className={`px-3 py-1.5 rounded-md border text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                  aria-pressed={isSelected}
+                  className={`px-3 py-1.5 rounded-md border text-xs font-semibold transition-all flex items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ciafal-primary)] ${
                     isSelected
-                      ? 'bg-[#004C97] border-cyan-400 text-white shadow-sm'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                      ? 'text-white shadow-sm'
+                      : 'bg-white hover:bg-[var(--ciafal-primary-lighter)]'
                   }`}
+                  style={{
+                    backgroundColor: isSelected ? 'var(--ciafal-primary)' : undefined,
+                    borderColor: isSelected ? 'var(--ciafal-primary)' : 'var(--ciafal-border)',
+                    color: isSelected ? '#fff' : 'var(--ciafal-text-muted)',
+                  }}
                 >
-                  <span className="w-2 h-2 rounded-full bg-cyan-300"></span>
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: isSelected ? '#fff' : 'var(--ciafal-primary)' }}
+                  ></span>
                   {sc.code} ({sc.profile})
                   {sc.is_baseline && (
-                    <span className="text-[9px] bg-slate-800 px-1 rounded ml-1 text-amber-300">
+                    <span
+                      className="text-[9px] px-1 rounded ml-1 font-bold"
+                      style={{ color: 'var(--status-warning)' }}
+                    >
                       BASELINE
                     </span>
                   )}
@@ -137,204 +142,254 @@ export const ScenarioComparisonModal: React.FC<ScenarioComparisonModalProps> = (
         </div>
 
         {/* Tabela Comparativa de Métricas */}
-        <div className="border border-slate-800 rounded-xl overflow-hidden shadow-sm text-xs">
-          <table className="w-full text-left text-slate-200">
-            <thead className="bg-slate-900 text-slate-300 font-semibold border-b border-slate-800 text-[11px]">
-              <tr>
-                <th className="px-4 py-3 w-1/4">Dimensão / Métrica de Otimização</th>
-                {comparedScenarios.map((sc) => (
-                  <th
-                    key={sc.id}
-                    className={`px-4 py-3 border-l border-slate-800 ${
-                      sc.is_baseline ? 'bg-slate-950/80' : 'bg-slate-900/80'
-                    }`}
-                  >
-                    <div className="font-bold text-white text-xs truncate max-w-[200px]">
-                      {sc.name}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] font-mono border-slate-700 text-cyan-300"
-                      >
-                        {sc.profile}
-                      </Badge>
-                      {sc.is_baseline && (
-                        <span className="text-[9px] font-bold text-amber-400 uppercase">
-                          • Oficial SAP
-                        </span>
-                      )}
-                    </div>
+        <div
+          className="border rounded-xl overflow-hidden shadow-sm text-xs"
+          style={{ borderColor: 'var(--ciafal-border)' }}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-left" style={{ color: 'var(--ciafal-text)' }}>
+              <thead
+                className="font-semibold border-b text-[11px]"
+                style={{
+                  backgroundColor: 'var(--ciafal-primary-lighter)',
+                  borderColor: 'var(--ciafal-border)',
+                  color: 'var(--ciafal-navy)',
+                }}
+              >
+                <tr>
+                  <th className="px-4 py-3 w-1/4 whitespace-nowrap">
+                    Dimensão / Métrica de Otimização
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-850">
-              {/* Atendimento da Carteira */}
-              <tr>
-                <td className="px-4 py-2.5 font-semibold text-slate-300">Atendimento da Demanda</td>
-                {comparedScenarios.map((sc) => {
-                  const val = sc.summary_kpis?.demandServicePct ?? 90
-                  return (
-                    <td
+                  {comparedScenarios.map((sc) => (
+                    <th
                       key={sc.id}
-                      className="px-4 py-2.5 font-mono border-l border-slate-800 text-slate-100"
+                      className="px-4 py-3 border-l"
+                      style={{ borderColor: 'var(--ciafal-border)' }}
                     >
-                      <strong
-                        className={
-                          val >= 95
-                            ? 'text-emerald-400 font-bold'
-                            : val >= 85
-                              ? 'text-cyan-300'
-                              : 'text-amber-400'
-                        }
+                      <div
+                        className="font-bold text-xs truncate max-w-[200px]"
+                        style={{ color: 'var(--ciafal-navy)' }}
                       >
-                        {val}%
-                      </strong>
-                    </td>
-                  )
-                })}
-              </tr>
-
-              {/* Volume Planejado Total */}
-              <tr>
-                <td className="px-4 py-2.5 font-semibold text-slate-300">Produção Programada</td>
-                {comparedScenarios.map((sc) => (
-                  <td
-                    key={sc.id}
-                    className="px-4 py-2.5 font-mono border-l border-slate-800 text-slate-200"
-                  >
-                    {(sc.summary_kpis?.totalPlannedTons ?? 4200).toLocaleString('pt-BR')} t
+                        {sc.name}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="ciafal-badge ciafal-badge--info text-[9px] font-mono">
+                          {sc.profile}
+                        </span>
+                        {sc.is_baseline && (
+                          <span
+                            className="text-[9px] font-bold uppercase"
+                            style={{ color: 'var(--status-warning)' }}
+                          >
+                            • Oficial SAP
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody
+                className="divide-y"
+                style={{
+                  borderColor: 'var(--ciafal-border)',
+                  border: '1px solid var(--ciafal-border)',
+                }}
+              >
+                {/* Atendimento da Carteira */}
+                <tr className="hover:bg-[var(--ciafal-primary-lighter)] transition-colors">
+                  <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--ciafal-text)' }}>
+                    Atendimento da Demanda
                   </td>
-                ))}
-              </tr>
+                  {comparedScenarios.map((sc) => {
+                    const val = sc.summary_kpis?.demandServicePct ?? 90
+                    return (
+                      <td
+                        key={sc.id}
+                        className="px-4 py-2.5 font-mono border-l"
+                        style={{ borderColor: 'var(--ciafal-border)' }}
+                      >
+                        <strong
+                          className="font-bold"
+                          style={{
+                            color:
+                              val >= 95
+                                ? 'var(--status-success)'
+                                : val >= 85
+                                  ? 'var(--ciafal-primary)'
+                                  : 'var(--status-warning)',
+                          }}
+                        >
+                          {val}%
+                        </strong>
+                      </td>
+                    )
+                  })}
+                </tr>
 
-              {/* Demandas Não Alocadas (UNALLOCATED) */}
-              <tr>
-                <td className="px-4 py-2.5 font-semibold text-slate-300">Demandas Não Alocadas</td>
-                {comparedScenarios.map((sc) => {
-                  const unalloc = sc.summary_kpis?.unallocatedCount ?? 0
-                  return (
+                {/* Volume Planejado Total */}
+                <tr className="hover:bg-[var(--ciafal-primary-lighter)] transition-colors">
+                  <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--ciafal-text)' }}>
+                    Produção Programada
+                  </td>
+                  {comparedScenarios.map((sc) => (
                     <td
                       key={sc.id}
-                      className="px-4 py-2.5 font-mono border-l border-slate-800 text-slate-200"
+                      className="px-4 py-2.5 font-mono border-l whitespace-nowrap"
+                      style={{ borderColor: 'var(--ciafal-border)' }}
                     >
-                      <span
-                        className={
-                          unalloc === 0
-                            ? 'text-emerald-400 font-bold'
-                            : 'text-rose-400 font-bold flex items-center gap-1'
-                        }
+                      {(sc.summary_kpis?.totalPlannedTons ?? 4200).toLocaleString('pt-BR')} t
+                    </td>
+                  ))}
+                </tr>
+
+                {/* Demandas Não Alocadas (UNALLOCATED) */}
+                <tr className="hover:bg-[var(--ciafal-primary-lighter)] transition-colors">
+                  <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--ciafal-text)' }}>
+                    Demandas Não Alocadas
+                  </td>
+                  {comparedScenarios.map((sc) => {
+                    const unalloc = sc.summary_kpis?.unallocatedCount ?? 0
+                    return (
+                      <td
+                        key={sc.id}
+                        className="px-4 py-2.5 font-mono border-l whitespace-nowrap"
+                        style={{ borderColor: 'var(--ciafal-border)' }}
                       >
-                        {unalloc === 0 ? '0 OPs (100% Alocado)' : `${unalloc} OPs não alocadas`}
+                        <span
+                          className="font-bold"
+                          style={{
+                            color: unalloc === 0 ? 'var(--status-success)' : 'var(--status-danger)',
+                          }}
+                        >
+                          {unalloc === 0 ? '0 OPs (100% Alocado)' : `${unalloc} OPs não alocadas`}
+                        </span>
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                {/* Setups e Trocas */}
+                <tr className="hover:bg-[var(--ciafal-primary-lighter)] transition-colors">
+                  <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--ciafal-text)' }}>
+                    Trocas de Ferramenta / Setup
+                  </td>
+                  {comparedScenarios.map((sc) => (
+                    <td
+                      key={sc.id}
+                      className="px-4 py-2.5 font-mono border-l whitespace-nowrap"
+                      style={{ borderColor: 'var(--ciafal-border)' }}
+                    >
+                      <strong style={{ color: 'var(--ciafal-primary)' }}>
+                        {sc.summary_kpis?.setupCount ?? 10} trocas
+                      </strong>{' '}
+                      <span className="text-[10px]" style={{ color: 'var(--ciafal-text-muted)' }}>
+                        ({sc.summary_kpis?.setupTimeMinutes ?? 300} min)
                       </span>
                     </td>
-                  )
-                })}
-              </tr>
+                  ))}
+                </tr>
 
-              {/* Setups e Trocas */}
-              <tr>
-                <td className="px-4 py-2.5 font-semibold text-slate-300">
-                  Trocas de Ferramenta / Setup
-                </td>
-                {comparedScenarios.map((sc) => (
-                  <td
-                    key={sc.id}
-                    className="px-4 py-2.5 font-mono border-l border-slate-800 text-slate-200"
-                  >
-                    <strong className="text-cyan-300">
-                      {sc.summary_kpis?.setupCount ?? 10} trocas
-                    </strong>{' '}
-                    <span className="text-[10px] text-slate-400">
-                      ({sc.summary_kpis?.setupTimeMinutes ?? 300} min)
-                    </span>
+                {/* Estoque Intermediário */}
+                <tr className="hover:bg-[var(--ciafal-primary-lighter)] transition-colors">
+                  <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--ciafal-text)' }}>
+                    Estoque em Buffer Intermediário
                   </td>
-                ))}
-              </tr>
-
-              {/* Estoque Intermediário */}
-              <tr>
-                <td className="px-4 py-2.5 font-semibold text-slate-300">
-                  Estoque em Buffer Intermediário
-                </td>
-                {comparedScenarios.map((sc) => (
-                  <td
-                    key={sc.id}
-                    className="px-4 py-2.5 font-mono border-l border-slate-800 text-slate-200"
-                  >
-                    {sc.summary_kpis?.intermediateStockTons ?? 550} t
-                  </td>
-                ))}
-              </tr>
-
-              {/* Utilização da Capacidade Programável */}
-              <tr>
-                <td className="px-4 py-2.5 font-semibold text-slate-300">
-                  Ocupação Média das Linhas
-                </td>
-                {comparedScenarios.map((sc) => (
-                  <td
-                    key={sc.id}
-                    className="px-4 py-2.5 font-mono border-l border-slate-800 text-slate-200"
-                  >
-                    <span className="text-white font-bold">
-                      {sc.summary_kpis?.avgUtilizationPct ?? 88}%
-                    </span>
-                  </td>
-                ))}
-              </tr>
-
-              {/* Gargalos Críticos Identificados */}
-              <tr>
-                <td className="px-4 py-2.5 font-semibold text-slate-300">Gargalos Críticos</td>
-                {comparedScenarios.map((sc) => {
-                  const bCount = sc.summary_kpis?.bottlenecksCount ?? 0
-                  const crits = sc.summary_kpis?.criticalBottlenecks || []
-                  return (
+                  {comparedScenarios.map((sc) => (
                     <td
                       key={sc.id}
-                      className="px-4 py-2.5 font-mono border-l border-slate-800 text-slate-200"
+                      className="px-4 py-2.5 font-mono border-l whitespace-nowrap"
+                      style={{ borderColor: 'var(--ciafal-border)' }}
                     >
-                      {bCount === 0 ? (
-                        <span className="text-emerald-400 font-bold">Nenhum gargalo</span>
-                      ) : (
-                        <span className="text-amber-400 font-bold">
-                          {bCount} recurso(s) [{crits.join(', ') || 'ACAB_L1'}]
-                        </span>
-                      )}
+                      {sc.summary_kpis?.intermediateStockTons ?? 550} t
                     </td>
-                  )
-                })}
-              </tr>
+                  ))}
+                </tr>
 
-              {/* Ação de Conversão em Proposta Oficial */}
-              <tr className="bg-slate-900/40">
-                <td className="px-4 py-3 font-bold text-white">Ação de Homologação</td>
-                {comparedScenarios.map((sc) => (
-                  <td key={sc.id} className="px-4 py-3 border-l border-slate-800">
-                    <Button
-                      size="sm"
-                      onClick={() => handleConvertToProposal(sc)}
-                      disabled={convertingId === sc.id}
-                      className="w-full h-7 text-xs bg-[#004C97] hover:bg-[#003B75] text-white font-semibold shadow-sm"
-                    >
-                      <Send className="w-3 h-3 mr-1" />
-                      {convertingId === sc.id ? 'Convertendo...' : 'Propor Programação'}
-                    </Button>
+                {/* Utilização da Capacidade Programável */}
+                <tr className="hover:bg-[var(--ciafal-primary-lighter)] transition-colors">
+                  <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--ciafal-text)' }}>
+                    Ocupação Média das Linhas
                   </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
+                  {comparedScenarios.map((sc) => (
+                    <td
+                      key={sc.id}
+                      className="px-4 py-2.5 font-mono border-l whitespace-nowrap"
+                      style={{ borderColor: 'var(--ciafal-border)' }}
+                    >
+                      <span className="font-bold" style={{ color: 'var(--ciafal-navy)' }}>
+                        {sc.summary_kpis?.avgUtilizationPct ?? 88}%
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+
+                {/* Gargalos Críticos Identificados */}
+                <tr className="hover:bg-[var(--ciafal-primary-lighter)] transition-colors">
+                  <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--ciafal-text)' }}>
+                    Gargalos Críticos
+                  </td>
+                  {comparedScenarios.map((sc) => {
+                    const bCount = sc.summary_kpis?.bottlenecksCount ?? 0
+                    const crits = sc.summary_kpis?.criticalBottlenecks || []
+                    return (
+                      <td
+                        key={sc.id}
+                        className="px-4 py-2.5 font-mono border-l whitespace-nowrap"
+                        style={{ borderColor: 'var(--ciafal-border)' }}
+                      >
+                        {bCount === 0 ? (
+                          <span className="font-bold" style={{ color: 'var(--status-success)' }}>
+                            Nenhum gargalo
+                          </span>
+                        ) : (
+                          <span className="font-bold" style={{ color: 'var(--status-warning)' }}>
+                            {bCount} recurso(s) [{crits.join(', ') || 'ACAB_L1'}]
+                          </span>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                {/* Ação de Conversão em Proposta Oficial */}
+                <tr style={{ backgroundColor: 'var(--ciafal-surface-muted)' }}>
+                  <td className="px-4 py-3 font-bold" style={{ color: 'var(--ciafal-navy)' }}>
+                    Ação de Homologação
+                  </td>
+                  {comparedScenarios.map((sc) => (
+                    <td
+                      key={sc.id}
+                      className="px-4 py-3 border-l"
+                      style={{ borderColor: 'var(--ciafal-border)' }}
+                    >
+                      <Button
+                        size="sm"
+                        onClick={() => handleConvertToProposal(sc)}
+                        disabled={convertingId === sc.id}
+                        className="w-full h-7 text-xs font-semibold shadow-sm hover:opacity-90"
+                        style={{ backgroundColor: 'var(--ciafal-primary)', color: '#fff' }}
+                      >
+                        <Send className="w-3 h-3 mr-1" />
+                        {convertingId === sc.id ? 'Convertendo...' : 'Propor Programação'}
+                      </Button>
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Trade-off Insights determinísticos */}
-        <div className="bg-[#004C97]/15 border border-blue-800/80 p-3.5 rounded-xl text-blue-200 space-y-1.5 text-xs">
-          <div className="flex items-center gap-2 text-cyan-300 font-bold">
+        <div className="ciafal-alert ciafal-alert--info p-3.5 rounded-xl space-y-1.5 text-xs">
+          <div
+            className="flex items-center gap-2 font-bold"
+            style={{ color: 'var(--ciafal-primary)' }}
+          >
             <Sparkles className="w-4 h-4" /> Síntese Estrutural de Decisão (Determinística):
           </div>
-          <p className="leading-relaxed">
+          <p className="leading-relaxed" style={{ color: 'var(--ciafal-text)' }}>
             O <strong>Cenário A</strong> atinge o melhor nível de serviço comercial (98.2% de
             atendimento da carteira), porém com maior frequência de setups. O{' '}
             <strong>Cenário B</strong> reduz paradas em 57% com ganho de cadência nas linhas L1 e
@@ -343,12 +398,15 @@ export const ScenarioComparisonModal: React.FC<ScenarioComparisonModalProps> = (
           </p>
         </div>
 
-        <DialogFooter className="pt-2 border-t border-slate-800">
+        <DialogFooter
+          className="pt-2 border-t flex-col sm:flex-row"
+          style={{ borderColor: 'var(--ciafal-border)' }}
+        >
           <Button
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="border-slate-800 bg-slate-900 text-slate-300 text-xs"
+            className="bg-white border-[var(--ciafal-border)] text-xs hover:bg-[var(--ciafal-surface-muted)] hover:text-[var(--ciafal-primary)]"
           >
             Fechar Comparador
           </Button>

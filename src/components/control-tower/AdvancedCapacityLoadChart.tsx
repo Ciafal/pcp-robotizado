@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { BarChart3, Info, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { BarChart3, Info } from 'lucide-react'
 
 interface LineCapacityMetrics {
   lineCode: string
@@ -68,32 +67,50 @@ export const AdvancedCapacityLoadChart: React.FC<{
 
   const getPct = (val: number) => ((val / maxVal) * 100).toFixed(1)
 
+  const overload = metric.plannedLoadTons > metric.programmableCapacityTons
+
   return (
-    <Card className="bg-slate-900/60 border-slate-800 text-slate-100">
-      <CardHeader className="pb-3 border-b border-slate-800/80">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-cyan-400" />
+    <Card className="ciafal-card">
+      <CardHeader className="pb-3 border-b" style={{ borderColor: 'var(--ciafal-border)' }}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle
+              className="text-sm font-bold flex items-center gap-2"
+              style={{ color: 'var(--ciafal-navy)' }}
+            >
+              <BarChart3
+                className="w-4 h-4"
+                style={{ color: 'var(--ciafal-primary)' }}
+                aria-hidden="true"
+              />
               Decomposição da Capacidade da Linha (Nominal × Programável × Carga)
             </CardTitle>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px]" style={{ color: 'var(--ciafal-text-muted)' }}>
               O motor otimiza estritamente sobre a <strong>Capacidade Programável</strong>,
               descontando paradas planejadas e setups previstos.
             </p>
           </div>
           {/* Seletor de Linha */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             {Object.keys(DEFAULT_LINE_METRICS).map((code) => (
               <button
                 key={code}
                 type="button"
                 onClick={() => setActiveLine(code)}
-                className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-all ${
+                aria-pressed={activeLine === code}
+                className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ciafal-primary)] ${
                   activeLine === code
-                    ? 'bg-[#004C97] border-cyan-400 text-white shadow-sm'
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                    ? 'text-white shadow-sm'
+                    : 'bg-white hover:bg-[var(--ciafal-primary-lighter)]'
                 }`}
+                style={
+                  activeLine === code
+                    ? {
+                        backgroundColor: 'var(--ciafal-primary)',
+                        borderColor: 'var(--ciafal-primary)',
+                      }
+                    : { borderColor: 'var(--ciafal-border)', color: 'var(--ciafal-text-muted)' }
+                }
               >
                 {code}
               </button>
@@ -104,100 +121,157 @@ export const AdvancedCapacityLoadChart: React.FC<{
       <CardContent className="p-4 space-y-4 text-xs">
         {/* Banner de Mock de Capacidade Realizada */}
         {metric.isMock && (
-          <div className="bg-amber-950/20 border border-amber-800/60 p-2.5 rounded-lg flex items-center justify-between text-amber-300 text-[11px]">
+          <div
+            className="p-2.5 rounded-lg flex items-center justify-between gap-2 text-[11px] border"
+            style={{
+              backgroundColor: 'var(--status-warning-bg)',
+              borderColor: '#fde68a',
+              color: 'var(--status-warning)',
+            }}
+          >
             <span className="flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 shrink-0" />
+              <Info className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               Dado de capacidade realizada em modo de simulação — aguardando MES/SAP.
             </span>
-            <Badge
-              variant="outline"
-              className="text-[9px] font-mono border-amber-700 text-amber-300"
-            >
+            <span className="ciafal-badge ciafal-badge--warning whitespace-nowrap">
               MOCK CONTROLADO
-            </Badge>
+            </span>
           </div>
         )}
 
         {/* Gráfico de Barras Horizontais Comparativas */}
-        <div className="space-y-3.5 bg-slate-950/50 p-4 rounded-xl border border-slate-800/80">
+        <div
+          className="space-y-3.5 p-4 rounded-xl border"
+          style={{
+            backgroundColor: 'var(--ciafal-surface-muted)',
+            borderColor: 'var(--ciafal-border)',
+          }}
+        >
           {/* 1. Capacidade Nominal */}
           <div className="space-y-1">
-            <div className="flex justify-between text-slate-300 font-semibold text-xs">
+            <div
+              className="flex justify-between font-semibold"
+              style={{ color: 'var(--ciafal-text)' }}
+            >
               <span>Capacidade Nominal Teórica (24/7)</span>
               <span className="font-mono">
                 {metric.nominalCapacityTons.toLocaleString('pt-BR')} t
               </span>
             </div>
-            <div className="w-full bg-slate-900 h-5 rounded-md overflow-hidden border border-slate-800 relative">
+            <div
+              className="w-full h-5 rounded-md overflow-hidden border"
+              style={{
+                backgroundColor: 'var(--ciafal-surface)',
+                borderColor: 'var(--ciafal-border)',
+              }}
+            >
               <div
-                className="h-full bg-slate-600 rounded-md transition-all duration-500"
-                style={{ width: `${getPct(metric.nominalCapacityTons)}%` }}
+                className="h-full rounded-md transition-all duration-500"
+                style={{
+                  width: `${getPct(metric.nominalCapacityTons)}%`,
+                  backgroundColor: '#cbd5e1',
+                }}
               />
             </div>
           </div>
 
           {/* 2. Capacidade Programável */}
           <div className="space-y-1">
-            <div className="flex justify-between text-cyan-300 font-semibold text-xs">
+            <div
+              className="flex justify-between font-semibold"
+              style={{ color: 'var(--ciafal-primary)' }}
+            >
               <span>Capacidade Programável (Disponível para o Solver)</span>
               <span className="font-mono font-bold">
                 {metric.programmableCapacityTons.toLocaleString('pt-BR')} t
               </span>
             </div>
-            <div className="w-full bg-slate-900 h-5 rounded-md overflow-hidden border border-slate-800 relative">
+            <div
+              className="w-full h-5 rounded-md overflow-hidden border"
+              style={{
+                backgroundColor: 'var(--ciafal-surface)',
+                borderColor: 'var(--ciafal-border)',
+              }}
+            >
               <div
-                className="h-full bg-[#004C97] border border-cyan-400 rounded-md transition-all duration-500"
-                style={{ width: `${getPct(metric.programmableCapacityTons)}%` }}
+                className="h-full rounded-md transition-all duration-500"
+                style={{
+                  width: `${getPct(metric.programmableCapacityTons)}%`,
+                  backgroundColor: 'var(--ciafal-primary)',
+                }}
               />
             </div>
           </div>
 
           {/* 3. Carga Programada */}
           <div className="space-y-1">
-            <div className="flex justify-between text-white font-semibold text-xs">
+            <div
+              className="flex justify-between font-semibold"
+              style={{ color: 'var(--ciafal-navy)' }}
+            >
               <span>Carga Programada pelo CP-SAT</span>
               <span
-                className={`font-mono font-bold ${
-                  metric.plannedLoadTons > metric.programmableCapacityTons
-                    ? 'text-rose-400'
-                    : 'text-emerald-400'
-                }`}
+                className="font-mono font-bold"
+                style={{ color: overload ? 'var(--status-danger)' : 'var(--status-success)' }}
               >
                 {metric.plannedLoadTons.toLocaleString('pt-BR')} t (
-                {((metric.plannedLoadTons / metric.programmableCapacityTons) * 100).toFixed(1)}
+                {((metric.plannedLoadTons / metric.programmableCapacityTons) * 100)
+                  .toFixed(1)
+                  .replace('.', ',')}
                 %)
               </span>
             </div>
-            <div className="w-full bg-slate-900 h-5 rounded-md overflow-hidden border border-slate-800 relative">
+            <div
+              className="w-full h-5 rounded-md overflow-hidden border"
+              style={{
+                backgroundColor: 'var(--ciafal-surface)',
+                borderColor: 'var(--ciafal-border)',
+              }}
+            >
               <div
-                className={`h-full rounded-md transition-all duration-500 ${
-                  metric.plannedLoadTons > metric.programmableCapacityTons
-                    ? 'bg-rose-500'
-                    : 'bg-emerald-500'
-                }`}
-                style={{ width: `${getPct(metric.plannedLoadTons)}%` }}
+                className="h-full rounded-md transition-all duration-500"
+                style={{
+                  width: `${getPct(metric.plannedLoadTons)}%`,
+                  backgroundColor: overload ? 'var(--status-danger)' : '#22c55e',
+                }}
               />
             </div>
           </div>
         </div>
 
         {/* Resumo de Indicadores */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-center">
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-[10px] text-slate-400 block">Cap. Nominal</span>
-            <strong className="text-white text-xs">{metric.nominalCapacityTons} t</strong>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
+          <div className="ciafal-kpi">
+            <span className="ciafal-kpi__label" style={{ color: 'var(--ciafal-text-muted)' }}>
+              Cap. Nominal
+            </span>
+            <strong className="ciafal-kpi__value" style={{ color: 'var(--ciafal-navy)' }}>
+              {metric.nominalCapacityTons.toLocaleString('pt-BR')} t
+            </strong>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-[10px] text-slate-400 block">Cap. Programável</span>
-            <strong className="text-cyan-300 text-xs">{metric.programmableCapacityTons} t</strong>
+          <div className="ciafal-kpi">
+            <span className="ciafal-kpi__label" style={{ color: 'var(--ciafal-text-muted)' }}>
+              Cap. Programável
+            </span>
+            <strong className="ciafal-kpi__value" style={{ color: 'var(--ciafal-primary)' }}>
+              {metric.programmableCapacityTons.toLocaleString('pt-BR')} t
+            </strong>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-[10px] text-slate-400 block">Perda Programada</span>
-            <strong className="text-amber-400 text-xs">-{metric.lostCapacityTons} t</strong>
+          <div className="ciafal-kpi">
+            <span className="ciafal-kpi__label" style={{ color: 'var(--ciafal-text-muted)' }}>
+              Perda Programada
+            </span>
+            <strong className="ciafal-kpi__value" style={{ color: 'var(--status-warning)' }}>
+              -{metric.lostCapacityTons.toLocaleString('pt-BR')} t
+            </strong>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-[10px] text-slate-400 block">Folga Residual</span>
-            <strong className="text-emerald-400 text-xs">+{metric.freeSlackTons} t</strong>
+          <div className="ciafal-kpi">
+            <span className="ciafal-kpi__label" style={{ color: 'var(--ciafal-text-muted)' }}>
+              Folga Residual
+            </span>
+            <strong className="ciafal-kpi__value" style={{ color: 'var(--status-success)' }}>
+              +{metric.freeSlackTons.toLocaleString('pt-BR')} t
+            </strong>
           </div>
         </div>
       </CardContent>

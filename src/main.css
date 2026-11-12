@@ -24,6 +24,27 @@
     --ciafal-yellow-accent: #f59e0b;
     --ciafal-yellow-dark: #d97706;
 
+    /* Design Tokens Ciafal — Cenários e Simulações (claro, Pantone 2945) */
+    --ciafal-primary: #004c97;
+    --ciafal-primary-hover: #003870;
+    --ciafal-primary-light: #ebf4fc;
+    --ciafal-primary-lighter: #f2f8fd;
+    --ciafal-navy: #0f2a4a;
+    --ciafal-surface: #ffffff;
+    --ciafal-surface-muted: #f8fafc;
+    --ciafal-border: #e5e7eb;
+    --ciafal-text: #1e293b;
+    --ciafal-text-muted: #64748b;
+
+    --status-success: #15803d;
+    --status-success-bg: #f0fdf4;
+    --status-warning: #b45309;
+    --status-warning-bg: #fffbeb;
+    --status-danger: #dc2626;
+    --status-danger-bg: #fef2f2;
+    --status-info: #004c97;
+    --status-info-bg: #eff6ff;
+
     --background: 210 20% 98%; /* Fundo geral claro / #F8FAFC */
     --foreground: 215 25% 15%; /* Grafite/azul escuro (#1E293B) para legibilidade industrial */
 
@@ -243,6 +264,159 @@
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
+  }
+
+  /* Componentes Ciafal claros — Cenários e Simulações */
+  .ciafal-card {
+    background-color: var(--ciafal-surface);
+    border: 1px solid var(--ciafal-border);
+    border-radius: 0.625rem;
+    box-shadow:
+      0 1px 2px rgba(15, 42, 74, 0.04),
+      0 1px 3px rgba(15, 42, 74, 0.03);
+  }
+
+  .ciafal-card--scenario:hover {
+    border-color: #93b8e3;
+    box-shadow: 0 2px 8px rgba(0, 76, 151, 0.1);
+  }
+
+  .ciafal-card--scenario.ciafal-card--selected {
+    border-color: var(--ciafal-primary);
+    border-left: 4px solid var(--ciafal-primary);
+    background-color: var(--ciafal-primary-lighter);
+    box-shadow: 0 1px 4px rgba(0, 76, 151, 0.12);
+  }
+
+  .ciafal-kpi {
+    background-color: var(--ciafal-surface);
+    border: 1px solid var(--ciafal-border);
+    border-radius: 0.5rem;
+    padding: 0.625rem;
+  }
+
+  .ciafal-kpi__label {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .ciafal-kpi__value {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ciafal-navy);
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+
+  .ciafal-badge {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    padding: 1px 8px;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .ciafal-badge--success {
+    color: var(--status-success);
+    background-color: var(--status-success-bg);
+    border-color: #bbf7d0;
+  }
+
+  .ciafal-badge--info {
+    color: var(--status-info);
+    background-color: var(--status-info-bg);
+    border-color: #bfdbfe;
+  }
+
+  .ciafal-badge--warning {
+    color: var(--status-warning);
+    background-color: var(--status-warning-bg);
+    border-color: #fde68a;
+  }
+
+  .ciafal-badge--danger {
+    color: var(--status-danger);
+    background-color: var(--status-danger-bg);
+    border-color: #fecaca;
+  }
+
+  .ciafal-badge--neutral {
+    color: var(--ciafal-text-muted);
+    background-color: var(--ciafal-surface-muted);
+    border-color: var(--ciafal-border);
+  }
+
+  /* Navegação corporativa de abas: fundo branco, indicador inferior azul */
+  .ciafal-tabs-list {
+    background-color: var(--ciafal-surface) !important;
+    border-bottom: 1px solid var(--ciafal-border) !important;
+    border-radius: 0 !important;
+  }
+
+  .ciafal-tab {
+    background-color: transparent !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    color: var(--ciafal-text-muted) !important;
+    font-weight: 500 !important;
+    padding: 10px 12px !important;
+    height: auto !important;
+    justify-content: center;
+  }
+
+  .ciafal-tab:hover {
+    color: var(--ciafal-primary) !important;
+    background-color: var(--ciafal-primary-lighter) !important;
+  }
+
+  .ciafal-tab[data-state='active'] {
+    color: var(--ciafal-primary) !important;
+    font-weight: 700 !important;
+    border-bottom-color: var(--ciafal-primary) !important;
+    background-color: transparent !important;
+  }
+
+  /* Tabelas claras: cabeçalho azul suavíssimo, linhas brancas, hover azul claro */
+  .ciafal-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .ciafal-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--ciafal-surface);
+    color: var(--ciafal-text);
+  }
+
+  .ciafal-table thead tr {
+    background-color: var(--ciafal-primary-lighter);
+  }
+
+  .ciafal-table thead th {
+    color: var(--ciafal-navy);
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--ciafal-border);
+  }
+
+  .ciafal-table tbody tr {
+    background-color: var(--ciafal-surface);
+    border-bottom: 1px solid var(--ciafal-border);
+  }
+
+  .ciafal-table tbody tr:hover {
+    background-color: var(--ciafal-primary-lighter);
   }
 
   /* Barra de ações com flex-wrap resiliente */
