@@ -151,21 +151,6 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
         }}
       />
 
-      {/* Cards Executivos Linha L1: Saldo Semiacabado + Mínimo não atingido */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
-        <SaldoSemiacabadoCard
-          testid="card-saldo-semiacabado-l1"
-          valorTons={totalSemiacabadoL1}
-          materiaisCount={materiaisSemiacabadoL1}
-          notaComposicao="Já compõe o Estoque Disponível"
-          onClick={() => setDrillCardId('SALDO_SEMIACABADO')}
-        />
-        <MinimoNaoAtingidoCard
-          summary={resumoMinimoL1}
-          onClick={() => setIsMinimoModalOpen(true)}
-        />
-      </div>
-
       <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
