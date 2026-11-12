@@ -296,6 +296,18 @@ export interface WeeklyScheduleItem {
     company_code?: string
     stock_reference_id?: string
     validated_at?: string
+    // Seção "2 — Dados do Retrabalho" (material final e responsáveis)
+    final_material_code?: string
+    final_material_description?: string
+    final_material_label?: string
+    final_material_gauge?: string
+    final_material_family?: string
+    final_material_steel?: string
+    origem?: string
+    localizacao?: string
+    local_retrabalho?: string
+    solicitado_por?: string
+    responsavel_retrabalho?: string
   }
   // Rastreabilidade de Derivação de Centros (Requisito C)
   is_derived?: boolean
